@@ -724,6 +724,82 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
+		bool TrySetLightDiffuse(void* light, float r, float g, float b)
+		{
+			__try
+			{
+				Ogre::SetDiffuseColor(light, r, g, b);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogMaterialDebug("[EXU::Light] SetDiffuseColor crashed light=%p code=0x%08X", light, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetLightSpecular(void* light, float r, float g, float b)
+		{
+			__try
+			{
+				Ogre::SetSpecularColor(light, r, g, b);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogMaterialDebug("[EXU::Light] SetSpecularColor crashed light=%p code=0x%08X", light, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetSpotlightRange(void* light, float innerAngle, float outerAngle, float falloff)
+		{
+			__try
+			{
+				Ogre::SetSpotlightRange(light, &innerAngle, &outerAngle, falloff);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogMaterialDebug("[EXU::Light] SetSpotlightRange crashed light=%p code=0x%08X", light, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetAsUser(BZR::GameObject* obj)
+		{
+			__try
+			{
+				BZR::GameObject::SetAsUser(obj);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogMaterialDebug("[EXU::SetAsUser] crashed obj=%p code=0x%08X", obj, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryGetCommTowerPowerHandle(BZR::GameObject* obj, BZR::handle& outHandle)
+		{
+			__try
+			{
+				__asm
+				{
+					mov eax, [obj]
+					mov eax, [eax+0x238]
+					mov [outHandle], eax;
+				}
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogMaterialDebug("[EXU::IsCommTowerPowered] crashed obj=%p code=0x%08X", obj, GetExceptionCode());
+				outHandle = 0;
+				return false;
+			}
+		}
+
 		uint32_t CheckSubEntityIndex(lua_State* L, void* entity, int idx)
 		{
 			int requestedIndex = luaL_checkinteger(L, idx);
@@ -788,7 +864,7 @@ namespace ExtraUtilities::Lua::GameObject
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-		BZR::GameObject::SetAsUser(obj);
+		TrySetAsUser(obj);
 		return 0;
 	}
 
@@ -809,15 +885,8 @@ namespace ExtraUtilities::Lua::GameObject
 		}
 
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-
-		BZR::handle powerHandle;
-
-		__asm
-		{
-			mov eax, [obj]
-			mov eax, [eax+0x238]
-			mov [powerHandle], eax;
-		}
+		BZR::handle powerHandle = 0;
+		TryGetCommTowerPowerHandle(obj, powerHandle);
 		
 		lua_pushboolean(L, powerHandle == 0 ? 0 : 1);
 
@@ -1214,16 +1283,14 @@ namespace ExtraUtilities::Lua::GameObject
 		float g = static_cast<float>(luaL_checknumber(L, 3));
 		float b = static_cast<float>(luaL_checknumber(L, 4));
 
-		auto obj = BZR::GameObject::GetObj(h);
-
-		void* light = obj->GetLight();
+		void* light = GetLightObject(h);
 
 		if (light == nullptr)
 		{
 			return 0;
 		}
 
-		Ogre::SetDiffuseColor(light, r, g, b);
+		TrySetLightDiffuse(light, r, g, b);
 
 		return 0;
 	}
@@ -1235,16 +1302,14 @@ namespace ExtraUtilities::Lua::GameObject
 		float g = static_cast<float>(luaL_checknumber(L, 3));
 		float b = static_cast<float>(luaL_checknumber(L, 4));
 
-		auto obj = BZR::GameObject::GetObj(h);
-
-		void* light = obj->GetLight();
+		void* light = GetLightObject(h);
 
 		if (light == nullptr)
 		{
 			return 0;
 		}
 
-		Ogre::SetSpecularColor(light, r, g, b);
+		TrySetLightSpecular(light, r, g, b);
 
 		return 0;
 	}
@@ -1256,16 +1321,14 @@ namespace ExtraUtilities::Lua::GameObject
 		float outerAngle = static_cast<float>(luaL_checknumber(L, 3));
 		float falloff = static_cast<float>(luaL_checknumber(L, 4));
 
-		auto obj = BZR::GameObject::GetObj(h);
-
-		void* light = obj->GetLight();
+		void* light = GetLightObject(h);
 
 		if (light == nullptr)
 		{
 			return 0;
 		}
 
-		Ogre::SetSpotlightRange(light, &innerAngle, &outerAngle, falloff);
+		TrySetSpotlightRange(light, innerAngle, outerAngle, falloff);
 
 		return 0;
 	}
@@ -1275,16 +1338,14 @@ namespace ExtraUtilities::Lua::GameObject
 		BZR::handle h = CheckHandle(L, 1);
 		bool visible = CheckBool(L, 2);
 
-		auto obj = BZR::GameObject::GetObj(h);
-
-		void* light = obj->GetLight();
+		void* light = GetLightObject(h);
 
 		if (light == nullptr)
 		{
 			return 0;
 		}
 
-		Ogre::SetVisible(light, visible);
+		TrySetVisible(light, visible);
 
 		return 0;
 	}
@@ -1572,7 +1633,17 @@ namespace ExtraUtilities::Lua::GameObject
 	int GetMass(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-		float mass = BZR::GameObject::GetObj(h)->euler.mass;
+		float mass = 0.0f;
+		__try
+		{
+			mass = BZR::GameObject::GetObj(h)->euler.mass;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogMaterialDebug("[EXU::GetMass] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
+			lua_pushnil(L);
+			return 1;
+		}
 		lua_pushnumber(L, mass);
 		return 1;
 	}
@@ -1581,9 +1652,20 @@ namespace ExtraUtilities::Lua::GameObject
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		float mass = static_cast<float>(luaL_checknumber(L, 2));
-		auto obj = BZR::GameObject::GetObj(h);
-		obj->euler.mass = mass;
-		obj->euler.mass_inv = 1 / mass;
+		if (mass == 0.0f)
+		{
+			return luaL_argerror(L, 2, "mass must be non-zero");
+		}
+		__try
+		{
+			auto obj = BZR::GameObject::GetObj(h);
+			obj->euler.mass = mass;
+			obj->euler.mass_inv = 1 / mass;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogMaterialDebug("[EXU::SetMass] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
+		}
 		return 0;
 	}
 
