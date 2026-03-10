@@ -94,6 +94,192 @@ namespace ExtraUtilities::Lua::Environment
 		return std::isfinite(value);
 	}
 
+	bool TryGetSunAmbientColor(void* sceneManager, Ogre::Color& outColor)
+	{
+		__try
+		{
+			auto* sunAmbient = Ogre::GetAmbientLight(sceneManager);
+			if (sunAmbient != nullptr)
+			{
+				outColor = *sunAmbient;
+			}
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug("[EXU::GetSunAmbient] crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+			return false;
+		}
+	}
+
+	bool TrySetSunAmbientColor(void* sceneManager, const Ogre::Color& color)
+	{
+		__try
+		{
+			Ogre::SetAmbientLight(sceneManager, const_cast<Ogre::Color*>(&color));
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug("[EXU::SetSunAmbient] crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+			return false;
+		}
+	}
+
+	bool TryGetSunDiffuseColor(void* terrainMasterLight, Ogre::Color& outColor)
+	{
+		__try
+		{
+			auto* color = Ogre::GetDiffuseColor(terrainMasterLight);
+			if (color != nullptr)
+			{
+				outColor = *color;
+			}
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug("[EXU::GetSunDiffuse] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			return false;
+		}
+	}
+
+	bool TrySetSunDiffuseColor(void* terrainMasterLight, const Ogre::Color& color)
+	{
+		__try
+		{
+			Ogre::SetDiffuseColor(terrainMasterLight, color.r, color.g, color.b);
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug("[EXU::SetSunDiffuse] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			return false;
+		}
+	}
+
+	bool TryGetSunSpecularColor(void* terrainMasterLight, Ogre::Color& outColor)
+	{
+		__try
+		{
+			auto* color = Ogre::GetSpecularColor(terrainMasterLight);
+			if (color != nullptr)
+			{
+				outColor = *color;
+			}
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug("[EXU::GetSunSpecular] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			return false;
+		}
+	}
+
+	bool TrySetSunSpecularColor(void* terrainMasterLight, const Ogre::Color& color)
+	{
+		__try
+		{
+			Ogre::SetSpecularColor(terrainMasterLight, color.r, color.g, color.b);
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug("[EXU::SetSunSpecular] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			return false;
+		}
+	}
+
+	bool TryGetSunDirection(void* terrainMasterLight, BZR::VECTOR_3D& outDirection)
+	{
+		__try
+		{
+			auto* direction = Ogre::GetDirection(terrainMasterLight);
+			if (direction != nullptr)
+			{
+				outDirection = *direction;
+			}
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug("[EXU::GetSunDirection] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			return false;
+		}
+	}
+
+	bool TrySetSunDirection(void* terrainMasterLight, const BZR::VECTOR_3D& direction)
+	{
+		__try
+		{
+			Ogre::SetDirection(terrainMasterLight, direction.x, direction.y, direction.z);
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug("[EXU::SetSunDirection] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			return false;
+		}
+	}
+
+	bool TryGetSunPowerScale(void* terrainMasterLight, float& outValue)
+	{
+		__try
+		{
+			outValue = Ogre::GetPowerScale(terrainMasterLight);
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug("[EXU::GetSunPowerScale] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			outValue = 0.0f;
+			return false;
+		}
+	}
+
+	bool TrySetSunPowerScale(void* terrainMasterLight, float value)
+	{
+		__try
+		{
+			Ogre::SetPowerScale(terrainMasterLight, value);
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug("[EXU::SetSunPowerScale] crashed terrainMasterLight=%p value=%g code=0x%08X", terrainMasterLight, value, GetExceptionCode());
+			return false;
+		}
+	}
+
+	bool TryGetSunShadowFarDistance(void* terrainMasterLight, float& outValue)
+	{
+		__try
+		{
+			outValue = Ogre::GetShadowFarDistance(terrainMasterLight);
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug("[EXU::GetSunShadowFarDistance] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			outValue = 0.0f;
+			return false;
+		}
+	}
+
+	bool TrySetSunShadowFarDistance(void* terrainMasterLight, float value)
+	{
+		__try
+		{
+			Ogre::SetShadowFarDistance(terrainMasterLight, value);
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug("[EXU::SetSunShadowFarDistance] crashed terrainMasterLight=%p value=%g code=0x%08X", terrainMasterLight, value, GetExceptionCode());
+			return false;
+		}
+	}
+
 	using SkyNodeGetter = void*(*)(void*);
 
 	bool TryHasSkyNode(void* sceneManager, SkyNodeGetter getter, bool& outHasNode, const char* label)
@@ -245,9 +431,9 @@ namespace ExtraUtilities::Lua::Environment
 			return 1;
 		}
 
-		auto* sunAmbient = Ogre::GetAmbientLight(sceneManager);
-
-		PushColor(L, *sunAmbient);
+		Ogre::Color sunColor = DefaultSunColor();
+		TryGetSunAmbientColor(sceneManager, sunColor);
+		PushColor(L, sunColor);
 
 		return 1;
 	}
@@ -284,7 +470,10 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		LogEnvironmentDebug("[EXU::SetSunAmbient] calling Ogre::SetAmbientLight");
-		Ogre::SetAmbientLight(sceneManager, &color);
+		if (!TrySetSunAmbientColor(sceneManager, color))
+		{
+			return 0;
+		}
 		LogEnvironmentDebug("[EXU::SetSunAmbient] completed");
 
 		return 0;
@@ -311,9 +500,9 @@ namespace ExtraUtilities::Lua::Environment
 			return 1;
 		}
 
-		auto* color = Ogre::GetDiffuseColor(terrainMasterLight);
-
-		PushColor(L, *color);
+		Ogre::Color diffuseColor = DefaultSunColor();
+		TryGetSunDiffuseColor(terrainMasterLight, diffuseColor);
+		PushColor(L, diffuseColor);
 
 		return 1;
 	}
@@ -350,7 +539,10 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		LogEnvironmentDebug("[EXU::SetSunDiffuse] calling Ogre::SetDiffuseColor");
-		Ogre::SetDiffuseColor(terrainMasterLight, color.r, color.g, color.b);
+		if (!TrySetSunDiffuseColor(terrainMasterLight, color))
+		{
+			return 0;
+		}
 		LogEnvironmentDebug("[EXU::SetSunDiffuse] completed");
 
 		return 0;
@@ -367,9 +559,9 @@ namespace ExtraUtilities::Lua::Environment
 			return 1;
 		}
 
-		auto* color = Ogre::GetSpecularColor(terrainMasterLight);
-
-		PushColor(L, *color);
+		Ogre::Color specularColor = DefaultSunColor();
+		TryGetSunSpecularColor(terrainMasterLight, specularColor);
+		PushColor(L, specularColor);
 
 		return 1;
 	}
@@ -406,7 +598,10 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		LogEnvironmentDebug("[EXU::SetSunSpecular] calling Ogre::SetSpecularColor");
-		Ogre::SetSpecularColor(terrainMasterLight, color.r, color.g, color.b);
+		if (!TrySetSunSpecularColor(terrainMasterLight, color))
+		{
+			return 0;
+		}
 		LogEnvironmentDebug("[EXU::SetSunSpecular] completed");
 
 		return 0;
@@ -423,8 +618,9 @@ namespace ExtraUtilities::Lua::Environment
 			return 1;
 		}
 
-		auto* direction = Ogre::GetDirection(terrainMasterLight);
-		PushVector(L, *direction);
+		BZR::VECTOR_3D direction{};
+		TryGetSunDirection(terrainMasterLight, direction);
+		PushVector(L, direction);
 		return 1;
 	}
 
@@ -459,7 +655,10 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		LogEnvironmentDebug("[EXU::SetSunDirection] calling Ogre::SetDirection");
-		Ogre::SetDirection(terrainMasterLight, direction.x, direction.y, direction.z);
+		if (!TrySetSunDirection(terrainMasterLight, direction))
+		{
+			return 0;
+		}
 		LogEnvironmentDebug("[EXU::SetSunDirection] completed");
 		return 0;
 	}
@@ -475,7 +674,9 @@ namespace ExtraUtilities::Lua::Environment
 			return 1;
 		}
 
-		lua_pushnumber(L, Ogre::GetPowerScale(terrainMasterLight));
+		float powerScale = 0.0f;
+		TryGetSunPowerScale(terrainMasterLight, powerScale);
+		lua_pushnumber(L, powerScale);
 		return 1;
 	}
 
@@ -507,7 +708,10 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		LogEnvironmentDebug("[EXU::SetSunPowerScale] calling Ogre::SetPowerScale");
-		Ogre::SetPowerScale(terrainMasterLight, powerScale);
+		if (!TrySetSunPowerScale(terrainMasterLight, powerScale))
+		{
+			return 0;
+		}
 		LogEnvironmentDebug("[EXU::SetSunPowerScale] completed");
 		return 0;
 	}
@@ -523,7 +727,9 @@ namespace ExtraUtilities::Lua::Environment
 			return 1;
 		}
 
-		lua_pushnumber(L, Ogre::GetShadowFarDistance(terrainMasterLight));
+		float shadowFarDistance = 0.0f;
+		TryGetSunShadowFarDistance(terrainMasterLight, shadowFarDistance);
+		lua_pushnumber(L, shadowFarDistance);
 		return 1;
 	}
 
@@ -555,7 +761,10 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		LogEnvironmentDebug("[EXU::SetSunShadowFarDistance] calling Ogre::SetShadowFarDistance");
-		Ogre::SetShadowFarDistance(terrainMasterLight, shadowFarDistance);
+		if (!TrySetSunShadowFarDistance(terrainMasterLight, shadowFarDistance))
+		{
+			return 0;
+		}
 		LogEnvironmentDebug("[EXU::SetSunShadowFarDistance] completed");
 		return 0;
 	}
