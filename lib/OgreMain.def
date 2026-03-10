@@ -1,0 +1,11 @@
+LIBRARY OgreMain.dll
+EXPORTS
+    ?setParameter@StringInterface@Ogre@@UAE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@0@Z
+    ?getCamera@Viewport@Ogre@@QBEPAVCamera@2@XZ
+    ?getCurrentViewport@SceneManager@Ogre@@QBEPAVViewport@2@XZ
+    ?getSkyBoxGenParameters@SceneManager@Ogre@@UBEABUSkyBoxGenParameters@12@XZ
+    ?getSkyBoxNode@SceneManager@Ogre@@UBEPAVSceneNode@2@XZ
+    ?getSkyDomeGenParameters@SceneManager@Ogre@@UBEABUSkyDomeGenParameters@12@XZ
+    ?getSkyDomeNode@SceneManager@Ogre@@UBEPAVSceneNode@2@XZ
+    ?getSkyPlaneGenParameters@SceneManager@Ogre@@UBEABUSkyPlaneGenParameters@12@XZ
+    ?getSkyPlaneNode@SceneManager@Ogre@@UBEPAVSceneNode@2@XZ

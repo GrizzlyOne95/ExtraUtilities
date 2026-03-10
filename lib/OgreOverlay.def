@@ -1,0 +1,25 @@
+LIBRARY OgreOverlay.dll
+EXPORTS
+    ?add2D@Overlay@Ogre@@QAEXPAVOverlayContainer@2@@Z
+    ?addChild@OverlayContainer@Ogre@@UAEXPAVOverlayElement@2@@Z
+    ?create@OverlayManager@Ogre@@QAEPAVOverlay@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z
+    ?createOverlayElement@OverlayManager@Ogre@@QAEPAVOverlayElement@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0_N@Z
+    ?destroy@OverlayManager@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z
+    ?destroyOverlayElement@OverlayManager@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N@Z
+    ?getByName@OverlayManager@Ogre@@QAEPAVOverlay@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z
+    ?getOverlayElement@OverlayManager@Ogre@@QAEPAVOverlayElement@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N@Z
+    ?getSingletonPtr@OverlayManager@Ogre@@SAPAV12@XZ
+    ?hasOverlayElement@OverlayManager@Ogre@@QAE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N@Z
+    ?hide@Overlay@Ogre@@QAEXXZ
+    ?hide@OverlayElement@Ogre@@UAEXXZ
+    ?remove2D@Overlay@Ogre@@QAEXPAVOverlayContainer@2@@Z
+    ?removeChild@OverlayContainer@Ogre@@UAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z
+    ?setColour@OverlayElement@Ogre@@UAEXABVColourValue@2@@Z
+    ?setDimensions@OverlayElement@Ogre@@QAEXMM@Z
+    ?setMaterialName@OverlayElement@Ogre@@UAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z
+    ?setMetricsMode@OverlayElement@Ogre@@UAEXW4GuiMetricsMode@2@@Z
+    ?setPosition@OverlayElement@Ogre@@QAEXMM@Z
+    ?setScroll@Overlay@Ogre@@QAEXMM@Z
+    ?setZOrder@Overlay@Ogre@@QAEXG@Z
+    ?show@Overlay@Ogre@@QAEXXZ
+    ?show@OverlayElement@Ogre@@UAEXXZ
