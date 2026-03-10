@@ -13,13 +13,6 @@ Compatibility:
 - GOG: No
 - Battlezone 1.5: of course not lol
 
-Contact me on discord: vtrider
+Forked from VTRider's initial project. Massive kudos to him for figuring out how to implement EXU in the first place!
 
-Join the battlezone community discord: https://discord.gg/battlezonecommunity
-
-### For Developers:
-
-Written in C++20, contributions welcome! One important note is that it is critical that you use the custom lua library, it is patched to be compatible with BZR. Using different binaries will cause a heap corruption.
-
-Build Dependencies:
-- Windows SDK
+I am working on adding additional features as I can such as set/get Material names, bundling OgreMain.lib, fixing a few bugs with calling sunlight parameters, adding more function calls, and more.
