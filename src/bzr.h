@@ -285,7 +285,19 @@ namespace BZR
 			return jammer;
 		}
 
-		// Offsets to get to the ogre light object from GameObject* -> f0 -> a8
+		// Offsets to get to Ogre-side objects from GameObject* -> f0 -> ...
+		void* GetOgreEntity()
+		{
+			void* entity;
+			__asm
+			{
+				mov ecx, [ecx+0xf0]
+				mov ecx, [ecx+0x94]
+				mov [entity], ecx
+			}
+			return entity;
+		}
+
 		void* GetLight()
 		{
 			void* light;
@@ -341,6 +353,12 @@ namespace BZR
 		constexpr uintptr_t setSpecularColorOffset = 0x2204B0;
 		constexpr uintptr_t setSpotlightRangeOffset = 0x220550;
 		constexpr uintptr_t setVisibleOffset = 0x220EF0;
+		constexpr uintptr_t getSkyBoxGenParametersOffset = 0x2E4C9;
+		constexpr uintptr_t getSkyBoxNodeOffset = 0x21855;
+		constexpr uintptr_t getSkyDomeGenParametersOffset = 0x2A509;
+		constexpr uintptr_t getSkyDomeNodeOffset = 0x11987;
+		constexpr uintptr_t getSkyPlaneGenParametersOffset = 0x3F41D;
+		constexpr uintptr_t getSkyPlaneNodeOffset = 0x01983;
 
 		// Absolute address
 		inline auto terrain_masterlight = (void**)0x00920CA0; // pointer to the sun light object

@@ -30,11 +30,45 @@ namespace ExtraUtilities::Lua::GameObject
 	int IsCommTowerPowered(lua_State* L);
 
 	int GetHandle(lua_State* L);
+	int GetEntityVisible(lua_State* L);
+	int GetEntityCastShadows(lua_State* L);
+	int GetEntityRenderingDistance(lua_State* L);
+	int GetEntityVisibilityFlags(lua_State* L);
+	int GetEntityQueryFlags(lua_State* L);
+	int GetEntityRenderQueueGroup(lua_State* L);
+	int SetEntityVisible(lua_State* L);
+	int SetEntityCastShadows(lua_State* L);
+	int SetEntityRenderingDistance(lua_State* L);
+	int SetEntityVisibilityFlags(lua_State* L);
+	int SetEntityQueryFlags(lua_State* L);
+	int SetEntityRenderQueueGroup(lua_State* L);
+	int SetSubEntityVisible(lua_State* L);
+	int GetSubEntityCount(lua_State* L);
+	int GetSubEntityMaterial(lua_State* L);
+	int SetSubEntityMaterial(lua_State* L);
+	int SetEntityMaterial(lua_State* L);
+	int GetNumSubEntities(lua_State* L);
+	int GetMaterialName(lua_State* L);
+	int SetMaterialName(lua_State* L);
 
 	int SetHeadlightDiffuse(lua_State* L);
 	int SetHeadlightSpecular(lua_State* L);
 	int SetHeadlightRange(lua_State* L);
 	int SetHeadlightVisible(lua_State* L);
+	int GetLightPowerScale(lua_State* L);
+	int SetLightPowerScale(lua_State* L);
+	int GetLightPosition(lua_State* L);
+	int SetLightPosition(lua_State* L);
+	int GetLightDirection(lua_State* L);
+	int SetLightDirection(lua_State* L);
+	int SetLightAttenuation(lua_State* L);
+
+	int HasEntityAnimation(lua_State* L);
+	int GetEntityAnimationInfo(lua_State* L);
+	int SetEntityAnimationEnabled(lua_State* L);
+	int SetEntityAnimationLoop(lua_State* L);
+	int SetEntityAnimationWeight(lua_State* L);
+	int SetEntityAnimationTime(lua_State* L);
 
 	int GetMass(lua_State* L);
 	int SetMass(lua_State* L);

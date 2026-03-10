@@ -37,29 +37,46 @@ namespace ExtraUtilities::Lua::Environment
 
 	int GetSunAmbient(lua_State* L);
 	int SetSunAmbient(lua_State* L);
+	int GetAmbientLight(lua_State* L);
+	int SetAmbientLight(lua_State* L);
 
 	int GetSunDiffuse(lua_State* L);
 	int SetSunDiffuse(lua_State* L);
 
 	int GetSunSpecular(lua_State* L);
 	int SetSunSpecular(lua_State* L);
+
+	int GetSunDirection(lua_State* L);
+	int SetSunDirection(lua_State* L);
+
+	int GetSunPowerScale(lua_State* L);
+	int SetSunPowerScale(lua_State* L);
+
+	int GetSunShadowFarDistance(lua_State* L);
+	int SetSunShadowFarDistance(lua_State* L);
+
+	int GetSkyBoxParams(lua_State* L);
+	int GetSkyDomeParams(lua_State* L);
+	int GetSkyPlaneParams(lua_State* L);
+	int GetShowBoundingBoxes(lua_State* L);
+	int SetShowBoundingBoxes(lua_State* L);
+	int GetShowDebugShadows(lua_State* L);
+	int SetShowDebugShadows(lua_State* L);
+	int GetViewportShadowsEnabled(lua_State* L);
+	int SetViewportShadowsEnabled(lua_State* L);
+	int GetSceneVisibilityMask(lua_State* L);
+	int SetSceneVisibilityMask(lua_State* L);
+
+	int HasSkyBoxNode(lua_State* L);
+	int HasSkyDomeNode(lua_State* L);
+	int HasSkyPlaneNode(lua_State* L);
+
+	Ogre::Color DefaultSunColor();
 }
 
 namespace ExtraUtilities::Patch
 {
 	constexpr uintptr_t fogReset = 0x00683370;
 
-	// Addresses for the reset function to use our own values
-	constexpr uintptr_t sunAmbientReset = 0x0067DE3D;
-	constexpr uintptr_t sunDiffuseReset = 0x0067DED7;
-	constexpr uintptr_t sunSpecularReset = 0x0067DF53;
-
 	void TryInitializeOgre();
-
-	// We need to store these in order to hook the function that constantly
-	// resets the sunlight color whenever an explosion or other various things happen.
-	// Initialize them to the map default.
-	inline Ogre::Color desiredSunAmbient;
-	inline Ogre::Color desiredSunDiffuse;
-	inline Ogre::Color desiredSunSpecular;
 }
