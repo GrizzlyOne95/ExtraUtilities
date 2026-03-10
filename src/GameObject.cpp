@@ -1600,6 +1600,11 @@ namespace ExtraUtilities::Lua::GameObject
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		BZR::Scanner* scanner = BZR::GameObject::GetObj(h)->GetScanner();
+		if (scanner == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
 		lua_pushnumber(L, scanner->period);
 		return 1;
 	}
@@ -1609,6 +1614,10 @@ namespace ExtraUtilities::Lua::GameObject
 		BZR::handle h = CheckHandle(L, 1);
 		float period = static_cast<float>(luaL_checknumber(L, 2));
 		BZR::Scanner* scanner = BZR::GameObject::GetObj(h)->GetScanner();
+		if (scanner == nullptr)
+		{
+			return 0;
+		}
 		scanner->period = period;
 		scanner->sweep = 0.01f; // this causes it to immediately update and skip the current sweep
 
@@ -1619,6 +1628,11 @@ namespace ExtraUtilities::Lua::GameObject
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		BZR::Scanner* scanner = BZR::GameObject::GetObj(h)->GetScanner();
+		if (scanner == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
 		lua_pushnumber(L, scanner->range);
 		return 1;
 	}
@@ -1628,6 +1642,10 @@ namespace ExtraUtilities::Lua::GameObject
 		BZR::handle h = CheckHandle(L, 1);
 		float range = static_cast<float>(luaL_checknumber(L, 2));
 		BZR::Scanner* scanner = BZR::GameObject::GetObj(h)->GetScanner();
+		if (scanner == nullptr)
+		{
+			return 0;
+		}
 		scanner->range = range;
 		return 0;
 	}
