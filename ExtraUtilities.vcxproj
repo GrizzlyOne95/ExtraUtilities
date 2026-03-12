@@ -210,6 +210,12 @@
   <ItemGroup>
     <ResourceCompile Include="Resource\Resource.rc" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="Lua5.1-BZR\Lua5.1-BZR.vcxproj">
+      <Project>{5b18ac9a-bf31-4401-b45d-61c1a2b0dc67}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
 </Project>
