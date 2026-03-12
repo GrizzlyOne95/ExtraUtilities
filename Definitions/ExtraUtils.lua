@@ -741,6 +741,44 @@ function exu.SetSubEntityMaterial(h, subEntityIndex, materialName, resourceGroup
 --- @param resourceGroup string? optional
 function exu.SetMaterialName(h, materialName, subEntityIndex, resourceGroup) end
 
+--- Returns whether a named Ogre material can be resolved from the given resource group.
+--- The resource group defaults to "General".
+--- @nodiscard
+--- @param materialName string
+--- @param resourceGroup string? optional
+--- @return boolean
+function exu.MaterialExists(materialName, resourceGroup) end
+
+--- Clones a named Ogre material at runtime.
+--- This is useful when you want per-team or per-state variants without authoring separate material files.
+--- The resource group defaults to "General".
+--- @param sourceMaterialName string
+--- @param cloneMaterialName string
+--- @param resourceGroup string? optional
+--- @return boolean
+function exu.CloneMaterial(sourceMaterialName, cloneMaterialName, resourceGroup) end
+
+--- Gets the ambient, diffuse, specular, and emissive colors from a material pass.
+--- The technique index defaults to 0, the pass index defaults to 0, and the resource group defaults to "General".
+--- @nodiscard
+--- @param materialName string
+--- @param techniqueIndex integer? optional
+--- @param passIndex integer? optional
+--- @param resourceGroup string? optional
+--- @return table | nil
+function exu.GetMaterialPassColors(materialName, techniqueIndex, passIndex, resourceGroup) end
+
+--- Sets one or more colors on a material pass.
+--- Supported table keys are `ambient`, `diffuse`, `specular`, and `emissive`.
+--- The technique index defaults to 0, the pass index defaults to 0, and the resource group defaults to "General".
+--- @param materialName string
+--- @param colors table
+--- @param techniqueIndex integer? optional
+--- @param passIndex integer? optional
+--- @param resourceGroup string? optional
+--- @return boolean
+function exu.SetMaterialPassColors(materialName, colors, techniqueIndex, passIndex, resourceGroup) end
+
 --- Returns whether the entity has a named animation state.
 --- @nodiscard
 --- @param h Handle
@@ -1044,8 +1082,18 @@ function exu.GetScreenResolution() end
 --- @param message string
 function exu.MessageBox(message) end
 
+--- Triggers the game's native save serializer.
+--- Pass either a save slot number (1-10, mapped to `Save\\game<slot>.sav`) or a save path string.
+--- The optional `saveType` argument defaults to 0 and maps to the native second parameter.
+--- This should be called during active gameplay, not from shell menus or loading screens.
+--- @param slotOrPath integer | string
+--- @param saveType integer?
+--- @return boolean success
+--- @return string pathOrError
+function exu.SaveGame(slotOrPath, saveType) end
+
 --- Patches
----
+--- 
 --- These functions control various patches to modify game behavior.
 
 --- Wrapper for AddScrap that does not trigger the exu.AddScrap callback.

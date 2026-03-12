@@ -353,6 +353,10 @@ namespace ExtraUtilities::Lua
 			{ "GetNumSubEntities", &GameObject::GetNumSubEntities },
 			{ "GetMaterialName", &GameObject::GetMaterialName },
 			{ "SetMaterialName", &GameObject::SetMaterialName },
+			{ "MaterialExists", &GameObject::MaterialExists },
+			{ "CloneMaterial", &GameObject::CloneMaterial },
+			{ "GetMaterialPassColors", &GameObject::GetMaterialPassColors },
+			{ "SetMaterialPassColors", &GameObject::SetMaterialPassColors },
 			{ "SetHeadlightDiffuse", &GameObject::SetHeadlightDiffuse },
 			{ "SetHeadlightSpecular", &GameObject::SetHeadlightSpecular },
 			{ "SetHeadlightRange", &GameObject::SetHeadlightRange },
@@ -409,6 +413,7 @@ namespace ExtraUtilities::Lua
 			// OS
 			{ "GetScreenResolution", &OS::GetScreenResolution },
 			{ "MessageBox",			 &OS::MessageBox },
+			{ "SaveGame",			 &OS::SaveGame },
 
 			// Patches
 			{ "AddScrapSilent",     &Patches::AddScrapSilent },

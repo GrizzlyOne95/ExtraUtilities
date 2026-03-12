@@ -24,27 +24,36 @@
 #include <Windows.h>
 
 #include <cmath>
-#include <cstdarg>
-#include <cstdio>
+#include <format>
+#include <fstream>
+#include <mutex>
 #include <string>
+#include <utility>
 
 namespace ExtraUtilities::Lua::Environment
 {
-	void LogEnvironmentDebug(const char* fmt, ...)
+	namespace
 	{
-		char message[1024];
-		va_list args;
-		va_start(args, fmt);
-		vsnprintf_s(message, sizeof(message), _TRUNCATE, fmt, args);
-		va_end(args);
+		std::mutex g_environmentLogMutex;
 
-		OutputDebugStringA(message);
-		OutputDebugStringA("\n");
-
-		if (FILE* file = fopen("exu_environment_debug.log", "a"))
+		void WriteEnvironmentDebug(const std::string& message)
 		{
-			fprintf(file, "%s\n", message);
-			fclose(file);
+			std::lock_guard lock(g_environmentLogMutex);
+
+			OutputDebugStringA(message.c_str());
+			OutputDebugStringA("\n");
+
+			std::ofstream file("exu_environment_debug.log", std::ios::app);
+			if (file.is_open())
+			{
+				file << message << '\n';
+			}
+		}
+
+		template <typename... Args>
+		void LogEnvironmentDebug(std::format_string<Args...> fmt, Args&&... args)
+		{
+			WriteEnvironmentDebug(std::format(fmt, std::forward<Args>(args)...));
 		}
 	}
 

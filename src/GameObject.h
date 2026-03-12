@@ -50,6 +50,10 @@ namespace ExtraUtilities::Lua::GameObject
 	int GetNumSubEntities(lua_State* L);
 	int GetMaterialName(lua_State* L);
 	int SetMaterialName(lua_State* L);
+	int MaterialExists(lua_State* L);
+	int CloneMaterial(lua_State* L);
+	int GetMaterialPassColors(lua_State* L);
+	int SetMaterialPassColors(lua_State* L);
 
 	int SetHeadlightDiffuse(lua_State* L);
 	int SetHeadlightSpecular(lua_State* L);

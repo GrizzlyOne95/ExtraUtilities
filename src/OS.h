@@ -27,6 +27,7 @@ namespace ExtraUtilities::Lua::OS
 {
 	int GetScreenResolution(lua_State* L);
 	int MessageBox(lua_State* L);
+	int SaveGame(lua_State* L);
 }
 
 #pragma pop_macro("MessageBox")
