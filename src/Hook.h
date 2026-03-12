@@ -36,18 +36,39 @@ namespace ExtraUtilities
 
 		bool ValidateHook() const
 		{
+			if (!CanPatch())
+			{
+				return false;
+			}
+
+			if (m_function == nullptr)
+			{
+				LogPatchIssue("refusing to install null hook target", m_address, m_length);
+				return false;
+			}
+
 			if (m_length < 6)
 			{
-				std::terminate();
+				LogPatchIssue("refusing to install undersized hook", m_address, m_length);
+				return false;
 			}
 			return true;
 		}
 
 		void DoPatch() override
 		{
+			if (!CanPatch())
+			{
+				return;
+			}
+
 			uint8_t* p_address = reinterpret_cast<uint8_t*>(m_address);
 
-			VirtualProtect(p_address, m_length, PAGE_EXECUTE_READWRITE, &m_oldProtect);
+			if (!VirtualProtect(p_address, m_length, PAGE_EXECUTE_READWRITE, &m_oldProtect))
+			{
+				LogPatchIssue("failed to change hook protections", m_address, m_length);
+				return;
+			}
 
 			std::memset(p_address, NOP, m_length);
 			std::memcpy(p_address, CALL, 2);

@@ -20,7 +20,9 @@
 
 #include <Windows.h>
 
+#include <cstdio>
 #include <cstdint>
+#include <cstring>
 #include <vector>
 
 namespace ExtraUtilities
@@ -40,6 +42,7 @@ namespace ExtraUtilities
 
 	protected:
 		Status m_status;
+		bool m_initialized = false;
 
 		uintptr_t m_address;
 		size_t m_length;
@@ -48,13 +51,64 @@ namespace ExtraUtilities
 		static inline DWORD dummyProtect{};
 		std::vector<uint8_t> m_originalBytes;
 
+		static void LogPatchIssue(const char* message, uintptr_t address, size_t length) noexcept
+		{
+			char buffer[160]{};
+			std::snprintf(
+				buffer,
+				sizeof(buffer),
+				"ExtraUtilities: %s at %p (len=%zu)\n",
+				message,
+				reinterpret_cast<void*>(address),
+				length
+			);
+			OutputDebugStringA(buffer);
+		}
+
+		static bool IsAccessibleRange(uintptr_t address, size_t length) noexcept
+		{
+			if (address == 0 || length == 0)
+			{
+				return false;
+			}
+
+			MEMORY_BASIC_INFORMATION mbi{};
+			if (VirtualQuery(reinterpret_cast<LPCVOID>(address), &mbi, sizeof(mbi)) == 0)
+			{
+				return false;
+			}
+
+			if (mbi.State != MEM_COMMIT || (mbi.Protect & PAGE_GUARD) != 0 || mbi.Protect == PAGE_NOACCESS)
+			{
+				return false;
+			}
+
+			auto regionBase = reinterpret_cast<uintptr_t>(mbi.BaseAddress);
+			if (address < regionBase)
+			{
+				return false;
+			}
+
+			auto offset = address - regionBase;
+			return offset <= mbi.RegionSize && length <= (mbi.RegionSize - offset);
+		}
+
 		virtual void DoPatch() = 0;
 
 		void RestorePatch()
 		{
+			if (!m_initialized || m_originalBytes.size() != m_length)
+			{
+				return;
+			}
+
 			uint8_t* p_address = reinterpret_cast<uint8_t*>(m_address);
 
-			VirtualProtect(p_address, m_length, PAGE_EXECUTE_READWRITE, &m_oldProtect);
+			if (!VirtualProtect(p_address, m_length, PAGE_EXECUTE_READWRITE, &m_oldProtect))
+			{
+				LogPatchIssue("failed to restore patch protections", m_address, m_length);
+				return;
+			}
 
 			std::memcpy(p_address, m_originalBytes.data(), m_length);
 
@@ -63,17 +117,35 @@ namespace ExtraUtilities
 			m_status = Status::INACTIVE;
 		}
 
+		bool CanPatch() const noexcept
+		{
+			return m_initialized;
+		}
+
 	public:
 		BasicPatch(uintptr_t address, size_t length, Status status)
 			: m_address(address), m_length(length), m_status(status)
 		{
+			if (!IsAccessibleRange(m_address, m_length))
+			{
+				LogPatchIssue("refusing to patch invalid memory", m_address, m_length);
+				m_status = Status::INACTIVE;
+				return;
+			}
+
 			uint8_t* p_address = reinterpret_cast<uint8_t*>(m_address);
 
-			VirtualProtect(p_address, m_length, PAGE_EXECUTE_READWRITE, &m_oldProtect);
+			if (!VirtualProtect(p_address, m_length, PAGE_EXECUTE_READWRITE, &m_oldProtect))
+			{
+				LogPatchIssue("failed to change patch protections", m_address, m_length);
+				m_status = Status::INACTIVE;
+				return;
+			}
 
 			m_originalBytes.insert(m_originalBytes.end(), p_address, p_address + m_length);
 
 			VirtualProtect(p_address, m_length, m_oldProtect, &dummyProtect);
+			m_initialized = true;
 		}
 
 		BasicPatch(BasicPatch& p) = delete; // Patch should not be initialized twice
@@ -81,16 +153,26 @@ namespace ExtraUtilities
 		BasicPatch(BasicPatch&& p) noexcept
 		{
 			this->m_status = p.m_status;
+			this->m_initialized = p.m_initialized;
 			this->m_address = p.m_address;
 			this->m_length = p.m_length;
 			this->m_oldProtect = p.m_oldProtect;
 			this->dummyProtect = p.dummyProtect;
 			this->m_originalBytes = std::move(p.m_originalBytes);
+
+			p.m_status = Status::INACTIVE;
+			p.m_initialized = false;
+			p.m_address = 0;
+			p.m_length = 0;
+			p.m_oldProtect = 0;
 		}
 
 		virtual ~BasicPatch()
 		{
-			RestorePatch();
+			if (m_initialized && m_status == Status::ACTIVE)
+			{
+				RestorePatch();
+			}
 		}
 
 		bool IsActive()
@@ -100,7 +182,7 @@ namespace ExtraUtilities
 
 		void Reload()
 		{
-			if (m_status == Status::INACTIVE)
+			if (m_initialized && m_status == Status::INACTIVE)
 			{
 				DoPatch();
 			}
@@ -108,7 +190,7 @@ namespace ExtraUtilities
 
 		void Unload()
 		{
-			if (m_status == Status::ACTIVE)
+			if (m_initialized && m_status == Status::ACTIVE)
 			{
 				RestorePatch();
 			}

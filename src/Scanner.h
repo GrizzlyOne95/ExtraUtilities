@@ -52,25 +52,21 @@ namespace ExtraUtilities
 		// Finds the true address from addresses that require an offset from a module
 		T* ResolveBase(T* offset)
 		{
-			using enum BaseAddress;
-			switch (m_baseAddress)
-			{
-			case ABSOLUTE:
-				return offset;
-			case BZR:
-				return m_bzrModuleBase + offset;
-			case OGRE:
-				return m_ogreMainModuleBase + offset;
-			default:
-				return nullptr;
-			}
+			auto resolved = CalculateAddress(reinterpret_cast<uintptr_t>(offset), m_baseAddress);
+			return reinterpret_cast<T*>(resolved);
 		}
 
 	public:
 		Scanner(T* address, Restore restoreData = Restore::ENABLED, 
 			BaseAddress baseAddress = BaseAddress::ABSOLUTE)
-			: m_address(ResolveBase(address)), m_restoreData(restoreData), m_baseAddress(baseAddress)
+			: m_baseAddress(baseAddress), m_address(ResolveBase(address)), m_restoreData(restoreData)
 		{
+			if (m_address == nullptr)
+			{
+				m_originalData = {};
+				return;
+			}
+
 			VirtualProtect(m_address, sizeof(T), PAGE_EXECUTE_READWRITE, &m_oldProtect);
 			m_originalData = Read();
 		}
@@ -78,13 +74,23 @@ namespace ExtraUtilities
 		// Traverse multi-level pointer
 		Scanner(T* address, const std::initializer_list<uint8_t>& offsetsList, Restore restoreData = Restore::ENABLED, 
 			BaseAddress baseAddress = BaseAddress::ABSOLUTE)
-			: m_address(ResolveBase(address)), m_restoreData(restoreData), m_baseAddress(baseAddress)
+			: m_baseAddress(baseAddress), m_address(ResolveBase(address)), m_restoreData(restoreData)
 		{
+			if (m_address == nullptr)
+			{
+				m_originalData = {};
+				return;
+			}
+
 			VirtualProtect(m_address, sizeof(T), PAGE_EXECUTE_READWRITE, &m_oldProtect);
 			uintptr_t resolvedAddress = reinterpret_cast<uintptr_t>(m_address);
 			std::vector offsets = offsetsList;
 			for (size_t i = 0; i < offsets.size(); i++)
 			{
+				if (resolvedAddress == 0)
+				{
+					break;
+				}
 				resolvedAddress = *reinterpret_cast<uintptr_t*>(resolvedAddress);
 				resolvedAddress += offsets[i];
 			}
@@ -109,7 +115,10 @@ namespace ExtraUtilities
 			{
 				Write(m_originalData);
 			}
-			VirtualProtect(m_address, sizeof(T), m_oldProtect, &m_dummyProtect);
+			if (m_address)
+			{
+				VirtualProtect(m_address, sizeof(T), m_oldProtect, &m_dummyProtect);
+			}
 		}
 
 		T Read() const noexcept

@@ -31,8 +31,14 @@ namespace ExtraUtilities
 	class BasicScanner
 	{
 	protected:
-		static inline uintptr_t m_bzrModuleBase = reinterpret_cast<uintptr_t>(GetModuleHandle("Battlezone98Redux.exe"));
-		static inline uintptr_t m_ogreMainModuleBase = reinterpret_cast<uintptr_t>(GetModuleHandle("OgreMain.dll"));
+		static inline uintptr_t m_bzrModuleBase = 0;
+		static inline uintptr_t m_ogreMainModuleBase = 0;
+
+		static uintptr_t RefreshModuleBase(const char* moduleName, uintptr_t& cache) noexcept
+		{
+			cache = reinterpret_cast<uintptr_t>(GetModuleHandleA(moduleName));
+			return cache;
+		}
 
 		BasicScanner() = default;
 		virtual ~BasicScanner() = default;
@@ -62,9 +68,15 @@ namespace ExtraUtilities
 			case ABSOLUTE:
 				return offset;
 			case BZR:
-				return m_bzrModuleBase + offset;
+			{
+				auto base = RefreshModuleBase("Battlezone98Redux.exe", m_bzrModuleBase);
+				return base != 0 ? base + offset : 0;
+			}
 			case OGRE:
-				return m_ogreMainModuleBase + offset;
+			{
+				auto base = RefreshModuleBase("OgreMain.dll", m_ogreMainModuleBase);
+				return base != 0 ? base + offset : 0;
+			}
 			default:
 				return 0;
 			}
