@@ -391,6 +391,7 @@ namespace ExtraUtilities::Lua
 
 			// IO
 			{ "GetGameKey", &IO::GetGameKey },
+			{ "IsPauseMenuOpen", &IO::IsPauseMenuOpen },
 
 			// Multiplayer
 			{ "BuildAsyncObject", &Multiplayer::BuildAsyncObject },

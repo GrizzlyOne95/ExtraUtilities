@@ -976,6 +976,12 @@ function exu.GetUIScaling() end
 --- @return boolean
 function exu.GetGameKey(key) end
 
+--- Returns whether the in-game pause or Escape menu is currently open.
+--- This is intended for suppressing custom HUD/UI during paused gameplay.
+--- @nodiscard
+--- @return boolean
+function exu.IsPauseMenuOpen() end
+
 --- Multiplayer
 ---
 --- These functions work exclusively in multiplayer to help with various things.
