@@ -42,6 +42,7 @@ namespace ExtraUtilities
 
 	protected:
 		Status m_status;
+		Status m_requestedStatus;
 		bool m_initialized = false;
 
 		uintptr_t m_address;
@@ -49,6 +50,8 @@ namespace ExtraUtilities
 
 		DWORD m_oldProtect{};
 		static inline DWORD dummyProtect{};
+		static inline bool patchActivationEnabled = false;
+		static inline std::vector<BasicPatch*> deferredPatches{};
 		std::vector<uint8_t> m_originalBytes;
 
 		static void LogPatchIssue(const char* message, uintptr_t address, size_t length) noexcept
@@ -123,8 +126,23 @@ namespace ExtraUtilities
 		}
 
 	public:
+		static void EnableDeferredPatchActivation()
+		{
+			patchActivationEnabled = true;
+			for (BasicPatch* patch : deferredPatches)
+			{
+				if (patch && patch->m_requestedStatus == Status::ACTIVE)
+				{
+					patch->Reload();
+				}
+			}
+		}
+
 		BasicPatch(uintptr_t address, size_t length, Status status)
-			: m_address(address), m_length(length), m_status(status)
+			: m_status(patchActivationEnabled ? status : Status::INACTIVE)
+			, m_requestedStatus(status)
+			, m_address(address)
+			, m_length(length)
 		{
 			if (!IsAccessibleRange(m_address, m_length))
 			{
@@ -146,6 +164,7 @@ namespace ExtraUtilities
 
 			VirtualProtect(p_address, m_length, m_oldProtect, &dummyProtect);
 			m_initialized = true;
+			deferredPatches.push_back(this);
 		}
 
 		BasicPatch(BasicPatch& p) = delete; // Patch should not be initialized twice
@@ -153,6 +172,7 @@ namespace ExtraUtilities
 		BasicPatch(BasicPatch&& p) noexcept
 		{
 			this->m_status = p.m_status;
+			this->m_requestedStatus = p.m_requestedStatus;
 			this->m_initialized = p.m_initialized;
 			this->m_address = p.m_address;
 			this->m_length = p.m_length;
@@ -161,6 +181,7 @@ namespace ExtraUtilities
 			this->m_originalBytes = std::move(p.m_originalBytes);
 
 			p.m_status = Status::INACTIVE;
+			p.m_requestedStatus = Status::INACTIVE;
 			p.m_initialized = false;
 			p.m_address = 0;
 			p.m_length = 0;

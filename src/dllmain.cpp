@@ -18,6 +18,8 @@
 
 // dllmain.cpp : Defines the entry point for the DLL application.
 
+#include "Logging.h"
+
 #include <Windows.h>
 
 #include <cstdlib>
@@ -36,6 +38,7 @@ BOOL WINAPI DllMain(
     {
     case DLL_PROCESS_ATTACH:
         DisableThreadLibraryCalls(hModule);
+        ExtraUtilities::Logging::LogMessage("exu: DLL_PROCESS_ATTACH");
 #ifdef _DEBUG
         AllocConsole();
         freopen("CONOUT$", "w", stdout);
@@ -45,6 +48,7 @@ BOOL WINAPI DllMain(
 #endif
         break;
     case DLL_PROCESS_DETACH:
+        ExtraUtilities::Logging::LogMessage("exu: DLL_PROCESS_DETACH");
 #ifdef _DEBUG
         FreeConsole();
         PostMessage(consoleWindow, WM_CLOSE, 0, 0);

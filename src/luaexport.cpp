@@ -22,6 +22,7 @@
 
 #include "About.h"
 #include "Exports.h"
+#include "Logging.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
 #include "Patches.h"
@@ -224,6 +225,9 @@ namespace ExtraUtilities::Lua
 	{
 		StackGuard guard(L);
 		state = L; // save the state pointer to use in callbacks
+		Logging::LogMessage("exu: Init starting");
+		BasicPatch::EnableDeferredPatchActivation();
+		Logging::LogMessage("exu: deferred patches activated");
 
 		// Register all this stuff inside the library table
 		lua_getglobal(L, "exu");
@@ -242,6 +246,7 @@ namespace ExtraUtilities::Lua
 
 	extern "C" int __declspec(dllexport) luaopen_exu(lua_State* L)
 	{
+		static bool announced = false;
 		const luaL_Reg EXPORT[] = {
 			// Camera
 			{ "GetCameraOrigins", &Camera::GetOrigins },
@@ -485,8 +490,29 @@ namespace ExtraUtilities::Lua
 			{ 0, 0 }
 		};
 
+		Logging::LogMessage("exu: luaopen_exu called");
 		luaL_register(L, "exu", EXPORT);
 		Init(L);
+
+		if (!announced)
+		{
+			announced = true;
+			lua_getglobal(L, "print");
+			if (lua_isfunction(L, -1))
+			{
+				lua_pushstring(L, "exu.dll loaded");
+				if (lua_pcall(L, 1, 0, 0) != 0)
+				{
+					lua_pop(L, 1);
+				}
+			}
+			else
+			{
+				lua_pop(L, 1);
+			}
+		}
+
+		Logging::LogMessage("exu: luaopen_exu finished");
 
 		return 0;
 	}
