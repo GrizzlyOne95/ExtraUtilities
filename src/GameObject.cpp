@@ -27,6 +27,7 @@
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
+#include <exception>
 #include <lua.hpp>
 
 #include <string>
@@ -57,6 +58,330 @@ namespace ExtraUtilities::Lua::GameObject
 			{
 				fprintf(file, "%s\n", message);
 				fclose(file);
+			}
+		}
+
+		bool TryResolveMaterialCpp(
+			const std::string& materialName,
+			const std::string& resourceGroup,
+			::Ogre::Material*& outMaterial)
+		{
+			try
+			{
+				auto* manager = ::Ogre::GetMaterialManagerSingletonPtr();
+				if (manager == nullptr)
+				{
+					outMaterial = nullptr;
+					return false;
+				}
+
+				auto material = ::Ogre::GetMaterialByName(manager, materialName, resourceGroup);
+				outMaterial = material.getPointer();
+				return outMaterial != nullptr;
+			}
+			catch (const std::exception& ex)
+			{
+				LogMaterialDebug(
+					"[EXU::Material] ResolveMaterial threw material=%s group=%s what=%s",
+					materialName.c_str(),
+					resourceGroup.c_str(),
+					ex.what());
+				outMaterial = nullptr;
+				return false;
+			}
+			catch (...)
+			{
+				LogMaterialDebug(
+					"[EXU::Material] ResolveMaterial threw material=%s group=%s",
+					materialName.c_str(),
+					resourceGroup.c_str());
+				outMaterial = nullptr;
+				return false;
+			}
+		}
+
+		bool TryCloneMaterialCpp(
+			::Ogre::Material* sourceMaterial,
+			const std::string& cloneName,
+			const std::string& resourceGroup,
+			::Ogre::Material*& outMaterial)
+		{
+			try
+			{
+				if (sourceMaterial == nullptr)
+				{
+					outMaterial = nullptr;
+					return false;
+				}
+
+				auto clone = ::Ogre::CloneMaterial(sourceMaterial, cloneName, false, resourceGroup);
+				outMaterial = clone.getPointer();
+				return outMaterial != nullptr;
+			}
+			catch (const std::exception& ex)
+			{
+				LogMaterialDebug(
+					"[EXU::Material] CloneMaterial threw clone=%s group=%s what=%s",
+					cloneName.c_str(),
+					resourceGroup.c_str(),
+					ex.what());
+				outMaterial = nullptr;
+				return false;
+			}
+			catch (...)
+			{
+				LogMaterialDebug(
+					"[EXU::Material] CloneMaterial threw clone=%s group=%s",
+					cloneName.c_str(),
+					resourceGroup.c_str());
+				outMaterial = nullptr;
+				return false;
+			}
+		}
+
+		bool TryResolveMaterialPassCpp(
+			const std::string& materialName,
+			const std::string& resourceGroup,
+			int techniqueIndex,
+			int passIndex,
+			MaterialPassHandle& outHandle)
+		{
+			try
+			{
+				outHandle = {};
+
+				::Ogre::Material* material = nullptr;
+				if (!TryResolveMaterialCpp(materialName, resourceGroup, material))
+				{
+					return false;
+				}
+
+				auto* technique = ::Ogre::GetMaterialTechnique(material, static_cast<unsigned short>(techniqueIndex));
+				if (technique == nullptr)
+				{
+					return false;
+				}
+
+				if (passIndex < 0 || passIndex >= static_cast<int>(::Ogre::GetTechniqueNumPasses(technique)))
+				{
+					return false;
+				}
+
+				auto* pass = ::Ogre::GetTechniquePass(technique, static_cast<unsigned short>(passIndex));
+				if (pass == nullptr)
+				{
+					return false;
+				}
+
+				outHandle.material = material;
+				outHandle.technique = technique;
+				outHandle.pass = pass;
+				return true;
+			}
+			catch (const std::exception& ex)
+			{
+				LogMaterialDebug(
+					"[EXU::Material] ResolveMaterialPass threw material=%s technique=%d pass=%d what=%s",
+					materialName.c_str(),
+					techniqueIndex,
+					passIndex,
+					ex.what());
+				outHandle = {};
+				return false;
+			}
+			catch (...)
+			{
+				LogMaterialDebug(
+					"[EXU::Material] ResolveMaterialPass threw material=%s technique=%d pass=%d",
+					materialName.c_str(),
+					techniqueIndex,
+					passIndex);
+				outHandle = {};
+				return false;
+			}
+		}
+
+		bool TryGetPassAmbientCpp(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
+		{
+			try
+			{
+				const auto* color = ::Ogre::GetPassAmbient(pass);
+				if (color == nullptr)
+				{
+					outColor = {};
+					return false;
+				}
+
+				outColor = *color;
+				return true;
+			}
+			catch (const std::exception& ex)
+			{
+				LogMaterialDebug("[EXU::Material] GetPassAmbient threw pass=%p what=%s", pass, ex.what());
+				outColor = {};
+				return false;
+			}
+			catch (...)
+			{
+				LogMaterialDebug("[EXU::Material] GetPassAmbient threw pass=%p", pass);
+				outColor = {};
+				return false;
+			}
+		}
+
+		bool TryGetPassDiffuseCpp(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
+		{
+			try
+			{
+				const auto* color = ::Ogre::GetPassDiffuse(pass);
+				if (color == nullptr)
+				{
+					outColor = {};
+					return false;
+				}
+
+				outColor = *color;
+				return true;
+			}
+			catch (const std::exception& ex)
+			{
+				LogMaterialDebug("[EXU::Material] GetPassDiffuse threw pass=%p what=%s", pass, ex.what());
+				outColor = {};
+				return false;
+			}
+			catch (...)
+			{
+				LogMaterialDebug("[EXU::Material] GetPassDiffuse threw pass=%p", pass);
+				outColor = {};
+				return false;
+			}
+		}
+
+		bool TryGetPassSpecularCpp(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
+		{
+			try
+			{
+				const auto* color = ::Ogre::GetPassSpecular(pass);
+				if (color == nullptr)
+				{
+					outColor = {};
+					return false;
+				}
+
+				outColor = *color;
+				return true;
+			}
+			catch (const std::exception& ex)
+			{
+				LogMaterialDebug("[EXU::Material] GetPassSpecular threw pass=%p what=%s", pass, ex.what());
+				outColor = {};
+				return false;
+			}
+			catch (...)
+			{
+				LogMaterialDebug("[EXU::Material] GetPassSpecular threw pass=%p", pass);
+				outColor = {};
+				return false;
+			}
+		}
+
+		bool TryGetPassSelfIlluminationCpp(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
+		{
+			try
+			{
+				const auto* color = ::Ogre::GetPassSelfIllumination(pass);
+				if (color == nullptr)
+				{
+					outColor = {};
+					return false;
+				}
+
+				outColor = *color;
+				return true;
+			}
+			catch (const std::exception& ex)
+			{
+				LogMaterialDebug("[EXU::Material] GetPassSelfIllumination threw pass=%p what=%s", pass, ex.what());
+				outColor = {};
+				return false;
+			}
+			catch (...)
+			{
+				LogMaterialDebug("[EXU::Material] GetPassSelfIllumination threw pass=%p", pass);
+				outColor = {};
+				return false;
+			}
+		}
+
+		bool TrySetPassAmbientCpp(::Ogre::Pass* pass, const ::Ogre::ColourValue& color)
+		{
+			try
+			{
+				return ::Ogre::SetPassAmbient(pass, color);
+			}
+			catch (const std::exception& ex)
+			{
+				LogMaterialDebug("[EXU::Material] SetPassAmbient threw pass=%p what=%s", pass, ex.what());
+				return false;
+			}
+			catch (...)
+			{
+				LogMaterialDebug("[EXU::Material] SetPassAmbient threw pass=%p", pass);
+				return false;
+			}
+		}
+
+		bool TrySetPassDiffuseCpp(::Ogre::Pass* pass, const ::Ogre::ColourValue& color)
+		{
+			try
+			{
+				return ::Ogre::SetPassDiffuse(pass, color);
+			}
+			catch (const std::exception& ex)
+			{
+				LogMaterialDebug("[EXU::Material] SetPassDiffuse threw pass=%p what=%s", pass, ex.what());
+				return false;
+			}
+			catch (...)
+			{
+				LogMaterialDebug("[EXU::Material] SetPassDiffuse threw pass=%p", pass);
+				return false;
+			}
+		}
+
+		bool TrySetPassSpecularCpp(::Ogre::Pass* pass, const ::Ogre::ColourValue& color)
+		{
+			try
+			{
+				return ::Ogre::SetPassSpecular(pass, color);
+			}
+			catch (const std::exception& ex)
+			{
+				LogMaterialDebug("[EXU::Material] SetPassSpecular threw pass=%p what=%s", pass, ex.what());
+				return false;
+			}
+			catch (...)
+			{
+				LogMaterialDebug("[EXU::Material] SetPassSpecular threw pass=%p", pass);
+				return false;
+			}
+		}
+
+		bool TrySetPassSelfIlluminationCpp(::Ogre::Pass* pass, const ::Ogre::ColourValue& color)
+		{
+			try
+			{
+				return ::Ogre::SetPassSelfIllumination(pass, color);
+			}
+			catch (const std::exception& ex)
+			{
+				LogMaterialDebug("[EXU::Material] SetPassSelfIllumination threw pass=%p what=%s", pass, ex.what());
+				return false;
+			}
+			catch (...)
+			{
+				LogMaterialDebug("[EXU::Material] SetPassSelfIllumination threw pass=%p", pass);
+				return false;
 			}
 		}
 
@@ -739,16 +1064,7 @@ namespace ExtraUtilities::Lua::GameObject
 		{
 			__try
 			{
-				auto* manager = ::Ogre::GetMaterialManagerSingletonPtr();
-				if (manager == nullptr)
-				{
-					outMaterial = nullptr;
-					return false;
-				}
-
-				auto material = ::Ogre::GetMaterialByName(manager, materialName, resourceGroup);
-				outMaterial = material.getPointer();
-				return outMaterial != nullptr;
+				return TryResolveMaterialCpp(materialName, resourceGroup, outMaterial);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -770,15 +1086,7 @@ namespace ExtraUtilities::Lua::GameObject
 		{
 			__try
 			{
-				if (sourceMaterial == nullptr)
-				{
-					outMaterial = nullptr;
-					return false;
-				}
-
-				auto clone = ::Ogre::CloneMaterial(sourceMaterial, cloneName, false, resourceGroup);
-				outMaterial = clone.getPointer();
-				return outMaterial != nullptr;
+				return TryCloneMaterialCpp(sourceMaterial, cloneName, resourceGroup, outMaterial);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -799,37 +1107,9 @@ namespace ExtraUtilities::Lua::GameObject
 			int passIndex,
 			MaterialPassHandle& outHandle)
 		{
-			outHandle = {};
-
-			::Ogre::Material* material = nullptr;
-			if (!TryResolveMaterial(materialName, resourceGroup, material))
-			{
-				return false;
-			}
-
 			__try
 			{
-				auto* technique = ::Ogre::GetMaterialTechnique(material, static_cast<unsigned short>(techniqueIndex));
-				if (technique == nullptr)
-				{
-					return false;
-				}
-
-				if (passIndex < 0 || passIndex >= static_cast<int>(::Ogre::GetTechniqueNumPasses(technique)))
-				{
-					return false;
-				}
-
-				auto* pass = ::Ogre::GetTechniquePass(technique, static_cast<unsigned short>(passIndex));
-				if (pass == nullptr)
-				{
-					return false;
-				}
-
-				outHandle.material = material;
-				outHandle.technique = technique;
-				outHandle.pass = pass;
-				return true;
+				return TryResolveMaterialPassCpp(materialName, resourceGroup, techniqueIndex, passIndex, outHandle);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -858,15 +1138,7 @@ namespace ExtraUtilities::Lua::GameObject
 		{
 			__try
 			{
-				const auto* color = ::Ogre::GetPassAmbient(pass);
-				if (color == nullptr)
-				{
-					outColor = {};
-					return false;
-				}
-
-				outColor = *color;
-				return true;
+				return TryGetPassAmbientCpp(pass, outColor);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -880,15 +1152,7 @@ namespace ExtraUtilities::Lua::GameObject
 		{
 			__try
 			{
-				const auto* color = ::Ogre::GetPassDiffuse(pass);
-				if (color == nullptr)
-				{
-					outColor = {};
-					return false;
-				}
-
-				outColor = *color;
-				return true;
+				return TryGetPassDiffuseCpp(pass, outColor);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -902,15 +1166,7 @@ namespace ExtraUtilities::Lua::GameObject
 		{
 			__try
 			{
-				const auto* color = ::Ogre::GetPassSpecular(pass);
-				if (color == nullptr)
-				{
-					outColor = {};
-					return false;
-				}
-
-				outColor = *color;
-				return true;
+				return TryGetPassSpecularCpp(pass, outColor);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -924,15 +1180,7 @@ namespace ExtraUtilities::Lua::GameObject
 		{
 			__try
 			{
-				const auto* color = ::Ogre::GetPassSelfIllumination(pass);
-				if (color == nullptr)
-				{
-					outColor = {};
-					return false;
-				}
-
-				outColor = *color;
-				return true;
+				return TryGetPassSelfIlluminationCpp(pass, outColor);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -946,7 +1194,7 @@ namespace ExtraUtilities::Lua::GameObject
 		{
 			__try
 			{
-				return ::Ogre::SetPassAmbient(pass, color);
+				return TrySetPassAmbientCpp(pass, color);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -959,7 +1207,7 @@ namespace ExtraUtilities::Lua::GameObject
 		{
 			__try
 			{
-				return ::Ogre::SetPassDiffuse(pass, color);
+				return TrySetPassDiffuseCpp(pass, color);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -972,7 +1220,7 @@ namespace ExtraUtilities::Lua::GameObject
 		{
 			__try
 			{
-				return ::Ogre::SetPassSpecular(pass, color);
+				return TrySetPassSpecularCpp(pass, color);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -985,7 +1233,7 @@ namespace ExtraUtilities::Lua::GameObject
 		{
 			__try
 			{
-				return ::Ogre::SetPassSelfIllumination(pass, color);
+				return TrySetPassSelfIlluminationCpp(pass, color);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{

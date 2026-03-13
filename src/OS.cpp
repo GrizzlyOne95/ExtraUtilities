@@ -28,6 +28,7 @@
 #include <fstream>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -39,6 +40,7 @@ namespace ExtraUtilities::Lua::OS
 	namespace
 	{
 		using NativeSaveGameFn = bool(__cdecl*)(char*, int);
+		using NativeSaveShellGameFn = bool(__cdecl*)(int, const char*);
 
 		struct ExecutableSection
 		{
@@ -129,6 +131,127 @@ namespace ExtraUtilities::Lua::OS
 			std::error_code error;
 			std::filesystem::create_directories(parent, error);
 			return !error;
+		}
+
+		std::string TrimAsciiWhitespace(std::string_view value)
+		{
+			size_t start = 0;
+			size_t end = value.size();
+
+			while (start < end)
+			{
+				const char c = value[start];
+				if (c != ' ' && c != '\t' && c != '\r' && c != '\n')
+				{
+					break;
+				}
+				++start;
+			}
+
+			while (end > start)
+			{
+				const char c = value[end - 1];
+				if (c != ' ' && c != '\t' && c != '\r' && c != '\n')
+				{
+					break;
+				}
+				--end;
+			}
+
+			return std::string(value.substr(start, end - start));
+		}
+
+		std::string EncodeSaveDescriptionHex(std::string_view description)
+		{
+			std::array<uint8_t, 256> buffer{};
+			const size_t copyLength = (std::min)(buffer.size() - 1, description.size());
+			std::memcpy(buffer.data(), description.data(), copyLength);
+
+			static constexpr char kHexDigits[] = "0123456789abcdef";
+			std::string hex;
+			hex.resize(buffer.size() * 2);
+
+			for (size_t index = 0; index < buffer.size(); ++index)
+			{
+				const uint8_t value = buffer[index];
+				hex[index * 2] = kHexDigits[value >> 4];
+				hex[index * 2 + 1] = kHexDigits[value & 0x0F];
+			}
+
+			return hex;
+		}
+
+		bool RewriteSaveDescription(const std::string& filename, std::string_view description)
+		{
+			const std::filesystem::path path(filename);
+			std::ifstream input(path, std::ios::binary);
+			if (!input.is_open())
+			{
+				LogNativeSave("[EXU::SaveGame] failed to open save for description rewrite: {}", filename);
+				return false;
+			}
+
+			std::string contents(
+				(std::istreambuf_iterator<char>(input)),
+				std::istreambuf_iterator<char>());
+			input.close();
+
+			if (contents.empty())
+			{
+				LogNativeSave("[EXU::SaveGame] save was empty during description rewrite: {}", filename);
+				return false;
+			}
+
+			const auto binarySavePos = contents.find("binarySave [1] =");
+			if (binarySavePos == std::string::npos)
+			{
+				LogNativeSave("[EXU::SaveGame] save missing binarySave header, skipping description rewrite: {}", filename);
+				return false;
+			}
+
+			const auto binaryValuePos = contents.find_first_not_of("\r\n", binarySavePos + std::strlen("binarySave [1] ="));
+			if (binaryValuePos == std::string::npos || contents.compare(binaryValuePos, 5, "false") != 0)
+			{
+				LogNativeSave("[EXU::SaveGame] binary save detected, skipping description rewrite: {}", filename);
+				return false;
+			}
+
+			const std::string encodedDescription = EncodeSaveDescriptionHex(description);
+			const std::string marker = "saveGameDesc = ";
+			const auto markerPos = contents.find(marker);
+
+			if (markerPos != std::string::npos)
+			{
+				const size_t valueStart = markerPos + marker.size();
+				size_t valueEnd = contents.find_first_of("\r\n", valueStart);
+				if (valueEnd == std::string::npos)
+				{
+					valueEnd = contents.size();
+				}
+				contents.replace(valueStart, valueEnd - valueStart, encodedDescription);
+			}
+			else
+			{
+				LogNativeSave("[EXU::SaveGame] saveGameDesc missing, skipping description rewrite: {}", filename);
+				return false;
+			}
+
+			std::ofstream output(path, std::ios::binary | std::ios::trunc);
+			if (!output.is_open())
+			{
+				LogNativeSave("[EXU::SaveGame] failed to reopen save for description rewrite: {}", filename);
+				return false;
+			}
+
+			output.write(contents.data(), static_cast<std::streamsize>(contents.size()));
+			if (!output.good())
+			{
+				LogNativeSave("[EXU::SaveGame] failed while writing rewritten description to {}", filename);
+				return false;
+			}
+
+			LogNativeSave("[EXU::SaveGame] rewrote save description for {} to {}", filename, TrimAsciiWhitespace(description));
+			return true;
 		}
 
 		std::vector<ExecutableSection> GetExecutableSections()
@@ -249,6 +372,145 @@ namespace ExtraUtilities::Lua::OS
 			return nullptr;
 		}
 
+		const uint8_t* BacktrackFunctionProlog(const ExecutableSection& section, const uint8_t* address, size_t maxBack = 0x400)
+		{
+			if (section.address == nullptr || address == nullptr || address < section.address || address >= section.address + section.size)
+			{
+				return nullptr;
+			}
+
+			const uint8_t* cursor = address;
+			const uint8_t* lowerBound = (address > section.address + maxBack) ? address - maxBack : section.address;
+			while (cursor >= lowerBound + 3)
+			{
+				if (cursor[0] == 0x55 && cursor[1] == 0x8B && cursor[2] == 0xEC)
+				{
+					return cursor;
+				}
+				--cursor;
+			}
+
+			return nullptr;
+		}
+
+		bool ContainsBytePattern(const uint8_t* start, size_t size, const auto& pattern)
+		{
+			return FindPattern(start, size, pattern) != nullptr;
+		}
+
+		bool IsSaveShellGameCandidate(const uint8_t* functionStart, const uint8_t* saveGameAddress)
+		{
+			if (functionStart == nullptr || saveGameAddress == nullptr)
+			{
+				return false;
+			}
+
+			constexpr size_t kWindowSize = 0x140;
+			constexpr std::array<int, 20> SLOT_RANGE_PATTERN = {
+				0x83, 0x7D, 0x08, 0x01, 0x0F, 0x8C, -1, -1, -1, -1,
+				0x83, 0x7D, 0x08, 0x0A, 0x0F, 0x8F, -1, -1, -1, -1
+			};
+
+			constexpr std::array<int, 7> DESCRIPTION_BUFFER_PATTERN = {
+				0xC7, 0x45, -1, 0xD8, 0x86, 0x8E, 0x00
+			};
+
+			if (!ContainsBytePattern(functionStart, kWindowSize, SLOT_RANGE_PATTERN))
+			{
+				return false;
+			}
+
+			if (!ContainsBytePattern(functionStart, 0x40, DESCRIPTION_BUFFER_PATTERN))
+			{
+				return false;
+			}
+
+			for (size_t offset = 0; offset + 5 <= kWindowSize; ++offset)
+			{
+				if (functionStart[offset] != 0xE8)
+				{
+					continue;
+				}
+
+				int32_t displacement = 0;
+				std::memcpy(&displacement, functionStart + offset + 1, sizeof(displacement));
+				const auto* target = functionStart + offset + 5 + displacement;
+				if (target == saveGameAddress)
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		NativeSaveShellGameFn ResolveNativeSaveShellGame()
+		{
+			static NativeSaveShellGameFn cached = nullptr;
+			if (cached != nullptr)
+			{
+				return cached;
+			}
+
+			const auto executableSections = GetExecutableSections();
+			if (executableSections.empty())
+			{
+				LogNativeSave("[EXU::SaveGame] failed to enumerate executable sections for SaveShellGame");
+				return nullptr;
+			}
+
+			const auto saveGame = ResolveNativeSaveGame();
+			if (saveGame == nullptr)
+			{
+				LogNativeSave("[EXU::SaveGame] cannot resolve SaveShellGame without SaveGame");
+				return nullptr;
+			}
+
+			const auto* saveGameAddress = reinterpret_cast<const uint8_t*>(saveGame);
+			for (const auto& section : executableSections)
+			{
+				if (section.address == nullptr || section.size < 5)
+				{
+					continue;
+				}
+
+				for (size_t offset = 0; offset + 5 <= section.size; ++offset)
+				{
+					if (section.address[offset] != 0xE8)
+					{
+						continue;
+					}
+
+					int32_t displacement = 0;
+					std::memcpy(&displacement, section.address + offset + 1, sizeof(displacement));
+					const auto* target = section.address + offset + 5 + displacement;
+					if (target != saveGameAddress)
+					{
+						continue;
+					}
+
+					const auto* callSite = section.address + offset;
+					const auto* functionStart = BacktrackFunctionProlog(section, callSite);
+					if (!IsSaveShellGameCandidate(functionStart, saveGameAddress))
+					{
+						continue;
+					}
+
+					LogNativeSave(
+						"[EXU::SaveGame] resolved native SaveShellGame at {} in section {} via call {}",
+						static_cast<const void*>(functionStart),
+						section.name,
+						static_cast<const void*>(callSite)
+					);
+					cached = reinterpret_cast<NativeSaveShellGameFn>(const_cast<uint8_t*>(functionStart));
+					return cached;
+				}
+			}
+
+			LogNativeSave("[EXU::SaveGame] failed to resolve native SaveShellGame signature");
+			return nullptr;
+		}
+
 		bool InvokeNativeSaveGame(NativeSaveGameFn saveGame, char* filename, int saveType, DWORD& exceptionCode) noexcept
 		{
 			exceptionCode = 0;
@@ -256,6 +518,24 @@ namespace ExtraUtilities::Lua::OS
 			__try
 			{
 				return saveGame(filename, saveType);
+			}
+			__except (exceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+			{
+				return false;
+			}
+		}
+
+		bool InvokeNativeSaveShellGame(
+			NativeSaveShellGameFn saveShellGame,
+			int slot,
+			const char* description,
+			DWORD& exceptionCode) noexcept
+		{
+			exceptionCode = 0;
+
+			__try
+			{
+				return saveShellGame(slot, description);
 			}
 			__except (exceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -288,9 +568,10 @@ namespace ExtraUtilities::Lua::OS
 	int SaveGame(lua_State* L)
 	{
 		std::string filename;
+		int slot = 0;
 		if (lua_type(L, 1) == LUA_TNUMBER)
 		{
-			const int slot = static_cast<int>(luaL_checkinteger(L, 1));
+			slot = static_cast<int>(luaL_checkinteger(L, 1));
 			if (slot < 1 || slot > 10)
 			{
 				return luaL_error(L, "SaveGame slot must be in range 1-10");
@@ -312,7 +593,95 @@ namespace ExtraUtilities::Lua::OS
 			return 2;
 		}
 
-		const int saveType = static_cast<int>(luaL_optinteger(L, 2, 0));
+		int saveType = 0;
+		std::string description;
+		const int top = lua_gettop(L);
+		if (top >= 2)
+		{
+			const int arg2Type = lua_type(L, 2);
+			if (arg2Type == LUA_TNUMBER)
+			{
+				saveType = static_cast<int>(lua_tointeger(L, 2));
+			}
+			else if (arg2Type == LUA_TSTRING)
+			{
+				size_t length = 0;
+				const char* rawDescription = lua_tolstring(L, 2, &length);
+				description.assign(rawDescription, length);
+			}
+			else if (arg2Type != LUA_TNIL && arg2Type != LUA_TNONE)
+			{
+				return luaL_error(L, "SaveGame second argument must be a saveType number or description string");
+			}
+		}
+
+		if (top >= 3)
+		{
+			const int arg3Type = lua_type(L, 3);
+			if (arg3Type == LUA_TSTRING)
+			{
+				size_t length = 0;
+				const char* rawDescription = lua_tolstring(L, 3, &length);
+				description.assign(rawDescription, length);
+			}
+			else if (arg3Type != LUA_TNIL && arg3Type != LUA_TNONE)
+			{
+				return luaL_error(L, "SaveGame third argument must be a description string");
+			}
+		}
+
+		description = TrimAsciiWhitespace(description);
+
+		if (slot != 0 && !description.empty())
+		{
+			const auto saveShellGame = ResolveNativeSaveShellGame();
+			if (saveShellGame != nullptr)
+			{
+				if (!EnsureSaveParentDirectory(filename))
+				{
+					LogNativeSave("[EXU::SaveGame] failed to create parent directory for {}", filename);
+					lua_pushboolean(L, 0);
+					lua_pushfstring(L, "failed to create parent directory for %s", filename.c_str());
+					return 2;
+				}
+
+				LogNativeSave("[EXU::SaveGame] calling native SaveShellGame slot={} description={}", slot, description);
+
+				DWORD exceptionCode = 0;
+				const bool saved = InvokeNativeSaveShellGame(saveShellGame, slot, description.c_str(), exceptionCode);
+				if (exceptionCode != 0)
+				{
+					LogNativeSave(
+						"[EXU::SaveGame] native SaveShellGame crashed slot={} code=0x{:08X}",
+						slot,
+						exceptionCode
+					);
+					lua_pushboolean(L, 0);
+					lua_pushfstring(L, "native SaveShellGame crashed with exception 0x%08X", exceptionCode);
+					return 2;
+				}
+
+				LogNativeSave(
+					"[EXU::SaveGame] native SaveShellGame result={} slot={} path={}",
+					saved ? 1 : 0,
+					slot,
+					filename
+				);
+
+				lua_pushboolean(L, saved ? 1 : 0);
+				if (saved)
+				{
+					lua_pushlstring(L, filename.c_str(), filename.size());
+				}
+				else
+				{
+					lua_pushfstring(L, "native SaveShellGame returned false for slot %d", slot);
+				}
+
+				return 2;
+			}
+		}
+
 		const auto saveGame = ResolveNativeSaveGame();
 		if (saveGame == nullptr)
 		{
@@ -347,6 +716,16 @@ namespace ExtraUtilities::Lua::OS
 		}
 
 		LogNativeSave("[EXU::SaveGame] native save result={} path={} type={}", saved ? 1 : 0, filename, saveType);
+		if (saved && !description.empty())
+		{
+			const bool rewroteDescription = RewriteSaveDescription(filename, description);
+			LogNativeSave(
+				"[EXU::SaveGame] description override result={} path={} description={}",
+				rewroteDescription ? 1 : 0,
+				filename,
+				description
+			);
+		}
 
 		lua_pushboolean(L, saved ? 1 : 0);
 		if (saved)
