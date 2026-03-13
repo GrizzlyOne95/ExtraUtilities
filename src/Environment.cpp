@@ -103,6 +103,13 @@ namespace ExtraUtilities::Lua::Environment
 		return std::isfinite(value);
 	}
 
+	bool IsValidTimeOfDay(int timeOfDay)
+	{
+		return timeOfDay >= 0
+			&& timeOfDay <= 2359
+			&& (timeOfDay % 100) < 60;
+	}
+
 	bool TryGetSunAmbientColor(void* sceneManager, Ogre::Color& outColor)
 	{
 		__try
@@ -227,6 +234,35 @@ namespace ExtraUtilities::Lua::Environment
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
 			LogEnvironmentDebug("[EXU::SetSunDirection] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			return false;
+		}
+	}
+
+	bool TrySetNativeTimeOfDay(int timeOfDay)
+	{
+		__try
+		{
+			*BZR::Environment::timeOfDay = timeOfDay;
+			BZR::Environment::SetTimeOfDay(timeOfDay / 100);
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug("[EXU::SetTimeOfDay] crashed timeOfDay=%d code=0x%08X", timeOfDay, GetExceptionCode());
+			return false;
+		}
+	}
+
+	bool TryRefreshTerrainMasterLight()
+	{
+		__try
+		{
+			BZR::Environment::RefreshTerrainMasterLight();
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug("[EXU::SetTimeOfDay] refresh crashed code=0x%08X", GetExceptionCode());
 			return false;
 		}
 	}
@@ -669,6 +705,59 @@ namespace ExtraUtilities::Lua::Environment
 			return 0;
 		}
 		LogEnvironmentDebug("[EXU::SetSunDirection] completed");
+		return 0;
+	}
+
+	int SetOgreSunDirection(lua_State* L)
+	{
+		return SetSunDirection(L);
+	}
+
+	int SetTimeOfDay(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		const int timeOfDay = static_cast<int>(luaL_checkinteger(L, 1));
+		const bool refreshSun = lua_gettop(L) < 2 || lua_toboolean(L, 2) != 0;
+		auto* terrainMasterLight = GetTerrainMasterLight();
+		auto caller = DescribeLuaCaller(L);
+		LogEnvironmentDebug(
+			"[EXU::SetTimeOfDay] enter caller=%s timeOfDay=%d refreshSun=%s terrainMasterLight=%p",
+			caller.c_str(),
+			timeOfDay,
+			refreshSun ? "true" : "false",
+			terrainMasterLight);
+		if (!IsValidTimeOfDay(timeOfDay))
+		{
+			LogEnvironmentDebug("[EXU::SetTimeOfDay] rejecting invalid HHMM value");
+			return luaL_argerror(L, 1, "SetTimeOfDay requires a TRN-style HHMM integer between 0000 and 2359");
+		}
+
+		LogEnvironmentDebug("[EXU::SetTimeOfDay] calling native light model hour=%d", timeOfDay / 100);
+		if (!TrySetNativeTimeOfDay(timeOfDay))
+		{
+			return 0;
+		}
+
+		if (!refreshSun)
+		{
+			LogEnvironmentDebug("[EXU::SetTimeOfDay] completed without Ogre refresh");
+			return 0;
+		}
+
+		if (terrainMasterLight == nullptr)
+		{
+			LogEnvironmentDebug("[EXU::SetTimeOfDay] completed without Ogre refresh: terrain master light unavailable");
+			return 0;
+		}
+
+		LogEnvironmentDebug("[EXU::SetTimeOfDay] refreshing terrain master light");
+		if (!TryRefreshTerrainMasterLight())
+		{
+			return 0;
+		}
+
+		LogEnvironmentDebug("[EXU::SetTimeOfDay] completed");
 		return 0;
 	}
 
