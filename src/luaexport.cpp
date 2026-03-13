@@ -290,6 +290,8 @@ namespace ExtraUtilities::Lua
 			{ "SetSunSpecular", &Environment::SetSunSpecular },
 			{ "GetSunDirection", &Environment::GetSunDirection },
 			{ "SetSunDirection", &Environment::SetSunDirection },
+			{ "SetOgreSunDirection", &Environment::SetOgreSunDirection },
+			{ "SetTimeOfDay", &Environment::SetTimeOfDay },
 			{ "GetSunPowerScale", &Environment::GetSunPowerScale },
 			{ "SetSunPowerScale", &Environment::SetSunPowerScale },
 			{ "GetSunShadowFarDistance", &Environment::GetSunShadowFarDistance },
