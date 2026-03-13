@@ -198,6 +198,14 @@ namespace BZR
 	namespace Environment
 	{
 		inline auto gravityVector = (VECTOR_3D*)0x00871A80;
+		inline auto timeOfDay = (int*)0x02CD94E4;
+		inline auto sunDirection = (VECTOR_3D*)0x02CEB830;
+
+		using _SetTimeOfDay = void(__cdecl*)(int hourOfDay);
+		inline _SetTimeOfDay SetTimeOfDay = (_SetTimeOfDay)0x0068A230;
+
+		using _RefreshTerrainMasterLight = void(__cdecl*)();
+		inline _RefreshTerrainMasterLight RefreshTerrainMasterLight = (_RefreshTerrainMasterLight)0x0067E0E0;
 	}
 
 	struct EULER {

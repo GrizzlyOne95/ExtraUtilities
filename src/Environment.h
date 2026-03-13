@@ -48,6 +48,9 @@ namespace ExtraUtilities::Lua::Environment
 
 	int GetSunDirection(lua_State* L);
 	int SetSunDirection(lua_State* L);
+	int SetOgreSunDirection(lua_State* L);
+
+	int SetTimeOfDay(lua_State* L);
 
 	int GetSunPowerScale(lua_State* L);
 	int SetSunPowerScale(lua_State* L);

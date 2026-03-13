@@ -380,6 +380,27 @@ function exu.SetSunDirection(x, y, z) end
 --- @param direction Vector
 function exu.SetSunDirection(direction) end
 
+--- Sets the current terrain master light direction directly through Ogre.
+--- This is an Ogre-only override and does not update the native Battlezone time-of-day state.
+--- Can take either a vector or three number parameters.
+--- @param x number
+--- @param y number
+--- @param z number
+function exu.SetOgreSunDirection(x, y, z) end
+
+--- Sets the current terrain master light direction directly through Ogre.
+--- This is an Ogre-only override and does not update the native Battlezone time-of-day state.
+--- Can take either a vector or three number parameters.
+--- @param direction Vector
+function exu.SetOgreSunDirection(direction) end
+
+--- Sets the native map time-of-day using the TRN HHMM format, such as 600, 1200, or 1830.
+--- Minutes are stored, but the native light-model path currently advances in hour-sized steps.
+--- When `refreshSun` is true or omitted, the terrain master light is rebuilt immediately.
+--- @param timeOfDay integer
+--- @param refreshSun boolean|nil
+function exu.SetTimeOfDay(timeOfDay, refreshSun) end
+
 --- Returns the current sun power scale multiplier.
 --- @nodiscard
 --- @return number
