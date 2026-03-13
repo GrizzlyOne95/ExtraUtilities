@@ -74,10 +74,18 @@ namespace ExtraUtilities::Patch
 
 			mov edi, [ebp]
 
-			// Get owner of the ordnance
+			// If the shooter chain is missing, leave the original velocity locals unchanged.
 			mov ecx, [edi-0x20]
+			test ecx, ecx
+			je skipPatch
+
 			mov eax, [ecx+0xD8] // obj76
+			test eax, eax
+			je skipPatch
+
 			mov ebx, [eax+0x8C] // GameObject* owner
+			test ebx, ebx
+			je skipPatch
 
 			movups xmm0, [ebx+0x12C]
 
@@ -123,6 +131,8 @@ namespace ExtraUtilities::Patch
 			mov [edi-0xC], eax
 			pextrd eax, xmm0, 2
 			mov [edi-0x08], eax
+
+			skipPatch:
 
 			// End patch
 
@@ -187,8 +197,16 @@ namespace ExtraUtilities::Patch
 			mov edi, [ebp] // old stack frame
 
 			mov ecx, [edi-0x20] // this pointer (cannon)
+			test ecx, ecx
+			je skipPatch
+
 			mov ebx, [ecx+0x18] // cannon owner obj76
+			test ebx, ebx
+			je skipPatch
+
 			mov edx, [ebx+0x8C] // obj76 owner (GameObject*)
+			test edx, edx
+			je skipPatch
 
 			push eax // this has target velocity
 			movups xmm1, [edx + 0x12C] // shooter velocity
@@ -233,6 +251,8 @@ namespace ExtraUtilities::Patch
 			mov [edi-0x18], ebx
 			pextrd ebx, xmm0, 2
 			mov [edi-0x14], ebx
+
+			skipPatch:
 
 			// End patch
 
