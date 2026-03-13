@@ -161,99 +161,6 @@ namespace ExtraUtilities::Lua::OS
 			return std::string(value.substr(start, end - start));
 		}
 
-		std::string EncodeSaveDescriptionHex(std::string_view description)
-		{
-			std::array<uint8_t, 256> buffer{};
-			const size_t copyLength = (std::min)(buffer.size() - 1, description.size());
-			std::memcpy(buffer.data(), description.data(), copyLength);
-
-			static constexpr char kHexDigits[] = "0123456789abcdef";
-			std::string hex;
-			hex.resize(buffer.size() * 2);
-
-			for (size_t index = 0; index < buffer.size(); ++index)
-			{
-				const uint8_t value = buffer[index];
-				hex[index * 2] = kHexDigits[value >> 4];
-				hex[index * 2 + 1] = kHexDigits[value & 0x0F];
-			}
-
-			return hex;
-		}
-
-		bool RewriteSaveDescription(const std::string& filename, std::string_view description)
-		{
-			const std::filesystem::path path(filename);
-			std::ifstream input(path, std::ios::binary);
-			if (!input.is_open())
-			{
-				LogNativeSave("[EXU::SaveGame] failed to open save for description rewrite: {}", filename);
-				return false;
-			}
-
-			std::string contents(
-				(std::istreambuf_iterator<char>(input)),
-				std::istreambuf_iterator<char>());
-			input.close();
-
-			if (contents.empty())
-			{
-				LogNativeSave("[EXU::SaveGame] save was empty during description rewrite: {}", filename);
-				return false;
-			}
-
-			const auto binarySavePos = contents.find("binarySave [1] =");
-			if (binarySavePos == std::string::npos)
-			{
-				LogNativeSave("[EXU::SaveGame] save missing binarySave header, skipping description rewrite: {}", filename);
-				return false;
-			}
-
-			const auto binaryValuePos = contents.find_first_not_of("\r\n", binarySavePos + std::strlen("binarySave [1] ="));
-			if (binaryValuePos == std::string::npos || contents.compare(binaryValuePos, 5, "false") != 0)
-			{
-				LogNativeSave("[EXU::SaveGame] binary save detected, skipping description rewrite: {}", filename);
-				return false;
-			}
-
-			const std::string encodedDescription = EncodeSaveDescriptionHex(description);
-			const std::string marker = "saveGameDesc = ";
-			const auto markerPos = contents.find(marker);
-
-			if (markerPos != std::string::npos)
-			{
-				const size_t valueStart = markerPos + marker.size();
-				size_t valueEnd = contents.find_first_of("\r\n", valueStart);
-				if (valueEnd == std::string::npos)
-				{
-					valueEnd = contents.size();
-				}
-				contents.replace(valueStart, valueEnd - valueStart, encodedDescription);
-			}
-			else
-			{
-				LogNativeSave("[EXU::SaveGame] saveGameDesc missing, skipping description rewrite: {}", filename);
-				return false;
-			}
-
-			std::ofstream output(path, std::ios::binary | std::ios::trunc);
-			if (!output.is_open())
-			{
-				LogNativeSave("[EXU::SaveGame] failed to reopen save for description rewrite: {}", filename);
-				return false;
-			}
-
-			output.write(contents.data(), static_cast<std::streamsize>(contents.size()));
-			if (!output.good())
-			{
-				LogNativeSave("[EXU::SaveGame] failed while writing rewritten description to {}", filename);
-				return false;
-			}
-
-			LogNativeSave("[EXU::SaveGame] rewrote save description for {} to {}", filename, TrimAsciiWhitespace(description));
-			return true;
-		}
-
 		std::vector<ExecutableSection> GetExecutableSections()
 		{
 			std::vector<ExecutableSection> sections;
@@ -680,6 +587,12 @@ namespace ExtraUtilities::Lua::OS
 
 				return 2;
 			}
+
+			LogNativeSave(
+				"[EXU::SaveGame] native SaveShellGame unavailable for slot={} description={}, falling back to SaveGame",
+				slot,
+				description
+			);
 		}
 
 		const auto saveGame = ResolveNativeSaveGame();
@@ -716,16 +629,6 @@ namespace ExtraUtilities::Lua::OS
 		}
 
 		LogNativeSave("[EXU::SaveGame] native save result={} path={} type={}", saved ? 1 : 0, filename, saveType);
-		if (saved && !description.empty())
-		{
-			const bool rewroteDescription = RewriteSaveDescription(filename, description);
-			LogNativeSave(
-				"[EXU::SaveGame] description override result={} path={} description={}",
-				rewroteDescription ? 1 : 0,
-				filename,
-				description
-			);
-		}
 
 		lua_pushboolean(L, saved ? 1 : 0);
 		if (saved)
