@@ -1,0 +1,17 @@
+1) The ability to add and remove commands from the command menu for any unit. By "adding" I mean having a lua hook that would put in text you define and it would execute a lua script for that unit when the button is pressed.
+
+2) Add custom UIs directly to the game and have them respond to lua coding. While my efforts/experiments are neat, they tend to be very obtuse, inefficient and tedious to change. - implemented with imgui/subtitle DLL
+
+3) Materials that can be hotswapped - implemented!
+
+4) A means to re-size the radar. you need a 4k monitor for the larger UI size to not take up 80% of the screen. - implemented in EXU via radar scale at 0x008E77B0 plus layout refresh helper 0x00492EC0, exposed as exu.GetRadarSizeScale()/exu.SetRadarSizeScale()
+
+5) A way to change what part of the minimap is displayed at runtime. If I want a strat map that is a small portion of a huge campaign map, I currently have no way of merging the two practically.
+
+6) A way to swap out the terrain textures and environment at runtime (So any map can take place on any planet, like warcraft 2 did back in the day).
+
+7) Some kind of access to individual unit behaviors... like forward movement, strafing, use of jump jets, etc. It would open the door to making better custom unit behaviors... up to and including emulating an actual player. The problem with BZ's AI is that the terrain has a tendency to alter their movement in ways that can stun them or make them do weird movements because a polygon was too step beneath them.
+
+8) A means to change what you can build without needing stupid odf hot-swapping tricks.
+
+9) Access to the radio feedback system, so we can finally do away with the massive amounts of audio clip queueing that makes the units talk non-stop mentioning orders you performed like 4 minutes ago. In BZP even with my enhancements this can still get really bogged down especially when issuing rapid orders to howitzers. I do not have the time or patience to re-write the entire radio feedback system and I think it would be riddled with problems if I attempted it. A nice bonus would be to allow units to be programmed to have alternate lines. I sorta did this with the producer units in BZP (IE: selecting the recycler randomly plays between 2 clips, "recycler here" or "yes sir!")

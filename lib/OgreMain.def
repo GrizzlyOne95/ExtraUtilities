@@ -1,11 +1,20 @@
 LIBRARY OgreMain.dll
 EXPORTS
+    ?addResourceLocation@ResourceGroupManager@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@00_N1@Z
+    ?createResource@ResourceManager@Ogre@@UAE?AV?$SharedPtr@VResource@Ogre@@@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0_NPAVManualResourceLoader@2@PBV?$map@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V12@U?$less@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@V?$STLAllocator@U?$pair@$$CBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V12@@std@@V?$CategorisedAllocPolicy@$0A@@Ogre@@@Ogre@@@5@@Z
+    ?createResourceGroup@ResourceGroupManager@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N@Z
+    ?deallocateBytes@StdAllocPolicy@Ogre@@SAXPAX@Z
     ?setParameter@StringInterface@Ogre@@UAE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@0@Z
     ?getCamera@Viewport@Ogre@@QBEPAVCamera@2@XZ
     ?getCurrentViewport@SceneManager@Ogre@@QBEPAVViewport@2@XZ
+    ?getSingletonPtr@ResourceGroupManager@Ogre@@SAPAV12@XZ
     ?getSkyBoxGenParameters@SceneManager@Ogre@@UBEABUSkyBoxGenParameters@12@XZ
     ?getSkyBoxNode@SceneManager@Ogre@@UBEPAVSceneNode@2@XZ
     ?getSkyDomeGenParameters@SceneManager@Ogre@@UBEABUSkyDomeGenParameters@12@XZ
     ?getSkyDomeNode@SceneManager@Ogre@@UBEPAVSceneNode@2@XZ
     ?getSkyPlaneGenParameters@SceneManager@Ogre@@UBEABUSkyPlaneGenParameters@12@XZ
     ?getSkyPlaneNode@SceneManager@Ogre@@UBEPAVSceneNode@2@XZ
+    ?load@Resource@Ogre@@UAEX_N@Z
+    ?resourceExists@ResourceGroupManager@Ogre@@QAE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0@Z
+    ?resourceExistsInAnyGroup@ResourceGroupManager@Ogre@@QAE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z
+    ?resourceGroupExists@ResourceGroupManager@Ogre@@QAE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z

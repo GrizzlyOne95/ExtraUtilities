@@ -18,12 +18,35 @@
 
 #pragma once
 
+#include <utility>
 #include <string>
 
 namespace Ogre
 {
 	using Real = float;
 	using String = std::string;
+	using uint32 = unsigned int;
+
+	template <class T>
+	class SharedPtr
+	{
+	public:
+		T* pRep = nullptr;
+		void* pInfo = nullptr;
+
+		SharedPtr() = default;
+		SharedPtr(const SharedPtr& other) : pRep(other.pRep), pInfo(other.pInfo) {}
+		SharedPtr& operator=(const SharedPtr& other)
+		{
+			pRep = other.pRep;
+			pInfo = other.pInfo;
+			return *this;
+		}
+		~SharedPtr() {}
+
+		T* getPointer() const { return pRep; }
+		bool isNull() const { return pRep == nullptr; }
+	};
 
 	enum GuiMetricsMode
 	{
@@ -51,6 +74,31 @@ namespace Ogre
 		__declspec(dllimport) virtual void setMaterialName(const String& matName);
 		__declspec(dllimport) void setDimensions(Real width, Real height);
 		__declspec(dllimport) void setPosition(Real left, Real top);
+	};
+
+	class Resource
+	{
+	public:
+		__declspec(dllimport) virtual void load(bool backgroundThread = false);
+	};
+
+	enum FontType
+	{
+		FT_TRUETYPE = 1,
+		FT_IMAGE = 2
+	};
+
+	class Font : public Resource
+	{
+	public:
+		using CodePointRange = std::pair<uint32, uint32>;
+
+		__declspec(dllimport) void setType(FontType ftype);
+		__declspec(dllimport) void setSource(const String& source);
+		__declspec(dllimport) void setTrueTypeSize(Real ttfSize);
+		__declspec(dllimport) void setTrueTypeResolution(uint32 ttfResolution);
+		__declspec(dllimport) void clearCodePointRanges(void);
+		__declspec(dllimport) void addCodePointRange(const CodePointRange& range);
 	};
 
 	class OverlayContainer

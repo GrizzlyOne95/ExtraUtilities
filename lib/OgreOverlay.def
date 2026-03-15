@@ -1,25 +1,37 @@
 LIBRARY OgreOverlay.dll
 EXPORTS
+    ?addCodePointRange@Font@Ogre@@QAEXABU?$pair@II@std@@@Z
     ?add2D@Overlay@Ogre@@QAEXPAVOverlayContainer@2@@Z
     ?addChild@OverlayContainer@Ogre@@UAEXPAVOverlayElement@2@@Z
+    ?clearCodePointRanges@Font@Ogre@@QAEXXZ
+    ?create@FontManager@Ogre@@QAE?AV?$SharedPtr@VFont@Ogre@@@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0_NPAVManualResourceLoader@2@PBV?$map@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V12@U?$less@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@V?$STLAllocator@U?$pair@$$CBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V12@@std@@V?$CategorisedAllocPolicy@$0A@@Ogre@@@Ogre@@@5@@Z
     ?create@OverlayManager@Ogre@@QAEPAVOverlay@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z
     ?createOverlayElement@OverlayManager@Ogre@@QAEPAVOverlayElement@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0_N@Z
     ?destroy@OverlayManager@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z
     ?destroyOverlayElement@OverlayManager@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N@Z
+    ?getByName@FontManager@Ogre@@QAE?AV?$SharedPtr@VFont@Ogre@@@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0@Z
     ?getByName@OverlayManager@Ogre@@QAEPAVOverlay@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z
     ?getOverlayElement@OverlayManager@Ogre@@QAEPAVOverlayElement@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N@Z
+    ?getSingletonPtr@FontManager@Ogre@@SAPAV12@XZ
     ?getSingletonPtr@OverlayManager@Ogre@@SAPAV12@XZ
     ?hasOverlayElement@OverlayManager@Ogre@@QAE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N@Z
     ?hide@Overlay@Ogre@@QAEXXZ
     ?hide@OverlayElement@Ogre@@UAEXXZ
     ?remove2D@Overlay@Ogre@@QAEXPAVOverlayContainer@2@@Z
     ?removeChild@OverlayContainer@Ogre@@UAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z
+    ?setCharacterSpacer@Font@Ogre@@QAEXI@Z
     ?setColour@OverlayElement@Ogre@@UAEXABVColourValue@2@@Z
     ?setDimensions@OverlayElement@Ogre@@QAEXMM@Z
+    ?setFontName@TextAreaOverlayElement@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z
+    ?setGlyphTexCoords@Font@Ogre@@QAEXIMMMMM@Z
     ?setMaterialName@OverlayElement@Ogre@@UAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z
     ?setMetricsMode@OverlayElement@Ogre@@UAEXW4GuiMetricsMode@2@@Z
     ?setPosition@OverlayElement@Ogre@@QAEXMM@Z
+    ?setSource@Font@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z
     ?setScroll@Overlay@Ogre@@QAEXMM@Z
+    ?setTrueTypeResolution@Font@Ogre@@QAEXI@Z
+    ?setTrueTypeSize@Font@Ogre@@QAEXM@Z
+    ?setType@Font@Ogre@@QAEXW4FontType@2@@Z
     ?setZOrder@Overlay@Ogre@@QAEXG@Z
     ?show@Overlay@Ogre@@QAEXXZ
     ?show@OverlayElement@Ogre@@UAEXXZ

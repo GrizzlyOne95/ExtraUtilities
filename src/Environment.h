@@ -67,6 +67,8 @@ namespace ExtraUtilities::Lua::Environment
 	int SetShowDebugShadows(lua_State* L);
 	int GetViewportShadowsEnabled(lua_State* L);
 	int SetViewportShadowsEnabled(lua_State* L);
+	int GetViewportOverlaysEnabled(lua_State* L);
+	int SetViewportOverlaysEnabled(lua_State* L);
 	int GetSceneVisibilityMask(lua_State* L);
 	int SetSceneVisibilityMask(lua_State* L);
 

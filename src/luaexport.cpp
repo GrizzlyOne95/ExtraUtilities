@@ -305,6 +305,8 @@ namespace ExtraUtilities::Lua
 			{ "SetShowDebugShadows", &Environment::SetShowDebugShadows },
 			{ "GetViewportShadowsEnabled", &Environment::GetViewportShadowsEnabled },
 			{ "SetViewportShadowsEnabled", &Environment::SetViewportShadowsEnabled },
+			{ "GetViewportOverlaysEnabled", &Environment::GetViewportOverlaysEnabled },
+			{ "SetViewportOverlaysEnabled", &Environment::SetViewportOverlaysEnabled },
 			{ "GetSceneVisibilityMask", &Environment::GetSceneVisibilityMask },
 			{ "SetSceneVisibilityMask", &Environment::SetSceneVisibilityMask },
 			{ "HasSkyBoxNode", &Environment::HasSkyBoxNode },
@@ -423,6 +425,12 @@ namespace ExtraUtilities::Lua
 			{ "MessageBox",			 &OS::MessageBox },
 			{ "SaveGame",			 &OS::SaveGame },
 
+			// Radar
+			{ "GetRadarState", &Radar::GetState },
+			{ "SetRadarState", &Radar::SetState },
+			{ "GetRadarSizeScale", &Radar::GetSizeScale },
+			{ "SetRadarSizeScale", &Radar::SetSizeScale },
+
 			// Patches
 			{ "AddScrapSilent",     &Patches::AddScrapSilent },
 			{ "GetGlobalTurbo",     &Patches::GetGlobalTurbo },
@@ -447,9 +455,6 @@ namespace ExtraUtilities::Lua
 			{ "SetReverseMouse", &PlayOption::SetReverseMouse },
 
 			// Radar
-			{ "GetRadarState", &Radar::GetState },
-			{ "SetRadarState", &Radar::SetState },
-
 			// Reticle
 			{ "GetReticleMatrix", &Reticle::GetMatrix },
 			{ "GetReticleObject", &Reticle::GetObject },
