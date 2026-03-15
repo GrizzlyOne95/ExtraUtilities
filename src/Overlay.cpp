@@ -50,6 +50,7 @@ namespace ExtraUtilities::Lua::Overlay
 		void* overlaySystemInstance = nullptr;
 		constexpr size_t kOverlaySystemAllocSize = 256;
 		constexpr const char* kOverlayRuntimeResourceGroup = "EXUOverlayRuntime";
+		constexpr const char* kOverlayRuntimeFontDirectory = "OverlayFont";
 		constexpr const char* kOverlayRuntimeFontName = "CRBZoneOverlayFont";
 		constexpr const char* kOverlayRuntimeFontScript = "CRBZoneOverlay.fontdef";
 		constexpr const char* kOverlayRuntimeTrueTypeSource = "BZONE.ttf";
@@ -545,7 +546,8 @@ namespace ExtraUtilities::Lua::Overlay
 				return;
 			}
 
-			if (!Native::TryAddResourceLocation(moduleDirectory.c_str(), kOverlayRuntimeResourceGroup))
+			const std::string fontDirectory = moduleDirectory + "\\" + kOverlayRuntimeFontDirectory;
+			if (!Native::TryAddResourceLocation(fontDirectory.c_str(), kOverlayRuntimeResourceGroup))
 			{
 				return;
 			}
@@ -565,9 +567,9 @@ namespace ExtraUtilities::Lua::Overlay
 
 			overlayRuntimeResourcesReady = true;
 			Logging::LogMessage(
-				"[EXU::Overlay] overlay runtime resources ready group=%s location=%s stockTextures=%s",
+				"[EXU::Overlay] overlay runtime resources ready group=%s fontLocation=%s stockTextures=%s",
 				kOverlayRuntimeResourceGroup,
-				moduleDirectory.c_str(),
+				fontDirectory.c_str(),
 				stockTextureDirectory.c_str());
 		}
 
@@ -1453,6 +1455,30 @@ namespace ExtraUtilities::Lua::Overlay
 		}
 		lua_pushboolean(L, success ? 1 : 0);
 		return 1;
+	}
+
+	int SetOverlayTextColor(lua_State* L)
+	{
+		const std::string name = luaL_checkstring(L, 1);
+		const ExtraUtilities::Ogre::Color color = CheckColorOrSingles(L, 2);
+		if (!IsFiniteColor(color))
+		{
+			return luaL_argerror(L, 2, "color components must be finite");
+		}
+
+		::Ogre::OverlayElement* element = FindOverlayElement(name);
+		if (element == nullptr)
+		{
+			return 0;
+		}
+
+		const std::string colorValue = std::to_string(color.r) + " "
+			+ std::to_string(color.g) + " "
+			+ std::to_string(color.b) + " "
+			+ std::to_string(color.a);
+		SetOverlayParameter(element, "colour_top", colorValue);
+		SetOverlayParameter(element, "colour_bottom", colorValue);
+		return 0;
 	}
 
 	int SetOverlayTextCharHeight(lua_State* L)

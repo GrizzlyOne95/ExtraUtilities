@@ -217,17 +217,13 @@ namespace
 	bool ParseFontScriptCpp(const char* scriptName, const char* groupName)
 	{
 		Ogre::ResourceGroupManager* resourceGroups = GetResourceGroupManager();
-		Ogre::FontManager* manager = GetFontManager();
 		const InitialiseResourceGroupFn initialiseResourceGroup = ResolveInitialiseResourceGroupProc();
-		const OpenResourceFn openResource = ResolveOpenResourceProc();
-		if (resourceGroups == nullptr || manager == nullptr || initialiseResourceGroup == nullptr || openResource == nullptr)
+		if (resourceGroups == nullptr || initialiseResourceGroup == nullptr || scriptName == nullptr || scriptName[0] == '\0')
 		{
 			return false;
 		}
 
 		initialiseResourceGroup(resourceGroups, groupName);
-		Ogre::DataStreamPtr stream = openResource(resourceGroups, scriptName, groupName, true, nullptr);
-		manager->parseScript(stream, groupName);
 		return true;
 	}
 

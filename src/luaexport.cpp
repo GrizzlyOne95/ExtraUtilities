@@ -336,6 +336,7 @@ namespace ExtraUtilities::Lua
 			{ "SetOverlayColor", &Overlay::SetOverlayColor },
 			{ "SetOverlayCaption", &Overlay::SetOverlayCaption },
 			{ "SetOverlayTextFont", &Overlay::SetOverlayTextFont },
+			{ "SetOverlayTextColor", &Overlay::SetOverlayTextColor },
 			{ "SetOverlayTextCharHeight", &Overlay::SetOverlayTextCharHeight },
 
 			// GameObject
@@ -386,6 +387,9 @@ namespace ExtraUtilities::Lua
 			{ "GetMass", &GameObject::GetMass },
 			{ "SetMass", &GameObject::SetMass },
 			{ "GetObj",			&GameObject::GetObj },
+			{ "GetAiProcess", &GameObject::GetAiProcess },
+			{ "GetAiProcessTypeName", &GameObject::GetAiProcessTypeName },
+			{ "GetAiProcessInfo", &GameObject::GetAiProcessInfo },
 			{ "GetRadarRange",	&GameObject::GetRadarRange },
 			{ "SetRadarRange",	&GameObject::SetRadarRange },
 			{ "GetRadarPeriod", &GameObject::GetRadarPeriod },
