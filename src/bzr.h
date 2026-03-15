@@ -496,6 +496,11 @@ namespace BZR
 	namespace Radar
 	{
 		inline auto state = (uint8_t*)0x008EAAAC;
+		inline auto scale = (float*)0x008E77B0;
+
+		// Recalculates radar and command panel placement after HUD sizing changes.
+		using _RefreshLayout = void(__cdecl*)(int screenHeight);
+		inline _RefreshLayout RefreshLayout = (_RefreshLayout)0x00492EC0;
 	}
 
 	namespace Reticle

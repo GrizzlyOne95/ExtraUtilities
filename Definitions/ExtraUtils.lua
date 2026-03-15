@@ -612,6 +612,7 @@ function exu.SetOverlayCaption(name, text) end
 --- Sets the font name of a text area created through `CreateOverlayElement("TextArea", ...)`.
 --- @param name string
 --- @param fontName string
+--- @return boolean success True when the font was bound successfully.
 function exu.SetOverlayTextFont(name, fontName) end
 
 --- Sets the character height of a text area created through `CreateOverlayElement("TextArea", ...)`.
@@ -1226,6 +1227,17 @@ function exu.GetRadarState() end
 --- Sets the current radar state.
 --- @param state number
 function exu.SetRadarState(state) end
+
+--- Gets the radar-specific HUD size scale. 1.0 is the stock full-size radar.
+--- Values below 1 shrink the radar, values above 1 enlarge it.
+--- @nodiscard
+--- @return number
+function exu.GetRadarSizeScale() end
+
+--- Sets the radar-specific HUD size scale and refreshes the radar layout immediately.
+--- Note that changing the game's HUD scaling option may overwrite this value.
+--- @param scale number
+function exu.SetRadarSizeScale(scale) end
 
 --- Reticle
 ---

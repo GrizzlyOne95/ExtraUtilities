@@ -19,6 +19,7 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 
 #include "Logging.h"
+#include "Overlay.h"
 
 #include <Windows.h>
 
@@ -32,7 +33,7 @@ HWND consoleWindow;
 BOOL WINAPI DllMain(
     HINSTANCE hModule,
     DWORD fdwReason,
-    LPVOID)
+    LPVOID lpReserved)
 {
     switch (fdwReason)
     {
@@ -49,6 +50,10 @@ BOOL WINAPI DllMain(
         break;
     case DLL_PROCESS_DETACH:
         ExtraUtilities::Logging::LogMessage("exu: DLL_PROCESS_DETACH");
+        if (lpReserved == nullptr)
+        {
+            ExtraUtilities::Lua::Overlay::ShutdownOverlaySupport();
+        }
 #ifdef _DEBUG
         FreeConsole();
         PostMessage(consoleWindow, WM_CLOSE, 0, 0);

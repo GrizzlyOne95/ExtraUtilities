@@ -26,9 +26,12 @@
 namespace ExtraUtilities::Lua::Radar
 {
 	inline Scanner state(BZR::Radar::state);
+	inline Scanner sizeScale(BZR::Radar::scale);
 
 	// 1 = radar
 	// 0 = minimap
 	int GetState(lua_State* L);
 	int SetState(lua_State* L);
+	int GetSizeScale(lua_State* L);
+	int SetSizeScale(lua_State* L);
 }

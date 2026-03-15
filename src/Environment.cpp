@@ -381,6 +381,96 @@ namespace ExtraUtilities::Lua::Environment
 		}
 	}
 
+	using GetViewportOverlaysEnabledFn = bool(__thiscall*)(void*);
+	using SetViewportOverlaysEnabledFn = void(__thiscall*)(void*, bool);
+
+	GetViewportOverlaysEnabledFn ResolveGetViewportOverlaysEnabled()
+	{
+		static GetViewportOverlaysEnabledFn fn = []()
+		{
+			HMODULE ogreMain = GetModuleHandleA("OgreMain.dll");
+			if (ogreMain == nullptr)
+			{
+				return static_cast<GetViewportOverlaysEnabledFn>(nullptr);
+			}
+
+			return reinterpret_cast<GetViewportOverlaysEnabledFn>(
+				GetProcAddress(ogreMain, "?getOverlaysEnabled@Viewport@Ogre@@QBE_NXZ"));
+		}();
+
+		return fn;
+	}
+
+	SetViewportOverlaysEnabledFn ResolveSetViewportOverlaysEnabled()
+	{
+		static SetViewportOverlaysEnabledFn fn = []()
+		{
+			HMODULE ogreMain = GetModuleHandleA("OgreMain.dll");
+			if (ogreMain == nullptr)
+			{
+				return static_cast<SetViewportOverlaysEnabledFn>(nullptr);
+			}
+
+			return reinterpret_cast<SetViewportOverlaysEnabledFn>(
+				GetProcAddress(ogreMain, "?setOverlaysEnabled@Viewport@Ogre@@QAEX_N@Z"));
+		}();
+
+		return fn;
+	}
+
+	bool TryGetViewportOverlaysEnabled(void* viewport, bool& outEnabled)
+	{
+		outEnabled = false;
+		if (viewport == nullptr)
+		{
+			return false;
+		}
+
+		const auto fn = ResolveGetViewportOverlaysEnabled();
+		if (fn == nullptr)
+		{
+			LogEnvironmentDebug("[EXU::Viewport] getOverlaysEnabled unavailable viewport=%p", viewport);
+			return false;
+		}
+
+		__try
+		{
+			outEnabled = fn(viewport);
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug("[EXU::Viewport] getOverlaysEnabled crashed viewport=%p code=0x%08X", viewport, GetExceptionCode());
+			return false;
+		}
+	}
+
+	bool TrySetViewportOverlaysEnabled(void* viewport, bool enabled)
+	{
+		if (viewport == nullptr)
+		{
+			return false;
+		}
+
+		const auto fn = ResolveSetViewportOverlaysEnabled();
+		if (fn == nullptr)
+		{
+			LogEnvironmentDebug("[EXU::Viewport] setOverlaysEnabled unavailable viewport=%p enabled=%d", viewport, enabled ? 1 : 0);
+			return false;
+		}
+
+		__try
+		{
+			fn(viewport, enabled);
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug("[EXU::Viewport] setOverlaysEnabled crashed viewport=%p enabled=%d code=0x%08X", viewport, enabled ? 1 : 0, GetExceptionCode());
+			return false;
+		}
+	}
+
 	void* GetSceneManager()
 	{
 		return Ogre::sceneManager.Read();
@@ -1079,6 +1169,40 @@ namespace ExtraUtilities::Lua::Environment
 		{
 			LogEnvironmentDebug("[EXU::Viewport] setShadowsEnabled crashed viewport=%p code=0x%08X", viewport, GetExceptionCode());
 		}
+
+		return 0;
+	}
+
+	int GetViewportOverlaysEnabled(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* viewport = GetCurrentViewport();
+		if (viewport == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		bool enabled = false;
+		TryGetViewportOverlaysEnabled(viewport, enabled);
+
+		lua_pushboolean(L, enabled ? 1 : 0);
+		return 1;
+	}
+
+	int SetViewportOverlaysEnabled(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* viewport = GetCurrentViewport();
+		if (viewport == nullptr)
+		{
+			return 0;
+		}
+
+		bool enabled = CheckBool(L, 1);
+		TrySetViewportOverlaysEnabled(viewport, enabled);
 
 		return 0;
 	}

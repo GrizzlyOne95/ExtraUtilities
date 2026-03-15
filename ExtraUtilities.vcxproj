@@ -77,7 +77,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)..\GIT\ogre-1.10.0\OgreMain\include;$(ProjectDir)..\GIT\ogre-1.10.0\Components\Overlay\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -110,7 +110,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)..\GIT\ogre-1.10.0\OgreMain\include;$(ProjectDir)..\GIT\ogre-1.10.0\Components\Overlay\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -153,6 +153,9 @@
     <ClCompile Include="src\KillMessages.cpp" />
     <ClCompile Include="src\LuaExport.cpp" />
     <ClCompile Include="src\Multiplayer.cpp" />
+    <ClCompile Include="src\OgreNativeFontBridge.cpp">
+      <LanguageStandard>stdcpp14</LanguageStandard>
+    </ClCompile>
     <ClCompile Include="src\Overlay.cpp" />
     <ClCompile Include="src\Ordnance.cpp" />
     <ClCompile Include="src\OrdnanceVelocity.cpp" />
@@ -191,6 +194,8 @@
     <ClInclude Include="src\LuaHelpers.h" />
     <ClInclude Include="src\LuaState.h" />
     <ClInclude Include="src\Multiplayer.h" />
+    <ClInclude Include="src\OgreBuildSettings.h" />
+    <ClInclude Include="src\OgreNativeFontBridge.h" />
     <ClInclude Include="src\OgreOverlayShim.h" />
     <ClInclude Include="src\Ogre.h" />
     <ClInclude Include="src\Overlay.h" />

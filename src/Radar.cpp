@@ -18,6 +18,8 @@
 
 #include "Radar.h"
 
+#include <cmath>
+
 namespace ExtraUtilities::Lua::Radar
 {
 	int GetState(lua_State* L)
@@ -34,6 +36,32 @@ namespace ExtraUtilities::Lua::Radar
 			luaL_error(L, "Invalid input: options are: 0, 1");
 		}
 		state.Write(newState);
+		return 0;
+	}
+
+	int GetSizeScale(lua_State* L)
+	{
+		lua_pushnumber(L, sizeScale.Read());
+		return 1;
+	}
+
+	int SetSizeScale(lua_State* L)
+	{
+		float newScale = static_cast<float>(luaL_checknumber(L, 1));
+		if (newScale <= 0.f)
+		{
+			luaL_error(L, "Invalid input: radar size scale must be greater than 0");
+		}
+
+		sizeScale.Write(newScale);
+
+		BZR::BZR_Camera* cam = BZR::Camera::View_Record_MainCam;
+		if (cam != nullptr && cam->Orig_y > 0.f)
+		{
+			int screenHeight = static_cast<int>(std::floor(cam->Orig_y)) * 2;
+			BZR::Radar::RefreshLayout(screenHeight);
+		}
+
 		return 0;
 	}
 }
