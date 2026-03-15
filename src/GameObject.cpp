@@ -26,16 +26,58 @@
 
 #include <cmath>
 #include <cstdarg>
+#include <cstring>
 #include <cstdio>
 #include <exception>
 #include <lua.hpp>
 
 #include <string>
+#include <unordered_set>
+#include <vector>
 
 namespace ExtraUtilities::Lua::GameObject
 {
 	namespace
 	{
+		struct MsvcPmd
+		{
+			int mdisp;
+			int pdisp;
+			int vdisp;
+		};
+
+		struct MsvcRttiTypeDescriptor
+		{
+			void* pVFTable;
+			void* spare;
+			char name[1];
+		};
+
+		struct MsvcRttiBaseClassDescriptor
+		{
+			MsvcRttiTypeDescriptor* pTypeDescriptor;
+			uint32_t numContainedBases;
+			MsvcPmd where;
+			uint32_t attributes;
+		};
+
+		struct MsvcRttiClassHierarchyDescriptor
+		{
+			uint32_t signature;
+			uint32_t attributes;
+			uint32_t numBaseClasses;
+			MsvcRttiBaseClassDescriptor** pBaseClassArray;
+		};
+
+		struct MsvcRttiCompleteObjectLocator
+		{
+			uint32_t signature;
+			uint32_t offset;
+			uint32_t cdOffset;
+			MsvcRttiTypeDescriptor* pTypeDescriptor;
+			MsvcRttiClassHierarchyDescriptor* pClassDescriptor;
+		};
+
 		struct MaterialPassHandle
 		{
 			::Ogre::Material* material = nullptr;
@@ -58,6 +100,179 @@ namespace ExtraUtilities::Lua::GameObject
 			{
 				fprintf(file, "%s\n", message);
 				fclose(file);
+			}
+		}
+
+		std::string NormalizeMsvcTypeName(const char* rawName)
+		{
+			if (rawName == nullptr || rawName[0] == '\0')
+			{
+				return {};
+			}
+
+			std::string name(rawName);
+			auto trimPrefixAndSuffix = [&](const char* prefix) -> std::string
+				{
+					const size_t prefixLen = strlen(prefix);
+					if (name.rfind(prefix, 0) != 0)
+					{
+						return {};
+					}
+
+					const size_t suffix = name.find("@@", prefixLen);
+					if (suffix == std::string::npos || suffix <= prefixLen)
+					{
+						return {};
+					}
+
+					return name.substr(prefixLen, suffix - prefixLen);
+				};
+
+			std::string trimmed = trimPrefixAndSuffix(".?AV");
+			if (!trimmed.empty())
+			{
+				return trimmed;
+			}
+
+			trimmed = trimPrefixAndSuffix(".?AU");
+			if (!trimmed.empty())
+			{
+				return trimmed;
+			}
+
+			return name;
+		}
+
+		bool TryGetPolymorphicMetadata(
+			void* object,
+			void*& outVtable,
+			const char*& outRawTypeName,
+			MsvcRttiClassHierarchyDescriptor*& outClassDescriptor)
+		{
+			outVtable = nullptr;
+			outRawTypeName = nullptr;
+			outClassDescriptor = nullptr;
+
+			if (object == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				void** vtable = *reinterpret_cast<void***>(object);
+				if (vtable == nullptr)
+				{
+					return false;
+				}
+
+				auto* col = *(reinterpret_cast<MsvcRttiCompleteObjectLocator**>(vtable) - 1);
+				if (col == nullptr || col->pTypeDescriptor == nullptr)
+				{
+					return false;
+				}
+
+				const char* rawName = col->pTypeDescriptor->name;
+				if (rawName == nullptr || rawName[0] == '\0')
+				{
+					return false;
+				}
+
+				outVtable = vtable;
+				outRawTypeName = rawName;
+				outClassDescriptor = col->pClassDescriptor;
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				outVtable = nullptr;
+				outRawTypeName = nullptr;
+				outClassDescriptor = nullptr;
+				return false;
+			}
+		}
+
+		bool TryGetBaseClassRawName(
+			MsvcRttiClassHierarchyDescriptor* classDescriptor,
+			uint32_t index,
+			const char*& outRawTypeName)
+		{
+			outRawTypeName = nullptr;
+
+			if (classDescriptor == nullptr || classDescriptor->pBaseClassArray == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				auto* baseDescriptor = classDescriptor->pBaseClassArray[index];
+				if (baseDescriptor == nullptr || baseDescriptor->pTypeDescriptor == nullptr)
+				{
+					return false;
+				}
+
+				const char* rawTypeName = baseDescriptor->pTypeDescriptor->name;
+				if (rawTypeName == nullptr || rawTypeName[0] == '\0')
+				{
+					return false;
+				}
+
+				outRawTypeName = rawTypeName;
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				outRawTypeName = nullptr;
+				return false;
+			}
+		}
+
+		std::vector<std::string> BuildHierarchyNames(MsvcRttiClassHierarchyDescriptor* classDescriptor)
+		{
+			std::vector<std::string> result;
+			if (classDescriptor == nullptr)
+			{
+				return result;
+			}
+
+			uint32_t count = classDescriptor->numBaseClasses;
+			if (count > 64)
+			{
+				count = 64;
+			}
+
+			std::unordered_set<std::string> seenNames;
+			for (uint32_t i = 0; i < count; ++i)
+			{
+				const char* baseRawName = nullptr;
+				if (!TryGetBaseClassRawName(classDescriptor, i, baseRawName))
+				{
+					continue;
+				}
+
+				std::string prettyName = NormalizeMsvcTypeName(baseRawName);
+				if (prettyName.empty())
+				{
+					prettyName = baseRawName;
+				}
+
+				if (seenNames.insert(prettyName).second)
+				{
+					result.push_back(prettyName);
+				}
+			}
+
+			return result;
+		}
+
+		void PushStringArray(lua_State* L, const std::vector<std::string>& values)
+		{
+			lua_createtable(L, static_cast<int>(values.size()), 0);
+			for (size_t i = 0; i < values.size(); ++i)
+			{
+				lua_pushstring(L, values[i].c_str());
+				lua_rawseti(L, -2, static_cast<int>(i + 1));
 			}
 		}
 
@@ -2321,6 +2536,98 @@ namespace ExtraUtilities::Lua::GameObject
 		BZR::handle h = CheckHandle(L, 1);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
 		lua_pushlightuserdata(L, obj);
+		return 1;
+	}
+
+	int GetAiProcess(lua_State* L)
+	{
+		BZR::handle h = CheckHandle(L, 1);
+		__try
+		{
+			void* aiProcess = BZR::GameObject::GetObj(h)->aiProcess;
+			if (aiProcess == nullptr)
+			{
+				lua_pushnil(L);
+			}
+			else
+			{
+				lua_pushlightuserdata(L, aiProcess);
+			}
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogMaterialDebug("[EXU::GetAiProcess] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
+			lua_pushnil(L);
+		}
+		return 1;
+	}
+
+	int GetAiProcessTypeName(lua_State* L)
+	{
+		BZR::handle h = CheckHandle(L, 1);
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		void* vtable = nullptr;
+		const char* rawTypeName = nullptr;
+		MsvcRttiClassHierarchyDescriptor* classDescriptor = nullptr;
+
+		if (TryGetPolymorphicMetadata(obj->aiProcess, vtable, rawTypeName, classDescriptor))
+		{
+			std::string typeName = NormalizeMsvcTypeName(rawTypeName);
+			if (!typeName.empty())
+			{
+				lua_pushstring(L, typeName.c_str());
+			}
+			else
+			{
+				lua_pushnil(L);
+			}
+		}
+		else
+		{
+			lua_pushnil(L);
+		}
+		return 1;
+	}
+
+	int GetAiProcessInfo(lua_State* L)
+	{
+		BZR::handle h = CheckHandle(L, 1);
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		void* aiProcess = obj->aiProcess;
+		if (aiProcess == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		void* vtable = nullptr;
+		const char* rawTypeName = nullptr;
+		MsvcRttiClassHierarchyDescriptor* classDescriptor = nullptr;
+
+		lua_createtable(L, 0, 5);
+		lua_pushlightuserdata(L, aiProcess);
+		lua_setfield(L, -2, "process");
+
+		if (TryGetPolymorphicMetadata(aiProcess, vtable, rawTypeName, classDescriptor))
+		{
+			if (vtable != nullptr)
+			{
+				lua_pushlightuserdata(L, vtable);
+				lua_setfield(L, -2, "vtable");
+			}
+
+			std::string typeName = NormalizeMsvcTypeName(rawTypeName);
+			lua_pushstring(L, rawTypeName);
+			lua_setfield(L, -2, "rawTypeName");
+
+			lua_pushstring(L, typeName.c_str());
+			lua_setfield(L, -2, "typeName");
+
+			std::vector<std::string> hierarchy = BuildHierarchyNames(classDescriptor);
+			PushStringArray(L, hierarchy);
+			lua_setfield(L, -2, "hierarchy");
+		}
+
 		return 1;
 	}
 

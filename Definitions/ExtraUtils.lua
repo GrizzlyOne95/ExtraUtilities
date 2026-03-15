@@ -615,6 +615,21 @@ function exu.SetOverlayCaption(name, text) end
 --- @return boolean success True when the font was bound successfully.
 function exu.SetOverlayTextFont(name, fontName) end
 
+--- Sets the top and bottom text colors of a text area created through `CreateOverlayElement("TextArea", ...)`.
+--- Can take either four number parameters or a color table.
+--- @param name string
+--- @param r number
+--- @param g number
+--- @param b number
+--- @param a number? optional
+function exu.SetOverlayTextColor(name, r, g, b, a) end
+
+--- Sets the top and bottom text colors of a text area created through `CreateOverlayElement("TextArea", ...)`.
+--- Can take either four number parameters or a color table.
+--- @param name string
+--- @param color Color
+function exu.SetOverlayTextColor(name, color) end
+
 --- Sets the character height of a text area created through `CreateOverlayElement("TextArea", ...)`.
 --- @param name string
 --- @param charHeight number
@@ -937,6 +952,25 @@ function exu.SetMass(h) end
 --- @param h Handle
 --- @return GameObject*
 function exu.GetObj(h) end
+
+--- Gets the object's live AiProcess* pointer, if any.
+--- @nodiscard
+--- @param h Handle
+--- @return AiProcess* | nil
+function exu.GetAiProcess(h) end
+
+--- Gets the RTTI class name of the object's live AI process, if available.
+--- @nodiscard
+--- @param h Handle
+--- @return string | nil
+function exu.GetAiProcessTypeName(h) end
+
+--- Gets AI process debug info for the given object.
+--- Fields may include `process`, `vtable`, `rawTypeName`, `typeName`, and `hierarchy`.
+--- @nodiscard
+--- @param h Handle
+--- @return table | nil
+function exu.GetAiProcessInfo(h) end
 
 --- Gets the radar scan period for the given object (if it has a radar).
 --- @nodiscard
