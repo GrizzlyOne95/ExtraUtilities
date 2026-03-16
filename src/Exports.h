@@ -23,6 +23,7 @@
 #pragma once
 
 #include "Camera.h"
+#include "CommandReplacement.h"
 #include "ControlPanel.h"
 #include "Environment.h"
 #include "GameObject.h"

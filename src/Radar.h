@@ -34,4 +34,6 @@ namespace ExtraUtilities::Lua::Radar
 	int SetState(lua_State* L);
 	int GetSizeScale(lua_State* L);
 	int SetSizeScale(lua_State* L);
+	int RefreshEdgePathBounds(lua_State* L);
+	int SetEdgePathCoords(lua_State* L);
 }

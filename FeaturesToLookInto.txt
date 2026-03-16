@@ -1,4 +1,6 @@
-1) The ability to add and remove commands from the command menu for any unit. By "adding" I mean having a lua hook that would put in text you define and it would execute a lua script for that unit when the button is pressed.
+Battlezone98Redux was compiled in Visual Studio 2013 32 bit.
+
+1) The ability to add and remove commands from the command menu for any unit. By "adding" I mean having a lua hook that would put in text you define and it would execute a lua script for that unit when the button is pressed. Look how the command menu for a unit is switched for something like changing Hunt to Cloak. RE status: investigated in GOG exe/pdb, Steam exe, Campaign Reimagined ODFs, and EXU/OpenShim code. `cvfigh.odf` does not expose a generic command definition system; the relevant stock delta vs `svfigh.odf` is `CraftClass.cloakAllowed = "True"` rather than a custom button declaration. The native command menu appears to be built from fixed mode tables and class-specific logic (`Wingman::UpdateModeList`, `Wingman::SetActiveMode`, `Craft::SetActiveMode`, `ActionMode::GetCommand`, `ControlPanel::SetModeMenu`, `PathDisplay::DrawCommandMenu`). Important finding: the PDB has `MODE_HUNT` / `CMD_HUNT`, but no `MODE_CLOAK` / `CMD_CLOAK`, which strongly suggests the stock Cloak behavior is a hardcoded substitution of the Hunt slot for cloak-capable craft, not a reusable data-driven feature. Current EXU only exposes control-panel selection helpers, not command-menu mutation. Practical path forward: a limited native patch should be feasible by reusing an existing stock slot, overriding its displayed text, and dispatching to Lua from `SetActiveMode`/`GetCommand`; truly adding arbitrary extra buttons would require a deeper control-panel/UI patch. Prototype started in EXU on 2026-03-16: added `exu.ReplaceStockCmd`, `exu.RemoveStockCmdReplacement`, `exu.HasStockCmdReplacement`, `exu.GetStockCmdReplacement`, `exu.TriggerStockCmdReplacement`, and `exu.UpdateCommandReplacements` with per-handle/per-command Lua callback registration. Current first full pass: campaign update loops now call `exu.UpdateCommandReplacements()`, which auto-intercepts selected-unit `Hunt` transitions, dispatches the Lua callback, and tries to relabel the Hunt slot by scanning the live executable for the stock command label table. Current limitations: only `Hunt` is auto-hooked, this is still polling-based rather than a direct native menu-click hook, and the label override is best-effort until a dedicated native hook lands. Full notes: `Battlezone98Redux_Shim\\reverse_engineering\\unit_command_swap_notes.md` and `command_replace_notes.md`.
 
 2) Add custom UIs directly to the game and have them respond to lua coding. While my efforts/experiments are neat, they tend to be very obtuse, inefficient and tedious to change. - substantially implemented in EXU with native Ogre overlay bindings and runtime font support. We now have Lua-facing overlay APIs like CreateOverlay/DestroyOverlay, CreateOverlayElement, AddOverlay2D, AddOverlayElementChild, SetOverlayPosition, SetOverlayDimensions, SetOverlayMaterial, SetOverlayParameter, SetOverlayCaption, SetOverlayTextFont, SetOverlayTextColor, and SetOverlayTextCharHeight. This gives us Lua-driven material/image/text HUD work without needing the older obtuse shell hacks. Still refining edge cases like pause/menu interaction, visibility suppression, and broader higher-level helpers.
 
@@ -6,7 +8,7 @@
 
 4) A means to re-size the radar. you need a 4k monitor for the larger UI size to not take up 80% of the screen. - implemented in EXU via radar scale at 0x008E77B0 plus layout refresh helper 0x00492EC0, exposed as exu.GetRadarSizeScale()/exu.SetRadarSizeScale(). We also have exu.GetRadarState()/exu.SetRadarState() nearby, so Lua can manage both visibility/state and scale together.
 
-5) A way to change what part of the minimap is displayed at runtime. If I want a strat map that is a small portion of a huge campaign map, I currently have no way of merging the two practically. Basically a dynamic edge_path which can be adjusted/reloaded to update map boundaries.
+5) A way to change what part of the minimap is displayed at runtime. If I want a strat map that is a small portion of a huge campaign map, I currently have no way of merging the two practically. Basically a dynamic edge_path which can be adjusted/reloaded to update map boundaries. - implemented in EXU as a first safe native pass. EXU now exposes exu.SetEdgePathCoords(points) and exu.RefreshEdgePathBounds(). The native side uses the runtime "edge_path" lookup plus the rebuild helper at 0x0046AF20, which recomputes the live map-bounds cache at 0x00917388/0x0091738C/0x00917390/0x00917394 and refreshes dependent systems. This affects both minimap framing and gameplay boundary checks, not just editor data. Current limitation: SetEdgePathCoords only replaces coordinates in-place and requires the same point count as the existing runtime edge_path, which is the lower-risk version until path allocation/resizing is fully validated. Input points can be vector userdata, tables with x/z keys, or simple {x, z} arrays. Requires an active mission.
 
 6) A way to swap out the terrain textures and environment at runtime (So any map can take place on any planet, like warcraft 2 did back in the day). - partially implemented in EXU. Full one-call "planet swap" is not done yet, but we do now have a lot of the runtime environment controls needed to build it: fog, gravity, ambient light, sun ambient/diffuse/specular, sun direction, time of day, sun power scale, shadow far distance, viewport shadow toggles, visibility mask controls, and skybox/skydome/skyplane inspection. Combined with the material hot-swap helpers above, we can already script significant visual re-theming; what is still missing is a clean high-level terrain/environment preset pipeline and any direct terrain-texture-set convenience layer.
 
@@ -17,4 +19,29 @@
 9) Access to the radio feedback system, so we can finally do away with the massive amounts of audio clip queueing that makes the units talk non-stop mentioning orders you performed like 4 minutes ago. In BZP even with my enhancements this can still get really bogged down especially when issuing rapid orders to howitzers. I do not have the time or patience to re-write the entire radio feedback system and I think it would be riddled with problems if I attempted it. A nice bonus would be to allow units to be programmed to have alternate lines. I sorta did this with the producer units in BZP (IE: selecting the recycler randomly plays between 2 clips, "recycler here" or "yes sir!")
 
 10) Based off RE findings in _bzcp.dll, we can modify the shell UI. Look into adding autosave native shell UI instead of overwriting a stock save slot. - implemented in BZR-OpenShim rather than EXU. OpenShim now injects an AutoSave button into the load screen, detects auto.sav/auto2.sav in the Save folder, prepares the native load screen selection state, queues the real autosave path into the game's queued-load buffers, and loads it without reusing or overwriting a stock save slot. This is native shell integration, not a fake replacement slot.
-11) Mission, MP round, or global stats (kills, snipes, etc)
+11) Mission, MP round, or career stats (kills, snipes, etc)
+
+12) Specifying engine flame color per team or handle. Sprite sheets have green/red/blue flame definitions, but it seems to be hardcoded in the game to always use blue. 
+13) Sometimes when saving or editing TRN files (saving by editor or manually editing) the line feeds get converted to a different format. They need to be Windows format. The game ignores any and all text with line feeds other than this one.
+
+The BZ application itself can cause this to happen however. Exact circumstances to reproduce it have not been successful yet.
+
+Can be fixed by mass converting TRN file to ANSI and forcing line feeds to CR LF
+
+14) Add team filters for stuff like shield towers, magnet mines, etc. So basically a way to have the object ignore a specified team number. 
+
+15) Patch the incoming whitelist check to allow .tga (Whitelist .tga for multiplayer) This is harmless addition that allows mods that update sky textures to work in multiplayer. 
+
+16) Allow mods to replace UI, cursors, or other non-mission content like loading screens or planet spin animations. Most likely can be achieved by adding an Ogre Resource destination. 
+
+17) Allow Lua to play other audio types besides .wav (or grant soundtrack OGG control via Lua). 
+
+18) Add a way to adjust turret aiming range. Currently hardcoded to 0.5 radians so they can't aim straight up at threats for example. 
+
+19) Hardcoded weapon mask issues for howitzer and minelayer classlabels. They only ever use 00001 (or first slot) regardless of Lua or ODF settings. Maybe tied to AI process? ArtilleryFriend and MinelayerFriend.
+
+20) You cannot place objects in Shift F10 mode in editor. You can if you 'Pause' the game using Pause button on keyboard. Pre Redux you could simply place them, in Redux it does not place the object unless you use Pause button.
+
+21) Lua Function "ObjectiveObjectives" doesn't iterate properly. It seems to spam the first result indefinitely cauisng a hang. 
+
+22) Some BMP formats cause a hard crash when trying to launch a mod or campaign with that thumbnail. Anything other than 24 bit and using "do not write color space info" crashes the game. Need to repro and get crash dump. 

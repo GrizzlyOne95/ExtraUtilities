@@ -225,6 +225,7 @@ namespace ExtraUtilities::Lua
 	{
 		StackGuard guard(L);
 		state = L; // save the state pointer to use in callbacks
+		CommandReplacement::ResetState(L);
 		Logging::LogMessage("exu: Init starting");
 		BasicPatch::EnableDeferredPatchActivation();
 		Logging::LogMessage("exu: deferred patches activated");
@@ -269,6 +270,14 @@ namespace ExtraUtilities::Lua
 			{ "SetCameraPolygonMode", &Camera::SetPolygonMode },
 			{ "GetCameraZoom", &Camera::GetZoom },
 			{ "SetCameraZoom", &Camera::SetZoom },
+
+			// Command replacement
+			{ "ReplaceStockCmd", &CommandReplacement::ReplaceStockCmd },
+			{ "RemoveStockCmdReplacement", &CommandReplacement::RemoveStockCmdReplacement },
+			{ "HasStockCmdReplacement", &CommandReplacement::HasStockCmdReplacement },
+			{ "GetStockCmdReplacement", &CommandReplacement::GetStockCmdReplacement },
+			{ "TriggerStockCmdReplacement", &CommandReplacement::TriggerStockCmdReplacement },
+			{ "UpdateCommandReplacements", &CommandReplacement::UpdateCommandReplacements },
 
 			// Control Panel
 			{ "SelectAdd",  &ControlPanel::SelectAdd },
@@ -442,6 +451,8 @@ namespace ExtraUtilities::Lua
 			{ "SetRadarState", &Radar::SetState },
 			{ "GetRadarSizeScale", &Radar::GetSizeScale },
 			{ "SetRadarSizeScale", &Radar::SetSizeScale },
+			{ "RefreshEdgePathBounds", &Radar::RefreshEdgePathBounds },
+			{ "SetEdgePathCoords", &Radar::SetEdgePathCoords },
 
 			// Patches
 			{ "AddScrapSilent",     &Patches::AddScrapSilent },

@@ -263,6 +263,45 @@ function exu.SelectNone() end
 --- @param h Handle
 function exu.SelectOne(h) end
 
+--- Command Replacement
+---
+--- These functions replace a stock command slot on a specific unit with Lua-driven behavior.
+
+--- Registers a stock command replacement on a specific handle.
+--- Current automatic interception is limited to selected-unit `Hunt` transitions.
+--- @param h Handle
+--- @param stockCommandName string
+--- @param replacementLabel string
+--- @param callback fun(unit: Handle, stockCommand: string, replacementLabel: string, origin: string): boolean|nil
+function exu.ReplaceStockCmd(h, stockCommandName, replacementLabel, callback) end
+
+--- Removes a previously registered stock command replacement.
+--- @param h Handle
+--- @param stockCommandName string
+--- @return boolean
+function exu.RemoveStockCmdReplacement(h, stockCommandName) end
+
+--- Returns whether a replacement exists for the given unit and stock command.
+--- @param h Handle
+--- @param stockCommandName string
+--- @return boolean
+function exu.HasStockCmdReplacement(h, stockCommandName) end
+
+--- Returns replacement metadata for the given unit and stock command.
+--- @param h Handle
+--- @param stockCommandName string
+--- @return {stockCommand: string, replacementLabel: string}|nil
+function exu.GetStockCmdReplacement(h, stockCommandName) end
+
+--- Manually dispatches a registered replacement callback.
+--- @param h Handle
+--- @param stockCommandName string
+--- @return boolean
+function exu.TriggerStockCmdReplacement(h, stockCommandName) end
+
+--- Polls for active stock-command replacements and dispatches any automatic handlers.
+function exu.UpdateCommandReplacements() end
+
 --- Environment
 ---
 --- These functions can query and modify attributes about the environment like gravity and lighting.
@@ -1346,6 +1385,16 @@ function exu.GetRadarSizeScale() end
 --- Note that changing the game's HUD scaling option may overwrite this value.
 --- @param scale number
 function exu.SetRadarSizeScale(scale) end
+
+--- Rebuilds the live map bounds and minimap extents from the current edge_path.
+--- This uses the game's native refresh path and can be called after native edge_path edits.
+function exu.RefreshEdgePathBounds() end
+
+--- Replaces the existing edge_path point coordinates in place and refreshes the live map bounds.
+--- The number of points must match the map's existing edge_path exactly.
+--- Each entry may be a vector-like userdata/table with x/z fields, or a two-number array {x, z}.
+--- @param points table
+function exu.SetEdgePathCoords(points) end
 
 --- Reticle
 ---
