@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <fstream>
 #include <string>
+#include <type_traits>
 
 #ifndef register
 #define EXU_OGRE_RESTORE_REGISTER
@@ -96,6 +97,12 @@ namespace
 	using CreateFontFn = FontPtrPod(__thiscall*)(Ogre::FontManager*, const Ogre::String&, const Ogre::String&, bool, Ogre::ManualResourceLoader*, const Ogre::NameValuePairList*);
 	using InitialiseResourceGroupFn = void(__thiscall*)(Ogre::ResourceGroupManager*, const Ogre::String&);
 	using OpenResourceFn = Ogre::DataStreamPtr(__thiscall*)(Ogre::ResourceGroupManager*, const Ogre::String&, const Ogre::String&, bool, Ogre::Resource*);
+	using UtfStringCtorFromCharFn = void* (__thiscall*)(void*, const char*);
+	using UtfStringDtorFn = void(__thiscall*)(void*);
+	using ColourValueCtorFn = void* (__thiscall*)(void*, float, float, float, float);
+	using TextAreaSetCaptionFn = void(__thiscall*)(void*, const Ogre::UTFString&);
+	using TextAreaSetCharHeightFn = void(__thiscall*)(void*, float);
+	using TextAreaSetColourFn = void(__thiscall*)(void*, const Ogre::ColourValue&);
 
 	struct SpriteGlyph
 	{
@@ -200,6 +207,54 @@ namespace
 		static const OpenResourceFn fn = ResolveOgreProc<OpenResourceFn>(
 			GetOgreMainModule(),
 			"?openResource@ResourceGroupManager@Ogre@@QAE?AV?$SharedPtr@VDataStream@Ogre@@@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0_NPAVResource@2@@Z");
+		return fn;
+	}
+
+	UtfStringCtorFromCharFn ResolveUtfStringCtorFromCharProc()
+	{
+		static const UtfStringCtorFromCharFn fn = ResolveOgreProc<UtfStringCtorFromCharFn>(
+			GetOgreMainModule(),
+			"??0UTFString@Ogre@@QAE@PBD@Z");
+		return fn;
+	}
+
+	UtfStringDtorFn ResolveUtfStringDtorProc()
+	{
+		static const UtfStringDtorFn fn = ResolveOgreProc<UtfStringDtorFn>(
+			GetOgreMainModule(),
+			"??1UTFString@Ogre@@QAE@XZ");
+		return fn;
+	}
+
+	ColourValueCtorFn ResolveColourValueCtorProc()
+	{
+		static const ColourValueCtorFn fn = ResolveOgreProc<ColourValueCtorFn>(
+			GetOgreMainModule(),
+			"??0ColourValue@Ogre@@QAE@MMMM@Z");
+		return fn;
+	}
+
+	TextAreaSetCaptionFn ResolveTextAreaSetCaptionProc()
+	{
+		static const TextAreaSetCaptionFn fn = ResolveOgreProc<TextAreaSetCaptionFn>(
+			GetOgreOverlayModule(),
+			"?setCaption@TextAreaOverlayElement@Ogre@@UAEXABVUTFString@2@@Z");
+		return fn;
+	}
+
+	TextAreaSetCharHeightFn ResolveTextAreaSetCharHeightProc()
+	{
+		static const TextAreaSetCharHeightFn fn = ResolveOgreProc<TextAreaSetCharHeightFn>(
+			GetOgreOverlayModule(),
+			"?setCharHeight@TextAreaOverlayElement@Ogre@@QAEXM@Z");
+		return fn;
+	}
+
+	TextAreaSetColourFn ResolveTextAreaSetColourProc()
+	{
+		static const TextAreaSetColourFn fn = ResolveOgreProc<TextAreaSetColourFn>(
+			GetOgreOverlayModule(),
+			"?setColour@TextAreaOverlayElement@Ogre@@UAEXABVColourValue@2@@Z");
 		return fn;
 	}
 
@@ -445,6 +500,52 @@ namespace
 		textArea->setFontName(fontName);
 	}
 
+	bool SetTextAreaCaptionDynamic(void* overlayElement, const char* text)
+	{
+		const UtfStringCtorFromCharFn utfCtor = ResolveUtfStringCtorFromCharProc();
+		const UtfStringDtorFn utfDtor = ResolveUtfStringDtorProc();
+		const TextAreaSetCaptionFn setCaption = ResolveTextAreaSetCaptionProc();
+		if (overlayElement == nullptr || text == nullptr || utfCtor == nullptr || utfDtor == nullptr || setCaption == nullptr)
+		{
+			return false;
+		}
+
+		typename std::aligned_storage<sizeof(Ogre::UTFString), alignof(Ogre::UTFString)>::type utfStorage;
+		auto* utfText = reinterpret_cast<Ogre::UTFString*>(&utfStorage);
+		utfCtor(utfText, text);
+		setCaption(overlayElement, *utfText);
+		utfDtor(utfText);
+		return true;
+	}
+
+	bool SetTextAreaCharHeightDynamic(void* overlayElement, float charHeight)
+	{
+		const TextAreaSetCharHeightFn setCharHeight = ResolveTextAreaSetCharHeightProc();
+		if (overlayElement == nullptr || setCharHeight == nullptr)
+		{
+			return false;
+		}
+
+		setCharHeight(overlayElement, charHeight);
+		return true;
+	}
+
+	bool SetTextAreaColorDynamic(void* overlayElement, float r, float g, float b, float a)
+	{
+		const ColourValueCtorFn colourCtor = ResolveColourValueCtorProc();
+		const TextAreaSetColourFn setColour = ResolveTextAreaSetColourProc();
+		if (overlayElement == nullptr || colourCtor == nullptr || setColour == nullptr)
+		{
+			return false;
+		}
+
+		typename std::aligned_storage<sizeof(Ogre::ColourValue), alignof(Ogre::ColourValue)>::type colourStorage;
+		auto* color = reinterpret_cast<Ogre::ColourValue*>(&colourStorage);
+		colourCtor(color, r, g, b, a);
+		setColour(overlayElement, *color);
+		return true;
+	}
+
 	bool TrySetTextAreaFontNameSeh(void* overlayElement, const char* fontName, unsigned int& outExceptionCode)
 	{
 		outExceptionCode = 0;
@@ -453,6 +554,48 @@ namespace
 		{
 			SetTextAreaFontNameCpp(overlayElement, fontName);
 			return true;
+		}
+		__except (outExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			return false;
+		}
+	}
+
+	bool TrySetTextAreaCaptionSeh(void* overlayElement, const char* text, unsigned int& outExceptionCode)
+	{
+		outExceptionCode = 0;
+
+		__try
+		{
+			return SetTextAreaCaptionDynamic(overlayElement, text);
+		}
+		__except (outExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			return false;
+		}
+	}
+
+	bool TrySetTextAreaCharHeightSeh(void* overlayElement, float charHeight, unsigned int& outExceptionCode)
+	{
+		outExceptionCode = 0;
+
+		__try
+		{
+			return SetTextAreaCharHeightDynamic(overlayElement, charHeight);
+		}
+		__except (outExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			return false;
+		}
+	}
+
+	bool TrySetTextAreaColorSeh(void* overlayElement, float r, float g, float b, float a, unsigned int& outExceptionCode)
+	{
+		outExceptionCode = 0;
+
+		__try
+		{
+			return SetTextAreaColorDynamic(overlayElement, r, g, b, a);
 		}
 		__except (outExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
 		{
@@ -899,6 +1042,134 @@ namespace Native
 			LogNativeOverlayMessage("[EXU::Overlay] native setFontName threw element=%p font=%s",
 				overlayElement,
 				fontName);
+			return false;
+		}
+	}
+
+	bool TrySetTextAreaCaption(void* overlayElement, const char* text) noexcept
+	{
+		if (overlayElement == nullptr || text == nullptr)
+		{
+			LogNativeOverlayMessage("[EXU::Overlay] native setCaption rejected element=%p text=%s",
+				overlayElement,
+				text != nullptr ? text : "<null>");
+			return false;
+		}
+
+		try
+		{
+			unsigned int exceptionCode = 0;
+			const bool success = TrySetTextAreaCaptionSeh(overlayElement, text, exceptionCode);
+			if (!success)
+			{
+				LogNativeOverlayMessage("[EXU::Overlay] native setCaption failed element=%p text=%s code=0x%08X",
+					overlayElement,
+					text,
+					exceptionCode);
+				return false;
+			}
+			LogNativeOverlayMessage("[EXU::Overlay] native setCaption element=%p text=%s", overlayElement, text);
+			return true;
+		}
+		catch (const std::exception& ex)
+		{
+			LogNativeOverlayMessage("[EXU::Overlay] native setCaption threw element=%p text=%s what=%s",
+				overlayElement,
+				text,
+				ex.what());
+			return false;
+		}
+		catch (...)
+		{
+			LogNativeOverlayMessage("[EXU::Overlay] native setCaption threw element=%p text=%s",
+				overlayElement,
+				text);
+			return false;
+		}
+	}
+
+	bool TrySetTextAreaCharHeight(void* overlayElement, float charHeight) noexcept
+	{
+		if (overlayElement == nullptr)
+		{
+			LogNativeOverlayMessage("[EXU::Overlay] native setCharHeight rejected element=%p height=%.3f",
+				overlayElement,
+				charHeight);
+			return false;
+		}
+
+		try
+		{
+			unsigned int exceptionCode = 0;
+			const bool success = TrySetTextAreaCharHeightSeh(overlayElement, charHeight, exceptionCode);
+			if (!success)
+			{
+				LogNativeOverlayMessage("[EXU::Overlay] native setCharHeight failed element=%p height=%.3f code=0x%08X",
+					overlayElement,
+					charHeight,
+					exceptionCode);
+				return false;
+			}
+			LogNativeOverlayMessage("[EXU::Overlay] native setCharHeight element=%p height=%.3f", overlayElement, charHeight);
+			return true;
+		}
+		catch (const std::exception& ex)
+		{
+			LogNativeOverlayMessage("[EXU::Overlay] native setCharHeight threw element=%p height=%.3f what=%s",
+				overlayElement,
+				charHeight,
+				ex.what());
+			return false;
+		}
+		catch (...)
+		{
+			LogNativeOverlayMessage("[EXU::Overlay] native setCharHeight threw element=%p height=%.3f",
+				overlayElement,
+				charHeight);
+			return false;
+		}
+	}
+
+	bool TrySetTextAreaColor(void* overlayElement, float r, float g, float b, float a) noexcept
+	{
+		if (overlayElement == nullptr)
+		{
+			LogNativeOverlayMessage("[EXU::Overlay] native setTextColor rejected element=%p rgba=(%.3f,%.3f,%.3f,%.3f)",
+				overlayElement,
+				r, g, b, a);
+			return false;
+		}
+
+		try
+		{
+			unsigned int exceptionCode = 0;
+			const bool success = TrySetTextAreaColorSeh(overlayElement, r, g, b, a, exceptionCode);
+			if (!success)
+			{
+				LogNativeOverlayMessage("[EXU::Overlay] native setTextColor failed element=%p rgba=(%.3f,%.3f,%.3f,%.3f) code=0x%08X",
+					overlayElement,
+					r, g, b, a,
+					exceptionCode);
+				return false;
+			}
+			LogNativeOverlayMessage("[EXU::Overlay] native setTextColor element=%p rgba=(%.3f,%.3f,%.3f,%.3f)",
+				overlayElement,
+				r, g, b, a);
+			return true;
+		}
+		catch (const std::exception& ex)
+		{
+			LogNativeOverlayMessage("[EXU::Overlay] native setTextColor threw element=%p rgba=(%.3f,%.3f,%.3f,%.3f) what=%s",
+				overlayElement,
+				r, g, b, a,
+				ex.what());
+			return false;
+		}
+		catch (...)
+		{
+			LogNativeOverlayMessage("[EXU::Overlay] native setTextColor threw element=%p rgba=(%.3f,%.3f,%.3f,%.3f)",
+				overlayElement,
+				r, g, b, a);
 			return false;
 		}
 	}

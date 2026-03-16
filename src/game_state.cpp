@@ -31,60 +31,114 @@ namespace ExtraUtilities
 			}
 		}
 
-		bool IsMultiplayerPauseMenuOpen() noexcept
+		const char* DescribeScreenType(uint32_t screenType) noexcept
 		{
+			switch (screenType)
+			{
+			case kOptionsScreenType:
+				return "options";
+			case kPauseScreenType:
+				return "pause";
+			case kSaveGameScreenType:
+				return "save";
+			case kLoadGameScreenType:
+				return "load";
+			case kRestartScreenType:
+				return "restart";
+			case 0:
+				return "none";
+			default:
+				return "other";
+			}
+		}
+
+		bool TryGetPauseMenuDebugState(PauseMenuDebugState& outState) noexcept
+		{
+			outState = {};
+
 			__try
 			{
-				const auto* root = reinterpret_cast<void* const*>(kMultiplayerPauseRootAddr);
-				const auto* flag = reinterpret_cast<const uint8_t*>(kMultiplayerPauseFlagAddr);
-				return (*root != nullptr || *flag != 0) && IsCursorVisible();
+				const auto* multiplayerPauseRoot = reinterpret_cast<void* const*>(kMultiplayerPauseRootAddr);
+				const auto* multiplayerPauseFlag = reinterpret_cast<const uint8_t*>(kMultiplayerPauseFlagAddr);
+				const auto* singleplayerPauseRoot = reinterpret_cast<void* const*>(kSingleplayerPauseRootAddr);
+				const auto* uiCurrentScreen = reinterpret_cast<void* const*>(kUiCurrentScreenAddr);
+				const auto* uiWrapperActive = reinterpret_cast<const uint32_t*>(kUiWrapperActiveAddr);
+				const auto* uiCurrentScreenType = reinterpret_cast<const uint32_t*>(kUiCurrentScreenTypeAddr);
+
+				outState.cursorVisible = IsCursorVisible();
+				outState.singleplayerPauseRoot = reinterpret_cast<uintptr_t>(*singleplayerPauseRoot);
+				outState.multiplayerPauseRoot = reinterpret_cast<uintptr_t>(*multiplayerPauseRoot);
+				outState.uiCurrentScreen = reinterpret_cast<uintptr_t>(*uiCurrentScreen);
+				outState.uiWrapperActive = *uiWrapperActive;
+				outState.uiCurrentScreenType = *uiCurrentScreenType;
+				outState.multiplayerPauseFlag = static_cast<uint32_t>(*multiplayerPauseFlag);
+				outState.currentScreenMatchesPauseRoot = (*uiCurrentScreen != nullptr) && (*uiCurrentScreen == *singleplayerPauseRoot);
+
+				const bool multiplayerOpen = ((*multiplayerPauseRoot != nullptr) || (*multiplayerPauseFlag != 0)) && outState.cursorVisible;
+				bool singleplayerOpen = false;
+				if (*singleplayerPauseRoot != nullptr && *uiWrapperActive != 0)
+				{
+					if (*uiCurrentScreen == *singleplayerPauseRoot)
+					{
+						singleplayerOpen = true;
+					}
+					else
+					{
+						switch (*uiCurrentScreenType)
+						{
+						case kPauseScreenType:
+						case kOptionsScreenType:
+						case kSaveGameScreenType:
+						case kLoadGameScreenType:
+						case kRestartScreenType:
+							singleplayerOpen = true;
+							break;
+						default:
+							break;
+						}
+					}
+				}
+
+				outState.multiplayerPauseOpen = multiplayerOpen;
+				outState.singleplayerPauseOpen = singleplayerOpen;
+				outState.pauseMenuOpen = multiplayerOpen || singleplayerOpen;
+				return true;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
+				outState = {};
 				return false;
 			}
+		}
+
+		bool IsMultiplayerPauseMenuOpen() noexcept
+		{
+			PauseMenuDebugState state{};
+			if (!TryGetPauseMenuDebugState(state))
+			{
+				return false;
+			}
+			return state.multiplayerPauseOpen;
 		}
 
 		bool IsSingleplayerPauseMenuOpen() noexcept
 		{
-			__try
-			{
-				const auto* pauseRoot = reinterpret_cast<void* const*>(kSingleplayerPauseRootAddr);
-				const auto* uiWrapperActive = reinterpret_cast<const uint32_t*>(kUiWrapperActiveAddr);
-				const auto* uiCurrentScreen = reinterpret_cast<void* const*>(kUiCurrentScreenAddr);
-				const auto* uiCurrentScreenType = reinterpret_cast<const uint32_t*>(kUiCurrentScreenTypeAddr);
-
-				if (*pauseRoot == nullptr || *uiWrapperActive == 0)
-				{
-					return false;
-				}
-
-				if (*uiCurrentScreen == *pauseRoot)
-				{
-					return true;
-				}
-
-				switch (*uiCurrentScreenType)
-				{
-				case kPauseScreenType:
-				case kOptionsScreenType:
-				case kSaveGameScreenType:
-				case kLoadGameScreenType:
-				case kRestartScreenType:
-					return true;
-				default:
-					return false;
-				}
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			PauseMenuDebugState state{};
+			if (!TryGetPauseMenuDebugState(state))
 			{
 				return false;
 			}
+			return state.singleplayerPauseOpen;
 		}
 
 		bool IsPauseMenuOpen() noexcept
 		{
-			return IsMultiplayerPauseMenuOpen() || IsSingleplayerPauseMenuOpen();
+			PauseMenuDebugState state{};
+			if (!TryGetPauseMenuDebugState(state))
+			{
+				return false;
+			}
+			return state.pauseMenuOpen;
 		}
 	}
 }

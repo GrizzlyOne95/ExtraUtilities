@@ -81,6 +81,8 @@ namespace ExtraUtilities::Lua::GameObject
 	int GetAiProcess(lua_State* L);
 	int GetAiProcessTypeName(lua_State* L);
 	int GetAiProcessInfo(lua_State* L);
+	int GetAiTaskInfo(lua_State* L);
+	int GetAiTaskFieldScan(lua_State* L);
 
 	int GetRadarPeriod(lua_State* L);
 	int SetRadarPeriod(lua_State* L);

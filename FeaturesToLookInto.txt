@@ -15,3 +15,6 @@
 8) A means to change what you can build without needing stupid odf hot-swapping tricks.
 
 9) Access to the radio feedback system, so we can finally do away with the massive amounts of audio clip queueing that makes the units talk non-stop mentioning orders you performed like 4 minutes ago. In BZP even with my enhancements this can still get really bogged down especially when issuing rapid orders to howitzers. I do not have the time or patience to re-write the entire radio feedback system and I think it would be riddled with problems if I attempted it. A nice bonus would be to allow units to be programmed to have alternate lines. I sorta did this with the producer units in BZP (IE: selecting the recycler randomly plays between 2 clips, "recycler here" or "yes sir!")
+
+10) Native Ogre overlay functions to create integrated custom HUD. This would allow Lua driven, material based, even image based HUD elements. 
+11) Based off RE findings in _bzcp.dll, we can modify the shell UI. Look into adding autosave native shell UI instead of overwriting a stock save slot. 
