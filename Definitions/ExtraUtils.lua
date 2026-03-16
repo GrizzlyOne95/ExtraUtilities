@@ -987,6 +987,13 @@ function exu.GetAiProcessTypeName(h) end
 --- @return table | nil
 function exu.GetAiProcessInfo(h) end
 
+--- Gets a typed snapshot of the object's current AI process state when EXU recognizes the process layout.
+--- Currently specializes scavenger process fields and still includes common RTTI metadata.
+--- @nodiscard
+--- @param h Handle
+--- @return table | nil
+function exu.GetAiProcessState(h) end
+
 --- Gets the first likely task/attack child object discovered inside the AI process.
 --- This is heuristic and intended for reverse-engineering and diagnostics.
 --- The returned table may include `candidates`, `children`, and aligned `fields`.
@@ -1003,6 +1010,30 @@ function exu.GetAiTaskInfo(h) end
 --- @param scanBytes? integer Defaults to 256. Max 512.
 --- @return table | nil
 function exu.GetAiTaskFieldScan(h) end
+
+--- Gets a typed snapshot of the primary live AI task for the object.
+--- Fields include task type/RTTI, state values, target handles, steering factors,
+--- pitch, goto force/direction, and EXU's current per-unit turbo flag.
+--- @nodiscard
+--- @param h Handle
+--- @param scanBytes? integer Defaults to 256. Max 512.
+--- @return table | nil
+function exu.GetAiTaskState(h) end
+
+--- Updates selected fields on the primary live AI task for the object.
+--- Supported fields currently include `braccel`, `strafe`, `steer`, `omega`,
+--- `omegaScale`, `pitch`, `gotoForce`, `gotoDir`, and `turbo`.
+--- @param h Handle
+--- @param state table
+function exu.SetAiTaskState(h, state) end
+
+--- Gets a typed snapshot of the active recycle subtask when the object's AI task is a recycle task.
+--- Useful for scavenger/recycler debugging and scripting around scrap collection flow.
+--- @nodiscard
+--- @param h Handle
+--- @param scanBytes? integer Defaults to 256. Max 512.
+--- @return table | nil
+function exu.GetAiRecycleTaskState(h) end
 
 --- Gets the radar scan period for the given object (if it has a radar).
 --- @nodiscard
