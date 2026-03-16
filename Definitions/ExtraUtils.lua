@@ -268,7 +268,7 @@ function exu.SelectOne(h) end
 --- These functions replace a stock command slot on a specific unit with Lua-driven behavior.
 
 --- Registers a stock command replacement on a specific handle.
---- Current automatic interception is limited to selected-unit `Hunt` transitions.
+--- Current automatic interception is limited to selected-unit `Hunt` through a native `Wingman::SetActiveMode` hook.
 --- @param h Handle
 --- @param stockCommandName string
 --- @param replacementLabel string
@@ -299,7 +299,8 @@ function exu.GetStockCmdReplacement(h, stockCommandName) end
 --- @return boolean
 function exu.TriggerStockCmdReplacement(h, stockCommandName) end
 
---- Polls for active stock-command replacements and dispatches any automatic handlers.
+--- Maintains command replacement state such as contextual label overrides.
+--- If the native hook is unavailable, this also falls back to polling-based Hunt interception.
 function exu.UpdateCommandReplacements() end
 
 --- Environment
@@ -1280,6 +1281,25 @@ function exu.SaveGame(slotOrPath, saveType, description) end
 --- @return number newScrapCount
 function exu.AddScrapSilent(team, amount) end
 
+--- Gets the configured engine flame color override for a team.
+--- This currently stores EXU-side configuration for the native engine flame patch path.
+--- @nodiscard
+--- @param team integer
+--- @return '"default"' | '"blue"' | '"red"' | '"green"'
+function exu.GetTeamEngineFlameColor(team) end
+
+--- Sets the engine flame color override for a team.
+--- Valid colors are "default", "blue", "red", and "green".
+--- This currently stores EXU-side configuration for the native engine flame patch path.
+--- @param team integer
+--- @param color '"default"' | '"blue"' | '"red"' | '"green"'
+function exu.SetTeamEngineFlameColor(team, color) end
+
+--- Clears the engine flame color override for a team.
+--- Equivalent to setting the color to "default".
+--- @param team integer
+function exu.ClearTeamEngineFlameColor(team) end
+
 --- Gets whether or not the global turbo mode patch is enabled (default false).
 --- @nodiscard
 --- @return boolean
@@ -1317,6 +1337,52 @@ function exu.GetShotConvergence() end
 --- Sets the hovercraft shot convergence patch true or false (default false).
 --- @param enabled boolean
 function exu.SetShotConvergence(enabled) end
+
+--- Gets the global unit VO throttle window in milliseconds.
+--- Unit barks attempted inside this window are dropped before enqueue.
+--- @nodiscard
+--- @return integer
+function exu.GetUnitVoThrottle() end
+
+--- Sets the global unit VO throttle window in milliseconds.
+--- `0` disables throttling.
+--- @param milliseconds integer
+function exu.SetUnitVoThrottle(milliseconds) end
+
+--- Returns the maximum number of queued unit barks EXU allows before it compacts the queue.
+--- `0` disables queue depth compaction.
+--- @nodiscard
+--- @return integer
+function exu.GetUnitVoQueueDepthLimit() end
+
+--- Sets the maximum number of queued unit barks EXU allows before it compacts the queue.
+--- `0` disables queue depth compaction.
+--- @param depth integer
+function exu.SetUnitVoQueueDepthLimit(depth) end
+
+--- Returns the queue age threshold in milliseconds used to flush stale unit bark backlogs.
+--- `0` disables stale-queue compaction.
+--- @nodiscard
+--- @return integer
+function exu.GetUnitVoQueueStaleMs() end
+
+--- Sets the queue age threshold in milliseconds used to flush stale unit bark backlogs.
+--- `0` disables stale-queue compaction.
+--- @param milliseconds integer
+function exu.SetUnitVoQueueStaleMs(milliseconds) end
+
+--- Returns the alternate bark list for the given unit VO filename.
+--- This only affects filenames that pass EXU's stock unit-bark heuristic.
+--- @nodiscard
+--- @param filename string
+--- @return string[] | nil
+function exu.GetUnitVoAlternates(filename) end
+
+--- Replaces the bark rotation for the given unit VO filename.
+--- Pass `nil` as the second argument to clear the mapping.
+--- @param filename string
+--- @param alternates string[] | nil
+function exu.SetUnitVoAlternates(filename, alternates) end
 
 --- Play Option
 ---

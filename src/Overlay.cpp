@@ -545,6 +545,20 @@ namespace ExtraUtilities::Lua::Overlay
 			return fn;
 		}
 
+		bool TryAddRenderQueueListenerWithSeh(void* sceneManager, void* overlaySystem, AddRenderQueueListenerFn addListener)
+		{
+			__try
+			{
+				addListener(sceneManager, overlaySystem);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				Logging::LogMessage("[EXU::Overlay] addRenderQueueListener crashed sceneManager=%p overlaySystem=%p code=0x%08X", sceneManager, overlaySystem, GetExceptionCode());
+				return false;
+			}
+		}
+
 		RemoveRenderQueueListenerFn ResolveRemoveRenderQueueListener()
 		{
 			static RemoveRenderQueueListenerFn fn = []()
@@ -664,18 +678,14 @@ namespace ExtraUtilities::Lua::Overlay
 				return false;
 			}
 
-			__try
+			if (!TryAddRenderQueueListenerWithSeh(sceneManager, overlaySystem, addListener))
 			{
-				addListener(sceneManager, overlaySystem);
-				attachedOverlaySceneManagers.insert(sceneManager);
-				Logging::LogMessage("[EXU::Overlay] OverlaySystem attached sceneManager=%p overlaySystem=%p", sceneManager, overlaySystem);
-				return true;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				Logging::LogMessage("[EXU::Overlay] addRenderQueueListener crashed sceneManager=%p overlaySystem=%p code=0x%08X", sceneManager, overlaySystem, GetExceptionCode());
 				return false;
 			}
+
+			attachedOverlaySceneManagers.insert(sceneManager);
+			Logging::LogMessage("[EXU::Overlay] OverlaySystem attached sceneManager=%p overlaySystem=%p", sceneManager, overlaySystem);
+			return true;
 		}
 
 		void EnsureOverlaySupport()
