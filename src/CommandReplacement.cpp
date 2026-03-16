@@ -18,6 +18,7 @@
 
 #include "CommandReplacement.h"
 
+#include "Hook.h"
 #include "Logging.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
@@ -30,10 +31,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 namespace ExtraUtilities::Lua::CommandReplacement
 {
@@ -82,6 +85,22 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			size_t size = 0;
 		};
 
+		struct ExecutableSection
+		{
+			const uint8_t* address = nullptr;
+			size_t size = 0;
+			std::string name;
+		};
+
+		using SetCommandIntFn = void(__thiscall*)(BZR::GameObject*, int);
+
+		constexpr std::array<int, 40> WINGMAN_HUNT_ACTIVATION_SIGNATURE = {
+			0x83, 0x7D, 0x08, 0x0D, 0x75, 0x10, 0x6A, 0x14, 0x8B, 0x4D,
+			0xFC, 0xE8, -1, -1, -1, -1, 0xB0, 0x01, 0xEB, -1,
+			0x83, 0x7D, 0x08, 0x10, 0x75, -1, 0xA1, -1, -1, -1,
+			-1, 0x50, 0x6A, 0x06, 0x8B, 0x4D, 0xFC, 0xE8, -1, -1
+		};
+
 		inline constexpr std::array STOCK_COMMANDS{
 			StockCommandInfo{ StockCommandId::NO_ACTION, "noaction", "No Action" },
 			StockCommandInfo{ StockCommandId::GO_TO_GEYSER, "gotogeyser", "Go To Geyser" },
@@ -108,6 +127,113 @@ namespace ExtraUtilities::Lua::CommandReplacement
 		const char** g_huntLabelPointer = nullptr;
 		const char* g_stockHuntLabel = nullptr;
 		bool g_huntLabelResolutionAttempted = false;
+		uintptr_t g_wingmanHuntActivationHookAddress = 0;
+		uintptr_t g_wingmanHuntActivationResumeAddress = 0;
+		SetCommandIntFn g_wingmanHuntSetCommand = nullptr;
+		bool g_lastWingmanHuntHandled = false;
+
+		std::vector<ExecutableSection> GetExecutableSections()
+		{
+			std::vector<ExecutableSection> sections;
+
+			HMODULE module = GetModuleHandleA("Battlezone98Redux.exe");
+			if (module == nullptr)
+			{
+				module = GetModuleHandleA(nullptr);
+			}
+
+			if (module == nullptr)
+			{
+				return sections;
+			}
+
+			const auto* base = reinterpret_cast<const uint8_t*>(module);
+			const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
+			if (dos->e_magic != IMAGE_DOS_SIGNATURE)
+			{
+				return sections;
+			}
+
+			const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+			if (nt->Signature != IMAGE_NT_SIGNATURE)
+			{
+				return sections;
+			}
+
+			auto* section = IMAGE_FIRST_SECTION(nt);
+			for (WORD index = 0; index < nt->FileHeader.NumberOfSections; ++index, ++section)
+			{
+				if ((section->Characteristics & IMAGE_SCN_MEM_EXECUTE) == 0)
+				{
+					continue;
+				}
+
+				const size_t size = std::max<size_t>(section->Misc.VirtualSize, section->SizeOfRawData);
+				if (size == 0)
+				{
+					continue;
+				}
+
+				char sectionName[9]{};
+				std::memcpy(sectionName, section->Name, sizeof(section->Name));
+
+				sections.push_back({
+					base + section->VirtualAddress,
+					size,
+					sectionName
+				});
+			}
+
+			return sections;
+		}
+
+		const uint8_t* FindPattern(const uint8_t* start, size_t size, const auto& pattern)
+		{
+			if (start == nullptr || size < pattern.size())
+			{
+				return nullptr;
+			}
+
+			const size_t lastOffset = size - pattern.size();
+			for (size_t offset = 0; offset <= lastOffset; ++offset)
+			{
+				bool matched = true;
+				for (size_t index = 0; index < pattern.size(); ++index)
+				{
+					const int expected = pattern[index];
+					if (expected >= 0 && start[offset + index] != static_cast<uint8_t>(expected))
+					{
+						matched = false;
+						break;
+					}
+				}
+
+				if (matched)
+				{
+					return start + offset;
+				}
+			}
+
+			return nullptr;
+		}
+
+		uintptr_t ResolveRelativeCallTarget(uintptr_t callSite) noexcept
+		{
+			if (callSite == 0)
+			{
+				return 0;
+			}
+
+			const auto* callInstruction = reinterpret_cast<const uint8_t*>(callSite);
+			if (callInstruction[0] != 0xE8)
+			{
+				return 0;
+			}
+
+			int32_t displacement = 0;
+			std::memcpy(&displacement, callInstruction + 1, sizeof(displacement));
+			return callSite + 5 + static_cast<intptr_t>(displacement);
+		}
 
 		std::string NormalizeStockCommandName(std::string_view input)
 		{
@@ -453,6 +579,145 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			return lua_tonumber(L, -1);
 		}
 
+		bool TryHandleWingmanHuntActivation(BZR::GameObject* wingman)
+		{
+			if (wingman == nullptr)
+			{
+				return false;
+			}
+
+			const BZR::handle handle = BZR::GameObject::GetHandle(wingman);
+			auto entryIt = FindReplacement(handle, StockCommandId::HUNT);
+			if (entryIt == g_replacements.end())
+			{
+				return false;
+			}
+
+			lua_State* L = g_ownerState != nullptr ? g_ownerState : Lua::state;
+			if (L == nullptr)
+			{
+				return false;
+			}
+
+			bool isSelected = false;
+			if (!TryIsSelected(L, handle, isSelected) || !isSelected)
+			{
+				return false;
+			}
+
+			const bool handled = DispatchRegisteredReplacement(handle, "Hunt", "native_set_active_mode");
+			entryIt = FindReplacement(handle, StockCommandId::HUNT);
+			if (entryIt != g_replacements.end())
+			{
+				entryIt->second.lastObservedCommand = handled ? kCmdNone : kCmdHunt;
+			}
+
+			return handled;
+		}
+
+		void CallOriginalWingmanHuntActivation(BZR::GameObject* wingman)
+		{
+			if (wingman == nullptr || g_wingmanHuntSetCommand == nullptr)
+			{
+				return;
+			}
+
+			g_wingmanHuntSetCommand(wingman, kCmdHunt);
+
+			const BZR::handle handle = BZR::GameObject::GetHandle(wingman);
+			auto entryIt = FindReplacement(handle, StockCommandId::HUNT);
+			if (entryIt != g_replacements.end())
+			{
+				entryIt->second.lastObservedCommand = kCmdHunt;
+			}
+		}
+
+		static void __declspec(naked) WingmanHuntActivationHook()
+		{
+			__asm
+			{
+				pushad
+				pushfd
+
+				mov eax, [ebp-0x04]
+				push eax
+				call TryHandleWingmanHuntActivation
+				add esp, 0x04
+				mov byte ptr [g_lastWingmanHuntHandled], al
+
+				popfd
+				popad
+
+				cmp byte ptr [g_lastWingmanHuntHandled], 0
+				jne handled
+
+				mov eax, [ebp-0x04]
+				push eax
+				call CallOriginalWingmanHuntActivation
+				add esp, 0x04
+
+			handled:
+				mov eax, g_wingmanHuntActivationResumeAddress
+				jmp eax
+			}
+		}
+
+		uintptr_t InitializeWingmanHuntActivationHook()
+		{
+			const auto sections = GetExecutableSections();
+			if (sections.empty())
+			{
+				Logging::LogMessage("exu: failed to enumerate executable sections for Wingman Hunt hook");
+				return 0;
+			}
+
+			for (const auto& section : sections)
+			{
+				const auto* match = FindPattern(section.address, section.size, WINGMAN_HUNT_ACTIVATION_SIGNATURE);
+				if (match == nullptr)
+				{
+					continue;
+				}
+
+				const uintptr_t matchAddress = reinterpret_cast<uintptr_t>(match);
+				const uintptr_t callSite = matchAddress + 11;
+				const uintptr_t setCommandTarget = ResolveRelativeCallTarget(callSite);
+				if (setCommandTarget == 0)
+				{
+					Logging::LogMessage(
+						"exu: matched Wingman Hunt signature in %s but failed to resolve SetCommand target",
+						section.name.c_str()
+					);
+					continue;
+				}
+
+				g_wingmanHuntActivationHookAddress = matchAddress + 6;
+				g_wingmanHuntActivationResumeAddress = g_wingmanHuntActivationHookAddress + 10;
+				g_wingmanHuntSetCommand = reinterpret_cast<SetCommandIntFn>(setCommandTarget);
+
+				Logging::LogMessage(
+					"exu: resolved Wingman Hunt hook at %p resume=%p setCommand=%p in %s",
+					reinterpret_cast<void*>(g_wingmanHuntActivationHookAddress),
+					reinterpret_cast<void*>(g_wingmanHuntActivationResumeAddress),
+					reinterpret_cast<void*>(setCommandTarget),
+					section.name.c_str()
+				);
+				return g_wingmanHuntActivationHookAddress;
+			}
+
+			Logging::LogMessage("exu: failed to resolve Wingman Hunt activation hook signature");
+			return 0;
+		}
+
+		inline uintptr_t g_wingmanHuntActivationHookInitialized = InitializeWingmanHuntActivationHook();
+		inline std::unique_ptr<Hook> g_wingmanHuntActivationHook = g_wingmanHuntActivationHookAddress != 0
+			? std::make_unique<Hook>(
+				g_wingmanHuntActivationHookAddress,
+				&WingmanHuntActivationHook,
+				10,
+				BasicPatch::Status::ACTIVE)
+			: nullptr;
+
 		void UpdateHuntLabelOverride(lua_State* L)
 		{
 			size_t selectedReplacementCount = 0;
@@ -701,6 +966,14 @@ namespace ExtraUtilities::Lua::CommandReplacement
 		g_lastUpdateAt = now;
 
 		UpdateHuntLabelOverride(L);
+
+		const bool nativeHuntHookActive =
+			g_wingmanHuntActivationHook != nullptr &&
+			g_wingmanHuntActivationHook->IsActive();
+		if (nativeHuntHookActive)
+		{
+			return 0;
+		}
 
 		for (auto& [key, entry] : g_replacements)
 		{

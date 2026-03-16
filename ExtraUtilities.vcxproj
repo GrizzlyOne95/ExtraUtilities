@@ -77,7 +77,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)..\GIT\ogre-1.10.0\OgreMain\include;$(ProjectDir)..\GIT\ogre-1.10.0\Components\Overlay\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)..\ogre-1.10.0\OgreMain\include;$(ProjectDir)..\ogre-1.10.0\Components\Overlay\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -110,7 +110,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)..\GIT\ogre-1.10.0\OgreMain\include;$(ProjectDir)..\GIT\ogre-1.10.0\Components\Overlay\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)..\ogre-1.10.0\OgreMain\include;$(ProjectDir)..\ogre-1.10.0\Components\Overlay\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -145,6 +145,7 @@
     <ClCompile Include="src\CommandReplacement.cpp" />
     <ClCompile Include="src\ControlPanel.cpp" />
     <ClCompile Include="src\dllmain.cpp" />
+    <ClCompile Include="src\EngineFlameColor.cpp" />
     <ClCompile Include="src\Environment.cpp" />
     <ClCompile Include="src\GameObject.cpp" />
     <ClCompile Include="src\game_state.cpp" />
@@ -170,6 +171,7 @@
     <ClCompile Include="src\SoundOptions.cpp" />
     <ClCompile Include="src\Steam.cpp" />
     <ClCompile Include="src\StockExtensions.cpp" />
+    <ClCompile Include="src\UnitVo.cpp" />
     <ClCompile Include="src\Vec3.h" />
   </ItemGroup>
   <ItemGroup>
@@ -182,6 +184,7 @@
     <ClInclude Include="src\Camera.h" />
     <ClInclude Include="src\CommandReplacement.h" />
     <ClInclude Include="src\ControlPanel.h" />
+    <ClInclude Include="src\EngineFlameColor.h" />
     <ClInclude Include="src\Environment.h" />
     <ClInclude Include="src\Exports.h" />
     <ClInclude Include="src\GameObject.h" />
@@ -214,6 +217,7 @@
     <ClInclude Include="src\SoundOptions.h" />
     <ClInclude Include="src\Steam.h" />
     <ClInclude Include="src\StockExtensions.h" />
+    <ClInclude Include="src\UnitVo.h" />
     <ClInclude Include="src\VectorSpider.h" />
   </ItemGroup>
   <ItemGroup>

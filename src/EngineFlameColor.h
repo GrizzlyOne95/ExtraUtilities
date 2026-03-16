@@ -16,18 +16,19 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-/*
-* Combined header for patches
-*/
-
 #pragma once
 
-#include "AddScrapCallback.h"
-#include "BulletHitCallback.h"
-#include "BulletInitCallback.h"
-#include "EngineFlameColor.h"
-#include "GlobalTurbo.h"
-#include "KillMessages.h"
-#include "OrdnanceVelocity.h"
-#include "ShotConvergence.h"
-#include "UnitVo.h"
+#ifndef EXU_ENGINE_FLAME_COLOR_API
+#define EXU_ENGINE_FLAME_COLOR_API extern "C" __declspec(dllexport)
+#endif
+
+#include <lua.hpp>
+
+namespace ExtraUtilities::Lua::Patches
+{
+	int GetTeamEngineFlameColor(lua_State* L);
+	int SetTeamEngineFlameColor(lua_State* L);
+	int ClearTeamEngineFlameColor(lua_State* L);
+}
+
+EXU_ENGINE_FLAME_COLOR_API int EXU_GetTeamEngineFlameColor(int team);

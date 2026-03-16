@@ -29,6 +29,8 @@
 
 #include "lua.hpp"
 #include <Windows.h>
+#include <algorithm>
+#include <vector>
 
 // Avoid name collision with winapi macro
 #pragma push_macro("MessageBox")
@@ -36,6 +38,152 @@
 
 namespace ExtraUtilities::Lua
 {
+	namespace
+	{
+		int g_originalSetObjectiveOnRef = LUA_NOREF;
+		int g_originalSetObjectiveOffRef = LUA_NOREF;
+		std::vector<BZR::handle> g_activeObjectiveHandles;
+
+		void ResetObjectiveObjectPatchState(lua_State* L)
+		{
+			if (g_originalSetObjectiveOnRef != LUA_NOREF)
+			{
+				luaL_unref(L, LUA_REGISTRYINDEX, g_originalSetObjectiveOnRef);
+				g_originalSetObjectiveOnRef = LUA_NOREF;
+			}
+
+			if (g_originalSetObjectiveOffRef != LUA_NOREF)
+			{
+				luaL_unref(L, LUA_REGISTRYINDEX, g_originalSetObjectiveOffRef);
+				g_originalSetObjectiveOffRef = LUA_NOREF;
+			}
+
+			g_activeObjectiveHandles.clear();
+		}
+
+		void TrackObjectiveHandleOn(BZR::handle h)
+		{
+			if (h == 0)
+			{
+				return;
+			}
+
+			if (std::find(g_activeObjectiveHandles.begin(), g_activeObjectiveHandles.end(), h) == g_activeObjectiveHandles.end())
+			{
+				g_activeObjectiveHandles.push_back(h);
+			}
+		}
+
+		void TrackObjectiveHandleOff(BZR::handle h)
+		{
+			if (h == 0)
+			{
+				return;
+			}
+
+			g_activeObjectiveHandles.erase(
+				std::remove(g_activeObjectiveHandles.begin(), g_activeObjectiveHandles.end(), h),
+				g_activeObjectiveHandles.end());
+		}
+
+		int CallLuaRegistryFunction(lua_State* L, int functionRef)
+		{
+			if (functionRef == LUA_NOREF)
+			{
+				return luaL_error(L, "ObjectiveObjects patch is not initialized");
+			}
+
+			const int argCount = lua_gettop(L);
+			lua_rawgeti(L, LUA_REGISTRYINDEX, functionRef);
+			lua_insert(L, 1);
+			lua_call(L, argCount, LUA_MULTRET);
+			return lua_gettop(L);
+		}
+
+		int PatchedSetObjectiveOn(lua_State* L)
+		{
+			if (lua_isuserdata(L, 1))
+			{
+				TrackObjectiveHandleOn(CheckHandle(L, 1));
+			}
+
+			return CallLuaRegistryFunction(L, g_originalSetObjectiveOnRef);
+		}
+
+		int PatchedSetObjectiveOff(lua_State* L)
+		{
+			if (lua_isuserdata(L, 1))
+			{
+				TrackObjectiveHandleOff(CheckHandle(L, 1));
+			}
+
+			return CallLuaRegistryFunction(L, g_originalSetObjectiveOffRef);
+		}
+
+		int PatchedObjectiveObjectsNext(lua_State* L)
+		{
+			lua_Integer index = lua_tointeger(L, lua_upvalueindex(1));
+
+			while (index < static_cast<lua_Integer>(g_activeObjectiveHandles.size()))
+			{
+				const BZR::handle h = g_activeObjectiveHandles[static_cast<size_t>(index)];
+				++index;
+
+				lua_pushinteger(L, index);
+				lua_replace(L, lua_upvalueindex(1));
+
+				if (h != 0)
+				{
+					lua_pushlightuserdata(L, reinterpret_cast<void*>(static_cast<uintptr_t>(h)));
+					return 1;
+				}
+			}
+
+			return 0;
+		}
+
+		int PatchedObjectiveObjects(lua_State* L)
+		{
+			lua_pushinteger(L, 0);
+			lua_pushcclosure(L, PatchedObjectiveObjectsNext, 1);
+			return 1;
+		}
+
+		void InstallObjectiveObjectsPatch(lua_State* L)
+		{
+			ResetObjectiveObjectPatchState(L);
+
+			lua_getglobal(L, "SetObjectiveOn");
+			if (!lua_isfunction(L, -1))
+			{
+				lua_pop(L, 1);
+				Logging::LogMessage("exu: SetObjectiveOn not found; ObjectiveObjects patch skipped");
+				return;
+			}
+			g_originalSetObjectiveOnRef = luaL_ref(L, LUA_REGISTRYINDEX);
+
+			lua_getglobal(L, "SetObjectiveOff");
+			if (!lua_isfunction(L, -1))
+			{
+				lua_pop(L, 1);
+				Logging::LogMessage("exu: SetObjectiveOff not found; ObjectiveObjects patch skipped");
+				return;
+			}
+			g_originalSetObjectiveOffRef = luaL_ref(L, LUA_REGISTRYINDEX);
+
+			lua_pushcfunction(L, PatchedSetObjectiveOn);
+			lua_setglobal(L, "SetObjectiveOn");
+
+			lua_pushcfunction(L, PatchedSetObjectiveOff);
+			lua_setglobal(L, "SetObjectiveOff");
+
+			lua_pushcfunction(L, PatchedObjectiveObjects);
+			lua_setglobal(L, "ObjectiveObjects");
+
+			Logging::LogMessage("exu: patched stock ObjectiveObjects iterator");
+		}
+	}
+
 	void MakeEnums(lua_State* L, int exuIdx)
 	{
 		// Camera enum
@@ -241,6 +389,7 @@ namespace ExtraUtilities::Lua
 
 		MakeEnums(L, exuIdx);
 		DoEventHooks(L);
+		InstallObjectiveObjectsPatch(L);
 		
 		return 0;
 	}
@@ -248,7 +397,7 @@ namespace ExtraUtilities::Lua
 	extern "C" int __declspec(dllexport) luaopen_exu(lua_State* L)
 	{
 		static bool announced = false;
-		const luaL_Reg EXPORT[] = {
+		const luaL_Reg exuExports[] = {
 			// Camera
 			{ "GetCameraOrigins", &Camera::GetOrigins },
 			{ "GetCameraTransformMatrix", &Camera::GetTransformMatrix },
@@ -456,6 +605,9 @@ namespace ExtraUtilities::Lua
 
 			// Patches
 			{ "AddScrapSilent",     &Patches::AddScrapSilent },
+			{ "GetTeamEngineFlameColor", &Patches::GetTeamEngineFlameColor },
+			{ "SetTeamEngineFlameColor", &Patches::SetTeamEngineFlameColor },
+			{ "ClearTeamEngineFlameColor", &Patches::ClearTeamEngineFlameColor },
 			{ "GetGlobalTurbo",     &Patches::GetGlobalTurbo },
 			{ "SetGlobalTurbo",     &Patches::SetGlobalTurbo },
 			{ "GetUnitTurbo", &Patches::GetUnitTurbo },
@@ -466,6 +618,14 @@ namespace ExtraUtilities::Lua
 			{ "SetOrdnanceVelocMode", Patches::SetOrdnanceVelocMode },
 			{ "GetShotConvergence", &Patches::GetShotConvergence },
 			{ "SetShotConvergence", &Patches::SetShotConvergence },
+			{ "GetUnitVoThrottle", &Patches::GetUnitVoThrottle },
+			{ "SetUnitVoThrottle", &Patches::SetUnitVoThrottle },
+			{ "GetUnitVoQueueDepthLimit", &Patches::GetUnitVoQueueDepthLimit },
+			{ "SetUnitVoQueueDepthLimit", &Patches::SetUnitVoQueueDepthLimit },
+			{ "GetUnitVoQueueStaleMs", &Patches::GetUnitVoQueueStaleMs },
+			{ "SetUnitVoQueueStaleMs", &Patches::SetUnitVoQueueStaleMs },
+			{ "GetUnitVoAlternates", &Patches::GetUnitVoAlternates },
+			{ "SetUnitVoAlternates", &Patches::SetUnitVoAlternates },
 
 			// Play Options
 			{ "GetAutoLevel",	 &PlayOption::GetAutoLevel },
@@ -521,7 +681,7 @@ namespace ExtraUtilities::Lua
 		};
 
 		Logging::LogMessage("exu: luaopen_exu called");
-		luaL_register(L, "exu", EXPORT);
+		luaL_register(L, "exu", exuExports);
 		Init(L);
 
 		if (!announced)

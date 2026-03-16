@@ -117,6 +117,12 @@
     <ClCompile Include="src\KillMessages.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
+    <ClCompile Include="src\EngineFlameColor.cpp">
+      <Filter>Source Files\Patches</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UnitVo.cpp">
+      <Filter>Source Files\Patches</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\About.h">
@@ -228,6 +234,12 @@
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
     <ClInclude Include="src\KillMessages.h">
+      <Filter>Header Files\Patches</Filter>
+    </ClInclude>
+    <ClInclude Include="src\EngineFlameColor.h">
+      <Filter>Header Files\Patches</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UnitVo.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="Resource\resource.h">
