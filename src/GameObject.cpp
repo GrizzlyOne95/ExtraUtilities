@@ -18,6 +18,7 @@
 
 #include "GameObject.h"
 
+#include "GlobalTurbo.h"
 #include "LuaHelpers.h"
 #include "Ogre.h"
 #include "OgreMaterialShim.h"
@@ -112,7 +113,94 @@ namespace ExtraUtilities::Lua::GameObject
 			BZR::GameObject* handleObject = nullptr;
 		};
 
+#pragma pack(push, 1)
+		struct UnitTaskLayout
+		{
+			void* vftable;
+			uint32_t curState;
+			uint32_t nextState;
+			BZR::GameObject* me;
+			BZR::handle himHandle;
+			void* him;
+			uint8_t wasInTransition;
+			uint8_t pad_21[0x07];
+			BZR::VECTOR_3D gotoPoint;
+			BZR::VECTOR_3D goalPoint;
+			void* plan;
+			uint32_t planPoint;
+			uint32_t fixPoint;
+			BZR::VECTOR_3D gotoForce;
+			BZR::VECTOR_3D gotoDir;
+			float braccelFactor;
+			float strafeFactor;
+			float steerFactor;
+			float omegaFactor;
+			float omegaScale;
+			uint32_t avoidSkip;
+			void* avoidObj;
+			void* skipObj;
+			float nextStuck;
+			BZR::VECTOR_3D lastStuck;
+			uint8_t pad_94[0x04];
+			uint32_t stuckState;
+			float skill;
+			float closeSq;
+			float rangeSq;
+			float time;
+			float shotSpeed;
+			float shotSpeedInv;
+			float pitch;
+		};
+
+		struct RecycleTaskLayout
+		{
+			void* vftable;
+			const char* deployMsg;
+			const char* foundMsg;
+			const char* notFoundMsg;
+			const char* noDropMsg;
+			float nextStuck;
+			BZR::VECTOR_3D lastStuck;
+			uint8_t pad_28[0x04];
+			uint32_t stuckState;
+			BZR::GameObject* me;
+			void* subtask;
+			BZR::VECTOR_3D lastScrap;
+			uint8_t pad_44[0x08];
+			BZR::handle scrapHandle;
+			BZR::handle dropHandle;
+			uint32_t curState;
+			uint32_t nextState;
+			BZR::VECTOR_3D where;
+			uint8_t pad_60[0x04];
+			float nextCheck;
+			BZR::VECTOR_3D lastRecyclerPos;
+		};
+
+		struct ScavengerProcessLayout
+		{
+			void* vftable;
+			uint8_t pad_04[0x10];
+			float oldHealth;
+			uint32_t curState;
+			uint32_t nextState;
+			BZR::handle whoHandle;
+			BZR::GameObject* craft;
+			BZR::VECTOR_3D where;
+			uint8_t pad_34[0x0C];
+			BZR::VECTOR_3D lastScrap;
+			float waitTime;
+			uint8_t recycle;
+			uint8_t pad_45[0x03];
+			uint32_t team;
+			void* escortGoal;
+			void* myEscorts;
+			void* task;
+		};
+#pragma pack(pop)
+
 		void PushStringArray(lua_State* L, const std::vector<std::string>& values);
+		std::vector<PolymorphicObjectInfo> ScanPolymorphicChildren(void* base, uint32_t scanBytes);
 
 		void LogMaterialDebug(const char* fmt, ...)
 		{
@@ -406,6 +494,26 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
+		bool TryGetHandleFromObject(BZR::GameObject* obj, BZR::handle& outHandle)
+		{
+			outHandle = 0;
+			if (obj == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				outHandle = BZR::GameObject::GetHandle(obj);
+				return outHandle != 0;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				outHandle = 0;
+				return false;
+			}
+		}
+
 		uint32_t GetScanBytesArgument(lua_State* L, int index, uint32_t defaultValue)
 		{
 			if (lua_gettop(L) < index || lua_isnil(L, index))
@@ -452,6 +560,171 @@ namespace ExtraUtilities::Lua::GameObject
 				score += 10;
 			}
 			return score;
+		}
+
+		bool TypeMatches(const PolymorphicObjectInfo& info, const char* typeName)
+		{
+			if (typeName == nullptr || typeName[0] == '\0')
+			{
+				return false;
+			}
+
+			if (info.typeName == typeName)
+			{
+				return true;
+			}
+
+			for (const auto& baseName : info.hierarchy)
+			{
+				if (baseName == typeName)
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
+		bool TryGetObjectTypeInfo(void* object, PolymorphicObjectInfo& outInfo)
+		{
+			outInfo = {};
+			if (object == nullptr)
+			{
+				return false;
+			}
+
+			void* vtable = nullptr;
+			const char* rawTypeName = nullptr;
+			MsvcRttiClassHierarchyDescriptor* classDescriptor = nullptr;
+			if (!TryGetPolymorphicMetadata(object, vtable, rawTypeName, classDescriptor))
+			{
+				return false;
+			}
+
+			outInfo.object = object;
+			outInfo.vtable = vtable;
+			outInfo.rawTypeName = rawTypeName;
+			outInfo.typeName = NormalizeMsvcTypeName(rawTypeName);
+			outInfo.hierarchy = BuildHierarchyNames(classDescriptor);
+			return true;
+		}
+
+		bool TryFindBestAiTask(
+			void* aiProcess,
+			uint32_t scanBytes,
+			PolymorphicObjectInfo& outTask,
+			const char* preferredTypeName = nullptr)
+		{
+			outTask = {};
+			if (aiProcess == nullptr)
+			{
+				return false;
+			}
+
+			std::vector<PolymorphicObjectInfo> children = ScanPolymorphicChildren(aiProcess, scanBytes);
+			if (children.empty())
+			{
+				return false;
+			}
+
+			size_t bestIndex = static_cast<size_t>(-1);
+			int bestScore = 0;
+			for (size_t i = 0; i < children.size(); ++i)
+			{
+				if (children[i].typeName.find("Task") == std::string::npos &&
+					children[i].typeName.find("Attack") == std::string::npos)
+				{
+					continue;
+				}
+
+				if (preferredTypeName != nullptr && !TypeMatches(children[i], preferredTypeName))
+				{
+					continue;
+				}
+
+				const int score = GetTaskCandidateScore(children[i]);
+				if (bestIndex == static_cast<size_t>(-1) || score > bestScore)
+				{
+					bestIndex = i;
+					bestScore = score;
+				}
+			}
+
+			if (bestIndex == static_cast<size_t>(-1))
+			{
+				return false;
+			}
+
+			outTask = children[bestIndex];
+			return true;
+		}
+
+		void PushHandleField(lua_State* L, const char* fieldName, BZR::handle h)
+		{
+			if (h == 0)
+			{
+				lua_pushnil(L);
+			}
+			else
+			{
+				lua_pushlightuserdata(L, reinterpret_cast<void*>(h));
+			}
+			lua_setfield(L, -2, fieldName);
+		}
+
+		void PushObjectPointerField(lua_State* L, const char* fieldName, const void* pointer)
+		{
+			if (pointer == nullptr)
+			{
+				lua_pushnil(L);
+			}
+			else
+			{
+				lua_pushlightuserdata(L, const_cast<void*>(pointer));
+			}
+			lua_setfield(L, -2, fieldName);
+		}
+
+		void PushVectorField(lua_State* L, const char* fieldName, const BZR::VECTOR_3D& value)
+		{
+			PushVector(L, value);
+			lua_setfield(L, -2, fieldName);
+		}
+
+		bool TryGetOptionalNumberField(lua_State* L, int tableIndex, const char* fieldName, float& outValue)
+		{
+			lua_getfield(L, tableIndex, fieldName);
+			const bool hasValue = !lua_isnil(L, -1);
+			if (hasValue)
+			{
+				outValue = static_cast<float>(luaL_checknumber(L, -1));
+			}
+			lua_pop(L, 1);
+			return hasValue;
+		}
+
+		bool TryGetOptionalBooleanField(lua_State* L, int tableIndex, const char* fieldName, bool& outValue)
+		{
+			lua_getfield(L, tableIndex, fieldName);
+			const bool hasValue = !lua_isnil(L, -1);
+			if (hasValue)
+			{
+				outValue = CheckBool(L, -1);
+			}
+			lua_pop(L, 1);
+			return hasValue;
+		}
+
+		bool TryGetOptionalVectorField(lua_State* L, int tableIndex, const char* fieldName, BZR::VECTOR_3D& outValue)
+		{
+			lua_getfield(L, tableIndex, fieldName);
+			const bool hasValue = !lua_isnil(L, -1);
+			if (hasValue)
+			{
+				outValue = CheckVectorOrSingles(L, -1);
+			}
+			lua_pop(L, 1);
+			return hasValue;
 		}
 
 		std::vector<PolymorphicObjectInfo> ScanPolymorphicChildren(void* base, uint32_t scanBytes)
@@ -3042,6 +3315,81 @@ namespace ExtraUtilities::Lua::GameObject
 		return 1;
 	}
 
+	int GetAiProcessState(lua_State* L)
+	{
+		BZR::handle h = CheckHandle(L, 1);
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		void* aiProcess = obj->aiProcess;
+		if (aiProcess == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		PolymorphicObjectInfo processInfo{};
+		if (!TryGetObjectTypeInfo(aiProcess, processInfo))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		lua_createtable(L, 0, 16);
+		lua_pushlightuserdata(L, aiProcess);
+		lua_setfield(L, -2, "process");
+		lua_pushstring(L, processInfo.typeName.c_str());
+		lua_setfield(L, -2, "typeName");
+		lua_pushstring(L, processInfo.rawTypeName.c_str());
+		lua_setfield(L, -2, "rawTypeName");
+		PushStringArray(L, processInfo.hierarchy);
+		lua_setfield(L, -2, "hierarchy");
+
+		if (TypeMatches(processInfo, "ScavengerProcess"))
+		{
+			const auto* scav = reinterpret_cast<const ScavengerProcessLayout*>(aiProcess);
+			lua_pushinteger(L, scav->curState);
+			lua_setfield(L, -2, "curState");
+			lua_pushinteger(L, scav->nextState);
+			lua_setfield(L, -2, "nextState");
+			lua_pushnumber(L, scav->oldHealth);
+			lua_setfield(L, -2, "oldHealth");
+			PushHandleField(L, "whoHandle", scav->whoHandle);
+			BZR::handle craftHandle = 0;
+			if (TryGetHandleFromObject(scav->craft, craftHandle))
+			{
+				PushHandleField(L, "craftHandle", craftHandle);
+			}
+			else
+			{
+				lua_pushnil(L);
+				lua_setfield(L, -2, "craftHandle");
+			}
+			PushObjectPointerField(L, "craft", scav->craft);
+			PushVectorField(L, "where", scav->where);
+			PushVectorField(L, "lastScrap", scav->lastScrap);
+			lua_pushnumber(L, scav->waitTime);
+			lua_setfield(L, -2, "waitTime");
+			lua_pushboolean(L, scav->recycle != 0);
+			lua_setfield(L, -2, "recycle");
+			lua_pushinteger(L, scav->team);
+			lua_setfield(L, -2, "team");
+			PushObjectPointerField(L, "escortGoal", scav->escortGoal);
+			PushObjectPointerField(L, "myEscorts", scav->myEscorts);
+			PushObjectPointerField(L, "task", scav->task);
+
+			void* taskVtable = nullptr;
+			const char* taskRawTypeName = nullptr;
+			MsvcRttiClassHierarchyDescriptor* taskClassDescriptor = nullptr;
+			if (TryGetPolymorphicMetadata(scav->task, taskVtable, taskRawTypeName, taskClassDescriptor))
+			{
+				const std::string taskTypeName = NormalizeMsvcTypeName(taskRawTypeName);
+				lua_pushstring(L, taskTypeName.c_str());
+				lua_setfield(L, -2, "taskTypeName");
+			}
+		}
+
+		return 1;
+	}
+
 	int GetAiTaskInfo(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
@@ -3104,6 +3452,162 @@ namespace ExtraUtilities::Lua::GameObject
 		return 1;
 	}
 
+	int GetAiTaskState(lua_State* L)
+	{
+		BZR::handle h = CheckHandle(L, 1);
+		const uint32_t scanBytes = GetScanBytesArgument(L, 2, 0x100);
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		void* aiProcess = obj->aiProcess;
+		if (aiProcess == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		PolymorphicObjectInfo taskInfo{};
+		if (!TryFindBestAiTask(aiProcess, scanBytes, taskInfo))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		const auto* task = reinterpret_cast<const UnitTaskLayout*>(taskInfo.object);
+		lua_createtable(L, 0, 24);
+		lua_pushlightuserdata(L, taskInfo.object);
+		lua_setfield(L, -2, "task");
+		lua_pushstring(L, taskInfo.typeName.c_str());
+		lua_setfield(L, -2, "typeName");
+		lua_pushstring(L, taskInfo.rawTypeName.c_str());
+		lua_setfield(L, -2, "rawTypeName");
+		PushStringArray(L, taskInfo.hierarchy);
+		lua_setfield(L, -2, "hierarchy");
+		lua_pushinteger(L, task->curState);
+		lua_setfield(L, -2, "curState");
+		lua_pushinteger(L, task->nextState);
+		lua_setfield(L, -2, "nextState");
+		BZR::handle meHandle = 0;
+		if (TryGetHandleFromObject(task->me, meHandle))
+		{
+			PushHandleField(L, "meHandle", meHandle);
+		}
+		else
+		{
+			lua_pushnil(L);
+			lua_setfield(L, -2, "meHandle");
+		}
+		PushObjectPointerField(L, "me", task->me);
+		PushHandleField(L, "himHandle", task->himHandle);
+		PushObjectPointerField(L, "him", task->him);
+		PushVectorField(L, "gotoPoint", task->gotoPoint);
+		PushVectorField(L, "goalPoint", task->goalPoint);
+		PushVectorField(L, "gotoForce", task->gotoForce);
+		PushVectorField(L, "gotoDir", task->gotoDir);
+		PushVectorField(L, "lastStuck", task->lastStuck);
+		lua_pushnumber(L, task->braccelFactor);
+		lua_setfield(L, -2, "braccel");
+		lua_pushnumber(L, task->strafeFactor);
+		lua_setfield(L, -2, "strafe");
+		lua_pushnumber(L, task->steerFactor);
+		lua_setfield(L, -2, "steer");
+		lua_pushnumber(L, task->omegaFactor);
+		lua_setfield(L, -2, "omega");
+		lua_pushnumber(L, task->omegaScale);
+		lua_setfield(L, -2, "omegaScale");
+		lua_pushnumber(L, task->pitch);
+		lua_setfield(L, -2, "pitch");
+		lua_pushnumber(L, task->nextStuck);
+		lua_setfield(L, -2, "nextStuck");
+		lua_pushinteger(L, task->stuckState);
+		lua_setfield(L, -2, "stuckState");
+		lua_pushnumber(L, task->skill);
+		lua_setfield(L, -2, "skill");
+		lua_pushnumber(L, task->closeSq);
+		lua_setfield(L, -2, "closeSq");
+		lua_pushnumber(L, task->rangeSq);
+		lua_setfield(L, -2, "rangeSq");
+		lua_pushnumber(L, task->time);
+		lua_setfield(L, -2, "time");
+		lua_pushnumber(L, task->shotSpeed);
+		lua_setfield(L, -2, "shotSpeed");
+		lua_pushnumber(L, task->shotSpeedInv);
+		lua_setfield(L, -2, "shotSpeedInv");
+
+		bool turboEnabled = false;
+		if (Patch::setTurboUnits.contains(h))
+		{
+			turboEnabled = Patch::setTurboUnits.at(h);
+		}
+		lua_pushboolean(L, turboEnabled);
+		lua_setfield(L, -2, "turbo");
+
+		return 1;
+	}
+
+	int SetAiTaskState(lua_State* L)
+	{
+		BZR::handle h = CheckHandle(L, 1);
+		luaL_checktype(L, 2, LUA_TTABLE);
+
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		void* aiProcess = obj->aiProcess;
+		if (aiProcess == nullptr)
+		{
+			return 0;
+		}
+
+		PolymorphicObjectInfo taskInfo{};
+		if (!TryFindBestAiTask(aiProcess, 0x100, taskInfo))
+		{
+			return 0;
+		}
+
+		auto* task = reinterpret_cast<UnitTaskLayout*>(taskInfo.object);
+
+		float numericValue = 0.0f;
+		if (TryGetOptionalNumberField(L, 2, "braccel", numericValue))
+		{
+			task->braccelFactor = numericValue;
+		}
+		if (TryGetOptionalNumberField(L, 2, "strafe", numericValue))
+		{
+			task->strafeFactor = numericValue;
+		}
+		if (TryGetOptionalNumberField(L, 2, "steer", numericValue))
+		{
+			task->steerFactor = numericValue;
+		}
+		if (TryGetOptionalNumberField(L, 2, "omega", numericValue))
+		{
+			task->omegaFactor = numericValue;
+		}
+		if (TryGetOptionalNumberField(L, 2, "omegaScale", numericValue))
+		{
+			task->omegaScale = numericValue;
+		}
+		if (TryGetOptionalNumberField(L, 2, "pitch", numericValue))
+		{
+			task->pitch = numericValue;
+		}
+
+		BZR::VECTOR_3D vectorValue{};
+		if (TryGetOptionalVectorField(L, 2, "gotoForce", vectorValue))
+		{
+			task->gotoForce = vectorValue;
+		}
+		if (TryGetOptionalVectorField(L, 2, "gotoDir", vectorValue))
+		{
+			task->gotoDir = vectorValue;
+		}
+
+		bool turboEnabled = false;
+		if (TryGetOptionalBooleanField(L, 2, "turbo", turboEnabled))
+		{
+			Patch::setTurboUnits[h] = turboEnabled;
+		}
+
+		return 0;
+	}
+
 	int GetAiTaskFieldScan(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
@@ -3143,6 +3647,82 @@ namespace ExtraUtilities::Lua::GameObject
 
 		std::vector<ScannedFieldInfo> fields = ScanAlignedFields(children[bestIndex].object, scanBytes);
 		PushScannedFieldArray(L, fields);
+		return 1;
+	}
+
+	int GetAiRecycleTaskState(lua_State* L)
+	{
+		BZR::handle h = CheckHandle(L, 1);
+		const uint32_t scanBytes = GetScanBytesArgument(L, 2, 0x100);
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		void* aiProcess = obj->aiProcess;
+		if (aiProcess == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		PolymorphicObjectInfo taskInfo{};
+		if (!TryFindBestAiTask(aiProcess, scanBytes, taskInfo, "RecycleTask"))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		const auto* recycleTask = reinterpret_cast<const RecycleTaskLayout*>(taskInfo.object);
+		lua_createtable(L, 0, 20);
+		lua_pushlightuserdata(L, taskInfo.object);
+		lua_setfield(L, -2, "task");
+		lua_pushstring(L, taskInfo.typeName.c_str());
+		lua_setfield(L, -2, "typeName");
+		lua_pushstring(L, taskInfo.rawTypeName.c_str());
+		lua_setfield(L, -2, "rawTypeName");
+		PushStringArray(L, taskInfo.hierarchy);
+		lua_setfield(L, -2, "hierarchy");
+		lua_pushinteger(L, recycleTask->curState);
+		lua_setfield(L, -2, "curState");
+		lua_pushinteger(L, recycleTask->nextState);
+		lua_setfield(L, -2, "nextState");
+		lua_pushnumber(L, recycleTask->nextStuck);
+		lua_setfield(L, -2, "nextStuck");
+		lua_pushinteger(L, recycleTask->stuckState);
+		lua_setfield(L, -2, "stuckState");
+		BZR::handle meHandle = 0;
+		if (TryGetHandleFromObject(recycleTask->me, meHandle))
+		{
+			PushHandleField(L, "meHandle", meHandle);
+		}
+		else
+		{
+			lua_pushnil(L);
+			lua_setfield(L, -2, "meHandle");
+		}
+		PushObjectPointerField(L, "me", recycleTask->me);
+		PushObjectPointerField(L, "subtask", recycleTask->subtask);
+		void* subtaskVtable = nullptr;
+		const char* subtaskRawTypeName = nullptr;
+		MsvcRttiClassHierarchyDescriptor* subtaskClassDescriptor = nullptr;
+		if (TryGetPolymorphicMetadata(recycleTask->subtask, subtaskVtable, subtaskRawTypeName, subtaskClassDescriptor))
+		{
+			const std::string subtaskTypeName = NormalizeMsvcTypeName(subtaskRawTypeName);
+			lua_pushstring(L, subtaskTypeName.c_str());
+			lua_setfield(L, -2, "subtaskTypeName");
+		}
+		PushVectorField(L, "lastScrap", recycleTask->lastScrap);
+		PushHandleField(L, "scrapHandle", recycleTask->scrapHandle);
+		PushHandleField(L, "dropHandle", recycleTask->dropHandle);
+		PushVectorField(L, "where", recycleTask->where);
+		lua_pushnumber(L, recycleTask->nextCheck);
+		lua_setfield(L, -2, "nextCheck");
+		PushVectorField(L, "lastRecyclerPos", recycleTask->lastRecyclerPos);
+		PushVectorField(L, "lastStuck", recycleTask->lastStuck);
+		if (recycleTask->me != nullptr && recycleTask->scrapHandle != 0)
+		{
+			const float scrapDistance = (recycleTask->me->pos - recycleTask->lastScrap).Length();
+			lua_pushnumber(L, scrapDistance);
+			lua_setfield(L, -2, "scrapDistance");
+		}
+
 		return 1;
 	}
 
