@@ -497,10 +497,33 @@ namespace BZR
 	{
 		inline auto state = (uint8_t*)0x008EAAAC;
 		inline auto scale = (float*)0x008E77B0;
+		inline auto edgeMinX = (float*)0x00917388;
+		inline auto edgeMaxX = (float*)0x0091738C;
+		inline auto edgeMinZ = (float*)0x00917390;
+		inline auto edgeMaxZ = (float*)0x00917394;
+
+		struct EdgePathPoint
+		{
+			float x;
+			float z;
+		};
+
+		struct RuntimePath
+		{
+			uintptr_t label;
+			int32_t pointCount;
+			EdgePathPoint* points;
+		};
 
 		// Recalculates radar and command panel placement after HUD sizing changes.
 		using _RefreshLayout = void(__cdecl*)(int screenHeight);
 		inline _RefreshLayout RefreshLayout = (_RefreshLayout)0x00492EC0;
+
+		using _FindNamedPath = RuntimePath* (__cdecl*)(const char* name);
+		inline _FindNamedPath FindNamedPath = (_FindNamedPath)0x00460FC0;
+
+		using _RefreshEdgePathBounds = void(__thiscall*)(void* self);
+		inline _RefreshEdgePathBounds RefreshEdgePathBounds = (_RefreshEdgePathBounds)0x0046AF20;
 	}
 
 	namespace Reticle

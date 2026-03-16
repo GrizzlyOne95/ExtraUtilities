@@ -17,11 +17,73 @@
 */
 
 #include "Radar.h"
+#include "LuaHelpers.h"
 
 #include <cmath>
 
 namespace ExtraUtilities::Lua::Radar
 {
+	namespace
+	{
+		int AbsoluteIndex(lua_State* L, int idx)
+		{
+			return idx > 0 ? idx : lua_gettop(L) + idx + 1;
+		}
+
+		BZR::Radar::EdgePathPoint CheckEdgePathPoint(lua_State* L, int idx)
+		{
+			idx = AbsoluteIndex(L, idx);
+
+			BZR::Radar::EdgePathPoint point{};
+			if (lua_isuserdata(L, idx))
+			{
+				BZR::VECTOR_3D vector = CheckVectorOrSingles(L, idx);
+				point.x = vector.x;
+				point.z = vector.z;
+				return point;
+			}
+
+			if (!lua_istable(L, idx))
+			{
+				luaL_typerror(L, idx, "table");
+			}
+
+			StackGuard guard(L);
+
+			lua_getfield(L, idx, "x");
+			if (!lua_isnil(L, -1))
+			{
+				point.x = static_cast<float>(luaL_checknumber(L, -1));
+
+				lua_getfield(L, idx, "z");
+				if (lua_isnil(L, -1))
+				{
+					lua_pop(L, 1);
+					lua_getfield(L, idx, "y");
+				}
+				point.z = static_cast<float>(luaL_checknumber(L, -1));
+				return point;
+			}
+
+			lua_pop(L, 1);
+			lua_rawgeti(L, idx, 1);
+			point.x = static_cast<float>(luaL_checknumber(L, -1));
+			lua_rawgeti(L, idx, 2);
+			point.z = static_cast<float>(luaL_checknumber(L, -1));
+			return point;
+		}
+
+		void InvokeEdgePathRefresh()
+		{
+			BZR::Radar::RefreshEdgePathBounds(nullptr);
+		}
+
+		bool IsMissionLoaded()
+		{
+			return BZR::GameObject::user_entity_ptr != nullptr && *BZR::GameObject::user_entity_ptr != nullptr;
+		}
+	}
+
 	int GetState(lua_State* L)
 	{
 		lua_pushnumber(L, state.Read());
@@ -62,6 +124,65 @@ namespace ExtraUtilities::Lua::Radar
 			BZR::Radar::RefreshLayout(screenHeight);
 		}
 
+		return 0;
+	}
+
+	int RefreshEdgePathBounds(lua_State* L)
+	{
+		if (!IsMissionLoaded())
+		{
+			return luaL_error(L, "RefreshEdgePathBounds requires an active mission");
+		}
+
+		InvokeEdgePathRefresh();
+		return 0;
+	}
+
+	int SetEdgePathCoords(lua_State* L)
+	{
+		if (!IsMissionLoaded())
+		{
+			return luaL_error(L, "SetEdgePathCoords requires an active mission");
+		}
+
+		luaL_checktype(L, 1, LUA_TTABLE);
+
+		BZR::Radar::RuntimePath* path = BZR::Radar::FindNamedPath("edge_path");
+		if (path == nullptr)
+		{
+			return luaL_error(L, "edge_path was not found");
+		}
+
+		if (path->pointCount < 0 || (path->pointCount > 0 && path->points == nullptr))
+		{
+			return luaL_error(L, "edge_path is not in a writable runtime state");
+		}
+
+		const int inputCount = static_cast<int>(lua_objlen(L, 1));
+		if (inputCount <= 0)
+		{
+			return luaL_error(L, "SetEdgePathCoords requires a non-empty point array");
+		}
+
+		if (inputCount != path->pointCount)
+		{
+			return luaL_error(
+				L,
+				"SetEdgePathCoords point count mismatch: expected %d points to match the existing edge_path, got %d",
+				path->pointCount,
+				inputCount);
+		}
+
+		for (int i = 1; i <= inputCount; ++i)
+		{
+			lua_rawgeti(L, 1, i);
+			BZR::Radar::EdgePathPoint point = CheckEdgePathPoint(L, -1);
+			lua_pop(L, 1);
+
+			path->points[i - 1] = point;
+		}
+
+		InvokeEdgePathRefresh();
 		return 0;
 	}
 }

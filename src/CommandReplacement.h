@@ -16,27 +16,22 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-/*
-* Combined header for lua exports
-*/
-
 #pragma once
 
-#include "Camera.h"
-#include "CommandReplacement.h"
-#include "ControlPanel.h"
-#include "Environment.h"
-#include "GameObject.h"
-#include "GraphicsOptions.h"
-#include "IO.h"
-#include "Multiplayer.h"
-#include "Overlay.h"
-#include "Ordnance.h"
-#include "OS.h"
-#include "PlayOption.h"
-#include "Radar.h"
-#include "Reticle.h"
-#include "Satellite.h"
-#include "SoundOptions.h"
-#include "Steam.h"
-#include "StockExtensions.h"
+#include "BZR.h"
+
+#include <lua.hpp>
+
+namespace ExtraUtilities::Lua::CommandReplacement
+{
+	void ResetState(lua_State* L);
+
+	bool DispatchRegisteredReplacement(BZR::handle handle, const char* stockCommandName, const char* origin);
+
+	int ReplaceStockCmd(lua_State* L);
+	int RemoveStockCmdReplacement(lua_State* L);
+	int HasStockCmdReplacement(lua_State* L);
+	int GetStockCmdReplacement(lua_State* L);
+	int TriggerStockCmdReplacement(lua_State* L);
+	int UpdateCommandReplacements(lua_State* L);
+}
