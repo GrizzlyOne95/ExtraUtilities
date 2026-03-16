@@ -333,6 +333,7 @@ namespace ExtraUtilities::Lua
 			{ "SetOverlayPosition", &Overlay::SetOverlayPosition },
 			{ "SetOverlayDimensions", &Overlay::SetOverlayDimensions },
 			{ "SetOverlayMaterial", &Overlay::SetOverlayMaterial },
+			{ "SetOverlayParameter", &Overlay::SetOverlayParameter },
 			{ "SetOverlayColor", &Overlay::SetOverlayColor },
 			{ "SetOverlayCaption", &Overlay::SetOverlayCaption },
 			{ "SetOverlayTextFont", &Overlay::SetOverlayTextFont },
@@ -390,6 +391,8 @@ namespace ExtraUtilities::Lua
 			{ "GetAiProcess", &GameObject::GetAiProcess },
 			{ "GetAiProcessTypeName", &GameObject::GetAiProcessTypeName },
 			{ "GetAiProcessInfo", &GameObject::GetAiProcessInfo },
+			{ "GetAiTaskInfo", &GameObject::GetAiTaskInfo },
+			{ "GetAiTaskFieldScan", &GameObject::GetAiTaskFieldScan },
 			{ "GetRadarRange",	&GameObject::GetRadarRange },
 			{ "SetRadarRange",	&GameObject::SetRadarRange },
 			{ "GetRadarPeriod", &GameObject::GetRadarPeriod },
@@ -405,6 +408,7 @@ namespace ExtraUtilities::Lua
 			// IO
 			{ "GetGameKey", &IO::GetGameKey },
 			{ "IsPauseMenuOpen", &IO::IsPauseMenuOpen },
+			{ "GetPauseMenuDebugState", &IO::GetPauseMenuDebugState },
 
 			// Multiplayer
 			{ "BuildAsyncObject", &Multiplayer::BuildAsyncObject },

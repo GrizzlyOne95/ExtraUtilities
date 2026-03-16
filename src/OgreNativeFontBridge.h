@@ -25,6 +25,9 @@ namespace ExtraUtilities
 					const char* textureName,
 					const char* spriteTablePath) noexcept;
 				bool TrySetTextAreaFontName(void* overlayElement, const char* fontName) noexcept;
+				bool TrySetTextAreaCaption(void* overlayElement, const char* text) noexcept;
+				bool TrySetTextAreaCharHeight(void* overlayElement, float charHeight) noexcept;
+				bool TrySetTextAreaColor(void* overlayElement, float r, float g, float b, float a) noexcept;
 			}
 		}
 	}

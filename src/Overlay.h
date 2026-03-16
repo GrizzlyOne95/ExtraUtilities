@@ -44,6 +44,7 @@ namespace ExtraUtilities::Lua::Overlay
 	int SetOverlayPosition(lua_State* L);
 	int SetOverlayDimensions(lua_State* L);
 	int SetOverlayMaterial(lua_State* L);
+	int SetOverlayParameter(lua_State* L);
 	int SetOverlayColor(lua_State* L);
 	int SetOverlayCaption(lua_State* L);
 	int SetOverlayTextFont(lua_State* L);

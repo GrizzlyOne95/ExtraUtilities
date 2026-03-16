@@ -51,4 +51,53 @@ namespace ExtraUtilities::Lua::IO
 		lua_pushboolean(L, ExtraUtilities::GameState::IsPauseMenuOpen());
 		return 1;
 	}
+
+	int GetPauseMenuDebugState(lua_State* L)
+	{
+		ExtraUtilities::GameState::PauseMenuDebugState state{};
+		const bool ok = ExtraUtilities::GameState::TryGetPauseMenuDebugState(state);
+
+		lua_newtable(L);
+
+		lua_pushboolean(L, ok);
+		lua_setfield(L, -2, "ok");
+
+		lua_pushboolean(L, state.pauseMenuOpen);
+		lua_setfield(L, -2, "pauseOpen");
+
+		lua_pushboolean(L, state.singleplayerPauseOpen);
+		lua_setfield(L, -2, "singleplayerPauseOpen");
+
+		lua_pushboolean(L, state.multiplayerPauseOpen);
+		lua_setfield(L, -2, "multiplayerPauseOpen");
+
+		lua_pushboolean(L, state.cursorVisible);
+		lua_setfield(L, -2, "cursorVisible");
+
+		lua_pushboolean(L, state.currentScreenMatchesPauseRoot);
+		lua_setfield(L, -2, "currentScreenMatchesPauseRoot");
+
+		lua_pushinteger(L, static_cast<lua_Integer>(state.singleplayerPauseRoot));
+		lua_setfield(L, -2, "singleplayerPauseRoot");
+
+		lua_pushinteger(L, static_cast<lua_Integer>(state.multiplayerPauseRoot));
+		lua_setfield(L, -2, "multiplayerPauseRoot");
+
+		lua_pushinteger(L, static_cast<lua_Integer>(state.uiCurrentScreen));
+		lua_setfield(L, -2, "uiCurrentScreen");
+
+		lua_pushinteger(L, static_cast<lua_Integer>(state.uiWrapperActive));
+		lua_setfield(L, -2, "uiWrapperActive");
+
+		lua_pushinteger(L, static_cast<lua_Integer>(state.uiCurrentScreenType));
+		lua_setfield(L, -2, "uiCurrentScreenType");
+
+		lua_pushstring(L, ExtraUtilities::GameState::DescribeScreenType(state.uiCurrentScreenType));
+		lua_setfield(L, -2, "uiCurrentScreenTypeName");
+
+		lua_pushinteger(L, static_cast<lua_Integer>(state.multiplayerPauseFlag));
+		lua_setfield(L, -2, "multiplayerPauseFlag");
+
+		return 1;
+	}
 }

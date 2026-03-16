@@ -588,6 +588,20 @@ function exu.SetOverlayDimensions(name, width, height) end
 --- @param materialName string
 function exu.SetOverlayMaterial(name, materialName) end
 
+--- Sets a raw Ogre overlay parameter by name.
+--- This is the escape hatch for element-specific options not wrapped by dedicated helpers.
+--- Value may be a string, finite number, or boolean and is converted to Ogre's string parameter form.
+--- Useful examples include:
+--- `Panel`: `uv_coords`, `tiling`, `transparent`
+--- `BorderPanel`: `border_size`, `border_material`, `border_*_uv`
+--- `TextArea`: `alignment`, `space_width`, `colour_top`, `colour_bottom`
+--- Base element params: `horz_align`, `vert_align`, `visible`, `caption`
+--- @param name string
+--- @param parameterName string
+--- @param value string | number | boolean
+--- @return boolean success True when Ogre accepted the parameter.
+function exu.SetOverlayParameter(name, parameterName, value) end
+
 --- Sets the color of an overlay element.
 --- Can take either four number parameters or a color table.
 --- @param name string
@@ -966,11 +980,29 @@ function exu.GetAiProcess(h) end
 function exu.GetAiProcessTypeName(h) end
 
 --- Gets AI process debug info for the given object.
---- Fields may include `process`, `vtable`, `rawTypeName`, `typeName`, and `hierarchy`.
+--- Fields may include `process`, `vtable`, `rawTypeName`, `typeName`, `hierarchy`, scanned child objects, and aligned memory field scans.
 --- @nodiscard
 --- @param h Handle
+--- @param scanBytes? integer Defaults to 256. Max 512.
 --- @return table | nil
 function exu.GetAiProcessInfo(h) end
+
+--- Gets the first likely task/attack child object discovered inside the AI process.
+--- This is heuristic and intended for reverse-engineering and diagnostics.
+--- The returned table may include `candidates`, `children`, and aligned `fields`.
+--- @nodiscard
+--- @param h Handle
+--- @param scanBytes? integer Defaults to 256. Max 512.
+--- @return table | nil
+function exu.GetAiTaskInfo(h) end
+
+--- Gets an aligned 32-bit field scan for the most likely AI task/attack object.
+--- Each entry may include integer, float, pointer, RTTI, and handle interpretations.
+--- @nodiscard
+--- @param h Handle
+--- @param scanBytes? integer Defaults to 256. Max 512.
+--- @return table | nil
+function exu.GetAiTaskFieldScan(h) end
 
 --- Gets the radar scan period for the given object (if it has a radar).
 --- @nodiscard
@@ -1037,6 +1069,17 @@ function exu.GetGameKey(key) end
 --- @nodiscard
 --- @return boolean
 function exu.IsPauseMenuOpen() end
+
+--- Returns a debug snapshot of the native game-side pause/UI state probe.
+--- Useful for reverse-engineering stock UI ownership without relying on Ogre or Lua timing.
+--- Fields include:
+--- `ok`, `pauseOpen`, `singleplayerPauseOpen`, `multiplayerPauseOpen`,
+--- `cursorVisible`, `currentScreenMatchesPauseRoot`, `singleplayerPauseRoot`,
+--- `multiplayerPauseRoot`, `uiCurrentScreen`, `uiWrapperActive`,
+--- `uiCurrentScreenType`, `uiCurrentScreenTypeName`, `multiplayerPauseFlag`.
+--- @nodiscard
+--- @return table
+function exu.GetPauseMenuDebugState() end
 
 --- Multiplayer
 ---

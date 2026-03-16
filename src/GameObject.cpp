@@ -85,6 +85,35 @@ namespace ExtraUtilities::Lua::GameObject
 			::Ogre::Pass* pass = nullptr;
 		};
 
+		struct PolymorphicObjectInfo
+		{
+			uint32_t offset = 0;
+			void* object = nullptr;
+			void* vtable = nullptr;
+			std::string rawTypeName;
+			std::string typeName;
+			std::vector<std::string> hierarchy;
+		};
+
+		struct ScannedFieldInfo
+		{
+			uint32_t offset = 0;
+			uint32_t rawValue = 0;
+			int32_t intValue = 0;
+			bool hasFloatValue = false;
+			float floatValue = 0.0f;
+			bool hasPointer = false;
+			void* pointer = nullptr;
+			std::string pointerRawTypeName;
+			std::string pointerTypeName;
+			std::vector<std::string> pointerHierarchy;
+			bool hasHandle = false;
+			BZR::handle handleValue = 0;
+			BZR::GameObject* handleObject = nullptr;
+		};
+
+		void PushStringArray(lua_State* L, const std::vector<std::string>& values);
+
 		void LogMaterialDebug(const char* fmt, ...)
 		{
 			char message[1024];
@@ -264,6 +293,377 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 
 			return result;
+		}
+
+		bool TryReadPointerField(void* base, uint32_t offset, void*& outPointer)
+		{
+			outPointer = nullptr;
+
+			if (base == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				outPointer = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(base) + offset);
+				return outPointer != nullptr;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				outPointer = nullptr;
+				return false;
+			}
+		}
+
+		bool TryReadUInt32Field(void* base, uint32_t offset, uint32_t& outValue)
+		{
+			outValue = 0;
+
+			if (base == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				outValue = *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(base) + offset);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				outValue = 0;
+				return false;
+			}
+		}
+
+		bool TryInterpretFloat(uint32_t rawValue, float& outValue)
+		{
+			static_assert(sizeof(uint32_t) == sizeof(float), "float scan assumes 32-bit float");
+			memcpy(&outValue, &rawValue, sizeof(float));
+			return std::isfinite(outValue);
+		}
+
+		bool IsReadablePointer(const void* pointer)
+		{
+			if (pointer == nullptr)
+			{
+				return false;
+			}
+
+			MEMORY_BASIC_INFORMATION mbi{};
+			if (VirtualQuery(pointer, &mbi, sizeof(mbi)) == 0)
+			{
+				return false;
+			}
+
+			if (mbi.State != MEM_COMMIT)
+			{
+				return false;
+			}
+
+			if ((mbi.Protect & PAGE_GUARD) != 0 || (mbi.Protect & PAGE_NOACCESS) != 0)
+			{
+				return false;
+			}
+
+			return true;
+		}
+
+		bool TryResolveHandleValue(uint32_t rawValue, BZR::handle& outHandle, BZR::GameObject*& outObject)
+		{
+			outHandle = 0;
+			outObject = nullptr;
+
+			if (rawValue == 0)
+			{
+				return false;
+			}
+
+			__try
+			{
+				BZR::handle candidate = static_cast<BZR::handle>(rawValue);
+				BZR::GameObject* obj = BZR::GameObject::GetObj(candidate);
+				if (obj == nullptr)
+				{
+					return false;
+				}
+
+				if (BZR::GameObject::GetHandle(obj) != candidate)
+				{
+					return false;
+				}
+
+				outHandle = candidate;
+				outObject = obj;
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				outHandle = 0;
+				outObject = nullptr;
+				return false;
+			}
+		}
+
+		uint32_t GetScanBytesArgument(lua_State* L, int index, uint32_t defaultValue)
+		{
+			if (lua_gettop(L) < index || lua_isnil(L, index))
+			{
+				return defaultValue;
+			}
+
+			lua_Integer requested = luaL_checkinteger(L, index);
+			if (requested < 0)
+			{
+				luaL_argerror(L, index, "scanBytes must be non-negative");
+				return defaultValue;
+			}
+
+			if (requested > 0x200)
+			{
+				luaL_argerror(L, index, "scanBytes must be 512 bytes or less");
+				return defaultValue;
+			}
+
+			return static_cast<uint32_t>(requested);
+		}
+
+		bool IsInterestingAiChildType(const std::string& typeName)
+		{
+			return typeName.find("Task") != std::string::npos ||
+				typeName.find("Attack") != std::string::npos ||
+				typeName.find("Process") != std::string::npos;
+		}
+
+		int GetTaskCandidateScore(const PolymorphicObjectInfo& info)
+		{
+			int score = 0;
+			if (info.typeName.find("Attack") != std::string::npos)
+			{
+				score += 100;
+			}
+			if (info.typeName.find("Task") != std::string::npos)
+			{
+				score += 50;
+			}
+			if (info.typeName.find("UnitTask") != std::string::npos)
+			{
+				score += 10;
+			}
+			return score;
+		}
+
+		std::vector<PolymorphicObjectInfo> ScanPolymorphicChildren(void* base, uint32_t scanBytes)
+		{
+			std::vector<PolymorphicObjectInfo> result;
+			if (base == nullptr)
+			{
+				return result;
+			}
+
+			std::unordered_set<void*> seenObjects;
+			for (uint32_t offset = 0; offset + sizeof(void*) <= scanBytes; offset += sizeof(void*))
+			{
+				void* candidate = nullptr;
+				if (!TryReadPointerField(base, offset, candidate))
+				{
+					continue;
+				}
+
+				if (candidate == base || !seenObjects.insert(candidate).second)
+				{
+					continue;
+				}
+
+				void* vtable = nullptr;
+				const char* rawTypeName = nullptr;
+				MsvcRttiClassHierarchyDescriptor* classDescriptor = nullptr;
+				if (!TryGetPolymorphicMetadata(candidate, vtable, rawTypeName, classDescriptor))
+				{
+					continue;
+				}
+
+				PolymorphicObjectInfo info;
+				info.offset = offset;
+				info.object = candidate;
+				info.vtable = vtable;
+				info.rawTypeName = rawTypeName;
+				info.typeName = NormalizeMsvcTypeName(rawTypeName);
+				info.hierarchy = BuildHierarchyNames(classDescriptor);
+
+				if (!IsInterestingAiChildType(info.typeName))
+				{
+					continue;
+				}
+
+				result.push_back(std::move(info));
+			}
+
+			return result;
+		}
+
+		std::vector<ScannedFieldInfo> ScanAlignedFields(void* base, uint32_t scanBytes)
+		{
+			std::vector<ScannedFieldInfo> result;
+			if (base == nullptr)
+			{
+				return result;
+			}
+
+			result.reserve(scanBytes / sizeof(uint32_t));
+			for (uint32_t offset = 0; offset + sizeof(uint32_t) <= scanBytes; offset += sizeof(uint32_t))
+			{
+				uint32_t rawValue = 0;
+				if (!TryReadUInt32Field(base, offset, rawValue))
+				{
+					continue;
+				}
+
+				ScannedFieldInfo info;
+				info.offset = offset;
+				info.rawValue = rawValue;
+				info.intValue = static_cast<int32_t>(rawValue);
+				info.hasFloatValue = TryInterpretFloat(rawValue, info.floatValue);
+
+				if (rawValue >= 0x10000)
+				{
+					void* pointerCandidate = reinterpret_cast<void*>(static_cast<uintptr_t>(rawValue));
+					if (IsReadablePointer(pointerCandidate))
+					{
+						info.hasPointer = true;
+						info.pointer = pointerCandidate;
+
+						void* vtable = nullptr;
+						const char* rawTypeName = nullptr;
+						MsvcRttiClassHierarchyDescriptor* classDescriptor = nullptr;
+						if (TryGetPolymorphicMetadata(pointerCandidate, vtable, rawTypeName, classDescriptor))
+						{
+							info.pointerRawTypeName = rawTypeName;
+							info.pointerTypeName = NormalizeMsvcTypeName(rawTypeName);
+							info.pointerHierarchy = BuildHierarchyNames(classDescriptor);
+						}
+					}
+				}
+
+				BZR::handle handleValue = 0;
+				BZR::GameObject* handleObject = nullptr;
+				if (TryResolveHandleValue(rawValue, handleValue, handleObject))
+				{
+					info.hasHandle = true;
+					info.handleValue = handleValue;
+					info.handleObject = handleObject;
+				}
+
+				result.push_back(std::move(info));
+			}
+
+			return result;
+		}
+
+		void PushPolymorphicObjectInfo(lua_State* L, const PolymorphicObjectInfo& info)
+		{
+			lua_createtable(L, 0, 6);
+
+			lua_pushinteger(L, info.offset);
+			lua_setfield(L, -2, "offset");
+
+			lua_pushlightuserdata(L, info.object);
+			lua_setfield(L, -2, "object");
+
+			if (info.vtable != nullptr)
+			{
+				lua_pushlightuserdata(L, info.vtable);
+				lua_setfield(L, -2, "vtable");
+			}
+
+			lua_pushstring(L, info.rawTypeName.c_str());
+			lua_setfield(L, -2, "rawTypeName");
+
+			lua_pushstring(L, info.typeName.c_str());
+			lua_setfield(L, -2, "typeName");
+
+			PushStringArray(L, info.hierarchy);
+			lua_setfield(L, -2, "hierarchy");
+		}
+
+		void PushScannedFieldInfo(lua_State* L, const ScannedFieldInfo& info)
+		{
+			char rawHex[11];
+			sprintf_s(rawHex, "0x%08X", info.rawValue);
+
+			lua_createtable(L, 0, 11);
+
+			lua_pushinteger(L, info.offset);
+			lua_setfield(L, -2, "offset");
+
+			lua_pushinteger(L, static_cast<lua_Integer>(info.rawValue));
+			lua_setfield(L, -2, "rawValue");
+
+			lua_pushstring(L, rawHex);
+			lua_setfield(L, -2, "rawHex");
+
+			lua_pushinteger(L, static_cast<lua_Integer>(info.intValue));
+			lua_setfield(L, -2, "intValue");
+
+			if (info.hasFloatValue)
+			{
+				lua_pushnumber(L, info.floatValue);
+				lua_setfield(L, -2, "floatValue");
+			}
+
+			if (info.hasPointer)
+			{
+				lua_pushlightuserdata(L, info.pointer);
+				lua_setfield(L, -2, "pointer");
+
+				if (!info.pointerRawTypeName.empty())
+				{
+					lua_pushstring(L, info.pointerRawTypeName.c_str());
+					lua_setfield(L, -2, "pointerRawTypeName");
+				}
+
+				if (!info.pointerTypeName.empty())
+				{
+					lua_pushstring(L, info.pointerTypeName.c_str());
+					lua_setfield(L, -2, "pointerTypeName");
+				}
+
+				if (!info.pointerHierarchy.empty())
+				{
+					PushStringArray(L, info.pointerHierarchy);
+					lua_setfield(L, -2, "pointerHierarchy");
+				}
+			}
+
+			if (info.hasHandle)
+			{
+				lua_pushinteger(L, static_cast<lua_Integer>(info.handleValue));
+				lua_setfield(L, -2, "handle");
+
+				lua_pushlightuserdata(L, info.handleObject);
+				lua_setfield(L, -2, "handleObject");
+			}
+		}
+
+		void PushPolymorphicObjectArray(lua_State* L, const std::vector<PolymorphicObjectInfo>& values)
+		{
+			lua_createtable(L, static_cast<int>(values.size()), 0);
+			for (size_t i = 0; i < values.size(); ++i)
+			{
+				PushPolymorphicObjectInfo(L, values[i]);
+				lua_rawseti(L, -2, static_cast<int>(i + 1));
+			}
+		}
+
+		void PushScannedFieldArray(lua_State* L, const std::vector<ScannedFieldInfo>& values)
+		{
+			lua_createtable(L, static_cast<int>(values.size()), 0);
+			for (size_t i = 0; i < values.size(); ++i)
+			{
+				PushScannedFieldInfo(L, values[i]);
+				lua_rawseti(L, -2, static_cast<int>(i + 1));
+			}
 		}
 
 		void PushStringArray(lua_State* L, const std::vector<std::string>& values)
@@ -2592,6 +2992,7 @@ namespace ExtraUtilities::Lua::GameObject
 	int GetAiProcessInfo(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
+		uint32_t scanBytes = GetScanBytesArgument(L, 2, 0x100);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
 		void* aiProcess = obj->aiProcess;
 		if (aiProcess == nullptr)
@@ -2604,9 +3005,11 @@ namespace ExtraUtilities::Lua::GameObject
 		const char* rawTypeName = nullptr;
 		MsvcRttiClassHierarchyDescriptor* classDescriptor = nullptr;
 
-		lua_createtable(L, 0, 5);
+		lua_createtable(L, 0, 7);
 		lua_pushlightuserdata(L, aiProcess);
 		lua_setfield(L, -2, "process");
+		lua_pushinteger(L, scanBytes);
+		lua_setfield(L, -2, "scanBytes");
 
 		if (TryGetPolymorphicMetadata(aiProcess, vtable, rawTypeName, classDescriptor))
 		{
@@ -2628,6 +3031,118 @@ namespace ExtraUtilities::Lua::GameObject
 			lua_setfield(L, -2, "hierarchy");
 		}
 
+		std::vector<PolymorphicObjectInfo> children = ScanPolymorphicChildren(aiProcess, scanBytes);
+		PushPolymorphicObjectArray(L, children);
+		lua_setfield(L, -2, "children");
+
+		std::vector<ScannedFieldInfo> fields = ScanAlignedFields(aiProcess, scanBytes);
+		PushScannedFieldArray(L, fields);
+		lua_setfield(L, -2, "fields");
+
+		return 1;
+	}
+
+	int GetAiTaskInfo(lua_State* L)
+	{
+		BZR::handle h = CheckHandle(L, 1);
+		uint32_t scanBytes = GetScanBytesArgument(L, 2, 0x100);
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		void* aiProcess = obj->aiProcess;
+		if (aiProcess == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		std::vector<PolymorphicObjectInfo> children = ScanPolymorphicChildren(aiProcess, scanBytes);
+		std::vector<PolymorphicObjectInfo> candidates;
+		candidates.reserve(children.size());
+		for (const auto& child : children)
+		{
+			if (child.typeName.find("Task") != std::string::npos ||
+				child.typeName.find("Attack") != std::string::npos)
+			{
+				candidates.push_back(child);
+			}
+		}
+
+		if (candidates.empty())
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		size_t bestIndex = 0;
+		int bestScore = GetTaskCandidateScore(candidates[0]);
+		for (size_t i = 1; i < candidates.size(); ++i)
+		{
+			int score = GetTaskCandidateScore(candidates[i]);
+			if (score > bestScore)
+			{
+				bestScore = score;
+				bestIndex = i;
+			}
+		}
+
+		const PolymorphicObjectInfo& selected = candidates[bestIndex];
+		PushPolymorphicObjectInfo(L, selected);
+
+		lua_pushinteger(L, scanBytes);
+		lua_setfield(L, -2, "scanBytes");
+
+		PushPolymorphicObjectArray(L, candidates);
+		lua_setfield(L, -2, "candidates");
+
+		std::vector<PolymorphicObjectInfo> nestedChildren = ScanPolymorphicChildren(selected.object, scanBytes);
+		PushPolymorphicObjectArray(L, nestedChildren);
+		lua_setfield(L, -2, "children");
+
+		std::vector<ScannedFieldInfo> fields = ScanAlignedFields(selected.object, scanBytes);
+		PushScannedFieldArray(L, fields);
+		lua_setfield(L, -2, "fields");
+
+		return 1;
+	}
+
+	int GetAiTaskFieldScan(lua_State* L)
+	{
+		BZR::handle h = CheckHandle(L, 1);
+		uint32_t scanBytes = GetScanBytesArgument(L, 2, 0x100);
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		void* aiProcess = obj->aiProcess;
+		if (aiProcess == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		std::vector<PolymorphicObjectInfo> children = ScanPolymorphicChildren(aiProcess, scanBytes);
+		size_t bestIndex = static_cast<size_t>(-1);
+		int bestScore = 0;
+		for (size_t i = 0; i < children.size(); ++i)
+		{
+			if (children[i].typeName.find("Task") == std::string::npos &&
+				children[i].typeName.find("Attack") == std::string::npos)
+			{
+				continue;
+			}
+
+			int score = GetTaskCandidateScore(children[i]);
+			if (bestIndex == static_cast<size_t>(-1) || score > bestScore)
+			{
+				bestIndex = i;
+				bestScore = score;
+			}
+		}
+
+		if (bestIndex == static_cast<size_t>(-1))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		std::vector<ScannedFieldInfo> fields = ScanAlignedFields(children[bestIndex].object, scanBytes);
+		PushScannedFieldArray(L, fields);
 		return 1;
 	}
 
