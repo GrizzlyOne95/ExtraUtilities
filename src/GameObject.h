@@ -78,6 +78,8 @@ namespace ExtraUtilities::Lua::GameObject
 	int SetMass(lua_State* L);
 
 	int GetObj(lua_State* L);
+	int GetSelectedWeaponMask(lua_State* L);
+	int GetWeaponSelectionInfo(lua_State* L);
 	int GetAiProcess(lua_State* L);
 	int GetAiProcessTypeName(lua_State* L);
 	int GetAiProcessInfo(lua_State* L);

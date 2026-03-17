@@ -1077,6 +1077,21 @@ function exu.SetMass(h) end
 --- @return GameObject*
 function exu.GetObj(h) end
 
+--- Gets the live selected weapon mask from the object's carrier, filtered to mounted weapons.
+--- This is different from stock `GetWeaponMask`, which reflects the object's stored weapon-mask field.
+--- @nodiscard
+--- @param h Handle
+--- @return integer | nil
+function exu.GetSelectedWeaponMask(h) end
+
+--- Gets low-level weapon-selection state for the object.
+--- The returned table may include stored weapon-mask fields, carrier masks, and mode-list fields.
+--- Use this when you need to distinguish configured mask state from live carrier selection.
+--- @nodiscard
+--- @param h Handle
+--- @return table | nil
+function exu.GetWeaponSelectionInfo(h) end
+
 --- Gets the object's live AiProcess* pointer, if any.
 --- @nodiscard
 --- @param h Handle

@@ -115,6 +115,18 @@ namespace ExtraUtilities::Lua::GameObject
 		};
 
 #pragma pack(push, 1)
+		struct CarrierWeaponSelectionLayout
+		{
+			void* owner;
+			void* hardpoint[5];
+			void* weapon[5];
+			uint32_t existingMask;
+			uint32_t selectedMask;
+			uint32_t enabledMask;
+			int32_t special;
+			float weaponTriggerTillTime;
+		};
+
 		struct UnitTaskLayout
 		{
 			void* vftable;
@@ -199,6 +211,12 @@ namespace ExtraUtilities::Lua::GameObject
 			void* task;
 		};
 #pragma pack(pop)
+
+		constexpr size_t kGameObjectCarrierOffset = 0x198;
+		constexpr size_t kGameObjectModeListEnabledMaskOffset = 0x1C8;
+		constexpr size_t kGameObjectModeListActiveSlotOffset = 0x1CC;
+		constexpr size_t kGameObjectWeaponMaskOffset = 0x210;
+		constexpr uint32_t kWeaponMaskDecodeXor = 0x33333333u;
 
 		void PushStringArray(lua_State* L, const std::vector<std::string>& values);
 		std::vector<PolymorphicObjectInfo> ScanPolymorphicChildren(void* base, uint32_t scanBytes);
@@ -640,6 +658,45 @@ namespace ExtraUtilities::Lua::GameObject
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
 				outHandle = 0;
+				return false;
+			}
+		}
+
+		bool TryGetWeaponSelectionState(
+			BZR::GameObject* obj,
+			uint32_t& outStoredRawMask,
+			uint32_t& outStoredMask,
+			uint32_t& outModeListEnabledMask,
+			uint32_t& outModeListActiveSlot,
+			CarrierWeaponSelectionLayout*& outCarrier)
+		{
+			outStoredRawMask = 0;
+			outStoredMask = 0;
+			outModeListEnabledMask = 0;
+			outModeListActiveSlot = 0xFFFFFFFFu;
+			outCarrier = nullptr;
+			if (obj == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				auto* objBytes = reinterpret_cast<uint8_t*>(obj);
+				outStoredRawMask = *reinterpret_cast<uint32_t*>(objBytes + kGameObjectWeaponMaskOffset);
+				outStoredMask = outStoredRawMask ^ kWeaponMaskDecodeXor;
+				outModeListEnabledMask = *reinterpret_cast<uint32_t*>(objBytes + kGameObjectModeListEnabledMaskOffset);
+				outModeListActiveSlot = *reinterpret_cast<uint32_t*>(objBytes + kGameObjectModeListActiveSlotOffset);
+				outCarrier = *reinterpret_cast<CarrierWeaponSelectionLayout**>(objBytes + kGameObjectCarrierOffset);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				outStoredRawMask = 0;
+				outStoredMask = 0;
+				outModeListEnabledMask = 0;
+				outModeListActiveSlot = 0xFFFFFFFFu;
+				outCarrier = nullptr;
 				return false;
 			}
 		}
@@ -3454,6 +3511,97 @@ namespace ExtraUtilities::Lua::GameObject
 		BZR::handle h = CheckHandle(L, 1);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
 		lua_pushlightuserdata(L, obj);
+		return 1;
+	}
+
+	int GetSelectedWeaponMask(lua_State* L)
+	{
+		BZR::handle h = CheckHandle(L, 1);
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		uint32_t storedRawMask = 0;
+		uint32_t storedMask = 0;
+		uint32_t modeListEnabledMask = 0;
+		uint32_t modeListActiveSlot = 0;
+		CarrierWeaponSelectionLayout* carrier = nullptr;
+
+		if (!TryGetWeaponSelectionState(obj, storedRawMask, storedMask, modeListEnabledMask, modeListActiveSlot, carrier) || carrier == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		uint32_t selectedMountedMask = 0;
+		__try
+		{
+			selectedMountedMask = carrier->selectedMask & carrier->existingMask;
+			lua_pushinteger(L, static_cast<lua_Integer>(selectedMountedMask));
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogMaterialDebug("[EXU::GetSelectedWeaponMask] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
+			lua_pushnil(L);
+		}
+		return 1;
+	}
+
+	int GetWeaponSelectionInfo(lua_State* L)
+	{
+		BZR::handle h = CheckHandle(L, 1);
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		uint32_t storedRawMask = 0;
+		uint32_t storedMask = 0;
+		uint32_t modeListEnabledMask = 0;
+		uint32_t modeListActiveSlot = 0;
+		CarrierWeaponSelectionLayout* carrier = nullptr;
+
+		if (!TryGetWeaponSelectionState(obj, storedRawMask, storedMask, modeListEnabledMask, modeListActiveSlot, carrier))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		lua_createtable(L, 0, 9);
+
+		lua_pushinteger(L, static_cast<lua_Integer>(storedRawMask));
+		lua_setfield(L, -2, "storedWeaponMaskRaw");
+		lua_pushinteger(L, static_cast<lua_Integer>(storedMask));
+		lua_setfield(L, -2, "storedWeaponMask");
+		lua_pushinteger(L, static_cast<lua_Integer>(modeListEnabledMask));
+		lua_setfield(L, -2, "modeListEnabledMask");
+		if (modeListActiveSlot <= 4u)
+		{
+			lua_pushinteger(L, static_cast<lua_Integer>(modeListActiveSlot));
+		}
+		else
+		{
+			lua_pushnil(L);
+		}
+		lua_setfield(L, -2, "modeListActiveSlot");
+
+		if (carrier != nullptr)
+		{
+			__try
+			{
+				const uint32_t selectedMountedMask = carrier->selectedMask & carrier->existingMask;
+				const uint32_t selectedReadyMask = selectedMountedMask & carrier->enabledMask;
+
+				lua_pushinteger(L, static_cast<lua_Integer>(carrier->existingMask));
+				lua_setfield(L, -2, "carrierExistingMask");
+				lua_pushinteger(L, static_cast<lua_Integer>(carrier->selectedMask));
+				lua_setfield(L, -2, "carrierSelectedMask");
+				lua_pushinteger(L, static_cast<lua_Integer>(carrier->enabledMask));
+				lua_setfield(L, -2, "carrierEnabledMask");
+				lua_pushinteger(L, static_cast<lua_Integer>(selectedMountedMask));
+				lua_setfield(L, -2, "selectedMountedMask");
+				lua_pushinteger(L, static_cast<lua_Integer>(selectedReadyMask));
+				lua_setfield(L, -2, "selectedReadyMask");
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogMaterialDebug("[EXU::GetWeaponSelectionInfo] crashed while reading carrier handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
+			}
+		}
+
 		return 1;
 	}
 
