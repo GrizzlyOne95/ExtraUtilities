@@ -558,6 +558,8 @@ namespace ExtraUtilities::Lua
 			{ "GetMass", &GameObject::GetMass },
 			{ "SetMass", &GameObject::SetMass },
 			{ "GetObj",			&GameObject::GetObj },
+			{ "GetSelectedWeaponMask", &GameObject::GetSelectedWeaponMask },
+			{ "GetWeaponSelectionInfo", &GameObject::GetWeaponSelectionInfo },
 			{ "GetAiProcess", &GameObject::GetAiProcess },
 			{ "GetAiProcessTypeName", &GameObject::GetAiProcessTypeName },
 			{ "GetAiProcessInfo", &GameObject::GetAiProcessInfo },
