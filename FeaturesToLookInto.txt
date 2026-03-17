@@ -61,3 +61,7 @@ Can be fixed by mass converting TRN file to ANSI and forcing line feeds to CR LF
 29) Steam map list jumping. WIP fix in the shim, but needs further testing and the manual "refresh" button fixed too. - FIXED in shim
 
 30) Original scrap/pilot meter placement. FIXED in EXU
+
+31) 0 health units don't show damage sprite? 
+
+32) add more settings to Pda like unit verbosity?

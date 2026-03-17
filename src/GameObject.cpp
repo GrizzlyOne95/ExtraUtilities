@@ -247,14 +247,55 @@ namespace ExtraUtilities::Lua::GameObject
 			return true;
 		}
 
-		std::string NormalizeMsvcTypeName(const char* rawName)
+		bool TryCopyReadableCString(const char* rawName, std::string& outName, size_t maxLength = 256)
 		{
-			if (rawName == nullptr || rawName[0] == '\0')
+			outName.clear();
+			if (rawName == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				size_t length = 0;
+				for (; length < maxLength; ++length)
+				{
+					const char ch = rawName[length];
+					if (ch == '\0')
+					{
+						break;
+					}
+
+					const unsigned char byte = static_cast<unsigned char>(ch);
+					if (byte < 0x20 || byte > 0x7e)
+					{
+						return false;
+					}
+				}
+
+				if (length == 0 || length >= maxLength)
+				{
+					return false;
+				}
+
+				outName.assign(rawName, length);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				outName.clear();
+				return false;
+			}
+		}
+
+		std::string NormalizeMsvcTypeName(const std::string& rawName)
+		{
+			if (rawName.empty())
 			{
 				return {};
 			}
 
-			std::string name(rawName);
+			const std::string& name = rawName;
 			auto trimPrefixAndSuffix = [&](const char* prefix) -> std::string
 				{
 					const size_t prefixLen = strlen(prefix);
@@ -290,17 +331,20 @@ namespace ExtraUtilities::Lua::GameObject
 		bool TryGetPolymorphicMetadata(
 			void* object,
 			void*& outVtable,
-			const char*& outRawTypeName,
+			std::string& outRawTypeName,
 			MsvcRttiClassHierarchyDescriptor*& outClassDescriptor)
 		{
 			outVtable = nullptr;
-			outRawTypeName = nullptr;
+			outRawTypeName.clear();
 			outClassDescriptor = nullptr;
 
 			if (object == nullptr)
 			{
 				return false;
 			}
+
+			const char* rawName = nullptr;
+			MsvcRttiClassHierarchyDescriptor* classDescriptor = nullptr;
 
 			__try
 			{
@@ -316,58 +360,117 @@ namespace ExtraUtilities::Lua::GameObject
 					return false;
 				}
 
-				const char* rawName = col->pTypeDescriptor->name;
+				rawName = col->pTypeDescriptor->name;
 				if (rawName == nullptr || rawName[0] == '\0')
 				{
 					return false;
 				}
 
+				classDescriptor = col->pClassDescriptor;
+				if (classDescriptor != nullptr)
+				{
+					__try
+					{
+						(void)classDescriptor->numBaseClasses;
+					}
+					__except (EXCEPTION_EXECUTE_HANDLER)
+					{
+						classDescriptor = nullptr;
+					}
+				}
+
 				outVtable = vtable;
-				outRawTypeName = rawName;
-				outClassDescriptor = col->pClassDescriptor;
-				return true;
+				outClassDescriptor = classDescriptor;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
 				outVtable = nullptr;
-				outRawTypeName = nullptr;
+				outRawTypeName.clear();
 				outClassDescriptor = nullptr;
 				return false;
 			}
+
+			if (!TryCopyReadableCString(rawName, outRawTypeName))
+			{
+				outVtable = nullptr;
+				outClassDescriptor = nullptr;
+				return false;
+			}
+
+			return true;
 		}
 
 		bool TryGetBaseClassRawName(
 			MsvcRttiClassHierarchyDescriptor* classDescriptor,
 			uint32_t index,
-			const char*& outRawTypeName)
+			std::string& outRawTypeName)
 		{
-			outRawTypeName = nullptr;
+			outRawTypeName.clear();
 
-			if (classDescriptor == nullptr || classDescriptor->pBaseClassArray == nullptr)
+			if (classDescriptor == nullptr)
+			{
+				return false;
+			}
+
+			const char* rawTypeName = nullptr;
+			__try
+			{
+				auto** baseClassArray = classDescriptor->pBaseClassArray;
+				if (baseClassArray == nullptr)
+				{
+					return false;
+				}
+
+				auto* baseDescriptor = baseClassArray[index];
+				if (baseDescriptor == nullptr || baseDescriptor->pTypeDescriptor == nullptr)
+				{
+					return false;
+				}
+
+				rawTypeName = baseDescriptor->pTypeDescriptor->name;
+				if (rawTypeName == nullptr || rawTypeName[0] == '\0')
+				{
+					return false;
+				}
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				outRawTypeName.clear();
+				return false;
+			}
+
+			return TryCopyReadableCString(rawTypeName, outRawTypeName);
+		}
+
+		bool TryGetBaseClassCount(
+			MsvcRttiClassHierarchyDescriptor* classDescriptor,
+			uint32_t& outCount)
+		{
+			outCount = 0;
+
+			if (classDescriptor == nullptr)
 			{
 				return false;
 			}
 
 			__try
 			{
-				auto* baseDescriptor = classDescriptor->pBaseClassArray[index];
-				if (baseDescriptor == nullptr || baseDescriptor->pTypeDescriptor == nullptr)
+				if (classDescriptor->pBaseClassArray == nullptr)
 				{
 					return false;
 				}
 
-				const char* rawTypeName = baseDescriptor->pTypeDescriptor->name;
-				if (rawTypeName == nullptr || rawTypeName[0] == '\0')
+				outCount = classDescriptor->numBaseClasses;
+				if (outCount > 64)
 				{
-					return false;
+					outCount = 64;
 				}
 
-				outRawTypeName = rawTypeName;
-				return true;
+				return outCount != 0;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				outRawTypeName = nullptr;
+				outCount = 0;
 				return false;
 			}
 		}
@@ -380,16 +483,16 @@ namespace ExtraUtilities::Lua::GameObject
 				return result;
 			}
 
-			uint32_t count = classDescriptor->numBaseClasses;
-			if (count > 64)
+			uint32_t count = 0;
+			if (!TryGetBaseClassCount(classDescriptor, count))
 			{
-				count = 64;
+				return result;
 			}
 
 			std::unordered_set<std::string> seenNames;
 			for (uint32_t i = 0; i < count; ++i)
 			{
-				const char* baseRawName = nullptr;
+				std::string baseRawName;
 				if (!TryGetBaseClassRawName(classDescriptor, i, baseRawName))
 				{
 					continue;
@@ -621,7 +724,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 
 			void* vtable = nullptr;
-			const char* rawTypeName = nullptr;
+			std::string rawTypeName;
 			MsvcRttiClassHierarchyDescriptor* classDescriptor = nullptr;
 			if (!TryGetPolymorphicMetadata(object, vtable, rawTypeName, classDescriptor))
 			{
@@ -777,7 +880,7 @@ namespace ExtraUtilities::Lua::GameObject
 				}
 
 				void* vtable = nullptr;
-				const char* rawTypeName = nullptr;
+				std::string rawTypeName;
 				MsvcRttiClassHierarchyDescriptor* classDescriptor = nullptr;
 				if (!TryGetPolymorphicMetadata(candidate, vtable, rawTypeName, classDescriptor))
 				{
@@ -835,7 +938,7 @@ namespace ExtraUtilities::Lua::GameObject
 						info.pointer = pointerCandidate;
 
 						void* vtable = nullptr;
-						const char* rawTypeName = nullptr;
+						std::string rawTypeName;
 						MsvcRttiClassHierarchyDescriptor* classDescriptor = nullptr;
 						if (TryGetPolymorphicMetadata(pointerCandidate, vtable, rawTypeName, classDescriptor))
 						{
@@ -3382,7 +3485,7 @@ namespace ExtraUtilities::Lua::GameObject
 		BZR::handle h = CheckHandle(L, 1);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
 		void* vtable = nullptr;
-		const char* rawTypeName = nullptr;
+		std::string rawTypeName;
 		MsvcRttiClassHierarchyDescriptor* classDescriptor = nullptr;
 
 		if (TryGetPolymorphicMetadata(obj->aiProcess, vtable, rawTypeName, classDescriptor))
@@ -3417,7 +3520,7 @@ namespace ExtraUtilities::Lua::GameObject
 		}
 
 		void* vtable = nullptr;
-		const char* rawTypeName = nullptr;
+		std::string rawTypeName;
 		MsvcRttiClassHierarchyDescriptor* classDescriptor = nullptr;
 
 		lua_createtable(L, 0, 7);
@@ -3435,7 +3538,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 
 			std::string typeName = NormalizeMsvcTypeName(rawTypeName);
-			lua_pushstring(L, rawTypeName);
+			lua_pushstring(L, rawTypeName.c_str());
 			lua_setfield(L, -2, "rawTypeName");
 
 			lua_pushstring(L, typeName.c_str());
@@ -3519,7 +3622,7 @@ namespace ExtraUtilities::Lua::GameObject
 			PushObjectPointerField(L, "task", scav->task);
 
 			void* taskVtable = nullptr;
-			const char* taskRawTypeName = nullptr;
+			std::string taskRawTypeName;
 			MsvcRttiClassHierarchyDescriptor* taskClassDescriptor = nullptr;
 			if (TryGetPolymorphicMetadata(scav->task, taskVtable, taskRawTypeName, taskClassDescriptor))
 			{
@@ -3865,7 +3968,7 @@ namespace ExtraUtilities::Lua::GameObject
 		PushObjectPointerField(L, "me", recycleTask->me);
 		PushObjectPointerField(L, "subtask", recycleTask->subtask);
 		void* subtaskVtable = nullptr;
-		const char* subtaskRawTypeName = nullptr;
+		std::string subtaskRawTypeName;
 		MsvcRttiClassHierarchyDescriptor* subtaskClassDescriptor = nullptr;
 		if (TryGetPolymorphicMetadata(recycleTask->subtask, subtaskVtable, subtaskRawTypeName, subtaskClassDescriptor))
 		{
