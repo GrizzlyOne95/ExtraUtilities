@@ -919,6 +919,19 @@ function exu.MaterialExists(materialName, resourceGroup) end
 --- @return boolean
 function exu.CloneMaterial(sourceMaterialName, cloneMaterialName, resourceGroup) end
 
+--- Sets the texture used by a material pass texture unit.
+--- This is useful for swapping atlas-backed HUD materials like `HUDcombi` at runtime.
+--- The technique index defaults to 0, the pass index defaults to 0, the texture unit index defaults to 0,
+--- and the resource group defaults to "General".
+--- @param materialName string
+--- @param textureName string
+--- @param techniqueIndex integer? optional
+--- @param passIndex integer? optional
+--- @param textureUnitIndex integer? optional
+--- @param resourceGroup string? optional
+--- @return boolean
+function exu.SetMaterialTexture(materialName, textureName, techniqueIndex, passIndex, textureUnitIndex, resourceGroup) end
+
 --- Gets the ambient, diffuse, specular, and emissive colors from a material pass.
 --- The technique index defaults to 0, the pass index defaults to 0, and the resource group defaults to "General".
 --- @nodiscard

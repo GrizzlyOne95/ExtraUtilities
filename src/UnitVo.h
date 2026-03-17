@@ -48,4 +48,5 @@ namespace ExtraUtilities::Lua::Patches
 	int SetUnitVoMuted(lua_State* L);
 	int GetUnitVoAlternates(lua_State* L);
 	int SetUnitVoAlternates(lua_State* L);
+	int SetUnderAttackAlertMode(lua_State* L);
 }

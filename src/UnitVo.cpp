@@ -563,6 +563,34 @@ namespace ExtraUtilities::Lua::Patches
 {
 	namespace
 	{
+		using OpenShimSetUnderAttackAlertModeFn = BOOL(WINAPI*)(int);
+
+		OpenShimSetUnderAttackAlertModeFn ResolveUnderAttackAlertBridge()
+		{
+			static OpenShimSetUnderAttackAlertModeFn fn = nullptr;
+			static bool attempted = false;
+			static bool loggedMissing = false;
+			if (attempted)
+			{
+				return fn;
+			}
+
+			attempted = true;
+			if (HMODULE module = GetModuleHandleA("winmm.dll"))
+			{
+				fn = reinterpret_cast<OpenShimSetUnderAttackAlertModeFn>(
+					GetProcAddress(module, "OpenShimSetUnderAttackAlertMode"));
+			}
+
+			if (!fn && !loggedMissing)
+			{
+				loggedMissing = true;
+				Logging::LogMessage("[EXU::UnitVo] OpenShim under-attack alert bridge unavailable");
+			}
+
+			return fn;
+		}
+
 		constexpr uint32_t kMaxUnitVoThrottleMs = 60000;
 		constexpr uint32_t kMaxUnitVoQueueDepth = 8;
 		constexpr uint32_t kMaxUnitVoQueueStaleMs = 60000;
@@ -732,5 +760,23 @@ namespace ExtraUtilities::Lua::Patches
 			count,
 			Patch::unitVoAlternates[normalized].empty() ? "" : Patch::unitVoAlternates[normalized].front().c_str());
 		return 0;
+	}
+
+	int SetUnderAttackAlertMode(lua_State* L)
+	{
+		lua_Integer requested = luaL_checkinteger(L, 1);
+		if (requested < 1 || requested > 3)
+		{
+			return luaL_argerror(L, 1, "Extra Utilities Error: under-attack alert mode must be 1-3");
+		}
+
+		if (OpenShimSetUnderAttackAlertModeFn fn = ResolveUnderAttackAlertBridge())
+		{
+			lua_pushboolean(L, fn(static_cast<int>(requested)) ? 1 : 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, 0);
+		return 1;
 	}
 }
