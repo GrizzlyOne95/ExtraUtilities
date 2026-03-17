@@ -252,6 +252,76 @@ function exu.SetCameraZoom(camera, zoom) end
 ---
 --- These functions control the selection that is handled through the control panel.
 
+--- Gets the live pixel offset applied to the stock scrap/pilot HUD text.
+--- This moves the stock text draw positions without editing the HUD textures.
+--- @nodiscard
+--- @return integer x
+--- @return integer y
+function exu.GetScrapPilotHudOffset() end
+
+--- Sets the live pixel offset applied to the stock scrap/pilot HUD text.
+--- Negative X moves it left and negative Y moves it upward.
+--- @param x integer
+--- @param y integer
+function exu.SetScrapPilotHudOffset(x, y) end
+
+--- Gets the current top-left anchor of the stock scrap/pilot HUD text cluster.
+--- This is useful when positioning it absolutely instead of as a relative offset.
+--- @nodiscard
+--- @return integer | nil x
+--- @return integer | nil y
+function exu.GetScrapPilotHudTopLeft() end
+
+--- Sets the top-left anchor of the stock scrap/pilot HUD text cluster.
+--- This keeps the stock relative spacing between the scrap/pilot text entries.
+--- @param x integer
+--- @param y integer
+function exu.SetScrapPilotHudTopLeft(x, y) end
+
+--- Gets the current top-left anchor of the stock Scrap HUD text.
+--- @nodiscard
+--- @return integer | nil x
+--- @return integer | nil y
+function exu.GetScrapHudTopLeft() end
+
+--- Sets the top-left anchor of the stock Scrap HUD text.
+--- @param x integer
+--- @param y integer
+function exu.SetScrapHudTopLeft(x, y) end
+
+--- Gets the current top-left anchor of the stock Pilot HUD text.
+--- @nodiscard
+--- @return integer | nil x
+--- @return integer | nil y
+function exu.GetPilotHudTopLeft() end
+
+--- Sets the top-left anchor of the stock Pilot HUD text.
+--- @param x integer
+--- @param y integer
+function exu.SetPilotHudTopLeft(x, y) end
+
+--- Gets the ARGB color used for the stock Scrap HUD text.
+--- The integer format is 0xAARRGGBB.
+--- @nodiscard
+--- @return integer color
+function exu.GetScrapHudColor() end
+
+--- Sets the ARGB color used for the stock Scrap HUD text.
+--- The integer format is 0xAARRGGBB.
+--- @param color integer
+function exu.SetScrapHudColor(color) end
+
+--- Gets the ARGB color used for the stock Pilot HUD text.
+--- The integer format is 0xAARRGGBB.
+--- @nodiscard
+--- @return integer color
+function exu.GetPilotHudColor() end
+
+--- Sets the ARGB color used for the stock Pilot HUD text.
+--- The integer format is 0xAARRGGBB.
+--- @param color integer
+function exu.SetPilotHudColor(color) end
+
 --- Adds the given unit to the local player's selection.
 --- @param h Handle
 function exu.SelectAdd(h) end

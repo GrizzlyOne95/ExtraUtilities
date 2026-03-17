@@ -58,4 +58,6 @@ Can be fixed by mass converting TRN file to ANSI and forcing line feeds to CR LF
 
 28)Net code updates. Send/Receive Buffer Size adjustments and enforcement, combined with packet reordering. Implemented in shim. 
 
-29) Steam map list jumping. WIP fix in the shim, but needs further testing and the manual "refresh" button fixed too.
+29) Steam map list jumping. WIP fix in the shim, but needs further testing and the manual "refresh" button fixed too. - FIXED in shim
+
+30) Original scrap/pilot meter placement. FIXED in EXU

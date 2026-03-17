@@ -53,6 +53,11 @@ namespace ExtraUtilities
 
 namespace ExtraUtilities::Lua
 {
+	inline int AbsoluteStackIndex(lua_State* L, int idx)
+	{
+		return idx > 0 || idx <= LUA_REGISTRYINDEX ? idx : lua_gettop(L) + idx + 1;
+	}
+
 	// Pushes one bz vector to the stack
 	inline void PushVector(lua_State* L, const BZR::VECTOR_3D& v)
 	{
@@ -201,16 +206,20 @@ namespace ExtraUtilities::Lua
 	inline BZR::VECTOR_3D CheckVectorOrSingles(lua_State* L, int idx)
 	{
 		BZR::VECTOR_3D v;
-		if (lua_isuserdata(L, idx))
+		const int valueIndex = AbsoluteStackIndex(L, idx);
+		if (lua_isuserdata(L, idx) || lua_istable(L, idx))
 		{
-			lua_getfield(L, idx, "x");
+			lua_getfield(L, valueIndex, "x");
 			v.x = static_cast<float>(luaL_checknumber(L, -1));
+			lua_pop(L, 1);
 
-			lua_getfield(L, idx, "y");
+			lua_getfield(L, valueIndex, "y");
 			v.y = static_cast<float>(luaL_checknumber(L, -1));
+			lua_pop(L, 1);
 
-			lua_getfield(L, idx, "z");
+			lua_getfield(L, valueIndex, "z");
 			v.z = static_cast<float>(luaL_checknumber(L, -1));
+			lua_pop(L, 1);
 		}
 		else
 		{
@@ -225,31 +234,36 @@ namespace ExtraUtilities::Lua
 	inline Ogre::Color CheckColorOrSingles(lua_State* L, int idx)
 	{
 		Ogre::Color c;
-		if (lua_istable(L, idx))
+		int valueIndex = AbsoluteStackIndex(L, idx);
+		if (lua_istable(L, valueIndex))
 		{
-			lua_getfield(L, idx, "r");
+			lua_getfield(L, valueIndex, "r");
 			c.r = static_cast<float>(luaL_checknumber(L, -1));
+			lua_pop(L, 1);
 
-			lua_getfield(L, idx, "g");
+			lua_getfield(L, valueIndex, "g");
 			c.g = static_cast<float>(luaL_checknumber(L, -1));
+			lua_pop(L, 1);
 
-			lua_getfield(L, idx, "b");
+			lua_getfield(L, valueIndex, "b");
 			c.b = static_cast<float>(luaL_checknumber(L, -1));
+			lua_pop(L, 1);
 
-			lua_getfield(L, idx, "a");
+			lua_getfield(L, valueIndex, "a");
 			if (!lua_isnil(L, -1))
 			{
 				c.a = static_cast<float>(luaL_checknumber(L, -1));
 			}
+			lua_pop(L, 1);
 		}
 		else
 		{
-			c.r = static_cast<float>(luaL_checknumber(L, idx));
-			c.g = static_cast<float>(luaL_checknumber(L, idx + 1));
-			c.b = static_cast<float>(luaL_checknumber(L, idx + 2));
-			if (!lua_isnoneornil(L, idx + 3))
+			c.r = static_cast<float>(luaL_checknumber(L, valueIndex));
+			c.g = static_cast<float>(luaL_checknumber(L, valueIndex + 1));
+			c.b = static_cast<float>(luaL_checknumber(L, valueIndex + 2));
+			if (!lua_isnoneornil(L, valueIndex + 3))
 			{
-				c.a = static_cast<float>(luaL_checknumber(L, idx + 3));
+				c.a = static_cast<float>(luaL_checknumber(L, valueIndex + 3));
 			}
 		}
 		return c;
@@ -259,30 +273,36 @@ namespace ExtraUtilities::Lua
 	inline Ogre::Fog CheckFogOrSingles(lua_State* L, int idx)
 	{
 		Ogre::Fog f;
-		if (lua_istable(L, idx))
+		int valueIndex = AbsoluteStackIndex(L, idx);
+		if (lua_istable(L, valueIndex))
 		{
-			lua_getfield(L, idx, "r");
+			lua_getfield(L, valueIndex, "r");
 			f.r = static_cast<float>(luaL_checknumber(L, -1));
+			lua_pop(L, 1);
 
-			lua_getfield(L, idx, "g");
+			lua_getfield(L, valueIndex, "g");
 			f.g = static_cast<float>(luaL_checknumber(L, -1));
+			lua_pop(L, 1);
 
-			lua_getfield(L, idx, "b");
+			lua_getfield(L, valueIndex, "b");
 			f.b = static_cast<float>(luaL_checknumber(L, -1));
+			lua_pop(L, 1);
 
-			lua_getfield(L, idx, "start");
+			lua_getfield(L, valueIndex, "start");
 			f.start = static_cast<float>(luaL_checknumber(L, -1));
+			lua_pop(L, 1);
 
-			lua_getfield(L, idx, "ending");
+			lua_getfield(L, valueIndex, "ending");
 			f.ending = static_cast<float>(luaL_checknumber(L, -1));
+			lua_pop(L, 1);
 		}
 		else
 		{
-			f.r = static_cast<float>(luaL_checknumber(L, idx));
-			f.g = static_cast<float>(luaL_checknumber(L, idx + 1));
-			f.b = static_cast<float>(luaL_checknumber(L, idx + 2));
-			f.start = static_cast<float>(luaL_checknumber(L, idx + 3));
-			f.ending = static_cast<float>(luaL_checknumber(L, idx + 4));
+			f.r = static_cast<float>(luaL_checknumber(L, valueIndex));
+			f.g = static_cast<float>(luaL_checknumber(L, valueIndex + 1));
+			f.b = static_cast<float>(luaL_checknumber(L, valueIndex + 2));
+			f.start = static_cast<float>(luaL_checknumber(L, valueIndex + 3));
+			f.ending = static_cast<float>(luaL_checknumber(L, valueIndex + 4));
 		}
 		return f;
 	}

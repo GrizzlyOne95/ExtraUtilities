@@ -24,11 +24,11 @@
 #include <Windows.h>
 
 #include <cmath>
-#include <format>
+#include <cstdarg>
+#include <cstdio>
 #include <fstream>
 #include <mutex>
 #include <string>
-#include <utility>
 
 namespace ExtraUtilities::Lua::Environment
 {
@@ -50,10 +50,14 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 
-		template <typename... Args>
-		void LogEnvironmentDebug(std::format_string<Args...> fmt, Args&&... args)
+		void LogEnvironmentDebug(const char* fmt, ...)
 		{
-			WriteEnvironmentDebug(std::format(fmt, std::forward<Args>(args)...));
+			char buffer[1024]{};
+			va_list args;
+			va_start(args, fmt);
+			vsnprintf_s(buffer, sizeof(buffer), _TRUNCATE, fmt, args);
+			va_end(args);
+			WriteEnvironmentDebug(buffer);
 		}
 	}
 

@@ -429,6 +429,18 @@ namespace ExtraUtilities::Lua
 			{ "UpdateCommandReplacements", &CommandReplacement::UpdateCommandReplacements },
 
 			// Control Panel
+			{ "GetScrapPilotHudOffset", &ControlPanel::GetScrapPilotHudOffset },
+			{ "SetScrapPilotHudOffset", &ControlPanel::SetScrapPilotHudOffset },
+			{ "GetScrapPilotHudTopLeft", &ControlPanel::GetScrapPilotHudTopLeft },
+			{ "SetScrapPilotHudTopLeft", &ControlPanel::SetScrapPilotHudTopLeft },
+			{ "GetScrapHudTopLeft", &ControlPanel::GetScrapHudTopLeft },
+			{ "SetScrapHudTopLeft", &ControlPanel::SetScrapHudTopLeft },
+			{ "GetPilotHudTopLeft", &ControlPanel::GetPilotHudTopLeft },
+			{ "SetPilotHudTopLeft", &ControlPanel::SetPilotHudTopLeft },
+			{ "GetScrapHudColor", &ControlPanel::GetScrapHudColor },
+			{ "SetScrapHudColor", &ControlPanel::SetScrapHudColor },
+			{ "GetPilotHudColor", &ControlPanel::GetPilotHudColor },
+			{ "SetPilotHudColor", &ControlPanel::SetPilotHudColor },
 			{ "SelectAdd",  &ControlPanel::SelectAdd },
 			{ "SelectNone", &ControlPanel::SelectNone },
 			{ "SelectOne",  &ControlPanel::SelectOne },

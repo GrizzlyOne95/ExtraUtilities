@@ -1,0 +1,23 @@
+[blackdogs]
+current = 0
+furthest = 0
+
+
+[chinese]
+current = 0
+furthest = 0
+
+
+[training]
+current = 0
+furthest = 0
+
+
+[usa]
+current = 0
+furthest = 0
+
+
+[ussr]
+current = 0
+furthest = 0

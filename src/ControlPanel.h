@@ -27,6 +27,18 @@ namespace ExtraUtilities::Lua::ControlPanel
 {
 	inline auto controlPanel = BZR::ControlPanel::p_controlPanel;
 
+	int GetScrapPilotHudOffset(lua_State* L);
+	int SetScrapPilotHudOffset(lua_State* L);
+	int GetScrapPilotHudTopLeft(lua_State* L);
+	int SetScrapPilotHudTopLeft(lua_State* L);
+	int GetScrapHudTopLeft(lua_State* L);
+	int SetScrapHudTopLeft(lua_State* L);
+	int GetPilotHudTopLeft(lua_State* L);
+	int SetPilotHudTopLeft(lua_State* L);
+	int GetScrapHudColor(lua_State* L);
+	int SetScrapHudColor(lua_State* L);
+	int GetPilotHudColor(lua_State* L);
+	int SetPilotHudColor(lua_State* L);
 	int SelectAdd(lua_State* L);
 	int SelectNone(lua_State* L);
 	int SelectOne(lua_State* L);

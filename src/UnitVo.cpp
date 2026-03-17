@@ -666,6 +666,7 @@ namespace ExtraUtilities::Lua::Patches
 		{
 			std::lock_guard<std::mutex> lock(Patch::g_unitVoMutex);
 			Patch::unitVoAlternates.erase(normalized);
+			Logging::LogMessage("[EXU::UnitVo] cleared alternates filename=%s", normalized.c_str());
 			return 0;
 		}
 
@@ -703,6 +704,11 @@ namespace ExtraUtilities::Lua::Patches
 
 		std::lock_guard<std::mutex> lock(Patch::g_unitVoMutex);
 		Patch::unitVoAlternates[normalized] = std::move(alternates);
+		Logging::LogMessage(
+			"[EXU::UnitVo] set alternates filename=%s count=%d first=%s",
+			normalized.c_str(),
+			count,
+			Patch::unitVoAlternates[normalized].empty() ? "" : Patch::unitVoAlternates[normalized].front().c_str());
 		return 0;
 	}
 }
