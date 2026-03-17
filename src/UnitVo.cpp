@@ -433,6 +433,11 @@ namespace ExtraUtilities::Patch
 			const DWORD now = GetTickCount();
 			std::lock_guard<std::mutex> lock(g_unitVoMutex);
 
+			if (unitVoMuted)
+			{
+				return { {}, true, false };
+			}
+
 			if (unitVoThrottleMs > 0 && g_lastUnitVoAttemptTick != 0)
 			{
 				const DWORD elapsed = now - g_lastUnitVoAttemptTick;
@@ -632,6 +637,23 @@ namespace ExtraUtilities::Lua::Patches
 
 		std::lock_guard<std::mutex> lock(Patch::g_unitVoMutex);
 		Patch::unitVoQueueStaleMs = static_cast<uint32_t>(requested);
+		return 0;
+	}
+
+	int GetUnitVoMuted(lua_State* L)
+	{
+		std::lock_guard<std::mutex> lock(Patch::g_unitVoMutex);
+		lua_pushboolean(L, Patch::unitVoMuted ? 1 : 0);
+		return 1;
+	}
+
+	int SetUnitVoMuted(lua_State* L)
+	{
+		const bool requested = lua_toboolean(L, 1) != 0;
+
+		std::lock_guard<std::mutex> lock(Patch::g_unitVoMutex);
+		Patch::unitVoMuted = requested;
+		Patch::g_lastUnitVoAttemptTick = 0;
 		return 0;
 	}
 

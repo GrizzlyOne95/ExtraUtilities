@@ -638,6 +638,8 @@ namespace ExtraUtilities::Lua
 			{ "SetUnitVoQueueDepthLimit", &Patches::SetUnitVoQueueDepthLimit },
 			{ "GetUnitVoQueueStaleMs", &Patches::GetUnitVoQueueStaleMs },
 			{ "SetUnitVoQueueStaleMs", &Patches::SetUnitVoQueueStaleMs },
+			{ "GetUnitVoMuted", &Patches::GetUnitVoMuted },
+			{ "SetUnitVoMuted", &Patches::SetUnitVoMuted },
 			{ "GetUnitVoAlternates", &Patches::GetUnitVoAlternates },
 			{ "SetUnitVoAlternates", &Patches::SetUnitVoAlternates },
 

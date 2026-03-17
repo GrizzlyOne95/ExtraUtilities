@@ -29,6 +29,7 @@ namespace ExtraUtilities::Patch
 {
 	using UnitVoQueueFn = int (__cdecl*)(const char* filename, void* owner, int priority);
 
+	inline bool unitVoMuted = false;
 	inline uint32_t unitVoThrottleMs = 0;
 	inline uint32_t unitVoQueueDepthLimit = 2;
 	inline uint32_t unitVoQueueStaleMs = 2000;
@@ -43,6 +44,8 @@ namespace ExtraUtilities::Lua::Patches
 	int SetUnitVoQueueDepthLimit(lua_State* L);
 	int GetUnitVoQueueStaleMs(lua_State* L);
 	int SetUnitVoQueueStaleMs(lua_State* L);
+	int GetUnitVoMuted(lua_State* L);
+	int SetUnitVoMuted(lua_State* L);
 	int GetUnitVoAlternates(lua_State* L);
 	int SetUnitVoAlternates(lua_State* L);
 }

@@ -1456,6 +1456,17 @@ function exu.GetUnitVoQueueStaleMs() end
 --- @param milliseconds integer
 function exu.SetUnitVoQueueStaleMs(milliseconds) end
 
+--- Returns whether EXU is currently suppressing likely unit VO bark enqueue requests.
+--- This does not affect unrelated mission audio such as `AudioMessage("misn*.wav")`.
+--- @nodiscard
+--- @return boolean
+function exu.GetUnitVoMuted() end
+
+--- Sets whether EXU suppresses likely unit VO bark enqueue requests before they enter the stock queue.
+--- This only affects filenames that pass EXU's stock unit-bark heuristic.
+--- @param muted boolean
+function exu.SetUnitVoMuted(muted) end
+
 --- Returns the alternate bark list for the given unit VO filename.
 --- This only affects filenames that pass EXU's stock unit-bark heuristic.
 --- @nodiscard
