@@ -32,6 +32,8 @@ compaction, and alternate-line selection.
 - `exu.SetUnitVoQueueDepthLimit(depth)`
 - `exu.GetUnitVoQueueStaleMs()`
 - `exu.SetUnitVoQueueStaleMs(milliseconds)`
+- `exu.GetUnitVoMuted()`
+- `exu.SetUnitVoMuted(muted)`
 - `exu.GetUnitVoAlternates(filename)`
 - `exu.SetUnitVoAlternates(filename, { ... })`
 
@@ -41,6 +43,7 @@ Example:
 exu.SetUnitVoThrottle(750)
 exu.SetUnitVoQueueDepthLimit(2)
 exu.SetUnitVoQueueStaleMs(2000)
+exu.SetUnitVoMuted(false)
 exu.SetUnitVoAlternates("svrecyv0.wav", {
     "svrecyv0.wav",
     "svrecy_alt0.wav",
@@ -52,6 +55,8 @@ exu.SetUnitVoAlternates("svrecyv0.wav", {
 - Only filenames that look like stock unit bark clips are treated as unit VO.
 - Mission audio such as `misn*.wav` is intentionally left alone by the current
   heuristic.
+- When mute is enabled, likely unit-bark enqueue attempts are dropped before
+  they enter the stock queue.
 - When the throttle is active, unit-bark attempts inside the throttle window are
   dropped before they are enqueued.
 - Duplicate unit barks already in the native queue are dropped.
