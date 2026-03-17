@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "BZR.h"
 #include "InlinePatch.h"
 
 #include <lua.hpp>
@@ -27,11 +28,18 @@
 namespace ExtraUtilities::Patch
 {
 	constexpr uintptr_t wingmanWeaponAimVftableEntry = 0x0088A4FC;
+	constexpr uintptr_t hovercraftWeaponAimVftableEntry = 0x00889418;
+	constexpr uintptr_t hovercraftUpdateWeaponAim = 0x005F0930;
 	constexpr uintptr_t walkerUpdateWeaponAim = 0x0060F320;
+
+	constexpr uintptr_t carrierGetWeapon = 0x00417F60;
+	constexpr uintptr_t refreshWeaponTransform = 0x00681A00;
 }
 
 namespace ExtraUtilities::Lua::Patches
 {
 	int GetShotConvergence(lua_State* L);
 	int SetShotConvergence(lua_State* L);
+	int GetPlayerReticleShotConvergence(lua_State* L);
+	int SetPlayerReticleShotConvergence(lua_State* L);
 }

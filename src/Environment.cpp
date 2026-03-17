@@ -29,12 +29,138 @@
 #include <fstream>
 #include <mutex>
 #include <string>
+#include <string_view>
 
 namespace ExtraUtilities::Lua::Environment
 {
 	namespace
 	{
 		std::mutex g_environmentLogMutex;
+		std::string g_lastModernMaterialScheme = "high-pssm";
+		void LogEnvironmentDebug(const char* fmt, ...);
+
+		struct ViewportMaterialSchemeLayout
+		{
+			void* vtable = nullptr;
+			void* camera = nullptr;
+			void* target = nullptr;
+			float relLeft = 0.0f;
+			float relTop = 0.0f;
+			float relWidth = 0.0f;
+			float relHeight = 0.0f;
+			int actLeft = 0;
+			int actTop = 0;
+			int actWidth = 0;
+			int actHeight = 0;
+			int zOrder = 0;
+			Ogre::Color backColour{};
+			float depthClearValue = 1.0f;
+			bool clearEveryFrame = false;
+			unsigned int clearBuffers = 0;
+			bool updated = false;
+			bool showOverlays = false;
+			bool showSkies = false;
+			bool showShadows = false;
+			uint32_t visibilityMask = 0;
+			std::string renderQueueSequenceName;
+			void* renderQueueSequence = nullptr;
+			std::string materialSchemeName;
+		};
+
+		constexpr std::string_view kDefaultModernMaterialScheme = "high-pssm";
+
+		bool IsModernMaterialScheme(std::string_view scheme)
+		{
+			return scheme == "high-pssm"
+				|| scheme == "high"
+				|| scheme == "high-noshadow"
+				|| scheme == "medium-pssm"
+				|| scheme == "medium"
+				|| scheme == "medium-noshadow"
+				|| scheme == "low-pssm"
+				|| scheme == "low"
+				|| scheme == "low-noshadow"
+				|| scheme == "lowest-pssm"
+				|| scheme == "lowest"
+				|| scheme == "lowest-noshadow";
+		}
+
+		std::string NormalizeModernMaterialScheme(std::string_view scheme)
+		{
+			if (scheme.empty())
+			{
+				return g_lastModernMaterialScheme.empty()
+					? std::string(kDefaultModernMaterialScheme)
+					: g_lastModernMaterialScheme;
+			}
+
+			if (scheme.rfind("og-", 0) == 0)
+			{
+				scheme.remove_prefix(3);
+			}
+
+			if (IsModernMaterialScheme(scheme))
+			{
+				return std::string(scheme);
+			}
+
+			return g_lastModernMaterialScheme.empty()
+				? std::string(kDefaultModernMaterialScheme)
+				: g_lastModernMaterialScheme;
+		}
+
+		std::string BuildRetroMaterialScheme(const std::string& modernScheme)
+		{
+			return "og-" + modernScheme;
+		}
+
+		bool TryGetViewportMaterialScheme(void* viewport, std::string& outScheme)
+		{
+			outScheme.clear();
+			if (viewport == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				const auto* layout = reinterpret_cast<const ViewportMaterialSchemeLayout*>(viewport);
+				outScheme = layout->materialSchemeName;
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug(
+					"[EXU::Viewport] get material scheme crashed viewport=%p code=0x%08X",
+					viewport,
+					GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetViewportMaterialScheme(void* viewport, const std::string& scheme)
+		{
+			if (viewport == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				auto* layout = reinterpret_cast<ViewportMaterialSchemeLayout*>(viewport);
+				layout->materialSchemeName = scheme;
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug(
+					"[EXU::Viewport] set material scheme crashed viewport=%p target=%s code=0x%08X",
+					viewport,
+					scheme.c_str(),
+					GetExceptionCode());
+				return false;
+			}
+		}
 
 		void WriteEnvironmentDebug(const std::string& message)
 		{
@@ -1208,6 +1334,55 @@ namespace ExtraUtilities::Lua::Environment
 		bool enabled = CheckBool(L, 1);
 		TrySetViewportOverlaysEnabled(viewport, enabled);
 
+		return 0;
+	}
+
+	int GetRetroLightingMode(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* viewport = GetCurrentViewport();
+		std::string scheme;
+		TryGetViewportMaterialScheme(viewport, scheme);
+		lua_pushboolean(L, scheme.rfind("og-", 0) == 0 ? 1 : 0);
+		return 1;
+	}
+
+	int SetRetroLightingMode(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* viewport = GetCurrentViewport();
+		if (viewport == nullptr)
+		{
+			return 0;
+		}
+
+		const bool enabled = CheckBool(L, 1);
+		std::string currentScheme;
+		TryGetViewportMaterialScheme(viewport, currentScheme);
+		const std::string modernScheme = NormalizeModernMaterialScheme(currentScheme);
+		const std::string targetScheme = enabled ? BuildRetroMaterialScheme(modernScheme) : modernScheme;
+
+		if (IsModernMaterialScheme(modernScheme))
+		{
+			g_lastModernMaterialScheme = modernScheme;
+		}
+
+		if (!TrySetViewportMaterialScheme(viewport, targetScheme))
+		{
+			LogEnvironmentDebug(
+				"[EXU::Viewport] failed to set material scheme current=%s target=%s",
+				currentScheme.c_str(),
+				targetScheme.c_str());
+			return 0;
+		}
+
+		LogEnvironmentDebug(
+			"[EXU::Viewport] retro lighting=%d currentScheme=%s targetScheme=%s",
+			enabled ? 1 : 0,
+			currentScheme.c_str(),
+			targetScheme.c_str());
 		return 0;
 	}
 

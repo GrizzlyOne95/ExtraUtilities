@@ -571,6 +571,15 @@ function exu.GetViewportShadowsEnabled() end
 --- @param enabled boolean
 function exu.SetViewportShadowsEnabled(enabled) end
 
+--- Returns whether the current active viewport is using the OG retro lighting material scheme.
+--- @nodiscard
+--- @return boolean
+function exu.GetRetroLightingMode() end
+
+--- Switches the current active viewport between the normal material scheme and the `og-*` retro lighting scheme.
+--- @param enabled boolean
+function exu.SetRetroLightingMode(enabled) end
+
 --- Returns the current scene visibility mask.
 --- @nodiscard
 --- @return integer | nil
@@ -1435,6 +1444,17 @@ function exu.GetShotConvergence() end
 --- Sets the hovercraft shot convergence patch true or false (default false).
 --- @param enabled boolean
 function exu.SetShotConvergence(enabled) end
+
+--- Returns whether or not the local player's smart-reticle shot convergence patch is enabled.
+--- This adjusts the local user's hovercraft weapon-aim transform toward the current reticle world position,
+--- without requiring an explicit target lock.
+--- @nodiscard
+--- @return boolean
+function exu.GetPlayerReticleShotConvergence() end
+
+--- Sets the local player's smart-reticle shot convergence patch true or false (default false).
+--- @param enabled boolean
+function exu.SetPlayerReticleShotConvergence(enabled) end
 
 --- Gets the global unit VO throttle window in milliseconds.
 --- Unit barks attempted inside this window are dropped before enqueue.
