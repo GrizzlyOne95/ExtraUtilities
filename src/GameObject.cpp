@@ -19,6 +19,7 @@
 #include "GameObject.h"
 
 #include "GlobalTurbo.h"
+#include "Logging.h"
 #include "LuaHelpers.h"
 #include "Ogre.h"
 #include "OgreMaterialShim.h"
@@ -202,6 +203,9 @@ namespace ExtraUtilities::Lua::GameObject
 		void PushStringArray(lua_State* L, const std::vector<std::string>& values);
 		std::vector<PolymorphicObjectInfo> ScanPolymorphicChildren(void* base, uint32_t scanBytes);
 
+		using MaterialHandle = ::Ogre::SharedPtr<::Ogre::Material>;
+		inline std::unordered_map<std::string, MaterialHandle> g_cachedMaterials;
+
 		void LogMaterialDebug(const char* fmt, ...)
 		{
 			char message[1024];
@@ -218,6 +222,29 @@ namespace ExtraUtilities::Lua::GameObject
 				fprintf(file, "%s\n", message);
 				fclose(file);
 			}
+		}
+
+		void CacheMaterialHandle(const std::string& materialName, const MaterialHandle& material)
+		{
+			if (materialName.empty() || material.isNull())
+			{
+				return;
+			}
+
+			g_cachedMaterials[materialName] = material;
+		}
+
+		bool TryGetCachedMaterial(const std::string& materialName, MaterialHandle& outMaterial)
+		{
+			const auto it = g_cachedMaterials.find(materialName);
+			if (it == g_cachedMaterials.end() || it->second.isNull())
+			{
+				outMaterial = {};
+				return false;
+			}
+
+			outMaterial = it->second;
+			return true;
 		}
 
 		std::string NormalizeMsvcTypeName(const char* rawName)
@@ -952,19 +979,45 @@ namespace ExtraUtilities::Lua::GameObject
 		bool TryResolveMaterialCpp(
 			const std::string& materialName,
 			const std::string& resourceGroup,
-			::Ogre::Material*& outMaterial)
+			::Ogre::Material*& outMaterial,
+			MaterialHandle* outShared = nullptr)
 		{
 			try
 			{
+				MaterialHandle cachedMaterial{};
+				if (TryGetCachedMaterial(materialName, cachedMaterial))
+				{
+					outMaterial = cachedMaterial.getPointer();
+					if (outShared != nullptr)
+					{
+						*outShared = cachedMaterial;
+					}
+					return outMaterial != nullptr;
+				}
+
 				auto* manager = ::Ogre::GetMaterialManagerSingletonPtr();
 				if (manager == nullptr)
 				{
+					LogMaterialDebug("[EXU::Material] ResolveMaterial missing manager material=%s group=%s", materialName.c_str(), resourceGroup.c_str());
 					outMaterial = nullptr;
+					if (outShared != nullptr)
+					{
+						*outShared = {};
+					}
 					return false;
 				}
 
 				auto material = ::Ogre::GetMaterialByName(manager, materialName, resourceGroup);
+				CacheMaterialHandle(materialName, material);
 				outMaterial = material.getPointer();
+				if (outShared != nullptr)
+				{
+					*outShared = material;
+				}
+				if (outMaterial == nullptr)
+				{
+					LogMaterialDebug("[EXU::Material] ResolveMaterial miss material=%s group=%s", materialName.c_str(), resourceGroup.c_str());
+				}
 				return outMaterial != nullptr;
 			}
 			catch (const std::exception& ex)
@@ -975,6 +1028,10 @@ namespace ExtraUtilities::Lua::GameObject
 					resourceGroup.c_str(),
 					ex.what());
 				outMaterial = nullptr;
+				if (outShared != nullptr)
+				{
+					*outShared = {};
+				}
 				return false;
 			}
 			catch (...)
@@ -984,26 +1041,44 @@ namespace ExtraUtilities::Lua::GameObject
 					materialName.c_str(),
 					resourceGroup.c_str());
 				outMaterial = nullptr;
+				if (outShared != nullptr)
+				{
+					*outShared = {};
+				}
 				return false;
 			}
 		}
 
 		bool TryCloneMaterialCpp(
-			::Ogre::Material* sourceMaterial,
+			const MaterialHandle& sourceMaterial,
 			const std::string& cloneName,
 			const std::string& resourceGroup,
-			::Ogre::Material*& outMaterial)
+			::Ogre::Material*& outMaterial,
+			MaterialHandle* outShared = nullptr)
 		{
 			try
 			{
-				if (sourceMaterial == nullptr)
+				if (sourceMaterial.isNull())
 				{
 					outMaterial = nullptr;
+					if (outShared != nullptr)
+					{
+						*outShared = {};
+					}
 					return false;
 				}
 
-				auto clone = ::Ogre::CloneMaterial(sourceMaterial, cloneName, false, resourceGroup);
+				auto clone = ::Ogre::CloneMaterial(sourceMaterial.getPointer(), cloneName, false, resourceGroup);
+				CacheMaterialHandle(cloneName, clone);
 				outMaterial = clone.getPointer();
+				if (outShared != nullptr)
+				{
+					*outShared = clone;
+				}
+				if (outMaterial == nullptr)
+				{
+					LogMaterialDebug("[EXU::Material] CloneMaterial returned null clone=%s group=%s", cloneName.c_str(), resourceGroup.c_str());
+				}
 				return outMaterial != nullptr;
 			}
 			catch (const std::exception& ex)
@@ -1014,6 +1089,10 @@ namespace ExtraUtilities::Lua::GameObject
 					resourceGroup.c_str(),
 					ex.what());
 				outMaterial = nullptr;
+				if (outShared != nullptr)
+				{
+					*outShared = {};
+				}
 				return false;
 			}
 			catch (...)
@@ -1023,6 +1102,10 @@ namespace ExtraUtilities::Lua::GameObject
 					cloneName.c_str(),
 					resourceGroup.c_str());
 				outMaterial = nullptr;
+				if (outShared != nullptr)
+				{
+					*outShared = {};
+				}
 				return false;
 			}
 		}
@@ -1047,17 +1130,34 @@ namespace ExtraUtilities::Lua::GameObject
 				auto* technique = ::Ogre::GetMaterialTechnique(material, static_cast<unsigned short>(techniqueIndex));
 				if (technique == nullptr)
 				{
+					LogMaterialDebug(
+						"[EXU::Material] ResolveMaterialPass missing technique material=%s group=%s technique=%d",
+						materialName.c_str(),
+						resourceGroup.c_str(),
+						techniqueIndex);
 					return false;
 				}
 
 				if (passIndex < 0 || passIndex >= static_cast<int>(::Ogre::GetTechniqueNumPasses(technique)))
 				{
+					LogMaterialDebug(
+						"[EXU::Material] ResolveMaterialPass bad pass material=%s group=%s technique=%d pass=%d",
+						materialName.c_str(),
+						resourceGroup.c_str(),
+						techniqueIndex,
+						passIndex);
 					return false;
 				}
 
 				auto* pass = ::Ogre::GetTechniquePass(technique, static_cast<unsigned short>(passIndex));
 				if (pass == nullptr)
 				{
+					LogMaterialDebug(
+						"[EXU::Material] ResolveMaterialPass missing pass material=%s group=%s technique=%d pass=%d",
+						materialName.c_str(),
+						resourceGroup.c_str(),
+						techniqueIndex,
+						passIndex);
 					return false;
 				}
 
@@ -1308,6 +1408,7 @@ namespace ExtraUtilities::Lua::GameObject
 			__try
 			{
 				outName = Ogre::GetMaterialNameSubEntity(subEntity);
+				CacheMaterialHandle(outName, ::Ogre::GetSubEntityMaterial(subEntity));
 				return true;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
@@ -1320,6 +1421,26 @@ namespace ExtraUtilities::Lua::GameObject
 
 		bool TrySetMaterialNameEntity(void* entity, const std::string& materialName, const std::string& resourceGroup)
 		{
+			MaterialHandle cachedMaterial{};
+			if (TryGetCachedMaterial(materialName, cachedMaterial))
+			{
+				__try
+				{
+					if (::Ogre::SetEntityMaterial(entity, cachedMaterial))
+					{
+						return true;
+					}
+				}
+				__except (EXCEPTION_EXECUTE_HANDLER)
+				{
+					LogMaterialDebug(
+						"[EXU::Material] SetEntityMaterial cached apply crashed entity=%p material=%s code=0x%08X",
+						entity,
+						materialName.c_str(),
+						GetExceptionCode());
+				}
+			}
+
 			__try
 			{
 				Ogre::SetMaterialNameEntity(entity, materialName, resourceGroup);
@@ -1339,6 +1460,26 @@ namespace ExtraUtilities::Lua::GameObject
 
 		bool TrySetMaterialNameSubEntity(void* subEntity, const std::string& materialName, const std::string& resourceGroup)
 		{
+			MaterialHandle cachedMaterial{};
+			if (TryGetCachedMaterial(materialName, cachedMaterial))
+			{
+				__try
+				{
+					if (::Ogre::SetSubEntityMaterial(subEntity, cachedMaterial))
+					{
+						return true;
+					}
+				}
+				__except (EXCEPTION_EXECUTE_HANDLER)
+				{
+					LogMaterialDebug(
+						"[EXU::Material] SetSubEntityMaterial cached apply crashed subEntity=%p material=%s code=0x%08X",
+						subEntity,
+						materialName.c_str(),
+						GetExceptionCode());
+				}
+			}
+
 			__try
 			{
 				Ogre::SetMaterialNameSubEntity(subEntity, materialName, resourceGroup);
@@ -1967,7 +2108,7 @@ namespace ExtraUtilities::Lua::GameObject
 		}
 
 		bool TryCloneMaterial(
-			::Ogre::Material* sourceMaterial,
+			const MaterialHandle& sourceMaterial,
 			const std::string& cloneName,
 			const std::string& resourceGroup,
 			::Ogre::Material*& outMaterial)
@@ -2474,23 +2615,24 @@ namespace ExtraUtilities::Lua::GameObject
 		return 1;
 	}
 
-	int CloneMaterial(lua_State* L)
-	{
-		std::string sourceMaterial = luaL_checkstring(L, 1);
-		std::string cloneName = luaL_checkstring(L, 2);
-		std::string resourceGroup = CheckOptionalResourceGroup(L, 3);
-
-		::Ogre::Material* source = nullptr;
-		if (!TryResolveMaterial(sourceMaterial, resourceGroup, source))
+		int CloneMaterial(lua_State* L)
 		{
-			lua_pushboolean(L, 0);
+			std::string sourceMaterial = luaL_checkstring(L, 1);
+			std::string cloneName = luaL_checkstring(L, 2);
+			std::string resourceGroup = CheckOptionalResourceGroup(L, 3);
+
+			::Ogre::Material* source = nullptr;
+			MaterialHandle sourceShared{};
+			if (!TryResolveMaterialCpp(sourceMaterial, resourceGroup, source, &sourceShared))
+			{
+				lua_pushboolean(L, 0);
+				return 1;
+			}
+
+			::Ogre::Material* clone = nullptr;
+			lua_pushboolean(L, TryCloneMaterial(sourceShared, cloneName, resourceGroup, clone) ? 1 : 0);
 			return 1;
 		}
-
-		::Ogre::Material* clone = nullptr;
-		lua_pushboolean(L, TryCloneMaterial(source, cloneName, resourceGroup, clone) ? 1 : 0);
-		return 1;
-	}
 
 	int GetMaterialPassColors(lua_State* L)
 	{
@@ -3549,16 +3691,27 @@ namespace ExtraUtilities::Lua::GameObject
 		luaL_checktype(L, 2, LUA_TTABLE);
 
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		if (obj == nullptr)
+		{
+			Logging::LogMessage("[EXU::AiTask] SetAiTaskState missing object handle=%u", static_cast<unsigned>(h));
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
 		void* aiProcess = obj->aiProcess;
 		if (aiProcess == nullptr)
 		{
-			return 0;
+			Logging::LogMessage("[EXU::AiTask] SetAiTaskState missing aiProcess handle=%u", static_cast<unsigned>(h));
+			lua_pushboolean(L, 0);
+			return 1;
 		}
 
 		PolymorphicObjectInfo taskInfo{};
 		if (!TryFindBestAiTask(aiProcess, 0x100, taskInfo))
 		{
-			return 0;
+			Logging::LogMessage("[EXU::AiTask] SetAiTaskState no task found handle=%u", static_cast<unsigned>(h));
+			lua_pushboolean(L, 0);
+			return 1;
 		}
 
 		auto* task = reinterpret_cast<UnitTaskLayout*>(taskInfo.object);
@@ -3605,7 +3758,19 @@ namespace ExtraUtilities::Lua::GameObject
 			Patch::setTurboUnits[h] = turboEnabled;
 		}
 
-		return 0;
+		Logging::LogMessage(
+			"[EXU::AiTask] SetAiTaskState handle=%u task=%s braccel=%.3f strafe=%.3f steer=%.3f omega=%.3f omegaScale=%.3f pitch=%.3f turbo=%d",
+			static_cast<unsigned>(h),
+			taskInfo.typeName.c_str(),
+			task->braccelFactor,
+			task->strafeFactor,
+			task->steerFactor,
+			task->omegaFactor,
+			task->omegaScale,
+			task->pitch,
+			Patch::setTurboUnits.contains(h) && Patch::setTurboUnits.at(h) ? 1 : 0);
+		lua_pushboolean(L, 1);
+		return 1;
 	}
 
 	int GetAiTaskFieldScan(lua_State* L)

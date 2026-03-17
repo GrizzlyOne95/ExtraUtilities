@@ -57,6 +57,8 @@ namespace Ogre
 	class Technique;
 	class Material;
 	class MaterialManager;
+	class SubEntity;
+	class Entity;
 
 	namespace Detail
 	{
@@ -85,9 +87,16 @@ namespace Ogre
 		const String& name,
 		const String& groupName)
 	{
-		using Fn = SharedPtr<Material>(__thiscall*)(MaterialManager*, const String&, const String&);
+		using Fn = void(__thiscall*)(MaterialManager*, SharedPtr<Material>*, const String&, const String&);
 		static Fn fn = Detail::ResolveProc<Fn>("?getByName@MaterialManager@Ogre@@QAE?AV?$SharedPtr@VMaterial@Ogre@@@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0@Z");
-		return fn == nullptr || manager == nullptr ? SharedPtr<Material>{} : fn(manager, name, groupName);
+		if (fn == nullptr || manager == nullptr)
+		{
+			return {};
+		}
+
+		SharedPtr<Material> result{};
+		fn(manager, &result, name, groupName);
+		return result;
 	}
 
 	inline SharedPtr<Material> CloneMaterial(
@@ -96,9 +105,49 @@ namespace Ogre
 		bool changeGroup,
 		const String& newGroup)
 	{
-		using Fn = SharedPtr<Material>(__thiscall*)(const Material*, const String&, bool, const String&);
+		using Fn = void(__thiscall*)(const Material*, SharedPtr<Material>*, const String&, bool, const String&);
 		static Fn fn = Detail::ResolveProc<Fn>("?clone@Material@Ogre@@QBE?AV?$SharedPtr@VMaterial@Ogre@@@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N0@Z");
-		return fn == nullptr || material == nullptr ? SharedPtr<Material>{} : fn(material, newName, changeGroup, newGroup);
+		if (fn == nullptr || material == nullptr)
+		{
+			return {};
+		}
+
+		SharedPtr<Material> result{};
+		fn(material, &result, newName, changeGroup, newGroup);
+		return result;
+	}
+
+	inline SharedPtr<Material> GetSubEntityMaterial(void* subEntity)
+	{
+		using Fn = const SharedPtr<Material>&(__thiscall*)(void*);
+		static Fn fn = Detail::ResolveProc<Fn>("?getMaterial@SubEntity@Ogre@@UBEABV?$SharedPtr@VMaterial@Ogre@@@2@XZ");
+		return fn == nullptr || subEntity == nullptr ? SharedPtr<Material>{} : fn(subEntity);
+	}
+
+	inline bool SetEntityMaterial(void* entity, const SharedPtr<Material>& material)
+	{
+		using Fn = void(__thiscall*)(void*, const SharedPtr<Material>&);
+		static Fn fn = Detail::ResolveProc<Fn>("?setMaterial@Entity@Ogre@@QAEXABV?$SharedPtr@VMaterial@Ogre@@@2@@Z");
+		if (fn == nullptr || entity == nullptr || material.isNull())
+		{
+			return false;
+		}
+
+		fn(entity, material);
+		return true;
+	}
+
+	inline bool SetSubEntityMaterial(void* subEntity, const SharedPtr<Material>& material)
+	{
+		using Fn = void(__thiscall*)(void*, const SharedPtr<Material>&);
+		static Fn fn = Detail::ResolveProc<Fn>("?setMaterial@SubEntity@Ogre@@QAEXABV?$SharedPtr@VMaterial@Ogre@@@2@@Z");
+		if (fn == nullptr || subEntity == nullptr || material.isNull())
+		{
+			return false;
+		}
+
+		fn(subEntity, material);
+		return true;
 	}
 
 	inline Technique* GetMaterialTechnique(Material* material, unsigned short index)
