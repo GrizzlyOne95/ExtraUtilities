@@ -25,6 +25,23 @@ namespace ExtraUtilities::Lua::Radar
 {
 	namespace
 	{
+		void ApplyCockpitWireframeScale(float scale)
+		{
+			int wireframeRadius = *BZR::Radar::cockpitWireframeProjectionRadius;
+			if (wireframeRadius <= 0)
+			{
+				return;
+			}
+
+			wireframeRadius = static_cast<int>(std::lround(static_cast<double>(wireframeRadius) * scale));
+			if (wireframeRadius < 1)
+			{
+				wireframeRadius = 1;
+			}
+
+			*BZR::Radar::cockpitWireframeProjectionRadius = wireframeRadius;
+		}
+
 		int AbsoluteIndex(lua_State* L, int idx)
 		{
 			return idx > 0 ? idx : lua_gettop(L) + idx + 1;
@@ -122,6 +139,7 @@ namespace ExtraUtilities::Lua::Radar
 		{
 			int screenHeight = static_cast<int>(std::floor(cam->Orig_y)) * 2;
 			BZR::Radar::RefreshLayout(screenHeight);
+			ApplyCockpitWireframeScale(newScale);
 		}
 
 		return 0;

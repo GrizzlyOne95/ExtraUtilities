@@ -57,8 +57,14 @@ namespace Ogre
 	class Technique;
 	class Material;
 	class MaterialManager;
+	class TextureUnitState;
 	class SubEntity;
 	class Entity;
+
+	enum TextureType
+	{
+		TEX_TYPE_2D = 2
+	};
 
 	namespace Detail
 	{
@@ -169,6 +175,33 @@ namespace Ogre
 		using Fn = Pass * (__thiscall*)(Technique*, unsigned short);
 		static Fn fn = Detail::ResolveProc<Fn>("?getPass@Technique@Ogre@@QAEPAVPass@2@G@Z");
 		return fn == nullptr || technique == nullptr ? nullptr : fn(technique, index);
+	}
+
+	inline unsigned short GetPassNumTextureUnitStates(const Pass* pass)
+	{
+		using Fn = unsigned short(__thiscall*)(const Pass*);
+		static Fn fn = Detail::ResolveProc<Fn>("?getNumTextureUnitStates@Pass@Ogre@@QBEGXZ");
+		return fn == nullptr || pass == nullptr ? 0 : fn(pass);
+	}
+
+	inline TextureUnitState* GetPassTextureUnitState(Pass* pass, unsigned short index)
+	{
+		using Fn = TextureUnitState * (__thiscall*)(Pass*, unsigned short);
+		static Fn fn = Detail::ResolveProc<Fn>("?getTextureUnitState@Pass@Ogre@@QAEPAVTextureUnitState@2@G@Z");
+		return fn == nullptr || pass == nullptr ? nullptr : fn(pass, index);
+	}
+
+	inline bool SetTextureUnitStateTextureName(TextureUnitState* textureUnitState, const String& name, TextureType type = TEX_TYPE_2D)
+	{
+		using Fn = void(__thiscall*)(TextureUnitState*, const String&, TextureType);
+		static Fn fn = Detail::ResolveProc<Fn>("?setTextureName@TextureUnitState@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@W4TextureType@2@@Z");
+		if (fn == nullptr || textureUnitState == nullptr)
+		{
+			return false;
+		}
+
+		fn(textureUnitState, name, type);
+		return true;
 	}
 
 	inline const ColourValue* GetPassAmbient(const Pass* pass)

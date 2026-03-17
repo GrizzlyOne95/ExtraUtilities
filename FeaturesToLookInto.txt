@@ -14,7 +14,7 @@ Battlezone98Redux was compiled in Visual Studio 2013 32 bit.
 
 7) Some kind of access to individual unit behaviors... like forward movement, strafing, use of jump jets, etc. It would open the door to making better custom unit behaviors... up to and including emulating an actual player. The problem with BZ's AI is that the terrain has a tendency to alter their movement in ways that can stun them or make them do weird movements because a polygon was too step beneath them. Ability to check AI processes and set them, or tweak AI behavior. - partially implemented in EXU. We now have typed AI inspection helpers for this area, not just blind scans: exu.GetAiProcessState(), exu.GetAiTaskState(), exu.SetAiTaskState(), and exu.GetAiRecycleTaskState(). These expose named scavenger process values, recycle-task state, task state integers, target handles, goto vectors, and live unit-task steering factors like steer, braccel, strafe, pitch, omega, and omegaScale. Turbo is also available through the new task-state setter by delegating to EXU's existing per-unit turbo support. What is still missing is a clean native mapping for jump and the broader craft-side control flags, so this is not yet full "emulate a player" coverage, but it is now a real scriptable foothold instead of pure reverse-engineering.
 
-8) A means to change what you can build without needing stupid odf hot-swapping tricks. Reference how the game opens and uses b_amcmbt.odf, b_ambldg.odf etc. It allows submenues which would be amazing to add to producer menues like Recycler, Factory, Armory and Constructor. - experimentally implemented
+8) A means to change what you can build without needing stupid odf hot-swapping tricks. Reference how the game opens and uses b_amcmbt.odf, b_ambldg.odf etc. It allows submenues which would be amazing to add to producer menues like Recycler, Factory, Armory and Constructor. - experimentally implemented but needs refinement and testing
 
 9) Access to the radio feedback system, so we can finally do away with the massive amounts of audio clip queueing that makes the units talk non-stop mentioning orders you performed like 4 minutes ago. In BZP even with my enhancements this can still get really bogged down especially when issuing rapid orders to howitzers. I do not have the time or patience to re-write the entire radio feedback system and I think it would be riddled with problems if I attempted it. A nice bonus would be to allow units to be programmed to have alternate lines. I sorta did this with the producer units in BZP (IE: selecting the recycler randomly plays between 2 clips, "recycler here" or "yes sir!") - EXU first pass implemented on 2026-03-16 and then tightened the same day with queue-aware control after cross-checking the completed legacy BZ1 exact decompile against the Redux EXE. The current implementation now hooks the stock `Say -> QueueCB` enqueue path instead of only the low-level sound-object creation path, exposes `exu.GetUnitVoThrottle()`, `exu.SetUnitVoThrottle(ms)`, `exu.GetUnitVoQueueDepthLimit()`, `exu.SetUnitVoQueueDepthLimit(n)`, `exu.GetUnitVoQueueStaleMs()`, `exu.SetUnitVoQueueStaleMs(ms)`, `exu.GetUnitVoMuted()`, `exu.SetUnitVoMuted(enabled)`, `exu.GetUnitVoAlternates(filename)`, and `exu.SetUnitVoAlternates(filename, { ... })`, and keeps the behavior intentionally focused on stock-style unit bark filenames. Current behavior: mute can now suppress likely unit barks before enqueue while leaving unrelated mission audio like `misn*.wav` alone, duplicate queued barks are dropped, stale or over-deep unit-bark queues can be compacted before enqueueing the newest bark, and alternates are chosen before enqueue. Current limitations: this is still not a full rewrite of the entire radio system, and it only manages the verified `Say -> QueueCB` unit-VO paths rather than every possible direct queue caller. Full notes: `unit_vo_notes.md`.
 
@@ -46,22 +46,29 @@ Can be fixed by mass converting TRN file to ANSI and forcing line feeds to CR LF
 
 22) Some BMP formats cause a hard crash when trying to launch a mod or campaign with that thumbnail. Anything other than 24 bit and using "do not write color space info" crashes the game. Need to repro and get crash dump. 
 
-23) Jump sniping back to 1.5 behavior
+23) Jump sniping back to 1.5 behavior (if you touched ground with sniper selected it'd play the crouch anim, in redux you can just hold jump and even if you touch ground it doesnt do that) Probably tied to gore skeletal animation triggers, as person class objects use skeletal (not vdf) animations.
 
-24) Restore satellite "fog of war" 1.5 handle
+24) Restore satellite "fog of war" 1.5. 1.5 in satellite you couldn't see anything not discovered or in radar range. Redux just shows everything. Probably an issue between legacy engine and Ogre rendering. 
 
 25) perceivedTeam bug (doesn't udpate if the unit opens fire - for example a sniped unit can start attacking and not draw aggro)
 
 26)Investigate for legacy game MP flags, TCP/IP and LAN multiplayer options to see if they are functional and can be exposed in the UI
 
-27)You can launch the game with a nickname, would be cool to have that in the lobby shell UI since its technically supported
+27)You can launch the game with a nickname, would be cool to have that in the lobby shell UI since its technically supported. Investigation updated 2026-03-17 against the local Steam EXE, BZRNet logs, and the Redux class/function dump corpus. Current finding: a true live rename likely needs to update both lobby/auth-side `cUser::name` plus native player metadata (`CSteamLobby::SetPlayerMetadata` / `UpdatePlayerRecord`) and the local `NetPlayer::playerName` record, keyed either by `bIsMe` or the Steam ID from `exu.GetSteam64()`. Current blocker: Steam-specific addresses/signatures for those native helpers are not yet resolved cleanly enough to ship a blind patch. Resume from `Battlezone98Redux_Shim\\reverse_engineering\\nickname_live_notes.md`.
 
 28)Net code updates. Send/Receive Buffer Size adjustments and enforcement, combined with packet reordering. Implemented in shim. 
 
 29) Steam map list jumping. WIP fix in the shim, but needs further testing and the manual "refresh" button fixed too. - FIXED in shim
 
-30) Original scrap/pilot meter placement. FIXED in EXU
+30) Original scrap/pilot meter placement. FIXED in EXU. Try hiding the top HUD if moved? 
 
-31) 0 health units don't show damage sprite? 
+31) Add a persistent PDA setting for target reticle popups on hit / target health sprites. Desired modes: DEFAULT, NEUTRAL ONLY, and EXPLICIT ONLY. Investigation completed on 2026-03-17 against the legacy exact-match decompile plus the Redux GOG EXE/PDB exports. Current finding: the popup is driven by `SelectionDisplay::Render` through two paths, explicit target (`userObject->targetHandle`) and a recent-hit timer (`playerShot < now + 2s`). The recent-hit timer is written by `GameObject::SetDamageFlags` when the player-shot damage flag is present. This means the clean behavior options are either suppressing the `playerShot` popup branch globally, or suppressing it only for team 0 neutral objects. Current blocker: this environment cannot launch the runnable game image, so the exact Redux in-memory hook bytes were not revalidated yet. Resume from `Battlezone98Redux_Shim\\reverse_engineering\\target_reticle_popup_notes.md`.
 
-32) add more settings to Pda like unit verbosity?
+32) Add nickname shell UI (game supports launching it via CLI). Keep the shell-side UI work separate from the eventual native live setter so the UI can land once `exu.SetMultiplayerNickname(...)` or equivalent exists.
+
+33) Ban feature (back port from _bzcp.dll)
+
+34) Restore multiplayer flags (rendered 2d flags over all units on a team, each team had a unique flag like in legacy BZ)
+
+35) Come up with a comprehensive solution to restore the geos (components of vehicle/building vdf and sdf) exploding into chunks. They still simulate in BZR, causing explosions and damage, but do not render. 
+The legacy models are fully simulated but not rendered. We need to find a way to "unhide" them, explode the Ogre meshes in a new way, or spawn geometry chunks using Ogre when a unit dies with custom objects. Analyze all repos and files in workspace, including best effort corpus for PDB/GOG EXE, and determine what is the most feasible solution to restore the physical chunks of ships blowing up. 

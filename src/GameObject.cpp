@@ -87,6 +87,14 @@ namespace ExtraUtilities::Lua::GameObject
 			::Ogre::Pass* pass = nullptr;
 		};
 
+		struct MaterialTextureUnitHandle
+		{
+			::Ogre::Material* material = nullptr;
+			::Ogre::Technique* technique = nullptr;
+			::Ogre::Pass* pass = nullptr;
+			::Ogre::TextureUnitState* textureUnit = nullptr;
+		};
+
 		struct PolymorphicObjectInfo
 		{
 			uint32_t offset = 0;
@@ -1349,6 +1357,83 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
+		bool TryResolveMaterialTextureUnitCpp(
+			const std::string& materialName,
+			const std::string& resourceGroup,
+			int techniqueIndex,
+			int passIndex,
+			int textureUnitIndex,
+			MaterialTextureUnitHandle& outHandle)
+		{
+			try
+			{
+				outHandle = {};
+
+				MaterialPassHandle passHandle{};
+				if (!TryResolveMaterialPassCpp(materialName, resourceGroup, techniqueIndex, passIndex, passHandle))
+				{
+					return false;
+				}
+
+				if (textureUnitIndex < 0 ||
+					textureUnitIndex >= static_cast<int>(::Ogre::GetPassNumTextureUnitStates(passHandle.pass)))
+				{
+					LogMaterialDebug(
+						"[EXU::Material] ResolveMaterialTextureUnit bad texture unit material=%s group=%s technique=%d pass=%d unit=%d",
+						materialName.c_str(),
+						resourceGroup.c_str(),
+						techniqueIndex,
+						passIndex,
+						textureUnitIndex);
+					return false;
+				}
+
+				auto* textureUnit = ::Ogre::GetPassTextureUnitState(
+					passHandle.pass,
+					static_cast<unsigned short>(textureUnitIndex));
+				if (textureUnit == nullptr)
+				{
+					LogMaterialDebug(
+						"[EXU::Material] ResolveMaterialTextureUnit missing texture unit material=%s group=%s technique=%d pass=%d unit=%d",
+						materialName.c_str(),
+						resourceGroup.c_str(),
+						techniqueIndex,
+						passIndex,
+						textureUnitIndex);
+					return false;
+				}
+
+				outHandle.material = passHandle.material;
+				outHandle.technique = passHandle.technique;
+				outHandle.pass = passHandle.pass;
+				outHandle.textureUnit = textureUnit;
+				return true;
+			}
+			catch (const std::exception& ex)
+			{
+				LogMaterialDebug(
+					"[EXU::Material] ResolveMaterialTextureUnit threw material=%s technique=%d pass=%d unit=%d what=%s",
+					materialName.c_str(),
+					techniqueIndex,
+					passIndex,
+					textureUnitIndex,
+					ex.what());
+				outHandle = {};
+				return false;
+			}
+			catch (...)
+			{
+				LogMaterialDebug(
+					"[EXU::Material] ResolveMaterialTextureUnit threw material=%s technique=%d pass=%d unit=%d",
+					materialName.c_str(),
+					techniqueIndex,
+					passIndex,
+					textureUnitIndex);
+				outHandle = {};
+				return false;
+			}
+		}
+
 		bool TryGetPassAmbientCpp(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
 		{
 			try
@@ -2313,6 +2398,55 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
+		bool TryResolveMaterialTextureUnit(
+			const std::string& materialName,
+			const std::string& resourceGroup,
+			int techniqueIndex,
+			int passIndex,
+			int textureUnitIndex,
+			MaterialTextureUnitHandle& outHandle)
+		{
+			__try
+			{
+				return TryResolveMaterialTextureUnitCpp(
+					materialName,
+					resourceGroup,
+					techniqueIndex,
+					passIndex,
+					textureUnitIndex,
+					outHandle);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogMaterialDebug(
+					"[EXU::Material] ResolveMaterialTextureUnit crashed material=%s technique=%d pass=%d unit=%d code=0x%08X",
+					materialName.c_str(),
+					techniqueIndex,
+					passIndex,
+					textureUnitIndex,
+					GetExceptionCode());
+				outHandle = {};
+				return false;
+			}
+		}
+
+		bool TrySetMaterialTextureName(::Ogre::TextureUnitState* textureUnit, const std::string& textureName)
+		{
+			__try
+			{
+				return ::Ogre::SetTextureUnitStateTextureName(textureUnit, textureName);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogMaterialDebug(
+					"[EXU::Material] SetTextureUnitStateTextureName crashed textureUnit=%p texture=%s code=0x%08X",
+					textureUnit,
+					textureName.c_str(),
+					GetExceptionCode());
+				return false;
+			}
+		}
+
 		ExtraUtilities::Ogre::Color ToExuColor(const ::Ogre::ColourValue& color)
 		{
 			return { color.r, color.g, color.b, color.a };
@@ -2831,6 +2965,46 @@ namespace ExtraUtilities::Lua::GameObject
 		lua_setfield(L, -2, "specular");
 		PushColor(L, ToExuColor(emissive));
 		lua_setfield(L, -2, "emissive");
+		return 1;
+	}
+
+	int SetMaterialTexture(lua_State* L)
+	{
+		std::string materialName = luaL_checkstring(L, 1);
+		std::string textureName = luaL_checkstring(L, 2);
+		int techniqueIndex = luaL_optint(L, 3, 0);
+		int passIndex = luaL_optint(L, 4, 0);
+		int textureUnitIndex = luaL_optint(L, 5, 0);
+		std::string resourceGroup = CheckOptionalResourceGroup(L, 6);
+
+		MaterialTextureUnitHandle handle;
+		if (!TryResolveMaterialTextureUnit(
+			materialName,
+			resourceGroup,
+			techniqueIndex,
+			passIndex,
+			textureUnitIndex,
+			handle))
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const bool success = TrySetMaterialTextureName(handle.textureUnit, textureName);
+
+		if (!success)
+		{
+			LogMaterialDebug(
+				"[EXU::Material] SetMaterialTexture failed material=%s texture=%s group=%s technique=%d pass=%d unit=%d",
+				materialName.c_str(),
+				textureName.c_str(),
+				resourceGroup.c_str(),
+				techniqueIndex,
+				passIndex,
+				textureUnitIndex);
+		}
+
+		lua_pushboolean(L, success ? 1 : 0);
 		return 1;
 	}
 

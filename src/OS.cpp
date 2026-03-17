@@ -161,6 +161,103 @@ namespace ExtraUtilities::Lua::OS
 			return std::string(value.substr(start, end - start));
 		}
 
+		std::string SanitizeSingleLineText(std::string_view value)
+		{
+			std::string result;
+			result.reserve(value.size());
+
+			for (const char c : value)
+			{
+				if (c != '\0' && c != '\r' && c != '\n')
+				{
+					result.push_back(c);
+				}
+			}
+
+			return result;
+		}
+
+		bool RewriteTextSaveDescription(const std::string& filename, std::string_view description)
+		{
+			std::ifstream input(filename, std::ios::binary);
+			if (!input.is_open())
+			{
+				LogNativeSave("[EXU::SaveGame] failed to open saved file for description rewrite path={}", filename);
+				return false;
+			}
+
+			std::string data((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+			if (!input.good() && !input.eof())
+			{
+				LogNativeSave("[EXU::SaveGame] failed to read saved file for description rewrite path={}", filename);
+				return false;
+			}
+
+			if (data.empty())
+			{
+				LogNativeSave("[EXU::SaveGame] saved file is empty, skipping description rewrite path={}", filename);
+				return false;
+			}
+
+			if (data.find('\0') != std::string::npos)
+			{
+				LogNativeSave("[EXU::SaveGame] saved file appears binary, skipping description rewrite path={}", filename);
+				return true;
+			}
+
+			constexpr std::string_view kKey = "saveGameDesc";
+			const size_t keyPos = data.find(kKey);
+			if (keyPos == std::string::npos)
+			{
+				LogNativeSave("[EXU::SaveGame] saveGameDesc not found, skipping description rewrite path={}", filename);
+				return true;
+			}
+
+			const size_t equalsPos = data.find('=', keyPos + kKey.size());
+			if (equalsPos == std::string::npos)
+			{
+				LogNativeSave("[EXU::SaveGame] malformed saveGameDesc field, skipping description rewrite path={}", filename);
+				return false;
+			}
+
+			size_t valueStart = equalsPos + 1;
+			while (valueStart < data.size())
+			{
+				const char c = data[valueStart];
+				if (c != ' ' && c != '\t' && c != '\r' && c != '\n')
+				{
+					break;
+				}
+				++valueStart;
+			}
+
+			size_t valueEnd = valueStart;
+			while (valueEnd < data.size() && data[valueEnd] != '\r' && data[valueEnd] != '\n')
+			{
+				++valueEnd;
+			}
+
+			const std::string replacement = SanitizeSingleLineText(description);
+			data.replace(valueStart, valueEnd - valueStart, replacement);
+
+			std::ofstream output(filename, std::ios::binary | std::ios::trunc);
+			if (!output.is_open())
+			{
+				LogNativeSave("[EXU::SaveGame] failed to reopen saved file for description rewrite path={}", filename);
+				return false;
+			}
+
+			output.write(data.data(), static_cast<std::streamsize>(data.size()));
+			if (!output.good())
+			{
+				LogNativeSave("[EXU::SaveGame] failed to write updated save description path={}", filename);
+				return false;
+			}
+
+			LogNativeSave("[EXU::SaveGame] rewrote saveGameDesc path={} description={}", filename, replacement);
+			return true;
+		}
+
 		std::vector<ExecutableSection> GetExecutableSections()
 		{
 			std::vector<ExecutableSection> sections;
@@ -633,6 +730,15 @@ namespace ExtraUtilities::Lua::OS
 		lua_pushboolean(L, saved ? 1 : 0);
 		if (saved)
 		{
+			if (!description.empty() && !RewriteTextSaveDescription(filename, description))
+			{
+				LogNativeSave(
+					"[EXU::SaveGame] description override could not be applied path={} description={}",
+					filename,
+					description
+				);
+			}
+
 			lua_pushlstring(L, filename.c_str(), filename.size());
 		}
 		else

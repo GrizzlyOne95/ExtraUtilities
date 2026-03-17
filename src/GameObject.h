@@ -52,6 +52,7 @@ namespace ExtraUtilities::Lua::GameObject
 	int SetMaterialName(lua_State* L);
 	int MaterialExists(lua_State* L);
 	int CloneMaterial(lua_State* L);
+	int SetMaterialTexture(lua_State* L);
 	int GetMaterialPassColors(lua_State* L);
 	int SetMaterialPassColors(lua_State* L);
 

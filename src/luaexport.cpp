@@ -536,6 +536,7 @@ namespace ExtraUtilities::Lua
 			{ "SetMaterialName", &GameObject::SetMaterialName },
 			{ "MaterialExists", &GameObject::MaterialExists },
 			{ "CloneMaterial", &GameObject::CloneMaterial },
+			{ "SetMaterialTexture", &GameObject::SetMaterialTexture },
 			{ "GetMaterialPassColors", &GameObject::GetMaterialPassColors },
 			{ "SetMaterialPassColors", &GameObject::SetMaterialPassColors },
 			{ "SetHeadlightDiffuse", &GameObject::SetHeadlightDiffuse },
@@ -642,6 +643,7 @@ namespace ExtraUtilities::Lua
 			{ "SetUnitVoMuted", &Patches::SetUnitVoMuted },
 			{ "GetUnitVoAlternates", &Patches::GetUnitVoAlternates },
 			{ "SetUnitVoAlternates", &Patches::SetUnitVoAlternates },
+			{ "SetUnderAttackAlertMode", &Patches::SetUnderAttackAlertMode },
 
 			// Play Options
 			{ "GetAutoLevel",	 &PlayOption::GetAutoLevel },

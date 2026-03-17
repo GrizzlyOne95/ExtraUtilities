@@ -719,7 +719,13 @@ namespace ExtraUtilities::Lua::Overlay
 				return;
 			}
 
+			const std::string modAssetDirectory = moduleDirectory;
 			const std::string fontDirectory = moduleDirectory + "\\OverlayFont";
+			if (!Native::TryAddResourceLocation(modAssetDirectory.c_str(), kOverlayRuntimeResourceGroup))
+			{
+				return;
+			}
+
 			if (!Native::TryAddResourceLocation(fontDirectory.c_str(), kOverlayRuntimeResourceGroup))
 			{
 				return;
@@ -740,8 +746,9 @@ namespace ExtraUtilities::Lua::Overlay
 
 			overlayRuntimeResourcesReady = true;
 			Logging::LogMessage(
-				"[EXU::Overlay] overlay runtime resources ready group=%s fontLocation=%s stockTextures=%s",
+				"[EXU::Overlay] overlay runtime resources ready group=%s modAssets=%s fontLocation=%s stockTextures=%s",
 				kOverlayRuntimeResourceGroup,
+				modAssetDirectory.c_str(),
 				fontDirectory.c_str(),
 				stockTextureDirectory.c_str());
 		}

@@ -497,6 +497,7 @@ namespace BZR
 	{
 		inline auto state = (uint8_t*)0x008EAAAC;
 		inline auto scale = (float*)0x008E77B0;
+		inline auto cockpitWireframeProjectionRadius = (int*)0x009173C0;
 		inline auto edgeMinX = (float*)0x00917388;
 		inline auto edgeMaxX = (float*)0x0091738C;
 		inline auto edgeMinZ = (float*)0x00917390;
