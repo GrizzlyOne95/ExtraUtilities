@@ -62,13 +62,22 @@ Can be fixed by mass converting TRN file to ANSI and forcing line feeds to CR LF
 
 30) Original scrap/pilot meter placement. FIXED in EXU. Try hiding the top HUD if moved? 
 
-31) Add a persistent PDA setting for target reticle popups on hit / target health sprites. Desired modes: DEFAULT, NEUTRAL ONLY, and EXPLICIT ONLY. Investigation completed on 2026-03-17 against the legacy exact-match decompile plus the Redux GOG EXE/PDB exports. Current finding: the popup is driven by `SelectionDisplay::Render` through two paths, explicit target (`userObject->targetHandle`) and a recent-hit timer (`playerShot < now + 2s`). The recent-hit timer is written by `GameObject::SetDamageFlags` when the player-shot damage flag is present. This means the clean behavior options are either suppressing the `playerShot` popup branch globally, or suppressing it only for team 0 neutral objects. Live Steam revalidation was completed later on 2026-03-17 after launching `battlezone98redux.exe /nointro`: the first 96 bytes of `SelectionDisplay::Render` body at `0x0043E100`, `GameObject::SetDamageFlags` at `0x0046C860`, and `Targeting::Simulate` at `0x00527550` all matched the GOG executable exactly. Remaining blocker: recover the exact recent-hit popup branch and the cheapest team-number read for a neutral-only gate. Resume from `Battlezone98Redux_Shim\\reverse_engineering\\target_reticle_popup_notes.md`.
+31) Add a persistent PDA setting for target reticle popups on hit / target health sprites. Shipping scope was narrowed on 2026-03-18 to DEFAULT and EXPLICIT ONLY after the earlier NEUTRAL ONLY experiment proved too crash-prone when patched at the wrong branch site. Investigation completed on 2026-03-17 against the legacy exact-match decompile plus the Redux GOG EXE/PDB exports. Current finding: the popup is driven by `SelectionDisplay::Render` through two paths, explicit target (`userObject->targetHandle`) and a recent-hit timer (`playerShot < now + 2s`). The recent-hit timer is written by `GameObject::SetDamageFlags` when the player-shot damage flag is present. OpenShim now ships the safer render-side recent-hit suppression path and treats legacy / experimental NEUTRAL ONLY requests as DEFAULT unless the native experiment is explicitly forced. Steam revalidation was completed later on 2026-03-17 after launching `battlezone98redux.exe /nointro`: the first 96 bytes of `SelectionDisplay::Render` body at `0x0043E100`, `GameObject::SetDamageFlags` at `0x0046C860`, and `Targeting::Simulate` at `0x00527550` all matched the GOG executable exactly. Resume notes remain in `Battlezone98Redux_Shim\\reverse_engineering\\target_reticle_popup_notes.md` if the experimental neutral-only path is revisited.
 
-32) Add nickname shell UI (game supports launching it via CLI). Keep the shell-side UI work separate from the eventual native live setter so the UI can land once `exu.SetMultiplayerNickname(...)` or equivalent exists.
+32) Ban feature (back port from prior native implementation)
 
-33) Ban feature (back port from prior native implementation)
+33) Restore multiplayer flags (rendered 2d flags over all units on a team, each team had a unique flag like in legacy BZ)
 
-34) Restore multiplayer flags (rendered 2d flags over all units on a team, each team had a unique flag like in legacy BZ)
-
-35) Come up with a comprehensive solution to restore the geos (components of vehicle/building vdf and sdf) exploding into chunks. They still simulate in BZR, causing explosions and damage, but do not render. 
+34) Come up with a comprehensive solution to restore the geos (components of vehicle/building vdf and sdf) exploding into chunks. They still simulate in BZR, causing explosions and damage, but do not render. 
 The legacy models are fully simulated but not rendered. We need to find a way to "unhide" them, explode the Ogre meshes in a new way, or spawn geometry chunks using Ogre when a unit dies with custom objects. Analyze all repos and files in workspace, including best effort corpus for PDB/GOG EXE, and determine what is the most feasible solution to restore the physical chunks of ships blowing up. 
+
+35) Expose input.map in the GUI for full key mapping
+
+36) Emissive lights off in empty craft (valid but no pilot) so "running lights"
+
+37) when emissives on, gradual pulsing or motion 
+
+38) twinkling Stars 
+
+39) True raw mouse input
+40) Auto-level auto trigger - if your vehicle is elevated off the ground or getitng hit by thump, turn it off. Otherwise leave on? 

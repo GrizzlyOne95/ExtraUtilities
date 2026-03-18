@@ -499,8 +499,10 @@ namespace BZR
 		inline auto scale = (float*)0x008E77B0;
 		inline auto cockpitWireframeProjectionBase = (float*)0x008E7754;
 		inline auto cockpitWireframeProjectionRadius = (int*)0x009173C0;
+		inline auto radarLeftBase = (float*)0x009782A0;
 		inline auto radarLeft = (int*)0x008E77A8;
 		inline auto radarBottom = (int*)0x008E77AC;
+		inline auto commandPanelLeftBase = (float*)0x008E7918;
 		inline auto commandPanelLeft = (int*)0x008E7924;
 		inline auto commandPanelBottom = (int*)0x008E7928;
 		inline auto edgeMinX = (float*)0x00917388;
