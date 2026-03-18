@@ -15,7 +15,27 @@ Compatibility:
 
 Forked from VTRider's initial project. Massive kudos to him for figuring out how to implement EXU in the first place!
 
-I am working on adding additional features as I can such as set/get Material names, bundling OgreMain.lib, fixing a few bugs with calling sunlight parameters, adding more function calls, and more.
+## High-Level Summary
+
+EXU is the Steam-side native script extender layer for addon code. Its current
+work falls into four main buckets:
+
+- Native gameplay/state access: command replacement hooks, selected-weapon mask
+  inspection, AI process/task inspection and limited task writes, pause-menu
+  state probes, native save triggering, multiplayer object-build helpers, life
+  and scoreboard helpers, and custom kill-message support.
+- Rendering and UI controls: fog, gravity, ambient and sun parameters,
+  time-of-day and shadow controls, viewport retro-lighting material-scheme
+  switching, Ogre overlay creation and manipulation, and radar state/size and
+  edge-path refresh helpers.
+- Patch-driven behavior changes: engine flame color overrides, turbo toggles,
+  ordnance velocity inheritance, hovercraft shot convergence, smart-reticle
+  convergence for the local player, and unit-VO throttling, muting, and bark
+  rotation control.
+- Stability and integration hardening: standalone EXU builds, stricter patch and
+  scanner validation, safer Ogre/material/environment calls, and better logging
+  when viewport or render-system state is missing instead of crashing Lua-side
+  callers.
 
 Recent additions:
 - Viewport retro-lighting toggles via `exu.GetRetroLightingMode()` and `exu.SetRetroLightingMode(enabled)`, which switch the active viewport between the stock modern material schemes and the `og-*` retro variants.
