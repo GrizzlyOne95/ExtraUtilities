@@ -564,6 +564,7 @@ namespace ExtraUtilities::Lua::Patches
 	namespace
 	{
 		using OpenShimSetUnderAttackAlertModeFn = BOOL(WINAPI*)(int);
+		using OpenShimSetTargetReticlePopupModeFn = BOOL(WINAPI*)(int);
 
 		OpenShimSetUnderAttackAlertModeFn ResolveUnderAttackAlertBridge()
 		{
@@ -586,6 +587,32 @@ namespace ExtraUtilities::Lua::Patches
 			{
 				loggedMissing = true;
 				Logging::LogMessage("[EXU::UnitVo] OpenShim under-attack alert bridge unavailable");
+			}
+
+			return fn;
+		}
+
+		OpenShimSetTargetReticlePopupModeFn ResolveTargetReticlePopupBridge()
+		{
+			static OpenShimSetTargetReticlePopupModeFn fn = nullptr;
+			static bool attempted = false;
+			static bool loggedMissing = false;
+			if (attempted)
+			{
+				return fn;
+			}
+
+			attempted = true;
+			if (HMODULE module = GetModuleHandleA("winmm.dll"))
+			{
+				fn = reinterpret_cast<OpenShimSetTargetReticlePopupModeFn>(
+					GetProcAddress(module, "OpenShimSetTargetReticlePopupMode"));
+			}
+
+			if (!fn && !loggedMissing)
+			{
+				loggedMissing = true;
+				Logging::LogMessage("[EXU::UnitVo] OpenShim target reticle popup bridge unavailable");
 			}
 
 			return fn;
@@ -771,6 +798,24 @@ namespace ExtraUtilities::Lua::Patches
 		}
 
 		if (OpenShimSetUnderAttackAlertModeFn fn = ResolveUnderAttackAlertBridge())
+		{
+			lua_pushboolean(L, fn(static_cast<int>(requested)) ? 1 : 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	int SetTargetReticlePopupMode(lua_State* L)
+	{
+		lua_Integer requested = luaL_checkinteger(L, 1);
+		if (requested < 1 || requested > 3)
+		{
+			return luaL_argerror(L, 1, "Extra Utilities Error: target reticle popup mode must be 1-3");
+		}
+
+		if (OpenShimSetTargetReticlePopupModeFn fn = ResolveTargetReticlePopupBridge())
 		{
 			lua_pushboolean(L, fn(static_cast<int>(requested)) ? 1 : 0);
 			return 1;

@@ -648,6 +648,7 @@ namespace ExtraUtilities::Lua
 			{ "GetUnitVoAlternates", &Patches::GetUnitVoAlternates },
 			{ "SetUnitVoAlternates", &Patches::SetUnitVoAlternates },
 			{ "SetUnderAttackAlertMode", &Patches::SetUnderAttackAlertMode },
+			{ "SetTargetReticlePopupMode", &Patches::SetTargetReticlePopupMode },
 
 			// Play Options
 			{ "GetAutoLevel",	 &PlayOption::GetAutoLevel },
