@@ -19,6 +19,7 @@
 #include "Environment.h"
 
 #include "InlinePatch.h"
+#include "Logging.h"
 #include "LuaHelpers.h"
 
 #include <Windows.h>
@@ -169,6 +170,7 @@ namespace ExtraUtilities::Lua::Environment
 			OutputDebugStringA(message.c_str());
 			OutputDebugStringA("\n");
 
+			ExtraUtilities::Logging::ResetLogFileForCurrentProcess("exu_environment_debug.log");
 			std::ofstream file("exu_environment_debug.log", std::ios::app);
 			if (file.is_open())
 			{

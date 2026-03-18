@@ -1,5 +1,7 @@
 #include "OgreNativeFontBridge.h"
 
+#include "Logging.h"
+
 #include <cstdarg>
 #include <cstdio>
 #include <fstream>
@@ -33,6 +35,9 @@
 
 namespace
 {
+	constexpr unsigned int kCppExceptionCode = 0xE06D7363u;
+	const char* const kAutodetectResourceGroupName = "Autodetect";
+
 	void LogNativeOverlayMessage(const char* format, ...)
 	{
 		char buffer[1024]{};
@@ -44,8 +49,8 @@ namespace
 		OutputDebugStringA(buffer);
 		OutputDebugStringA("\n");
 
-		FILE* log = nullptr;
-		if (fopen_s(&log, "exu.log", "a") == 0 && log != nullptr)
+		FILE* log = ExtraUtilities::Logging::OpenSessionLogFile("exu.log");
+		if (log != nullptr)
 		{
 			SYSTEMTIME localTime{};
 			GetLocalTime(&localTime);
@@ -70,6 +75,7 @@ namespace
 		Ogre::Font* pRep;
 		void* pInfo;
 	};
+
 
 	HMODULE GetOgreMainModule()
 	{
@@ -96,7 +102,6 @@ namespace
 
 	using CreateFontFn = FontPtrPod(__thiscall*)(Ogre::FontManager*, const Ogre::String&, const Ogre::String&, bool, Ogre::ManualResourceLoader*, const Ogre::NameValuePairList*);
 	using InitialiseResourceGroupFn = void(__thiscall*)(Ogre::ResourceGroupManager*, const Ogre::String&);
-	using OpenResourceFn = Ogre::DataStreamPtr(__thiscall*)(Ogre::ResourceGroupManager*, const Ogre::String&, const Ogre::String&, bool, Ogre::Resource*);
 	using UtfStringCtorFromCharFn = void* (__thiscall*)(void*, const char*);
 	using UtfStringDtorFn = void(__thiscall*)(void*);
 	using ColourValueCtorFn = void* (__thiscall*)(void*, float, float, float, float);
@@ -114,6 +119,12 @@ namespace
 		unsigned int refWidth;
 		unsigned int refHeight;
 	};
+
+	int HandleNativeOverlayException(unsigned int exceptionCode, unsigned int& outExceptionCode)
+	{
+		outExceptionCode = exceptionCode;
+		return exceptionCode == kCppExceptionCode ? EXCEPTION_CONTINUE_SEARCH : EXCEPTION_EXECUTE_HANDLER;
+	}
 
 	bool TryParseSpriteGlyphLine(const std::string& line, SpriteGlyph& outGlyph)
 	{
@@ -202,14 +213,6 @@ namespace
 		return fn;
 	}
 
-	OpenResourceFn ResolveOpenResourceProc()
-	{
-		static const OpenResourceFn fn = ResolveOgreProc<OpenResourceFn>(
-			GetOgreMainModule(),
-			"?openResource@ResourceGroupManager@Ogre@@QAE?AV?$SharedPtr@VDataStream@Ogre@@@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0_NPAVResource@2@@Z");
-		return fn;
-	}
-
 	UtfStringCtorFromCharFn ResolveUtfStringCtorFromCharProc()
 	{
 		static const UtfStringCtorFromCharFn fn = ResolveOgreProc<UtfStringCtorFromCharFn>(
@@ -273,12 +276,12 @@ namespace
 	{
 		Ogre::ResourceGroupManager* resourceGroups = GetResourceGroupManager();
 		const InitialiseResourceGroupFn initialiseResourceGroup = ResolveInitialiseResourceGroupProc();
-		if (resourceGroups == nullptr || initialiseResourceGroup == nullptr || scriptName == nullptr || scriptName[0] == '\0')
+		if (resourceGroups == nullptr || initialiseResourceGroup == nullptr || groupName == nullptr || groupName[0] == '\0')
 		{
 			return false;
 		}
 
-		initialiseResourceGroup(resourceGroups, groupName);
+		initialiseResourceGroup(resourceGroups, Ogre::String(groupName));
 		return true;
 	}
 
@@ -290,7 +293,7 @@ namespace
 		{
 			return ParseFontScriptCpp(scriptName, groupName);
 		}
-		__except (outExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -304,7 +307,9 @@ namespace
 			return false;
 		}
 
-		const Ogre::String lookupGroup = (groupName != nullptr && groupName[0] != '\0') ? Ogre::String(groupName) : Ogre::String("");
+		const Ogre::String lookupGroup = (groupName != nullptr && groupName[0] != '\0')
+			? Ogre::String(groupName)
+			: Ogre::String(kAutodetectResourceGroupName);
 		Ogre::FontPtr fontPtr = manager->getByName(fontName, lookupGroup);
 		return fontPtr.getPointer() != nullptr;
 	}
@@ -319,7 +324,7 @@ namespace
 			outHasFont = HasFontResourceCpp(fontName, groupName);
 			return true;
 		}
-		__except (outExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -327,12 +332,15 @@ namespace
 
 	Ogre::Font* GetOrCreateFontCpp(Ogre::FontManager* manager, const char* fontName, const char* groupName)
 	{
-		if (manager == nullptr || fontName == nullptr || groupName == nullptr)
+		if (manager == nullptr || fontName == nullptr)
 		{
 			return nullptr;
 		}
 
-		Ogre::FontPtr fontPtr = manager->getByName(fontName, groupName);
+		const Ogre::String lookupGroup = (groupName != nullptr && groupName[0] != '\0')
+			? Ogre::String(groupName)
+			: Ogre::String(kAutodetectResourceGroupName);
+		Ogre::FontPtr fontPtr = manager->getByName(fontName, lookupGroup);
 		Ogre::Font* font = fontPtr.getPointer();
 		if (font != nullptr)
 		{
@@ -345,7 +353,7 @@ namespace
 			return nullptr;
 		}
 
-		const FontPtrPod createdFont = createFont(manager, fontName, groupName, false, nullptr, nullptr);
+		const FontPtrPod createdFont = createFont(manager, fontName, lookupGroup.c_str(), false, nullptr, nullptr);
 		return createdFont.pRep;
 	}
 
@@ -360,7 +368,7 @@ namespace
 			outFont = GetOrCreateFontCpp(manager, fontName, groupName);
 			return true;
 		}
-		__except (outExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -394,7 +402,7 @@ namespace
 			QueryTextureVisibilityCpp(resourceGroups, groupName, textureName, outVisibleInGroup, outVisibleAnywhere);
 			return true;
 		}
-		__except (outExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -438,7 +446,7 @@ namespace
 		{
 			return ConfigureTrueTypeFontCpp(font, sourceName, pointSize, resolution, firstCodePoint, lastCodePoint);
 		}
-		__except (outExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -488,7 +496,7 @@ namespace
 		{
 			return ConfigureImageFontCpp(font, textureName, spriteTable, outGlyphCount);
 		}
-		__except (outExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -555,7 +563,7 @@ namespace
 			SetTextAreaFontNameCpp(overlayElement, fontName);
 			return true;
 		}
-		__except (outExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -569,7 +577,7 @@ namespace
 		{
 			return SetTextAreaCaptionDynamic(overlayElement, text);
 		}
-		__except (outExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -583,7 +591,7 @@ namespace
 		{
 			return SetTextAreaCharHeightDynamic(overlayElement, charHeight);
 		}
-		__except (outExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -597,7 +605,7 @@ namespace
 		{
 			return SetTextAreaColorDynamic(overlayElement, r, g, b, a);
 		}
-		__except (outExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}

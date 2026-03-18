@@ -243,7 +243,7 @@ namespace ExtraUtilities::Lua::GameObject
 			OutputDebugStringA(message);
 			OutputDebugStringA("\n");
 
-			if (FILE* file = fopen("exu_material_debug.log", "a"))
+			if (FILE* file = ExtraUtilities::Logging::OpenSessionLogFile("exu_material_debug.log"))
 			{
 				fprintf(file, "%s\n", message);
 				fclose(file);

@@ -39,6 +39,10 @@ BOOL WINAPI DllMain(
     {
     case DLL_PROCESS_ATTACH:
         DisableThreadLibraryCalls(hModule);
+        ExtraUtilities::Logging::ResetLogFileForCurrentProcess("exu.log");
+        ExtraUtilities::Logging::ResetLogFileForCurrentProcess("exu_native_save.log");
+        ExtraUtilities::Logging::ResetLogFileForCurrentProcess("exu_environment_debug.log");
+        ExtraUtilities::Logging::ResetLogFileForCurrentProcess("exu_material_debug.log");
         ExtraUtilities::Logging::LogMessage("exu: DLL_PROCESS_ATTACH");
 #ifdef _DEBUG
         AllocConsole();

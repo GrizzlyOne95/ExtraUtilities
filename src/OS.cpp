@@ -18,6 +18,8 @@
 
 #include "OS.h"
 
+#include "Logging.h"
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -67,6 +69,7 @@ namespace ExtraUtilities::Lua::OS
 			OutputDebugStringA(message.c_str());
 			OutputDebugStringA("\n");
 
+			ExtraUtilities::Logging::ResetLogFileForCurrentProcess("exu_native_save.log");
 			std::ofstream file("exu_native_save.log", std::ios::app);
 			if (file.is_open())
 			{

@@ -497,7 +497,12 @@ namespace BZR
 	{
 		inline auto state = (uint8_t*)0x008EAAAC;
 		inline auto scale = (float*)0x008E77B0;
+		inline auto cockpitWireframeProjectionBase = (float*)0x008E7754;
 		inline auto cockpitWireframeProjectionRadius = (int*)0x009173C0;
+		inline auto radarLeft = (int*)0x008E77A8;
+		inline auto radarBottom = (int*)0x008E77AC;
+		inline auto commandPanelLeft = (int*)0x008E7924;
+		inline auto commandPanelBottom = (int*)0x008E7928;
 		inline auto edgeMinX = (float*)0x00917388;
 		inline auto edgeMaxX = (float*)0x0091738C;
 		inline auto edgeMinZ = (float*)0x00917390;
@@ -515,6 +520,10 @@ namespace BZR
 			int32_t pointCount;
 			EdgePathPoint* points;
 		};
+
+		// Recomputes the radar left anchor from the current cockpit projection base.
+		using _RefreshCockpitWireframeAnchor = void(__cdecl*)();
+		inline _RefreshCockpitWireframeAnchor RefreshCockpitWireframeAnchor = (_RefreshCockpitWireframeAnchor)0x00404CF0;
 
 		// Recalculates radar and command panel placement after HUD sizing changes.
 		using _RefreshLayout = void(__cdecl*)(int screenHeight);

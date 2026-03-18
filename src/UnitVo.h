@@ -49,4 +49,5 @@ namespace ExtraUtilities::Lua::Patches
 	int GetUnitVoAlternates(lua_State* L);
 	int SetUnitVoAlternates(lua_State* L);
 	int SetUnderAttackAlertMode(lua_State* L);
+	int SetTargetReticlePopupMode(lua_State* L);
 }

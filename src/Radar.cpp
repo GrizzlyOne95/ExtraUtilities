@@ -27,19 +27,21 @@ namespace ExtraUtilities::Lua::Radar
 	{
 		void ApplyCockpitWireframeScale(float scale)
 		{
-			int wireframeRadius = *BZR::Radar::cockpitWireframeProjectionRadius;
-			if (wireframeRadius <= 0)
+			static const float originalProjectionBase = *BZR::Radar::cockpitWireframeProjectionBase;
+			float projectionBase = originalProjectionBase;
+			if (!std::isfinite(projectionBase) || projectionBase <= 0.f)
 			{
-				return;
+				projectionBase = 1.f;
 			}
 
-			wireframeRadius = static_cast<int>(std::lround(static_cast<double>(wireframeRadius) * scale));
-			if (wireframeRadius < 1)
+			float scaledProjectionBase = projectionBase * scale;
+			if (!std::isfinite(scaledProjectionBase) || scaledProjectionBase <= 0.f)
 			{
-				wireframeRadius = 1;
+				scaledProjectionBase = projectionBase;
 			}
 
-			*BZR::Radar::cockpitWireframeProjectionRadius = wireframeRadius;
+			*BZR::Radar::cockpitWireframeProjectionBase = scaledProjectionBase;
+			BZR::Radar::RefreshCockpitWireframeAnchor();
 		}
 
 		int AbsoluteIndex(lua_State* L, int idx)
@@ -133,13 +135,13 @@ namespace ExtraUtilities::Lua::Radar
 		}
 
 		sizeScale.Write(newScale);
+		ApplyCockpitWireframeScale(newScale);
 
 		BZR::BZR_Camera* cam = BZR::Camera::View_Record_MainCam;
 		if (cam != nullptr && cam->Orig_y > 0.f)
 		{
 			int screenHeight = static_cast<int>(std::floor(cam->Orig_y)) * 2;
 			BZR::Radar::RefreshLayout(screenHeight);
-			ApplyCockpitWireframeScale(newScale);
 		}
 
 		return 0;
