@@ -815,6 +815,11 @@ namespace ExtraUtilities::Lua::Patches
 			return luaL_argerror(L, 1, "Extra Utilities Error: target reticle popup mode must be 1-3");
 		}
 
+		if (requested == 2)
+		{
+			requested = 1;
+		}
+
 		if (OpenShimSetTargetReticlePopupModeFn fn = ResolveTargetReticlePopupBridge())
 		{
 			lua_pushboolean(L, fn(static_cast<int>(requested)) ? 1 : 0);

@@ -28,10 +28,21 @@ namespace ExtraUtilities::Lua::Radar
 		void ApplyCockpitWireframeScale(float scale)
 		{
 			static const float originalProjectionBase = *BZR::Radar::cockpitWireframeProjectionBase;
+			static const float originalRadarLeftBase = *BZR::Radar::radarLeftBase;
+			static const float originalCommandPanelLeftBase = *BZR::Radar::commandPanelLeftBase;
+			static const float originalRadarWidthFromPanel =
+				originalCommandPanelLeftBase - originalRadarLeftBase;
+
 			float projectionBase = originalProjectionBase;
 			if (!std::isfinite(projectionBase) || projectionBase <= 0.f)
 			{
 				projectionBase = 1.f;
+			}
+
+			float radarWidthFromPanel = originalRadarWidthFromPanel;
+			if (!std::isfinite(radarWidthFromPanel) || radarWidthFromPanel <= 0.f)
+			{
+				radarWidthFromPanel = projectionBase + 20.f;
 			}
 
 			float scaledProjectionBase = projectionBase * scale;
@@ -40,8 +51,15 @@ namespace ExtraUtilities::Lua::Radar
 				scaledProjectionBase = projectionBase;
 			}
 
+			float scaledRadarLeftBase =
+				*BZR::Radar::commandPanelLeftBase - (radarWidthFromPanel * scale);
+			if (!std::isfinite(scaledRadarLeftBase))
+			{
+				scaledRadarLeftBase = *BZR::Radar::commandPanelLeftBase - radarWidthFromPanel;
+			}
+
 			*BZR::Radar::cockpitWireframeProjectionBase = scaledProjectionBase;
-			BZR::Radar::RefreshCockpitWireframeAnchor();
+			*BZR::Radar::radarLeftBase = scaledRadarLeftBase;
 		}
 
 		int AbsoluteIndex(lua_State* L, int idx)

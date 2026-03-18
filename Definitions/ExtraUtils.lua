@@ -1310,6 +1310,13 @@ function exu.SetShowScoreboard(state) end
 --- Prevents the starting recycler from spawning in strategy and MPI missions. CALL LOOSE IN THE SCRIPT PRE-START!
 function exu.DisableStartingRecycler() end
 
+--- Sets the OpenShim target-reticle popup mode.
+--- 1 = Default, 3 = Explicit Only
+--- 2 remains reserved for the experimental neutral-only path and downgrades to Default in normal builds.
+--- @param mode integer
+--- @return boolean
+function exu.SetTargetReticlePopupMode(mode) end
+
 --- Ordnance
 ---
 --- These functions modify the behavior of ordnance.
