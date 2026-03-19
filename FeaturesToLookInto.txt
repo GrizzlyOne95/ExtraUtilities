@@ -81,3 +81,15 @@ The legacy models are fully simulated but not rendered. We need to find a way to
 
 39) True raw mouse input
 40) Auto-level auto trigger - if your vehicle is elevated off the ground or getitng hit by thump, turn it off. Otherwise leave on? 
+
+41) Increase sound channels - experimentally incrementing from 100 to 150. 
+
+WIP / Partial / Experimental / 3-19-26
+
+Key-binding shell UI rewrite: scaffold and RE are in place, but no live replacement screen yet input_binding_ui_replacement_notes_20260318.md (line 494) bzr_hooks.cpp (line 5290).
+Steam map filter/sort clean-room port: intentionally disabled; only the map-position fix ships README.md (line 80).
+Producer submenu/build-menu work: first-pass bridge experiment only, GOG-focused, still needs validation README.md (line 425).
+Legacy exploding GEO/chunk restoration: still investigation/bridge-experiment territory, not a real final fix README.md (line 154) FeaturesToLookInto.txt (line 71).
+Lobby nickname shell/UI work: investigation is good, but the safe live update path is still missing FeaturesToLookInto.txt (line 57).
+EXU “planet swap” and deeper AI/player-emulation controls: both have real groundwork, but both are explicitly still partial FeaturesToLookInto.txt (line 13) FeaturesToLookInto.txt (line 15).
+Command-menu replacement is beyond pure research now, but still limited to the stock Hunt slot rather than arbitrary new buttons FeaturesToLookInto.txt (line 3).
