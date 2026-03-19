@@ -41,3 +41,11 @@ Recent additions:
 - Viewport retro-lighting toggles via `exu.GetRetroLightingMode()` and `exu.SetRetroLightingMode(enabled)`, which switch the active viewport between the stock modern material schemes and the `og-*` retro variants.
 - Local smart-reticle hovercraft shot convergence via `exu.GetPlayerReticleShotConvergence()` and `exu.SetPlayerReticleShotConvergence(enabled)`.
 - Hardened environment/material-scheme access so bad viewport state is logged instead of crashing the caller when Ogre data is unavailable.
+
+## Credits
+
+- `VTrider` for the original EXU implementation and a large share of the native script-extender codebase.
+- `GrizzlyOne95` for ongoing maintenance, loader and integration work, and newer rendering and stability additions.
+- `Janne` for the original Lua DLL project that paved the way for EXU.
+- `DivisionByZero` for the DLL loader work that later integrations build on.
+- `Business Lawyer` for bug hunting and technical collaboration.
