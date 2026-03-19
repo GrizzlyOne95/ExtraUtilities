@@ -30,6 +30,7 @@
 #include "lua.hpp"
 #include <Windows.h>
 #include <algorithm>
+#include <cstring>
 #include <vector>
 
 // Avoid name collision with winapi macro
@@ -40,9 +41,35 @@ namespace ExtraUtilities::Lua
 {
 	namespace
 	{
+		struct SanitizedStockStringFunctionPatch
+		{
+			const char* name;
+			int originalRef;
+		};
+
+		SanitizedStockStringFunctionPatch g_sanitizedStockStringFunctions[] = {
+			{ "GetBase", LUA_NOREF },
+			{ "GetClassSig", LUA_NOREF },
+			{ "GetOdf", LUA_NOREF },
+			{ "GetPilotClass", LUA_NOREF },
+			{ "GetWeaponClass", LUA_NOREF },
+		};
+
 		int g_originalSetObjectiveOnRef = LUA_NOREF;
 		int g_originalSetObjectiveOffRef = LUA_NOREF;
 		std::vector<BZR::handle> g_activeObjectiveHandles;
+
+		void ResetSanitizedStockStringPatchState(lua_State* L)
+		{
+			for (auto& patch : g_sanitizedStockStringFunctions)
+			{
+				if (patch.originalRef != LUA_NOREF)
+				{
+					luaL_unref(L, LUA_REGISTRYINDEX, patch.originalRef);
+					patch.originalRef = LUA_NOREF;
+				}
+			}
+		}
 
 		void ResetObjectiveObjectPatchState(lua_State* L)
 		{
@@ -86,11 +113,11 @@ namespace ExtraUtilities::Lua
 				g_activeObjectiveHandles.end());
 		}
 
-		int CallLuaRegistryFunction(lua_State* L, int functionRef)
+		int CallLuaRegistryFunction(lua_State* L, int functionRef, const char* errorMessage)
 		{
 			if (functionRef == LUA_NOREF)
 			{
-				return luaL_error(L, "ObjectiveObjects patch is not initialized");
+				return luaL_error(L, errorMessage);
 			}
 
 			const int argCount = lua_gettop(L);
@@ -100,6 +127,64 @@ namespace ExtraUtilities::Lua
 			return lua_gettop(L);
 		}
 
+		int PatchedSanitizedStockStringFunction(lua_State* L)
+		{
+			const int functionRef = static_cast<int>(lua_tointeger(L, lua_upvalueindex(1)));
+			if (functionRef == LUA_NOREF)
+			{
+				return luaL_error(L, "String sanitization patch is not initialized");
+			}
+
+			const int resultCount = CallLuaRegistryFunction(L, functionRef, "String sanitization patch is not initialized");
+			for (int i = 1; i <= resultCount; ++i)
+			{
+				if (lua_type(L, i) != LUA_TSTRING)
+				{
+					continue;
+				}
+
+				size_t length = 0;
+				const char* value = lua_tolstring(L, i, &length);
+				if (value == nullptr)
+				{
+					continue;
+				}
+
+				const void* firstNull = std::memchr(value, '\0', length);
+				if (firstNull == nullptr)
+				{
+					continue;
+				}
+
+				const size_t trimmedLength = static_cast<const char*>(firstNull) - value;
+				lua_pushlstring(L, value, trimmedLength);
+				lua_replace(L, i);
+			}
+
+			return resultCount;
+		}
+
+		void InstallSanitizedStockStringPatches(lua_State* L)
+		{
+			ResetSanitizedStockStringPatchState(L);
+
+			for (auto& patch : g_sanitizedStockStringFunctions)
+			{
+				lua_getglobal(L, patch.name);
+				if (!lua_isfunction(L, -1))
+				{
+					lua_pop(L, 1);
+					Logging::LogMessage("exu: %s not found; string sanitization patch skipped", patch.name);
+					continue;
+				}
+
+				patch.originalRef = luaL_ref(L, LUA_REGISTRYINDEX);
+				lua_pushinteger(L, patch.originalRef);
+				lua_pushcclosure(L, PatchedSanitizedStockStringFunction, 1);
+				lua_setglobal(L, patch.name);
+			}
+		}
+
 		int PatchedSetObjectiveOn(lua_State* L)
 		{
 			if (lua_isuserdata(L, 1))
@@ -107,7 +192,7 @@ namespace ExtraUtilities::Lua
 				TrackObjectiveHandleOn(CheckHandle(L, 1));
 			}
 
-			return CallLuaRegistryFunction(L, g_originalSetObjectiveOnRef);
+			return CallLuaRegistryFunction(L, g_originalSetObjectiveOnRef, "ObjectiveObjects patch is not initialized");
 		}
 
 		int PatchedSetObjectiveOff(lua_State* L)
@@ -117,7 +202,7 @@ namespace ExtraUtilities::Lua
 				TrackObjectiveHandleOff(CheckHandle(L, 1));
 			}
 
-			return CallLuaRegistryFunction(L, g_originalSetObjectiveOffRef);
+			return CallLuaRegistryFunction(L, g_originalSetObjectiveOffRef, "ObjectiveObjects patch is not initialized");
 		}
 
 		int PatchedObjectiveObjectsNext(lua_State* L)
@@ -389,6 +474,7 @@ namespace ExtraUtilities::Lua
 
 		MakeEnums(L, exuIdx);
 		DoEventHooks(L);
+		InstallSanitizedStockStringPatches(L);
 		InstallObjectiveObjectsPatch(L);
 		
 		return 0;
