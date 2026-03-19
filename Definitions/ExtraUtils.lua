@@ -571,6 +571,16 @@ function exu.GetViewportShadowsEnabled() end
 --- @param enabled boolean
 function exu.SetViewportShadowsEnabled(enabled) end
 
+--- Returns the active viewport lighting mode: `default`, `enhanced`, or `retro`.
+--- @nodiscard
+--- @return string
+function exu.GetLightingMode() end
+
+--- Sets the active viewport lighting mode.
+--- Accepts `default`, `enhanced`, `retro`, or numeric aliases `1`, `2`, `3`.
+--- @param mode string|integer
+function exu.SetLightingMode(mode) end
+
 --- Returns whether the current active viewport is using the OG retro lighting material scheme.
 --- @nodiscard
 --- @return boolean

@@ -46,6 +46,10 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		using HudPaletteSelectorFn = char(__thiscall*)(void*);
 		using ApplyScrapPilotHudOffsetFn = void(__cdecl*)();
+		using OpenShimSetHudSpriteRectFn = BOOL(WINAPI*)(LPCSTR, int, int, int, int);
+		using OpenShimSetHudSpriteVisibleFn = BOOL(WINAPI*)(LPCSTR, BOOL);
+		using OpenShimRestoreHudSpriteFn = BOOL(WINAPI*)(LPCSTR);
+		using OpenShimRestoreAllHudSpritesFn = BOOL(WINAPI*)();
 
 		struct HudTextPoint
 		{
@@ -253,6 +257,110 @@ namespace ExtraUtilities::Lua::ControlPanel
 		}
 
 		inline ApplyScrapPilotHudOffsetFn g_applyScrapPilotHudOffsetFn = &ApplyScrapPilotHudOffset;
+
+		OpenShimSetHudSpriteRectFn ResolveHudSpriteRectBridge()
+		{
+			static OpenShimSetHudSpriteRectFn fn = nullptr;
+			static bool attempted = false;
+			static bool loggedMissing = false;
+			if (attempted)
+			{
+				return fn;
+			}
+
+			attempted = true;
+			if (HMODULE module = GetModuleHandleA("winmm.dll"))
+			{
+				fn = reinterpret_cast<OpenShimSetHudSpriteRectFn>(
+					GetProcAddress(module, "OpenShimSetHudSpriteRect"));
+			}
+
+			if (!fn && !loggedMissing)
+			{
+				loggedMissing = true;
+				Logging::LogMessage("[EXU::ControlPanel] OpenShim HUD sprite rect bridge unavailable");
+			}
+
+			return fn;
+		}
+
+		OpenShimSetHudSpriteVisibleFn ResolveHudSpriteVisibleBridge()
+		{
+			static OpenShimSetHudSpriteVisibleFn fn = nullptr;
+			static bool attempted = false;
+			static bool loggedMissing = false;
+			if (attempted)
+			{
+				return fn;
+			}
+
+			attempted = true;
+			if (HMODULE module = GetModuleHandleA("winmm.dll"))
+			{
+				fn = reinterpret_cast<OpenShimSetHudSpriteVisibleFn>(
+					GetProcAddress(module, "OpenShimSetHudSpriteVisible"));
+			}
+
+			if (!fn && !loggedMissing)
+			{
+				loggedMissing = true;
+				Logging::LogMessage("[EXU::ControlPanel] OpenShim HUD sprite visibility bridge unavailable");
+			}
+
+			return fn;
+		}
+
+		OpenShimRestoreHudSpriteFn ResolveRestoreHudSpriteBridge()
+		{
+			static OpenShimRestoreHudSpriteFn fn = nullptr;
+			static bool attempted = false;
+			static bool loggedMissing = false;
+			if (attempted)
+			{
+				return fn;
+			}
+
+			attempted = true;
+			if (HMODULE module = GetModuleHandleA("winmm.dll"))
+			{
+				fn = reinterpret_cast<OpenShimRestoreHudSpriteFn>(
+					GetProcAddress(module, "OpenShimRestoreHudSprite"));
+			}
+
+			if (!fn && !loggedMissing)
+			{
+				loggedMissing = true;
+				Logging::LogMessage("[EXU::ControlPanel] OpenShim HUD sprite restore bridge unavailable");
+			}
+
+			return fn;
+		}
+
+		OpenShimRestoreAllHudSpritesFn ResolveRestoreAllHudSpritesBridge()
+		{
+			static OpenShimRestoreAllHudSpritesFn fn = nullptr;
+			static bool attempted = false;
+			static bool loggedMissing = false;
+			if (attempted)
+			{
+				return fn;
+			}
+
+			attempted = true;
+			if (HMODULE module = GetModuleHandleA("winmm.dll"))
+			{
+				fn = reinterpret_cast<OpenShimRestoreAllHudSpritesFn>(
+					GetProcAddress(module, "OpenShimRestoreAllHudSprites"));
+			}
+
+			if (!fn && !loggedMissing)
+			{
+				loggedMissing = true;
+				Logging::LogMessage("[EXU::ControlPanel] OpenShim HUD sprite restore-all bridge unavailable");
+			}
+
+			return fn;
+		}
 
 		static void __declspec(naked) ScrapPilotHudDrawHook()
 		{
@@ -545,6 +653,77 @@ namespace ExtraUtilities::Lua::ControlPanel
 			"exu: pilot HUD color set to 0x%08X",
 			g_pilotHudColor);
 		return 0;
+	}
+
+	int SetHudSpriteRect(lua_State* L)
+	{
+		const char* spriteName = luaL_checkstring(L, 1);
+		const int x = static_cast<int>(luaL_checkinteger(L, 2));
+		const int y = static_cast<int>(luaL_checkinteger(L, 3));
+		const int w = static_cast<int>(luaL_checkinteger(L, 4));
+		const int h = static_cast<int>(luaL_checkinteger(L, 5));
+		if (spriteName == nullptr || spriteName[0] == '\0')
+		{
+			return luaL_argerror(L, 1, "Extra Utilities Error: sprite name must not be empty");
+		}
+
+		if (OpenShimSetHudSpriteRectFn fn = ResolveHudSpriteRectBridge())
+		{
+			lua_pushboolean(L, fn(spriteName, x, y, w, h) ? 1 : 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	int SetHudSpriteVisible(lua_State* L)
+	{
+		const char* spriteName = luaL_checkstring(L, 1);
+		const bool visible = lua_toboolean(L, 2) != 0;
+		if (spriteName == nullptr || spriteName[0] == '\0')
+		{
+			return luaL_argerror(L, 1, "Extra Utilities Error: sprite name must not be empty");
+		}
+
+		if (OpenShimSetHudSpriteVisibleFn fn = ResolveHudSpriteVisibleBridge())
+		{
+			lua_pushboolean(L, fn(spriteName, visible ? TRUE : FALSE) ? 1 : 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	int RestoreHudSprite(lua_State* L)
+	{
+		const char* spriteName = luaL_checkstring(L, 1);
+		if (spriteName == nullptr || spriteName[0] == '\0')
+		{
+			return luaL_argerror(L, 1, "Extra Utilities Error: sprite name must not be empty");
+		}
+
+		if (OpenShimRestoreHudSpriteFn fn = ResolveRestoreHudSpriteBridge())
+		{
+			lua_pushboolean(L, fn(spriteName) ? 1 : 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	int RestoreAllHudSprites(lua_State* L)
+	{
+		if (OpenShimRestoreAllHudSpritesFn fn = ResolveRestoreAllHudSpritesBridge())
+		{
+			lua_pushboolean(L, fn() ? 1 : 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, 0);
+		return 1;
 	}
 
 	int SelectAdd(lua_State* L)

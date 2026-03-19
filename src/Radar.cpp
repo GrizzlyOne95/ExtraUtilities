@@ -25,15 +25,46 @@ namespace ExtraUtilities::Lua::Radar
 {
 	namespace
 	{
+		struct CockpitWireframeScaleBaselines
+		{
+			float projectionBase = 1.0f;
+			int projectionRadius = 1;
+			float radarLeftBase = 0.0f;
+			float commandPanelLeftBase = 0.0f;
+			bool initialized = false;
+		};
+
+		CockpitWireframeScaleBaselines& GetCockpitWireframeScaleBaselines()
+		{
+			static CockpitWireframeScaleBaselines baselines{};
+			if (!baselines.initialized)
+			{
+				baselines.projectionBase = *BZR::Radar::cockpitWireframeProjectionBase;
+				if (!std::isfinite(baselines.projectionBase) || baselines.projectionBase <= 0.0f)
+				{
+					baselines.projectionBase = 1.0f;
+				}
+
+				baselines.projectionRadius = *BZR::Radar::cockpitWireframeProjectionRadius;
+				if (baselines.projectionRadius < 1)
+				{
+					baselines.projectionRadius = 1;
+				}
+
+				baselines.radarLeftBase = *BZR::Radar::radarLeftBase;
+				baselines.commandPanelLeftBase = *BZR::Radar::commandPanelLeftBase;
+				baselines.initialized = true;
+			}
+
+			return baselines;
+		}
+
 		void ApplyCockpitWireframeScale(float scale)
 		{
-			static const float originalProjectionBase = *BZR::Radar::cockpitWireframeProjectionBase;
-			static const float originalRadarLeftBase = *BZR::Radar::radarLeftBase;
-			static const float originalCommandPanelLeftBase = *BZR::Radar::commandPanelLeftBase;
-			static const float originalRadarWidthFromPanel =
-				originalCommandPanelLeftBase - originalRadarLeftBase;
+			const CockpitWireframeScaleBaselines& baselines = GetCockpitWireframeScaleBaselines();
+			const float originalRadarWidthFromPanel = baselines.commandPanelLeftBase - baselines.radarLeftBase;
 
-			float projectionBase = originalProjectionBase;
+			float projectionBase = baselines.projectionBase;
 			if (!std::isfinite(projectionBase) || projectionBase <= 0.f)
 			{
 				projectionBase = 1.f;
@@ -51,6 +82,13 @@ namespace ExtraUtilities::Lua::Radar
 				scaledProjectionBase = projectionBase;
 			}
 
+			int scaledProjectionRadius = static_cast<int>(
+				std::lround(static_cast<double>(baselines.projectionRadius) * static_cast<double>(scale)));
+			if (scaledProjectionRadius < 1)
+			{
+				scaledProjectionRadius = 1;
+			}
+
 			float scaledRadarLeftBase =
 				*BZR::Radar::commandPanelLeftBase - (radarWidthFromPanel * scale);
 			if (!std::isfinite(scaledRadarLeftBase))
@@ -59,7 +97,9 @@ namespace ExtraUtilities::Lua::Radar
 			}
 
 			*BZR::Radar::cockpitWireframeProjectionBase = scaledProjectionBase;
+			*BZR::Radar::cockpitWireframeProjectionRadius = scaledProjectionRadius;
 			*BZR::Radar::radarLeftBase = scaledRadarLeftBase;
+			BZR::Radar::RefreshCockpitWireframeAnchor();
 		}
 
 		int AbsoluteIndex(lua_State* L, int idx)
@@ -152,14 +192,15 @@ namespace ExtraUtilities::Lua::Radar
 			luaL_error(L, "Invalid input: radar size scale must be greater than 0");
 		}
 
+		(void)GetCockpitWireframeScaleBaselines();
 		sizeScale.Write(newScale);
-		ApplyCockpitWireframeScale(newScale);
 
 		BZR::BZR_Camera* cam = BZR::Camera::View_Record_MainCam;
 		if (cam != nullptr && cam->Orig_y > 0.f)
 		{
 			int screenHeight = static_cast<int>(std::floor(cam->Orig_y)) * 2;
 			BZR::Radar::RefreshLayout(screenHeight);
+			ApplyCockpitWireframeScale(newScale);
 		}
 
 		return 0;
