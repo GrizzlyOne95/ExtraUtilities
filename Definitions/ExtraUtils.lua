@@ -1109,6 +1109,17 @@ function exu.SetMass(h) end
 --- @return GameObject*
 function exu.GetObj(h) end
 
+--- Gets live construction-menu selection state for a construction rig.
+--- Returns nil if the handle is not a live construction rig or the state could not be read.
+--- `activeMode` is the raw stock mode value.
+--- When `hasBuildSelection` is true, `selectedClass` is the raw GameObjectClass*
+--- for the selected build item and `buildItemIndex` is the 1-based
+--- `ProducerClass.buildItemN` slot currently selected in the mode list.
+--- @nodiscard
+--- @param h Handle
+--- @return table | nil
+function exu.GetConstructionRigSelectionInfo(h) end
+
 --- Gets the live selected weapon mask from the object's carrier, filtered to mounted weapons.
 --- This is different from stock `GetWeaponMask`, which reflects the object's stored weapon-mask field.
 --- @nodiscard

@@ -221,10 +221,15 @@ namespace ExtraUtilities::Lua::GameObject
 #pragma pack(pop)
 
 		constexpr size_t kGameObjectCarrierOffset = 0x198;
+		constexpr size_t kGameObjectModeListOffset = 0x19C;
 		constexpr size_t kGameObjectModeListEnabledMaskOffset = 0x1C8;
 		constexpr size_t kGameObjectModeListActiveSlotOffset = 0x1CC;
 		constexpr size_t kGameObjectWeaponMaskOffset = 0x210;
 		constexpr uint32_t kWeaponMaskDecodeXor = 0x33333333u;
+		constexpr uint32_t kModeListEntryCount = 11u;
+		constexpr uint32_t kConstructionRigBuildModeThreshold = 0x18u;
+		constexpr uint32_t kConstructionRigBuildFirstSlot = 3u;
+		constexpr uint32_t kConstructionRigBuildLastSlot = 9u;
 
 		void PushStringArray(lua_State* L, const std::vector<std::string>& values);
 		std::vector<PolymorphicObjectInfo> ScanPolymorphicChildren(void* base, uint32_t scanBytes);
@@ -707,6 +712,68 @@ namespace ExtraUtilities::Lua::GameObject
 				outCarrier = nullptr;
 				return false;
 			}
+		}
+
+		bool TryGetModeListState(
+			BZR::GameObject* obj,
+			uint32_t& outEnabledMask,
+			uint32_t& outActiveSlot,
+			uint32_t& outActiveMode)
+		{
+			outEnabledMask = 0;
+			outActiveSlot = 0xFFFFFFFFu;
+			outActiveMode = 0;
+			if (obj == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				auto* objBytes = reinterpret_cast<uint8_t*>(obj);
+				outEnabledMask = *reinterpret_cast<uint32_t*>(objBytes + kGameObjectModeListEnabledMaskOffset);
+				outActiveSlot = *reinterpret_cast<uint32_t*>(objBytes + kGameObjectModeListActiveSlotOffset);
+				if (outActiveSlot < kModeListEntryCount)
+				{
+					outActiveMode = *reinterpret_cast<uint32_t*>(objBytes + kGameObjectModeListOffset + (outActiveSlot * sizeof(uint32_t)));
+				}
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				outEnabledMask = 0;
+				outActiveSlot = 0xFFFFFFFFu;
+				outActiveMode = 0;
+				return false;
+			}
+		}
+
+		bool TryGetClassLabelFromLua(lua_State* L, BZR::handle h, std::string& outClassLabel)
+		{
+			outClassLabel.clear();
+			const int top = lua_gettop(L);
+			lua_getglobal(L, "GetClassLabel");
+			if (!lua_isfunction(L, -1))
+			{
+				lua_settop(L, top);
+				return false;
+			}
+
+			lua_pushlightuserdata(L, reinterpret_cast<void*>(h));
+			if (lua_pcall(L, 1, 1, 0) != 0)
+			{
+				lua_settop(L, top);
+				return false;
+			}
+
+			const char* rawClassLabel = lua_tostring(L, -1);
+			if (rawClassLabel != nullptr)
+			{
+				outClassLabel.assign(rawClassLabel);
+			}
+
+			lua_settop(L, top);
+			return !outClassLabel.empty();
 		}
 
 		uint32_t GetScanBytesArgument(lua_State* L, int index, uint32_t defaultValue)
@@ -3685,6 +3752,77 @@ namespace ExtraUtilities::Lua::GameObject
 		BZR::handle h = CheckHandle(L, 1);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
 		lua_pushlightuserdata(L, obj);
+		return 1;
+	}
+
+	int GetConstructionRigSelectionInfo(lua_State* L)
+	{
+		BZR::handle h = CheckHandle(L, 1);
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		std::string classLabel;
+		uint32_t enabledMask = 0;
+		uint32_t activeSlot = 0xFFFFFFFFu;
+		uint32_t activeMode = 0;
+
+		if (obj == nullptr || !TryGetClassLabelFromLua(L, h, classLabel) || _stricmp(classLabel.c_str(), "constructionrig") != 0)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		if (!TryGetModeListState(obj, enabledMask, activeSlot, activeMode))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		const bool hasBuildSelection = activeMode > kConstructionRigBuildModeThreshold;
+
+		lua_createtable(L, 0, 6);
+
+		lua_pushboolean(L, hasBuildSelection ? 1 : 0);
+		lua_setfield(L, -2, "hasBuildSelection");
+
+		if (activeSlot < kModeListEntryCount)
+		{
+			lua_pushinteger(L, static_cast<lua_Integer>(activeSlot));
+			lua_setfield(L, -2, "activeSlot");
+
+			lua_pushinteger(L, static_cast<lua_Integer>(activeMode));
+			lua_setfield(L, -2, "activeMode");
+		}
+		else
+		{
+			lua_pushnil(L);
+			lua_setfield(L, -2, "activeSlot");
+			lua_pushnil(L);
+			lua_setfield(L, -2, "activeMode");
+		}
+
+		lua_pushinteger(L, static_cast<lua_Integer>(enabledMask));
+		lua_setfield(L, -2, "modeListEnabledMask");
+
+		if (hasBuildSelection)
+		{
+			lua_pushlightuserdata(L, reinterpret_cast<void*>(activeMode));
+			lua_setfield(L, -2, "selectedClass");
+		}
+		else
+		{
+			lua_pushnil(L);
+			lua_setfield(L, -2, "selectedClass");
+		}
+
+		if (hasBuildSelection && activeSlot >= kConstructionRigBuildFirstSlot && activeSlot <= kConstructionRigBuildLastSlot)
+		{
+			lua_pushinteger(L, static_cast<lua_Integer>(activeSlot - (kConstructionRigBuildFirstSlot - 1u)));
+		}
+		else
+		{
+			lua_pushnil(L);
+		}
+		lua_setfield(L, -2, "buildItemIndex");
+
 		return 1;
 	}
 
