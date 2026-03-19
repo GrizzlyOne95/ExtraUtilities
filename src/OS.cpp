@@ -180,6 +180,76 @@ namespace ExtraUtilities::Lua::OS
 			return result;
 		}
 
+		int HexNibbleValue(char c)
+		{
+			if (c >= '0' && c <= '9')
+			{
+				return c - '0';
+			}
+			if (c >= 'A' && c <= 'F')
+			{
+				return 10 + (c - 'A');
+			}
+			if (c >= 'a' && c <= 'f')
+			{
+				return 10 + (c - 'a');
+			}
+			return -1;
+		}
+
+		bool IsHexEncodedText(std::string_view value)
+		{
+			if (value.empty() || (value.size() % 2) != 0)
+			{
+				return false;
+			}
+
+			for (const char c : value)
+			{
+				if (HexNibbleValue(c) < 0)
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		std::vector<uint8_t> DecodeHexText(std::string_view value)
+		{
+			std::vector<uint8_t> decoded;
+			decoded.reserve(value.size() / 2);
+
+			for (size_t index = 0; index + 1 < value.size(); index += 2)
+			{
+				const int upper = HexNibbleValue(value[index]);
+				const int lower = HexNibbleValue(value[index + 1]);
+				if (upper < 0 || lower < 0)
+				{
+					return {};
+				}
+
+				decoded.push_back(static_cast<uint8_t>((upper << 4) | lower));
+			}
+
+			return decoded;
+		}
+
+		std::string EncodeHexText(const uint8_t* data, size_t size)
+		{
+			static constexpr char kHexDigits[] = "0123456789ABCDEF";
+
+			std::string encoded;
+			encoded.resize(size * 2);
+			for (size_t index = 0; index < size; ++index)
+			{
+				const uint8_t value = data[index];
+				encoded[(index * 2) + 0] = kHexDigits[(value >> 4) & 0x0F];
+				encoded[(index * 2) + 1] = kHexDigits[value & 0x0F];
+			}
+			return encoded;
+		}
+
 		bool RewriteTextSaveDescription(const std::string& filename, std::string_view description)
 		{
 			std::ifstream input(filename, std::ios::binary);
@@ -200,12 +270,6 @@ namespace ExtraUtilities::Lua::OS
 			{
 				LogNativeSave("[EXU::SaveGame] saved file is empty, skipping description rewrite path={}", filename);
 				return false;
-			}
-
-			if (data.find('\0') != std::string::npos)
-			{
-				LogNativeSave("[EXU::SaveGame] saved file appears binary, skipping description rewrite path={}", filename);
-				return true;
 			}
 
 			constexpr std::string_view kKey = "saveGameDesc";
@@ -241,7 +305,42 @@ namespace ExtraUtilities::Lua::OS
 			}
 
 			const std::string replacement = SanitizeSingleLineText(description);
-			data.replace(valueStart, valueEnd - valueStart, replacement);
+			std::string rewrittenValue = replacement;
+
+			const std::string_view currentValue(data.data() + valueStart, valueEnd - valueStart);
+			if (IsHexEncodedText(currentValue))
+			{
+				auto decoded = DecodeHexText(currentValue);
+				if (!decoded.empty())
+				{
+					const auto terminatorIt = std::find(decoded.begin(), decoded.end(), static_cast<uint8_t>(0));
+					const size_t writableBytes = (terminatorIt != decoded.end())
+						? static_cast<size_t>(std::distance(decoded.begin(), terminatorIt))
+						: decoded.size();
+					const size_t maxDescriptionBytes = (writableBytes > 0) ? (writableBytes - 1) : 0;
+					const size_t copyBytes = (writableBytes == 0)
+						? 0
+						: (std::min)(replacement.size(), maxDescriptionBytes);
+
+					if (writableBytes > 0)
+					{
+						std::fill(decoded.begin(), decoded.begin() + writableBytes, static_cast<uint8_t>(0));
+						if (copyBytes > 0)
+						{
+							std::memcpy(decoded.data(), replacement.data(), copyBytes);
+						}
+					}
+
+					rewrittenValue = EncodeHexText(decoded.data(), decoded.size());
+					LogNativeSave(
+						"[EXU::SaveGame] rewrote hex saveGameDesc path={} description={} bytes={}",
+						filename,
+						replacement,
+						decoded.size());
+				}
+			}
+
+			data.replace(valueStart, valueEnd - valueStart, rewrittenValue);
 
 			std::ofstream output(filename, std::ios::binary | std::ios::trunc);
 			if (!output.is_open())
