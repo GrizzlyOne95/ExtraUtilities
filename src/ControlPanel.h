@@ -39,6 +39,10 @@ namespace ExtraUtilities::Lua::ControlPanel
 	int SetScrapHudColor(lua_State* L);
 	int GetPilotHudColor(lua_State* L);
 	int SetPilotHudColor(lua_State* L);
+	int SetHudSpriteRect(lua_State* L);
+	int SetHudSpriteVisible(lua_State* L);
+	int RestoreHudSprite(lua_State* L);
+	int RestoreAllHudSprites(lua_State* L);
 	int SelectAdd(lua_State* L);
 	int SelectNone(lua_State* L);
 	int SelectOne(lua_State* L);

@@ -40,6 +40,13 @@ namespace ExtraUtilities::Lua::Environment
 		std::string g_lastModernMaterialScheme = "high-pssm";
 		void LogEnvironmentDebug(const char* fmt, ...);
 
+		enum class ViewportLightingMode
+		{
+			Default = 1,
+			Enhanced = 2,
+			Retro = 3,
+		};
+
 		struct ViewportMaterialSchemeLayout
 		{
 			void* vtable = nullptr;
@@ -86,6 +93,11 @@ namespace ExtraUtilities::Lua::Environment
 				|| scheme == "lowest-noshadow";
 		}
 
+		bool HasPrefix(std::string_view value, std::string_view prefix)
+		{
+			return value.rfind(prefix, 0) == 0;
+		}
+
 		std::string NormalizeModernMaterialScheme(std::string_view scheme)
 		{
 			if (scheme.empty())
@@ -96,6 +108,10 @@ namespace ExtraUtilities::Lua::Environment
 			}
 
 			if (scheme.rfind("og-", 0) == 0)
+			{
+				scheme.remove_prefix(3);
+			}
+			else if (scheme.rfind("en-", 0) == 0)
 			{
 				scheme.remove_prefix(3);
 			}
@@ -113,6 +129,103 @@ namespace ExtraUtilities::Lua::Environment
 		std::string BuildRetroMaterialScheme(const std::string& modernScheme)
 		{
 			return "og-" + modernScheme;
+		}
+
+		std::string BuildEnhancedMaterialScheme(const std::string& modernScheme)
+		{
+			return "en-" + modernScheme;
+		}
+
+		ViewportLightingMode GetLightingModeForScheme(std::string_view scheme)
+		{
+			if (HasPrefix(scheme, "og-"))
+			{
+				return ViewportLightingMode::Retro;
+			}
+			if (HasPrefix(scheme, "en-"))
+			{
+				return ViewportLightingMode::Enhanced;
+			}
+			return ViewportLightingMode::Default;
+		}
+
+		const char* GetLightingModeName(ViewportLightingMode mode)
+		{
+			switch (mode)
+			{
+			case ViewportLightingMode::Enhanced:
+				return "enhanced";
+			case ViewportLightingMode::Retro:
+				return "retro";
+			case ViewportLightingMode::Default:
+			default:
+				return "default";
+			}
+		}
+
+		std::string BuildLightingMaterialScheme(ViewportLightingMode mode, const std::string& modernScheme)
+		{
+			switch (mode)
+			{
+			case ViewportLightingMode::Enhanced:
+				return BuildEnhancedMaterialScheme(modernScheme);
+			case ViewportLightingMode::Retro:
+				return BuildRetroMaterialScheme(modernScheme);
+			case ViewportLightingMode::Default:
+			default:
+				return modernScheme;
+			}
+		}
+
+		bool TryParseLightingModeArg(lua_State* L, int idx, ViewportLightingMode& outMode)
+		{
+			switch (lua_type(L, idx))
+			{
+			case LUA_TBOOLEAN:
+				outMode = CheckBool(L, idx) ? ViewportLightingMode::Retro : ViewportLightingMode::Default;
+				return true;
+			case LUA_TNUMBER:
+			{
+				const int numericMode = static_cast<int>(luaL_checkinteger(L, idx));
+				switch (numericMode)
+				{
+				case 2:
+					outMode = ViewportLightingMode::Enhanced;
+					return true;
+				case 3:
+					outMode = ViewportLightingMode::Retro;
+					return true;
+				case 1:
+				default:
+					outMode = ViewportLightingMode::Default;
+					return true;
+				}
+			}
+			case LUA_TSTRING:
+			{
+				const std::string_view rawMode = luaL_checkstring(L, idx);
+				if (rawMode == "default" || rawMode == "modern")
+				{
+					outMode = ViewportLightingMode::Default;
+					return true;
+				}
+				if (rawMode == "enhanced" || rawMode == "en")
+				{
+					outMode = ViewportLightingMode::Enhanced;
+					return true;
+				}
+				if (rawMode == "retro" || rawMode == "og")
+				{
+					outMode = ViewportLightingMode::Retro;
+					return true;
+				}
+				luaL_error(L, "lighting mode must be default, enhanced, or retro");
+				return false;
+			}
+			default:
+				luaL_error(L, "lighting mode must be a string, integer, or boolean");
+				return false;
+			}
 		}
 
 		bool TryGetViewportMaterialScheme(void* viewport, std::string& outScheme)
@@ -1346,8 +1459,62 @@ namespace ExtraUtilities::Lua::Environment
 		auto* viewport = GetCurrentViewport();
 		std::string scheme;
 		TryGetViewportMaterialScheme(viewport, scheme);
-		lua_pushboolean(L, scheme.rfind("og-", 0) == 0 ? 1 : 0);
+		lua_pushboolean(L, GetLightingModeForScheme(scheme) == ViewportLightingMode::Retro ? 1 : 0);
 		return 1;
+	}
+
+	int GetLightingMode(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* viewport = GetCurrentViewport();
+		std::string scheme;
+		TryGetViewportMaterialScheme(viewport, scheme);
+		lua_pushstring(L, GetLightingModeName(GetLightingModeForScheme(scheme)));
+		return 1;
+	}
+
+	int SetLightingMode(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* viewport = GetCurrentViewport();
+		if (viewport == nullptr)
+		{
+			return 0;
+		}
+
+		ViewportLightingMode requestedMode = ViewportLightingMode::Default;
+		if (!TryParseLightingModeArg(L, 1, requestedMode))
+		{
+			return 0;
+		}
+
+		std::string currentScheme;
+		TryGetViewportMaterialScheme(viewport, currentScheme);
+		const std::string modernScheme = NormalizeModernMaterialScheme(currentScheme);
+		const std::string targetScheme = BuildLightingMaterialScheme(requestedMode, modernScheme);
+
+		if (IsModernMaterialScheme(modernScheme))
+		{
+			g_lastModernMaterialScheme = modernScheme;
+		}
+
+		if (!TrySetViewportMaterialScheme(viewport, targetScheme))
+		{
+			LogEnvironmentDebug(
+				"[EXU::Viewport] failed to set material scheme current=%s target=%s",
+				currentScheme.c_str(),
+				targetScheme.c_str());
+			return 0;
+		}
+
+		LogEnvironmentDebug(
+			"[EXU::Viewport] lighting mode=%s currentScheme=%s targetScheme=%s",
+			GetLightingModeName(requestedMode),
+			currentScheme.c_str(),
+			targetScheme.c_str());
+		return 0;
 	}
 
 	int SetRetroLightingMode(lua_State* L)
@@ -1361,10 +1528,14 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		const bool enabled = CheckBool(L, 1);
+		const ViewportLightingMode requestedMode = enabled
+			? ViewportLightingMode::Retro
+			: ViewportLightingMode::Default;
+
 		std::string currentScheme;
 		TryGetViewportMaterialScheme(viewport, currentScheme);
 		const std::string modernScheme = NormalizeModernMaterialScheme(currentScheme);
-		const std::string targetScheme = enabled ? BuildRetroMaterialScheme(modernScheme) : modernScheme;
+		const std::string targetScheme = BuildLightingMaterialScheme(requestedMode, modernScheme);
 
 		if (IsModernMaterialScheme(modernScheme))
 		{
