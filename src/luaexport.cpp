@@ -527,6 +527,7 @@ namespace ExtraUtilities::Lua
 			{ "SetScrapHudColor", &ControlPanel::SetScrapHudColor },
 			{ "GetPilotHudColor", &ControlPanel::GetPilotHudColor },
 			{ "SetPilotHudColor", &ControlPanel::SetPilotHudColor },
+			{ "GetHudSpriteRect", &ControlPanel::GetHudSpriteRect },
 			{ "SetHudSpriteRect", &ControlPanel::SetHudSpriteRect },
 			{ "SetHudSpriteVisible", &ControlPanel::SetHudSpriteVisible },
 			{ "RestoreHudSprite", &ControlPanel::RestoreHudSprite },

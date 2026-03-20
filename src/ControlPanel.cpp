@@ -46,6 +46,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		using HudPaletteSelectorFn = char(__thiscall*)(void*);
 		using ApplyScrapPilotHudOffsetFn = void(__cdecl*)();
+		using OpenShimGetHudSpriteRectFn = BOOL(WINAPI*)(LPCSTR, int*, int*, int*, int*);
 		using OpenShimSetHudSpriteRectFn = BOOL(WINAPI*)(LPCSTR, int, int, int, int);
 		using OpenShimSetHudSpriteVisibleFn = BOOL(WINAPI*)(LPCSTR, BOOL);
 		using OpenShimRestoreHudSpriteFn = BOOL(WINAPI*)(LPCSTR);
@@ -258,6 +259,32 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		inline ApplyScrapPilotHudOffsetFn g_applyScrapPilotHudOffsetFn = &ApplyScrapPilotHudOffset;
 
+		OpenShimGetHudSpriteRectFn ResolveHudSpriteGetRectBridge()
+		{
+			static OpenShimGetHudSpriteRectFn fn = nullptr;
+			static bool attempted = false;
+			static bool loggedMissing = false;
+			if (attempted)
+			{
+				return fn;
+			}
+
+			attempted = true;
+			if (HMODULE module = GetModuleHandleA("winmm.dll"))
+			{
+				fn = reinterpret_cast<OpenShimGetHudSpriteRectFn>(
+					GetProcAddress(module, "OpenShimGetHudSpriteRect"));
+			}
+
+			if (!fn && !loggedMissing)
+			{
+				loggedMissing = true;
+				Logging::LogMessage("[EXU::ControlPanel] OpenShim HUD sprite get-rect bridge unavailable");
+			}
+
+			return fn;
+		}
+
 		OpenShimSetHudSpriteRectFn ResolveHudSpriteRectBridge()
 		{
 			static OpenShimSetHudSpriteRectFn fn = nullptr;
@@ -453,6 +480,46 @@ namespace ExtraUtilities::Lua::ControlPanel
 			&PilotValueColorHook,
 			kPilotHudTextColorHookLength,
 			BasicPatch::Status::ACTIVE);
+	}
+
+	bool TryGetScrapPilotHudTopLefts(int& scrapLeft, int& scrapTop, int& pilotLeft, int& pilotTop) noexcept
+	{
+		return GetHudCurrentTopLeft(HudTextGroup::Scrap, scrapLeft, scrapTop) &&
+			GetHudCurrentTopLeft(HudTextGroup::Pilot, pilotLeft, pilotTop);
+	}
+
+	bool RestoreScrapPilotHudTopLefts(
+		int scrapLeft,
+		int scrapTop,
+		int pilotLeft,
+		int pilotTop) noexcept
+	{
+		CaptureScrapPilotHudBaseline();
+
+		int scrapBaselineLeft = 0;
+		int scrapBaselineTop = 0;
+		if (!GetHudBaselineTopLeft(HudTextGroup::Scrap, scrapBaselineLeft, scrapBaselineTop))
+		{
+			return false;
+		}
+
+		int pilotBaselineLeft = 0;
+		int pilotBaselineTop = 0;
+		if (!GetHudBaselineTopLeft(HudTextGroup::Pilot, pilotBaselineLeft, pilotBaselineTop))
+		{
+			return false;
+		}
+
+		SetHudGroupOffset(
+			HudTextGroup::Scrap,
+			scrapLeft - scrapBaselineLeft,
+			scrapTop - scrapBaselineTop);
+		SetHudGroupOffset(
+			HudTextGroup::Pilot,
+			pilotLeft - pilotBaselineLeft,
+			pilotTop - pilotBaselineTop);
+		ApplyScrapPilotHudOffset();
+		return true;
 	}
 
 	int GetScrapPilotHudOffset(lua_State* L)
@@ -653,6 +720,37 @@ namespace ExtraUtilities::Lua::ControlPanel
 			"exu: pilot HUD color set to 0x%08X",
 			g_pilotHudColor);
 		return 0;
+	}
+
+	int GetHudSpriteRect(lua_State* L)
+	{
+		const char* spriteName = luaL_checkstring(L, 1);
+		if (spriteName == nullptr || spriteName[0] == '\0')
+		{
+			return luaL_argerror(L, 1, "Extra Utilities Error: sprite name must not be empty");
+		}
+
+		int x = 0;
+		int y = 0;
+		int w = 0;
+		int h = 0;
+		if (OpenShimGetHudSpriteRectFn fn = ResolveHudSpriteGetRectBridge())
+		{
+			if (fn(spriteName, &x, &y, &w, &h))
+			{
+				lua_pushinteger(L, x);
+				lua_pushinteger(L, y);
+				lua_pushinteger(L, w);
+				lua_pushinteger(L, h);
+				return 4;
+			}
+		}
+
+		lua_pushnil(L);
+		lua_pushnil(L);
+		lua_pushnil(L);
+		lua_pushnil(L);
+		return 4;
 	}
 
 	int SetHudSpriteRect(lua_State* L)
