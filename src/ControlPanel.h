@@ -27,6 +27,9 @@ namespace ExtraUtilities::Lua::ControlPanel
 {
 	inline auto controlPanel = BZR::ControlPanel::p_controlPanel;
 
+	bool TryGetScrapPilotHudTopLefts(int& scrapLeft, int& scrapTop, int& pilotLeft, int& pilotTop) noexcept;
+	bool RestoreScrapPilotHudTopLefts(int scrapLeft, int scrapTop, int pilotLeft, int pilotTop) noexcept;
+
 	int GetScrapPilotHudOffset(lua_State* L);
 	int SetScrapPilotHudOffset(lua_State* L);
 	int GetScrapPilotHudTopLeft(lua_State* L);
@@ -39,6 +42,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 	int SetScrapHudColor(lua_State* L);
 	int GetPilotHudColor(lua_State* L);
 	int SetPilotHudColor(lua_State* L);
+	int GetHudSpriteRect(lua_State* L);
 	int SetHudSpriteRect(lua_State* L);
 	int SetHudSpriteVisible(lua_State* L);
 	int RestoreHudSprite(lua_State* L);

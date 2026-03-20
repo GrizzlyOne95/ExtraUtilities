@@ -1,0 +1,49 @@
+diff --git a/RenderSystems/Direct3D11/src/OgreD3D11HLSLProgram.cpp b/RenderSystems/Direct3D11/src/OgreD3D11HLSLProgram.cpp
+index fa81e99..41d3fa3 100644
+--- a/RenderSystems/Direct3D11/src/OgreD3D11HLSLProgram.cpp
++++ b/RenderSystems/Direct3D11/src/OgreD3D11HLSLProgram.cpp
+@@ -1594,7 +1594,13 @@ namespace Ogre {
+             }
+         }
+ 
+-        if(mTarget == "")
++        RenderSystem* activeRenderSystem = Root::getSingletonPtr() ? Root::getSingletonPtr()->getRenderSystem() : 0;
++        const bool usingD3D11 = activeRenderSystem &&
++            activeRenderSystem->getName() == "Direct3D11 Rendering Subsystem";
++
++        // D3D11-specific shader delegates are parsed even when another renderer is active.
++        // Only report an invalid target when D3D11 is actually the active render system.
++        if(mTarget == "" && usingD3D11)
+         {
+             LogManager::getSingleton().logMessage(
+                 "Invalid target for D3D11 shader '" + mName + "' - '" + target + "'");
+diff --git a/RenderSystems/Direct3D9/src/OgreD3D9HLSLProgram.cpp b/RenderSystems/Direct3D9/src/OgreD3D9HLSLProgram.cpp
+index 41ca04f..6a39d27 100644
+--- a/RenderSystems/Direct3D9/src/OgreD3D9HLSLProgram.cpp
++++ b/RenderSystems/Direct3D9/src/OgreD3D9HLSLProgram.cpp
+@@ -30,6 +30,7 @@ THE SOFTWARE.
+ #include "OgreStringConverter.h"
+ #include "OgreD3D9GpuProgram.h"
+ #include "OgreLogManager.h"
++#include "OgreRoot.h"
+ 
+ namespace Ogre {
+     //-----------------------------------------------------------------------
+@@ -734,10 +735,16 @@ namespace Ogre {
+             }
+         }
+ 
+-        if(mTarget == "")
++        RenderSystem* activeRenderSystem = Root::getSingletonPtr() ? Root::getSingletonPtr()->getRenderSystem() : 0;
++        const bool usingD3D9 = activeRenderSystem &&
++            activeRenderSystem->getName() == "Direct3D9 Rendering Subsystem";
++
++        // D3D9-specific shader delegates are parsed even when another renderer is active.
++        // Only report an invalid target when D3D9 is actually the active render system.
++        if(mTarget == "" && usingD3D9)
+         {
+             LogManager::getSingleton().logMessage(
+-                "Invalid target for D3D11 shader '" + mName + "' - '" + target + "'");
++                "Invalid target for D3D9 shader '" + mName + "' - '" + target + "'");
+         }
+     }

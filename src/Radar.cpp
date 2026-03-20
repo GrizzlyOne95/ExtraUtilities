@@ -17,6 +17,7 @@
 */
 
 #include "Radar.h"
+#include "ControlPanel.h"
 #include "LuaHelpers.h"
 
 #include <cmath>
@@ -29,9 +30,16 @@ namespace ExtraUtilities::Lua::Radar
 		{
 			float projectionBase = 1.0f;
 			int projectionRadius = 1;
-			float radarLeftBase = 0.0f;
-			float commandPanelLeftBase = 0.0f;
 			bool initialized = false;
+		};
+
+		struct ScrapPilotHudSnapshot
+		{
+			int scrapLeft = 0;
+			int scrapTop = 0;
+			int pilotLeft = 0;
+			int pilotTop = 0;
+			bool valid = false;
 		};
 
 		CockpitWireframeScaleBaselines& GetCockpitWireframeScaleBaselines()
@@ -51,29 +59,31 @@ namespace ExtraUtilities::Lua::Radar
 					baselines.projectionRadius = 1;
 				}
 
-				baselines.radarLeftBase = *BZR::Radar::radarLeftBase;
-				baselines.commandPanelLeftBase = *BZR::Radar::commandPanelLeftBase;
 				baselines.initialized = true;
 			}
 
 			return baselines;
 		}
 
+		ScrapPilotHudSnapshot CaptureScrapPilotHudSnapshot() noexcept
+		{
+			ScrapPilotHudSnapshot snapshot{};
+			snapshot.valid = ControlPanel::TryGetScrapPilotHudTopLefts(
+				snapshot.scrapLeft,
+				snapshot.scrapTop,
+				snapshot.pilotLeft,
+				snapshot.pilotTop);
+			return snapshot;
+		}
+
 		void ApplyCockpitWireframeScale(float scale)
 		{
 			const CockpitWireframeScaleBaselines& baselines = GetCockpitWireframeScaleBaselines();
-			const float originalRadarWidthFromPanel = baselines.commandPanelLeftBase - baselines.radarLeftBase;
 
 			float projectionBase = baselines.projectionBase;
 			if (!std::isfinite(projectionBase) || projectionBase <= 0.f)
 			{
 				projectionBase = 1.f;
-			}
-
-			float radarWidthFromPanel = originalRadarWidthFromPanel;
-			if (!std::isfinite(radarWidthFromPanel) || radarWidthFromPanel <= 0.f)
-			{
-				radarWidthFromPanel = projectionBase + 20.f;
 			}
 
 			float scaledProjectionBase = projectionBase * scale;
@@ -89,16 +99,8 @@ namespace ExtraUtilities::Lua::Radar
 				scaledProjectionRadius = 1;
 			}
 
-			float scaledRadarLeftBase =
-				*BZR::Radar::commandPanelLeftBase - (radarWidthFromPanel * scale);
-			if (!std::isfinite(scaledRadarLeftBase))
-			{
-				scaledRadarLeftBase = *BZR::Radar::commandPanelLeftBase - radarWidthFromPanel;
-			}
-
 			*BZR::Radar::cockpitWireframeProjectionBase = scaledProjectionBase;
 			*BZR::Radar::cockpitWireframeProjectionRadius = scaledProjectionRadius;
-			*BZR::Radar::radarLeftBase = scaledRadarLeftBase;
 			BZR::Radar::RefreshCockpitWireframeAnchor();
 		}
 
@@ -194,6 +196,7 @@ namespace ExtraUtilities::Lua::Radar
 
 		(void)GetCockpitWireframeScaleBaselines();
 		sizeScale.Write(newScale);
+		const ScrapPilotHudSnapshot hudSnapshot = CaptureScrapPilotHudSnapshot();
 
 		BZR::BZR_Camera* cam = BZR::Camera::View_Record_MainCam;
 		if (cam != nullptr && cam->Orig_y > 0.f)
@@ -201,6 +204,14 @@ namespace ExtraUtilities::Lua::Radar
 			int screenHeight = static_cast<int>(std::floor(cam->Orig_y)) * 2;
 			BZR::Radar::RefreshLayout(screenHeight);
 			ApplyCockpitWireframeScale(newScale);
+			if (hudSnapshot.valid)
+			{
+				ControlPanel::RestoreScrapPilotHudTopLefts(
+					hudSnapshot.scrapLeft,
+					hudSnapshot.scrapTop,
+					hudSnapshot.pilotLeft,
+					hudSnapshot.pilotTop);
+			}
 		}
 
 		return 0;
