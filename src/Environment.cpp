@@ -24,6 +24,7 @@
 
 #include <Windows.h>
 
+#include <array>
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
@@ -75,7 +76,17 @@ namespace ExtraUtilities::Lua::Environment
 			std::string materialSchemeName;
 		};
 
+		struct ActiveViewportSet
+		{
+			std::array<void*, 2> viewports{};
+			size_t count = 0;
+		};
+
 		constexpr std::string_view kDefaultModernMaterialScheme = "high-pssm";
+
+		using GetRootSingletonFn = void*(*)();
+		using GetRootRenderSystemFn = void*(__thiscall*)(void*);
+		using GetRenderSystemViewportFn = void*(__thiscall*)(void*);
 
 		bool IsModernMaterialScheme(std::string_view scheme)
 		{
@@ -299,6 +310,206 @@ namespace ExtraUtilities::Lua::Environment
 			vsnprintf_s(buffer, sizeof(buffer), _TRUNCATE, fmt, args);
 			va_end(args);
 			WriteEnvironmentDebug(buffer);
+		}
+
+		HMODULE GetOgreMainModule()
+		{
+			return GetModuleHandleA("OgreMain.dll");
+		}
+
+		GetRootSingletonFn ResolveGetRootSingleton()
+		{
+			static GetRootSingletonFn fn = []()
+			{
+				HMODULE ogreMain = GetOgreMainModule();
+				if (ogreMain == nullptr)
+				{
+					return static_cast<GetRootSingletonFn>(nullptr);
+				}
+
+				return reinterpret_cast<GetRootSingletonFn>(
+					GetProcAddress(ogreMain, "?getSingletonPtr@Root@Ogre@@SAPAV12@XZ"));
+			}();
+
+			return fn;
+		}
+
+		GetRootRenderSystemFn ResolveGetRootRenderSystem()
+		{
+			static GetRootRenderSystemFn fn = []()
+			{
+				HMODULE ogreMain = GetOgreMainModule();
+				if (ogreMain == nullptr)
+				{
+					return static_cast<GetRootRenderSystemFn>(nullptr);
+				}
+
+				return reinterpret_cast<GetRootRenderSystemFn>(
+					GetProcAddress(ogreMain, "?getRenderSystem@Root@Ogre@@QAEPAVRenderSystem@2@XZ"));
+			}();
+
+			return fn;
+		}
+
+		GetRenderSystemViewportFn ResolveGetRenderSystemViewport()
+		{
+			static GetRenderSystemViewportFn fn = []()
+			{
+				HMODULE ogreMain = GetOgreMainModule();
+				if (ogreMain == nullptr)
+				{
+					return static_cast<GetRenderSystemViewportFn>(nullptr);
+				}
+
+				return reinterpret_cast<GetRenderSystemViewportFn>(
+					GetProcAddress(ogreMain, "?_getViewport@RenderSystem@Ogre@@UAEPAVViewport@2@XZ"));
+			}();
+
+			return fn;
+		}
+
+		bool TryGetRootSingleton(void*& outRoot)
+		{
+			outRoot = nullptr;
+			const auto fn = ResolveGetRootSingleton();
+			if (fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				outRoot = fn();
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Viewport] Root::getSingletonPtr crashed code=0x%08X", GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryGetRootRenderSystem(void* root, void*& outRenderSystem)
+		{
+			outRenderSystem = nullptr;
+			if (root == nullptr)
+			{
+				return false;
+			}
+
+			const auto fn = ResolveGetRootRenderSystem();
+			if (fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				outRenderSystem = fn(root);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Viewport] Root::getRenderSystem crashed root=%p code=0x%08X", root, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryGetRenderSystemViewport(void* renderSystem, void*& outViewport)
+		{
+			outViewport = nullptr;
+			if (renderSystem == nullptr)
+			{
+				return false;
+			}
+
+			const auto fn = ResolveGetRenderSystemViewport();
+			if (fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				outViewport = fn(renderSystem);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Viewport] RenderSystem::_getViewport crashed renderSystem=%p code=0x%08X", renderSystem, GetExceptionCode());
+				return false;
+			}
+		}
+
+		void* GetRenderSystemCurrentViewport()
+		{
+			void* root = nullptr;
+			if (!TryGetRootSingleton(root))
+			{
+				return nullptr;
+			}
+
+			void* renderSystem = nullptr;
+			if (!TryGetRootRenderSystem(root, renderSystem))
+			{
+				return nullptr;
+			}
+
+			void* viewport = nullptr;
+			if (!TryGetRenderSystemViewport(renderSystem, viewport))
+			{
+				return nullptr;
+			}
+
+			return viewport;
+		}
+
+		void* GetSceneManagerCurrentViewport()
+		{
+			auto* sceneManager = Ogre::sceneManager.Read();
+			if (sceneManager == nullptr)
+			{
+				return nullptr;
+			}
+
+			__try
+			{
+				return Ogre::GetCurrentViewport(sceneManager);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Viewport] get current viewport crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+				return nullptr;
+			}
+		}
+
+		void AppendViewportIfUnique(ActiveViewportSet& set, void* viewport)
+		{
+			if (viewport == nullptr)
+			{
+				return;
+			}
+
+			for (size_t i = 0; i < set.count; ++i)
+			{
+				if (set.viewports[i] == viewport)
+				{
+					return;
+				}
+			}
+
+			if (set.count < set.viewports.size())
+			{
+				set.viewports[set.count++] = viewport;
+			}
+		}
+
+		ActiveViewportSet GetActiveViewports()
+		{
+			ActiveViewportSet result{};
+			AppendViewportIfUnique(result, GetRenderSystemCurrentViewport());
+			AppendViewportIfUnique(result, GetSceneManagerCurrentViewport());
+			return result;
 		}
 	}
 
@@ -716,6 +927,28 @@ namespace ExtraUtilities::Lua::Environment
 		}
 	}
 
+	bool TryRefreshViewport(void* viewport)
+	{
+		if (viewport == nullptr)
+		{
+			return false;
+		}
+
+		bool overlaysEnabled = false;
+		if (!TryGetViewportOverlaysEnabled(viewport, overlaysEnabled))
+		{
+			return false;
+		}
+
+		// Nudge the active viewport through a harmless state flip so Ogre reapplies the new material
+		// scheme on the live viewport instead of waiting for a later startup/viewport rebuild path.
+		if (!TrySetViewportOverlaysEnabled(viewport, !overlaysEnabled))
+		{
+			return false;
+		}
+		return TrySetViewportOverlaysEnabled(viewport, overlaysEnabled);
+	}
+
 	void* GetSceneManager()
 	{
 		return Ogre::sceneManager.Read();
@@ -723,21 +956,8 @@ namespace ExtraUtilities::Lua::Environment
 
 	void* GetCurrentViewport()
 	{
-		auto* sceneManager = GetSceneManager();
-		if (sceneManager == nullptr)
-		{
-			return nullptr;
-		}
-
-		__try
-		{
-			return Ogre::GetCurrentViewport(sceneManager);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-			LogEnvironmentDebug("[EXU::Viewport] get current viewport crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
-			return nullptr;
-		}
+		const ActiveViewportSet activeViewports = GetActiveViewports();
+		return activeViewports.count > 0 ? activeViewports.viewports[0] : nullptr;
 	}
 
 	void* GetTerrainMasterLight()
@@ -1478,8 +1698,8 @@ namespace ExtraUtilities::Lua::Environment
 	{
 		Patch::TryInitializeOgre();
 
-		auto* viewport = GetCurrentViewport();
-		if (viewport == nullptr)
+		const ActiveViewportSet activeViewports = GetActiveViewports();
+		if (activeViewports.count == 0)
 		{
 			return 0;
 		}
@@ -1491,7 +1711,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		std::string currentScheme;
-		TryGetViewportMaterialScheme(viewport, currentScheme);
+		TryGetViewportMaterialScheme(activeViewports.viewports[0], currentScheme);
 		const std::string modernScheme = NormalizeModernMaterialScheme(currentScheme);
 		const std::string targetScheme = BuildLightingMaterialScheme(requestedMode, modernScheme);
 
@@ -1500,20 +1720,36 @@ namespace ExtraUtilities::Lua::Environment
 			g_lastModernMaterialScheme = modernScheme;
 		}
 
-		if (!TrySetViewportMaterialScheme(viewport, targetScheme))
+		bool appliedAny = false;
+		for (size_t i = 0; i < activeViewports.count; ++i)
 		{
-			LogEnvironmentDebug(
-				"[EXU::Viewport] failed to set material scheme current=%s target=%s",
-				currentScheme.c_str(),
-				targetScheme.c_str());
+			void* viewport = activeViewports.viewports[i];
+			if (!TrySetViewportMaterialScheme(viewport, targetScheme))
+			{
+				LogEnvironmentDebug(
+					"[EXU::Viewport] failed to set material scheme viewport=%p current=%s target=%s",
+					viewport,
+					currentScheme.c_str(),
+					targetScheme.c_str());
+				continue;
+			}
+
+			appliedAny = true;
+			TryRefreshViewport(viewport);
+		}
+		if (!appliedAny)
+		{
 			return 0;
 		}
 
 		LogEnvironmentDebug(
-			"[EXU::Viewport] lighting mode=%s currentScheme=%s targetScheme=%s",
+			"[EXU::Viewport] lighting mode=%s currentScheme=%s targetScheme=%s viewportCount=%zu primary=%p secondary=%p",
 			GetLightingModeName(requestedMode),
 			currentScheme.c_str(),
-			targetScheme.c_str());
+			targetScheme.c_str(),
+			activeViewports.count,
+			activeViewports.count > 0 ? activeViewports.viewports[0] : nullptr,
+			activeViewports.count > 1 ? activeViewports.viewports[1] : nullptr);
 		return 0;
 	}
 
@@ -1521,8 +1757,8 @@ namespace ExtraUtilities::Lua::Environment
 	{
 		Patch::TryInitializeOgre();
 
-		auto* viewport = GetCurrentViewport();
-		if (viewport == nullptr)
+		const ActiveViewportSet activeViewports = GetActiveViewports();
+		if (activeViewports.count == 0)
 		{
 			return 0;
 		}
@@ -1533,7 +1769,7 @@ namespace ExtraUtilities::Lua::Environment
 			: ViewportLightingMode::Default;
 
 		std::string currentScheme;
-		TryGetViewportMaterialScheme(viewport, currentScheme);
+		TryGetViewportMaterialScheme(activeViewports.viewports[0], currentScheme);
 		const std::string modernScheme = NormalizeModernMaterialScheme(currentScheme);
 		const std::string targetScheme = BuildLightingMaterialScheme(requestedMode, modernScheme);
 
@@ -1542,20 +1778,36 @@ namespace ExtraUtilities::Lua::Environment
 			g_lastModernMaterialScheme = modernScheme;
 		}
 
-		if (!TrySetViewportMaterialScheme(viewport, targetScheme))
+		bool appliedAny = false;
+		for (size_t i = 0; i < activeViewports.count; ++i)
 		{
-			LogEnvironmentDebug(
-				"[EXU::Viewport] failed to set material scheme current=%s target=%s",
-				currentScheme.c_str(),
-				targetScheme.c_str());
+			void* viewport = activeViewports.viewports[i];
+			if (!TrySetViewportMaterialScheme(viewport, targetScheme))
+			{
+				LogEnvironmentDebug(
+					"[EXU::Viewport] failed to set material scheme viewport=%p current=%s target=%s",
+					viewport,
+					currentScheme.c_str(),
+					targetScheme.c_str());
+				continue;
+			}
+
+			appliedAny = true;
+			TryRefreshViewport(viewport);
+		}
+		if (!appliedAny)
+		{
 			return 0;
 		}
 
 		LogEnvironmentDebug(
-			"[EXU::Viewport] retro lighting=%d currentScheme=%s targetScheme=%s",
+			"[EXU::Viewport] retro lighting=%d currentScheme=%s targetScheme=%s viewportCount=%zu primary=%p secondary=%p",
 			enabled ? 1 : 0,
 			currentScheme.c_str(),
-			targetScheme.c_str());
+			targetScheme.c_str(),
+			activeViewports.count,
+			activeViewports.count > 0 ? activeViewports.viewports[0] : nullptr,
+			activeViewports.count > 1 ? activeViewports.viewports[1] : nullptr);
 		return 0;
 	}
 
