@@ -29,7 +29,7 @@ The BZ application itself can cause this to happen however. Exact circumstances 
 
 Can be fixed by mass converting TRN file to ANSI and forcing line feeds to CR LF
 
-14) Add team filters for stuff like shield towers, magnet mines, etc. So basically a way to have the object ignore a specified team number. This already happens by default for proxmines, so a way to extend the "ally" detection filter to other classes.
+14) Add team filters for stuff like shield towers, magnet mines, etc. So basically a way to have the object ignore a specified team number. This already happens by default for proxmines, so a way to extend the "ally" detection filter to other classes. Shield tower first pass implemented in OpenShim on 2026-03-23. Current Redux shim status: `ShieldTower::Simulate` is now hooked through the real shield-tower vtable slot, and shield towers can be filtered by ODF with `teamFilter = all|allies|enemies|none` plus `affectAllies = true|false` and `affectEnemies = true|false`. The filter applies to both pushed objects and ordnance by checking relation against the tower or ordnance owner. Default behavior remains stock when those ODF keys are absent. Remaining scope here is other classes like magnet mines / proxmine-adjacent behaviors, not shield towers.
 
 15) Patch the incoming whitelist check to allow .tga (Whitelist .tga for multiplayer) This is harmless addition that allows mods that update sky textures to work in multiplayer. Currently the game gets a whitelist from Rebellion's server every launch and filters what is/is not MP safe that way. 
 
