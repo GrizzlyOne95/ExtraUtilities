@@ -565,6 +565,13 @@ namespace ExtraUtilities::Lua::Patches
 	{
 		using OpenShimSetUnderAttackAlertModeFn = BOOL(WINAPI*)(int);
 		using OpenShimSetTargetReticlePopupModeFn = BOOL(WINAPI*)(int);
+		using OpenShimSetBomberAiRangeEnabledFn = BOOL(WINAPI*)(BOOL);
+		using OpenShimSetHowitzerVolleyEnabledFn = BOOL(WINAPI*)(BOOL);
+		using OpenShimSetWeaponMaskCarrierBiasEnabledFn = BOOL(WINAPI*)(BOOL);
+        using OpenShimSetAiOdfGameplayTuningEnabledFn = BOOL(WINAPI*)(BOOL);
+        using OpenShimSetTurretAimPitchEnabledFn = BOOL(WINAPI*)(BOOL);
+        using OpenShimSetAttackRevealEnabledFn = BOOL(WINAPI*)(BOOL);
+		using OpenShimResetMissionHookOverridesFn = BOOL(WINAPI*)();
 
 		OpenShimSetUnderAttackAlertModeFn ResolveUnderAttackAlertBridge()
 		{
@@ -613,6 +620,188 @@ namespace ExtraUtilities::Lua::Patches
 			{
 				loggedMissing = true;
 				Logging::LogMessage("[EXU::UnitVo] OpenShim target reticle popup bridge unavailable");
+			}
+
+			return fn;
+		}
+
+		OpenShimSetBomberAiRangeEnabledFn ResolveBomberAiRangeBridge()
+		{
+			static OpenShimSetBomberAiRangeEnabledFn fn = nullptr;
+			static bool attempted = false;
+			static bool loggedMissing = false;
+			if (attempted)
+			{
+				return fn;
+			}
+
+			attempted = true;
+			if (HMODULE module = GetModuleHandleA("winmm.dll"))
+			{
+				fn = reinterpret_cast<OpenShimSetBomberAiRangeEnabledFn>(
+					GetProcAddress(module, "OpenShimSetBomberAiRangeEnabled"));
+			}
+
+			if (!fn && !loggedMissing)
+			{
+				loggedMissing = true;
+				Logging::LogMessage("[EXU::UnitVo] OpenShim bomber AI range bridge unavailable");
+			}
+
+			return fn;
+		}
+
+		OpenShimSetHowitzerVolleyEnabledFn ResolveHowitzerVolleyBridge()
+		{
+			static OpenShimSetHowitzerVolleyEnabledFn fn = nullptr;
+			static bool attempted = false;
+			static bool loggedMissing = false;
+			if (attempted)
+			{
+				return fn;
+			}
+
+			attempted = true;
+			if (HMODULE module = GetModuleHandleA("winmm.dll"))
+			{
+				fn = reinterpret_cast<OpenShimSetHowitzerVolleyEnabledFn>(
+					GetProcAddress(module, "OpenShimSetHowitzerVolleyEnabled"));
+			}
+
+			if (!fn && !loggedMissing)
+			{
+				loggedMissing = true;
+				Logging::LogMessage("[EXU::UnitVo] OpenShim howitzer volley bridge unavailable");
+			}
+
+			return fn;
+		}
+
+		OpenShimSetWeaponMaskCarrierBiasEnabledFn ResolveWeaponMaskCarrierBiasBridge()
+		{
+			static OpenShimSetWeaponMaskCarrierBiasEnabledFn fn = nullptr;
+			static bool attempted = false;
+			static bool loggedMissing = false;
+			if (attempted)
+			{
+				return fn;
+			}
+
+			attempted = true;
+			if (HMODULE module = GetModuleHandleA("winmm.dll"))
+			{
+				fn = reinterpret_cast<OpenShimSetWeaponMaskCarrierBiasEnabledFn>(
+					GetProcAddress(module, "OpenShimSetWeaponMaskCarrierBiasEnabled"));
+			}
+
+			if (!fn && !loggedMissing)
+			{
+				loggedMissing = true;
+				Logging::LogMessage("[EXU::UnitVo] OpenShim weapon-mask carrier bias bridge unavailable");
+			}
+
+			return fn;
+		}
+
+        OpenShimSetAiOdfGameplayTuningEnabledFn ResolveAiOdfGameplayTuningBridge()
+        {
+            static OpenShimSetAiOdfGameplayTuningEnabledFn fn = nullptr;
+            static bool attempted = false;
+            static bool loggedMissing = false;
+            if (attempted)
+            {
+                return fn;
+            }
+
+            attempted = true;
+            if (HMODULE module = GetModuleHandleA("winmm.dll"))
+            {
+                fn = reinterpret_cast<OpenShimSetAiOdfGameplayTuningEnabledFn>(
+                    GetProcAddress(module, "OpenShimSetAiOdfGameplayTuningEnabled"));
+            }
+
+            if (!fn && !loggedMissing)
+            {
+                loggedMissing = true;
+                Logging::LogMessage("[EXU::UnitVo] OpenShim AI ODF gameplay tuning bridge unavailable");
+            }
+
+            return fn;
+        }
+
+        OpenShimSetTurretAimPitchEnabledFn ResolveTurretAimPitchBridge()
+        {
+            static OpenShimSetTurretAimPitchEnabledFn fn = nullptr;
+            static bool attempted = false;
+            static bool loggedMissing = false;
+            if (attempted)
+            {
+                return fn;
+            }
+
+            attempted = true;
+            if (HMODULE module = GetModuleHandleA("winmm.dll"))
+            {
+                fn = reinterpret_cast<OpenShimSetTurretAimPitchEnabledFn>(
+                    GetProcAddress(module, "OpenShimSetTurretAimPitchEnabled"));
+            }
+
+            if (!fn && !loggedMissing)
+            {
+                loggedMissing = true;
+                Logging::LogMessage("[EXU::UnitVo] OpenShim turret aim pitch bridge unavailable");
+            }
+
+            return fn;
+        }
+
+        OpenShimSetAttackRevealEnabledFn ResolveAttackRevealBridge()
+        {
+            static OpenShimSetAttackRevealEnabledFn fn = nullptr;
+            static bool attempted = false;
+            static bool loggedMissing = false;
+            if (attempted)
+            {
+                return fn;
+            }
+
+            attempted = true;
+            if (HMODULE module = GetModuleHandleA("winmm.dll"))
+            {
+                fn = reinterpret_cast<OpenShimSetAttackRevealEnabledFn>(
+                    GetProcAddress(module, "OpenShimSetAttackRevealEnabled"));
+            }
+
+            if (!fn && !loggedMissing)
+            {
+                loggedMissing = true;
+                Logging::LogMessage("[EXU::UnitVo] OpenShim attack reveal bridge unavailable");
+            }
+
+            return fn;
+        }
+
+		OpenShimResetMissionHookOverridesFn ResolveMissionHookResetBridge()
+		{
+			static OpenShimResetMissionHookOverridesFn fn = nullptr;
+			static bool attempted = false;
+			static bool loggedMissing = false;
+			if (attempted)
+			{
+				return fn;
+			}
+
+			attempted = true;
+			if (HMODULE module = GetModuleHandleA("winmm.dll"))
+			{
+				fn = reinterpret_cast<OpenShimResetMissionHookOverridesFn>(
+					GetProcAddress(module, "OpenShimResetMissionHookOverrides"));
+			}
+
+			if (!fn && !loggedMissing)
+			{
+				loggedMissing = true;
+				Logging::LogMessage("[EXU::UnitVo] OpenShim mission-hook reset bridge unavailable");
 			}
 
 			return fn;
@@ -828,5 +1017,104 @@ namespace ExtraUtilities::Lua::Patches
 
 		lua_pushboolean(L, 0);
 		return 1;
+	}
+
+	int SetBomberAiRangeEnabled(lua_State* L)
+	{
+		const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
+		if (OpenShimSetBomberAiRangeEnabledFn fn = ResolveBomberAiRangeBridge())
+		{
+			lua_pushboolean(L, fn(requested) ? 1 : 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	int SetHowitzerVolleyEnabled(lua_State* L)
+	{
+		const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
+		if (OpenShimSetHowitzerVolleyEnabledFn fn = ResolveHowitzerVolleyBridge())
+		{
+			lua_pushboolean(L, fn(requested) ? 1 : 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	int SetWeaponMaskCarrierBiasEnabled(lua_State* L)
+	{
+		const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
+		if (OpenShimSetWeaponMaskCarrierBiasEnabledFn fn = ResolveWeaponMaskCarrierBiasBridge())
+		{
+			lua_pushboolean(L, fn(requested) ? 1 : 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+    int SetAiOdfGameplayTuningEnabled(lua_State* L)
+    {
+        const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
+        if (OpenShimSetAiOdfGameplayTuningEnabledFn fn = ResolveAiOdfGameplayTuningBridge())
+        {
+            lua_pushboolean(L, fn(requested) ? 1 : 0);
+            return 1;
+        }
+
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    int SetTurretAimPitchEnabled(lua_State* L)
+    {
+        const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
+        if (OpenShimSetTurretAimPitchEnabledFn fn = ResolveTurretAimPitchBridge())
+        {
+            lua_pushboolean(L, fn(requested) ? 1 : 0);
+            return 1;
+        }
+
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    int SetAttackRevealEnabled(lua_State* L)
+    {
+        const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
+        if (OpenShimSetAttackRevealEnabledFn fn = ResolveAttackRevealBridge())
+        {
+            lua_pushboolean(L, fn(requested) ? 1 : 0);
+            return 1;
+        }
+
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+	int ResetMissionHookOverrides(lua_State* L)
+	{
+		UNREFERENCED_PARAMETER(L);
+		if (OpenShimResetMissionHookOverridesFn fn = ResolveMissionHookResetBridge())
+		{
+			lua_pushboolean(L, fn() ? 1 : 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	void ResetOpenShimMissionOverrides()
+	{
+		if (OpenShimResetMissionHookOverridesFn fn = ResolveMissionHookResetBridge())
+		{
+			fn();
+		}
 	}
 }

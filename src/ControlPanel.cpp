@@ -25,6 +25,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 
 namespace ExtraUtilities::Lua::ControlPanel
 {
@@ -43,6 +44,8 @@ namespace ExtraUtilities::Lua::ControlPanel
 		constexpr size_t kPilotGroupStartIndex = 2;
 		constexpr size_t kPilotGroupEndIndex = 4;
 		constexpr uint32_t kDefaultHudTextColor = 0xFFFFFFFFu;
+		constexpr size_t kCommandMenuButtonCount = 13;
+		constexpr LONG kCommandMenuPointValidationGap = 0x40;
 
 		using HudPaletteSelectorFn = char(__thiscall*)(void*);
 		using ApplyScrapPilotHudOffsetFn = void(__cdecl*)();
@@ -56,6 +59,14 @@ namespace ExtraUtilities::Lua::ControlPanel
 		{
 			int* x = nullptr;
 			int* y = nullptr;
+		};
+
+		struct CommandMenuRect
+		{
+			LONG left = 0;
+			LONG top = 0;
+			LONG right = 0;
+			LONG bottom = 0;
 		};
 
 		enum class HudTextGroup : size_t
@@ -73,6 +84,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 			{ reinterpret_cast<int*>(0x00918278), reinterpret_cast<int*>(0x0091827C) }
 		} };
 		inline std::array<int, 8> g_scrapPilotHudBaseline{};
+		inline std::array<int, 8> g_scrapPilotHudOriginalBaseline{};
 		inline std::array<int, 2> g_scrapPilotHudOffsetX{};
 		inline std::array<int, 2> g_scrapPilotHudOffsetY{};
 		inline std::array<int, 2> g_scrapPilotHudAppliedX{};
@@ -80,6 +92,9 @@ namespace ExtraUtilities::Lua::ControlPanel
 		inline uint32_t g_scrapHudColor = kDefaultHudTextColor;
 		inline uint32_t g_pilotHudColor = kDefaultHudTextColor;
 		inline bool g_scrapPilotHudBaselineValid = false;
+		inline bool g_scrapPilotHudOriginalBaselineValid = false;
+		inline const CommandMenuRect* g_commandMenuRects = nullptr;
+		inline bool g_commandMenuRectsDiscoveryAttempted = false;
 
 		uint32_t CheckHudColor(lua_State* L, int index, const char* label)
 		{
@@ -130,9 +145,48 @@ namespace ExtraUtilities::Lua::ControlPanel
 				g_scrapPilotHudBaseline[baselineIndex++] = *point.y;
 			}
 
+			if (!g_scrapPilotHudOriginalBaselineValid)
+			{
+				g_scrapPilotHudOriginalBaseline = g_scrapPilotHudBaseline;
+				g_scrapPilotHudOriginalBaselineValid = true;
+			}
+
 			g_scrapPilotHudAppliedX.fill(0);
 			g_scrapPilotHudAppliedY.fill(0);
 			g_scrapPilotHudBaselineValid = true;
+		}
+
+		bool RestoreScrapPilotHudOriginalBaseline() noexcept
+		{
+			if (!g_scrapPilotHudOriginalBaselineValid)
+			{
+				CaptureScrapPilotHudBaseline();
+			}
+
+			if (!g_scrapPilotHudOriginalBaselineValid)
+			{
+				return false;
+			}
+
+			size_t baselineIndex = 0;
+			for (const HudTextPoint& point : g_scrapPilotHudTextPoints)
+			{
+				if (point.x == nullptr || point.y == nullptr)
+				{
+					return false;
+				}
+
+				*point.x = g_scrapPilotHudOriginalBaseline[baselineIndex++];
+				*point.y = g_scrapPilotHudOriginalBaseline[baselineIndex++];
+			}
+
+			g_scrapPilotHudBaseline = g_scrapPilotHudOriginalBaseline;
+			g_scrapPilotHudOffsetX.fill(0);
+			g_scrapPilotHudOffsetY.fill(0);
+			g_scrapPilotHudAppliedX.fill(0);
+			g_scrapPilotHudAppliedY.fill(0);
+			g_scrapPilotHudBaselineValid = true;
+			return true;
 		}
 
 		bool ScrapPilotHudMatchesExpectedLayout() noexcept
@@ -389,6 +443,247 @@ namespace ExtraUtilities::Lua::ControlPanel
 			return fn;
 		}
 
+		bool IsReasonableCommandMenuRect(const CommandMenuRect& rect) noexcept
+		{
+			const LONG width = rect.right - rect.left;
+			const LONG height = rect.bottom - rect.top;
+			return rect.left >= 0 &&
+				rect.left <= 200 &&
+				rect.top >= 0 &&
+				rect.top <= 400 &&
+				rect.right > rect.left &&
+				rect.right <= 500 &&
+				rect.bottom > rect.top &&
+				rect.bottom <= 500 &&
+				width >= 200 &&
+				width <= 400 &&
+				height >= 12 &&
+				height <= 40;
+		}
+
+		bool MatchesCommandMenuRectArray(const CommandMenuRect* rects) noexcept
+		{
+			if (rects == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				const CommandMenuRect& first = rects[0];
+				if (!IsReasonableCommandMenuRect(first))
+				{
+					return false;
+				}
+
+				const LONG expectedLeft = first.left;
+				const LONG expectedRight = first.right;
+				LONG previousTop = first.top;
+				LONG previousBottom = first.bottom;
+
+				for (size_t index = 1; index < kCommandMenuButtonCount; ++index)
+				{
+					const CommandMenuRect& rect = rects[index];
+					if (!IsReasonableCommandMenuRect(rect))
+					{
+						return false;
+					}
+
+					if (std::abs(rect.left - expectedLeft) > 4 ||
+						std::abs(rect.right - expectedRight) > 4)
+					{
+						return false;
+					}
+
+					if (rect.top < previousTop || rect.bottom < previousBottom)
+					{
+						return false;
+					}
+
+					const LONG topStep = rect.top - previousTop;
+					const LONG bottomStep = rect.bottom - previousBottom;
+					if (topStep < 8 || topStep > 40 || bottomStep < 8 || bottomStep > 40)
+					{
+						return false;
+					}
+
+					previousTop = rect.top;
+					previousBottom = rect.bottom;
+				}
+
+				return (rects[kCommandMenuButtonCount - 1].bottom - first.top) >= 200;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+			}
+
+			return false;
+		}
+
+		bool MatchesCommandMenuPointArray(const POINT* points, const CommandMenuRect* rects) noexcept
+		{
+			if (points == nullptr || rects == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				LONG previousX = points[0].x;
+				for (size_t index = 0; index < kCommandMenuButtonCount; ++index)
+				{
+					const POINT& point = points[index];
+					const CommandMenuRect& rect = rects[index];
+					const LONG midpointY = (rect.top + rect.bottom) / 2;
+
+					if (point.x < (rect.left + 8) || point.x > (rect.right - 8))
+					{
+						return false;
+					}
+
+					if (std::abs(point.y - midpointY) > 3)
+					{
+						return false;
+					}
+
+					if (index > 0 && std::abs(point.x - previousX) > 4)
+					{
+						return false;
+					}
+
+					previousX = point.x;
+				}
+
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+			}
+
+			return false;
+		}
+
+		bool DiscoverCommandMenuRects() noexcept
+		{
+			if (g_commandMenuRectsDiscoveryAttempted)
+			{
+				return g_commandMenuRects != nullptr;
+			}
+
+			g_commandMenuRectsDiscoveryAttempted = true;
+
+			HMODULE module = GetModuleHandleA(nullptr);
+			if (module == nullptr)
+			{
+				return false;
+			}
+
+			auto* dosHeader = reinterpret_cast<const IMAGE_DOS_HEADER*>(module);
+			if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE)
+			{
+				return false;
+			}
+
+			auto* ntHeaders = reinterpret_cast<const IMAGE_NT_HEADERS*>(
+				reinterpret_cast<const uint8_t*>(module) + dosHeader->e_lfanew);
+			if (ntHeaders->Signature != IMAGE_NT_SIGNATURE)
+			{
+				return false;
+			}
+
+			auto* section = IMAGE_FIRST_SECTION(const_cast<IMAGE_NT_HEADERS*>(ntHeaders));
+			for (unsigned sectionIndex = 0; sectionIndex < ntHeaders->FileHeader.NumberOfSections; ++sectionIndex, ++section)
+			{
+				if (std::memcmp(section->Name, ".data", 5) != 0)
+				{
+					continue;
+				}
+
+				const auto* sectionBase = reinterpret_cast<const uint8_t*>(module) + section->VirtualAddress;
+				const size_t scanSize = static_cast<size_t>(section->SizeOfRawData);
+				const size_t rectSpan = sizeof(CommandMenuRect) * kCommandMenuButtonCount;
+				if (scanSize < rectSpan)
+				{
+					return false;
+				}
+
+				for (size_t offset = 0; offset + rectSpan <= scanSize; offset += sizeof(LONG))
+				{
+					const auto* candidate = reinterpret_cast<const CommandMenuRect*>(sectionBase + offset);
+					if (!MatchesCommandMenuRectArray(candidate))
+					{
+						continue;
+					}
+
+					const auto* pointSearchBase = reinterpret_cast<const uint8_t*>(candidate) + rectSpan;
+					bool matchedPointArray = false;
+					for (LONG gap = 0; gap <= kCommandMenuPointValidationGap; gap += sizeof(LONG))
+					{
+						const auto* pointCandidate = reinterpret_cast<const POINT*>(pointSearchBase + gap);
+						if (MatchesCommandMenuPointArray(pointCandidate, candidate))
+						{
+							matchedPointArray = true;
+							break;
+						}
+					}
+
+					if (!matchedPointArray)
+					{
+						continue;
+					}
+
+					g_commandMenuRects = candidate;
+					Logging::LogMessage(
+						"[EXU::ControlPanel] command menu rect table discovered at 0x%p (%ld,%ld,%ld,%ld)",
+						candidate,
+						candidate[0].left,
+						candidate[0].top,
+						candidate[kCommandMenuButtonCount - 1].right,
+						candidate[kCommandMenuButtonCount - 1].bottom);
+					return true;
+				}
+
+				return false;
+			}
+
+			return false;
+		}
+
+		bool GetCommandMenuRectBounds(CommandMenuRect& outRect) noexcept
+		{
+			if (!g_commandMenuRects && !DiscoverCommandMenuRects())
+			{
+				return false;
+			}
+
+			if (g_commandMenuRects == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				outRect = g_commandMenuRects[0];
+				for (size_t index = 1; index < kCommandMenuButtonCount; ++index)
+				{
+					const CommandMenuRect& rect = g_commandMenuRects[index];
+					outRect.left = (rect.left < outRect.left) ? rect.left : outRect.left;
+					outRect.top = (rect.top < outRect.top) ? rect.top : outRect.top;
+					outRect.right = (rect.right > outRect.right) ? rect.right : outRect.right;
+					outRect.bottom = (rect.bottom > outRect.bottom) ? rect.bottom : outRect.bottom;
+				}
+
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+			}
+
+			g_commandMenuRects = nullptr;
+			g_commandMenuRectsDiscoveryAttempted = false;
+			return false;
+		}
+
 		static void __declspec(naked) ScrapPilotHudDrawHook()
 		{
 			__asm
@@ -564,6 +859,20 @@ namespace ExtraUtilities::Lua::ControlPanel
 		return 0;
 	}
 
+	int RestoreScrapPilotHudDefault(lua_State* L)
+	{
+		(void)L;
+		if (!RestoreScrapPilotHudOriginalBaseline())
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		Logging::LogMessage("exu: scrap/pilot HUD text restored to stock baseline");
+		lua_pushboolean(L, 1);
+		return 1;
+	}
+
 	int GetScrapPilotHudTopLeft(lua_State* L)
 	{
 		int scrapLeft = 0;
@@ -722,6 +1031,25 @@ namespace ExtraUtilities::Lua::ControlPanel
 		return 0;
 	}
 
+	int GetCommandMenuRect(lua_State* L)
+	{
+		CommandMenuRect rect = {};
+		if (!GetCommandMenuRectBounds(rect))
+		{
+			lua_pushnil(L);
+			lua_pushnil(L);
+			lua_pushnil(L);
+			lua_pushnil(L);
+			return 4;
+		}
+
+		lua_pushinteger(L, rect.left);
+		lua_pushinteger(L, rect.top);
+		lua_pushinteger(L, rect.right);
+		lua_pushinteger(L, rect.bottom);
+		return 4;
+	}
+
 	int GetHudSpriteRect(lua_State* L)
 	{
 		const char* spriteName = luaL_checkstring(L, 1);
@@ -767,10 +1095,20 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		if (OpenShimSetHudSpriteRectFn fn = ResolveHudSpriteRectBridge())
 		{
-			lua_pushboolean(L, fn(spriteName, x, y, w, h) ? 1 : 0);
+			const BOOL ok = fn(spriteName, x, y, w, h) ? TRUE : FALSE;
+			Logging::LogMessage(
+				"exu: SetHudSpriteRect('%s', %d, %d, %d, %d) => %s",
+				spriteName,
+				x,
+				y,
+				w,
+				h,
+				ok ? "true" : "false");
+			lua_pushboolean(L, ok ? 1 : 0);
 			return 1;
 		}
 
+		Logging::LogMessage("exu: SetHudSpriteRect('%s', ...) bridge unavailable", spriteName);
 		lua_pushboolean(L, 0);
 		return 1;
 	}
@@ -786,10 +1124,19 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		if (OpenShimSetHudSpriteVisibleFn fn = ResolveHudSpriteVisibleBridge())
 		{
-			lua_pushboolean(L, fn(spriteName, visible ? TRUE : FALSE) ? 1 : 0);
+			const BOOL ok = fn(spriteName, visible ? TRUE : FALSE) ? TRUE : FALSE;
+			Logging::LogMessage(
+				"exu: SetHudSpriteVisible('%s', %s) => %s",
+				spriteName,
+				visible ? "true" : "false",
+				ok ? "true" : "false");
+			lua_pushboolean(L, ok ? 1 : 0);
 			return 1;
 		}
 
+		Logging::LogMessage("exu: SetHudSpriteVisible('%s', %s) bridge unavailable",
+			spriteName,
+			visible ? "true" : "false");
 		lua_pushboolean(L, 0);
 		return 1;
 	}
@@ -804,10 +1151,16 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		if (OpenShimRestoreHudSpriteFn fn = ResolveRestoreHudSpriteBridge())
 		{
-			lua_pushboolean(L, fn(spriteName) ? 1 : 0);
+			const BOOL ok = fn(spriteName) ? TRUE : FALSE;
+			Logging::LogMessage(
+				"exu: RestoreHudSprite('%s') => %s",
+				spriteName,
+				ok ? "true" : "false");
+			lua_pushboolean(L, ok ? 1 : 0);
 			return 1;
 		}
 
+		Logging::LogMessage("exu: RestoreHudSprite('%s') bridge unavailable", spriteName);
 		lua_pushboolean(L, 0);
 		return 1;
 	}

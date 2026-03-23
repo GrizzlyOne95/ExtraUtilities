@@ -265,6 +265,10 @@ function exu.GetScrapPilotHudOffset() end
 --- @param y integer
 function exu.SetScrapPilotHudOffset(x, y) end
 
+--- Restores the stock scrap/pilot HUD text positions captured before any EXU layout overrides.
+--- @return boolean
+function exu.RestoreScrapPilotHudDefault() end
+
 --- Gets the current top-left anchor of the stock scrap/pilot HUD text cluster.
 --- This is useful when positioning it absolutely instead of as a relative offset.
 --- @nodiscard
@@ -321,6 +325,15 @@ function exu.GetPilotHudColor() end
 --- The integer format is 0xAARRGGBB.
 --- @param color integer
 function exu.SetPilotHudColor(color) end
+
+--- Gets the live command-menu button footprint in screen pixels.
+--- Returns the current left, top, right, and bottom bounds of the stock top-left command menu.
+--- @nodiscard
+--- @return integer | nil left
+--- @return integer | nil top
+--- @return integer | nil right
+--- @return integer | nil bottom
+function exu.GetCommandMenuRect() end
 
 --- Adds the given unit to the local player's selection.
 --- @param h Handle

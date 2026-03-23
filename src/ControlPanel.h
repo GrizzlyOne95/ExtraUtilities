@@ -32,6 +32,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 	int GetScrapPilotHudOffset(lua_State* L);
 	int SetScrapPilotHudOffset(lua_State* L);
+	int RestoreScrapPilotHudDefault(lua_State* L);
 	int GetScrapPilotHudTopLeft(lua_State* L);
 	int SetScrapPilotHudTopLeft(lua_State* L);
 	int GetScrapHudTopLeft(lua_State* L);
@@ -42,6 +43,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 	int SetScrapHudColor(lua_State* L);
 	int GetPilotHudColor(lua_State* L);
 	int SetPilotHudColor(lua_State* L);
+	int GetCommandMenuRect(lua_State* L);
 	int GetHudSpriteRect(lua_State* L);
 	int SetHudSpriteRect(lua_State* L);
 	int SetHudSpriteVisible(lua_State* L);

@@ -50,4 +50,12 @@ namespace ExtraUtilities::Lua::Patches
 	int SetUnitVoAlternates(lua_State* L);
 	int SetUnderAttackAlertMode(lua_State* L);
 	int SetTargetReticlePopupMode(lua_State* L);
+	int SetBomberAiRangeEnabled(lua_State* L);
+	int SetHowitzerVolleyEnabled(lua_State* L);
+	int SetWeaponMaskCarrierBiasEnabled(lua_State* L);
+	int SetAiOdfGameplayTuningEnabled(lua_State* L);
+	int SetTurretAimPitchEnabled(lua_State* L);
+	int SetAttackRevealEnabled(lua_State* L);
+	int ResetMissionHookOverrides(lua_State* L);
+	void ResetOpenShimMissionOverrides();
 }
