@@ -460,6 +460,7 @@ namespace ExtraUtilities::Lua
 		state = L; // save the state pointer to use in callbacks
 		CommandReplacement::ResetState(L);
 		Logging::LogMessage("exu: Init starting");
+		Patches::ResetOpenShimMissionOverrides();
 		BasicPatch::EnableDeferredPatchActivation();
 		Logging::LogMessage("exu: deferred patches activated");
 
@@ -517,6 +518,7 @@ namespace ExtraUtilities::Lua
 			// Control Panel
 			{ "GetScrapPilotHudOffset", &ControlPanel::GetScrapPilotHudOffset },
 			{ "SetScrapPilotHudOffset", &ControlPanel::SetScrapPilotHudOffset },
+			{ "RestoreScrapPilotHudDefault", &ControlPanel::RestoreScrapPilotHudDefault },
 			{ "GetScrapPilotHudTopLeft", &ControlPanel::GetScrapPilotHudTopLeft },
 			{ "SetScrapPilotHudTopLeft", &ControlPanel::SetScrapPilotHudTopLeft },
 			{ "GetScrapHudTopLeft", &ControlPanel::GetScrapHudTopLeft },
@@ -527,6 +529,7 @@ namespace ExtraUtilities::Lua
 			{ "SetScrapHudColor", &ControlPanel::SetScrapHudColor },
 			{ "GetPilotHudColor", &ControlPanel::GetPilotHudColor },
 			{ "SetPilotHudColor", &ControlPanel::SetPilotHudColor },
+			{ "GetCommandMenuRect", &ControlPanel::GetCommandMenuRect },
 			{ "GetHudSpriteRect", &ControlPanel::GetHudSpriteRect },
 			{ "SetHudSpriteRect", &ControlPanel::SetHudSpriteRect },
 			{ "SetHudSpriteVisible", &ControlPanel::SetHudSpriteVisible },
@@ -579,6 +582,7 @@ namespace ExtraUtilities::Lua
 			{ "HasSkyPlaneNode", &Environment::HasSkyPlaneNode },
 
 			// Overlay
+			{ "ResetOverlaySupport", &Overlay::ResetOverlaySupport },
 			{ "CreateOverlay", &Overlay::CreateOverlay },
 			{ "DestroyOverlay", &Overlay::DestroyOverlay },
 			{ "ShowOverlay", &Overlay::ShowOverlay },
@@ -743,6 +747,13 @@ namespace ExtraUtilities::Lua
 			{ "SetUnitVoAlternates", &Patches::SetUnitVoAlternates },
 			{ "SetUnderAttackAlertMode", &Patches::SetUnderAttackAlertMode },
 			{ "SetTargetReticlePopupMode", &Patches::SetTargetReticlePopupMode },
+			{ "SetBomberAiRangeEnabled", &Patches::SetBomberAiRangeEnabled },
+			{ "SetHowitzerVolleyEnabled", &Patches::SetHowitzerVolleyEnabled },
+			{ "SetWeaponMaskCarrierBiasEnabled", &Patches::SetWeaponMaskCarrierBiasEnabled },
+            { "SetAiOdfGameplayTuningEnabled", &Patches::SetAiOdfGameplayTuningEnabled },
+            { "SetTurretAimPitchEnabled", &Patches::SetTurretAimPitchEnabled },
+            { "SetAttackRevealEnabled", &Patches::SetAttackRevealEnabled },
+			{ "ResetMissionHookOverrides", &Patches::ResetMissionHookOverrides },
 
 			// Play Options
 			{ "GetAutoLevel",	 &PlayOption::GetAutoLevel },

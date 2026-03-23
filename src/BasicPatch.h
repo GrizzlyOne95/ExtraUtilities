@@ -54,6 +54,54 @@ namespace ExtraUtilities
 		static inline std::vector<BasicPatch*> deferredPatches{};
 		std::vector<uint8_t> m_originalBytes;
 
+		static void RegisterDeferredPatch(BasicPatch* patch)
+		{
+			if (patch == nullptr)
+			{
+				return;
+			}
+
+			deferredPatches.push_back(patch);
+		}
+
+		static void ReplaceDeferredPatch(BasicPatch* oldPatch, BasicPatch* newPatch)
+		{
+			if (oldPatch == nullptr || newPatch == nullptr)
+			{
+				return;
+			}
+
+			for (BasicPatch*& patch : deferredPatches)
+			{
+				if (patch == oldPatch)
+				{
+					patch = newPatch;
+					return;
+				}
+			}
+
+			RegisterDeferredPatch(newPatch);
+		}
+
+		static void UnregisterDeferredPatch(BasicPatch* patch) noexcept
+		{
+			if (patch == nullptr)
+			{
+				return;
+			}
+
+			for (size_t i = 0; i < deferredPatches.size();)
+			{
+				if (deferredPatches[i] == patch)
+				{
+					deferredPatches.erase(deferredPatches.begin() + i);
+					continue;
+				}
+
+				++i;
+			}
+		}
+
 		static void LogPatchIssue(const char* message, uintptr_t address, size_t length) noexcept
 		{
 			char buffer[160]{};
@@ -138,6 +186,19 @@ namespace ExtraUtilities
 			}
 		}
 
+		static void UnloadAllPatches() noexcept
+		{
+			patchActivationEnabled = false;
+			for (auto it = deferredPatches.rbegin(); it != deferredPatches.rend(); ++it)
+			{
+				BasicPatch* patch = *it;
+				if (patch != nullptr)
+				{
+					patch->Unload();
+				}
+			}
+		}
+
 		BasicPatch(uintptr_t address, size_t length, Status status)
 			: m_status(patchActivationEnabled ? status : Status::INACTIVE)
 			, m_requestedStatus(status)
@@ -164,7 +225,7 @@ namespace ExtraUtilities
 
 			VirtualProtect(p_address, m_length, m_oldProtect, &dummyProtect);
 			m_initialized = true;
-			deferredPatches.push_back(this);
+			RegisterDeferredPatch(this);
 		}
 
 		BasicPatch(BasicPatch& p) = delete; // Patch should not be initialized twice
@@ -179,6 +240,7 @@ namespace ExtraUtilities
 			this->m_oldProtect = p.m_oldProtect;
 			this->dummyProtect = p.dummyProtect;
 			this->m_originalBytes = std::move(p.m_originalBytes);
+			ReplaceDeferredPatch(&p, this);
 
 			p.m_status = Status::INACTIVE;
 			p.m_requestedStatus = Status::INACTIVE;
@@ -194,6 +256,8 @@ namespace ExtraUtilities
 			{
 				RestorePatch();
 			}
+
+			UnregisterDeferredPatch(this);
 		}
 
 		bool IsActive()

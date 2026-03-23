@@ -23,6 +23,7 @@
 namespace ExtraUtilities::Lua::Overlay
 {
 	void ShutdownOverlaySupport() noexcept;
+	int ResetOverlaySupport(lua_State* L);
 
 	int CreateOverlay(lua_State* L);
 	int DestroyOverlay(lua_State* L);

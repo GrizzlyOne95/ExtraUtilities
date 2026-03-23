@@ -62,6 +62,10 @@ namespace Ogre
 		float g = 0.0f;
 		float b = 0.0f;
 		float a = 1.0f;
+
+		ColourValue() = default;
+		ColourValue(float red, float green, float blue, float alpha = 1.0f)
+			: r(red), g(green), b(blue), a(alpha) {}
 	};
 
 	class OverlayElement
@@ -106,6 +110,39 @@ namespace Ogre
 	public:
 		__declspec(dllimport) virtual void addChild(OverlayElement* elem);
 		__declspec(dllimport) virtual void removeChild(const String& name);
+	};
+
+	class PanelOverlayElement : public OverlayElement
+	{
+	public:
+		__declspec(dllimport) void setTiling(Real x, Real y, unsigned short layer = 0);
+		__declspec(dllimport) void setUV(Real u1, Real v1, Real u2, Real v2);
+		__declspec(dllimport) void setTransparent(bool isTransparent);
+	};
+
+	class BorderPanelOverlayElement : public PanelOverlayElement
+	{
+	public:
+		__declspec(dllimport) void setBorderSize(Real size);
+		__declspec(dllimport) void setBorderSize(Real sides, Real topAndBottom);
+		__declspec(dllimport) void setBorderSize(Real left, Real right, Real top, Real bottom);
+		__declspec(dllimport) void setBorderMaterialName(const String& name);
+	};
+
+	class TextAreaOverlayElement : public OverlayElement
+	{
+	public:
+		enum Alignment
+		{
+			Left,
+			Right,
+			Center
+		};
+
+		__declspec(dllimport) void setSpaceWidth(Real width);
+		__declspec(dllimport) void setColourTop(const ColourValue& col);
+		__declspec(dllimport) void setColourBottom(const ColourValue& col);
+		__declspec(dllimport) void setAlignment(Alignment a);
 	};
 
 	class Overlay

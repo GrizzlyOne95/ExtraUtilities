@@ -19,6 +19,7 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 
 #include "Logging.h"
+#include "BasicPatch.h"
 #include "Overlay.h"
 
 #include <Windows.h>
@@ -56,6 +57,7 @@ BOOL WINAPI DllMain(
         ExtraUtilities::Logging::LogMessage("exu: DLL_PROCESS_DETACH");
         if (lpReserved == nullptr)
         {
+            ExtraUtilities::BasicPatch::UnloadAllPatches();
             ExtraUtilities::Lua::Overlay::ShutdownOverlaySupport();
         }
 #ifdef _DEBUG
