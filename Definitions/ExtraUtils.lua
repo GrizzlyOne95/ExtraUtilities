@@ -53,6 +53,27 @@ error("This is a definition file, use require(\"exu\")")
 --- @field xsegments integer
 --- @field ysegments integer
 
+--- @class TerrainTextureSet
+--- @field material string? Optional explicit terrain material name. When omitted, EXU resolves the current map's TRN `[Atlases] MaterialName`.
+--- @field materialName string? Alias for `material`.
+--- @field trn string? Optional TRN filename or relative path to resolve instead of the current map's TRN.
+--- @field trnFilename string? Alias for `trn`.
+--- @field resourceGroup string? Optional Ogre resource group. Defaults to `"General"`.
+--- @field techniqueIndex integer? Optional material technique index. Defaults to `0`.
+--- @field technique integer? Alias for `techniqueIndex`.
+--- @field passIndex integer? Optional material pass index. Defaults to `0`.
+--- @field pass integer? Alias for `passIndex`.
+--- @field diffuse string? Terrain diffuse/base texture.
+--- @field diffuseMap string? Alias for `diffuse`.
+--- @field detail string? Terrain detail texture.
+--- @field detailMap string? Alias for `detail`.
+--- @field normal string? Terrain normal map.
+--- @field normalMap string? Alias for `normal`.
+--- @field specular string? Terrain specular map.
+--- @field specularMap string? Alias for `specular`.
+--- @field emissive string? Terrain emissive map.
+--- @field emissiveMap string? Alias for `emissive`.
+
 --- @class exu
 --- @field Origins CameraOrigins
 local exu = {}
@@ -557,6 +578,156 @@ function exu.GetSkyDomeParams() end
 --- @return SkyPlaneParams | nil
 function exu.GetSkyPlaneParams() end
 
+--- Returns whether Ogre currently has an enabled skybox.
+--- @nodiscard
+--- @return boolean
+function exu.GetSkyBoxEnabled() end
+
+--- Enables or disables the current skybox node.
+--- @param enabled boolean
+function exu.SetSkyBoxEnabled(enabled) end
+
+--- Rebuilds the current skybox using the given material.
+--- The distance defaults to 5000, drawFirst defaults to true, and the resource group defaults to "General".
+--- @param materialName string
+--- @param distance number? optional
+--- @param drawFirst boolean? optional
+--- @param resourceGroup string? optional
+--- @return boolean
+function exu.SetSkyBox(materialName, distance, drawFirst, resourceGroup) end
+
+--- Returns whether Ogre currently has an enabled skydome.
+--- @nodiscard
+--- @return boolean
+function exu.GetSkyDomeEnabled() end
+
+--- Enables or disables the current skydome node.
+--- @param enabled boolean
+function exu.SetSkyDomeEnabled(enabled) end
+
+--- Rebuilds the current skydome using the given material.
+--- Defaults: curvature 10, tiling 8, distance 4000, drawFirst true, xsegments 16, ysegments 16, ysegmentsKeep -1.
+--- The resource group defaults to "General".
+--- @param materialName string
+--- @param curvature number? optional
+--- @param tiling number? optional
+--- @param distance number? optional
+--- @param drawFirst boolean? optional
+--- @param xsegments integer? optional
+--- @param ysegments integer? optional
+--- @param ysegmentsKeep integer? optional
+--- @param resourceGroup string? optional
+--- @return boolean
+function exu.SetSkyDome(materialName, curvature, tiling, distance, drawFirst, xsegments, ysegments, ysegmentsKeep, resourceGroup) end
+
+--- Returns whether Ogre currently has an enabled skyplane.
+--- @nodiscard
+--- @return boolean
+function exu.GetSkyPlaneEnabled() end
+
+--- Enables or disables the current skyplane node.
+--- @param enabled boolean
+function exu.SetSkyPlaneEnabled(enabled) end
+
+--- Rebuilds the current skyplane using the given material and plane definition.
+--- The plane table requires `d` or `distance`, and may optionally include `normal = Vector(...)`.
+--- Defaults: scale 1000, tiling 10, drawFirst true, bow 0, xsegments 1, ysegments 1.
+--- The resource group defaults to "General".
+--- @param materialName string
+--- @param plane table
+--- @param scale number? optional
+--- @param tiling number? optional
+--- @param drawFirst boolean? optional
+--- @param bow number? optional
+--- @param xsegments integer? optional
+--- @param ysegments integer? optional
+--- @param resourceGroup string? optional
+--- @return boolean
+function exu.SetSkyPlane(materialName, plane, scale, tiling, drawFirst, bow, xsegments, ysegments, resourceGroup) end
+
+--- Returns whether a named Ogre particle system currently exists.
+--- @nodiscard
+--- @param name string
+--- @return boolean
+function exu.HasParticleSystem(name) end
+
+--- Creates a named Ogre particle system from a stock particle template and attaches it to an EXU-owned scene node.
+--- The optional position defaults to `SetVector(0, 0, 0)`.
+--- Returns false if the particle system already exists or if its reserved EXU node name is already in use.
+--- @param name string
+--- @param templateName string
+--- @param position Vector? optional
+--- @return boolean
+function exu.CreateParticleSystem(name, templateName, position) end
+
+--- Destroys a named Ogre particle system and its EXU-owned scene node if present.
+--- @param name string
+--- @return boolean
+function exu.DestroyParticleSystem(name) end
+
+--- Moves the EXU-owned scene node for a named particle system.
+--- @param name string
+--- @param position Vector
+--- @return boolean
+function exu.SetParticleSystemPosition(name, position) end
+
+--- Rotates the EXU-owned scene node for a named particle system to face the given direction.
+--- @param name string
+--- @param direction Vector
+--- @return boolean
+function exu.SetParticleSystemDirection(name, direction) end
+
+--- Enables or disables emission on a named particle system.
+--- @param name string
+--- @param enabled boolean
+--- @return boolean
+function exu.SetParticleSystemEmitting(name, enabled) end
+
+--- Enables or disables visibility on a named particle system.
+--- @param name string
+--- @param enabled boolean
+--- @return boolean
+function exu.SetParticleSystemVisible(name, enabled) end
+
+--- Sets the playback speed multiplier on a named particle system.
+--- @param name string
+--- @param speed number
+--- @return boolean
+function exu.SetParticleSystemSpeedFactor(name, speed) end
+
+--- Controls whether particles remain in local space on a named particle system.
+--- @param name string
+--- @param enabled boolean
+--- @return boolean
+function exu.SetParticleSystemKeepLocalSpace(name, enabled) end
+
+--- Overrides the material on a named particle system.
+--- The resource group defaults to "General".
+--- @param name string
+--- @param materialName string
+--- @param resourceGroup string? optional
+--- @return boolean
+function exu.SetParticleSystemMaterial(name, materialName, resourceGroup) end
+
+--- Sets the render queue group on a named particle system.
+--- @param name string
+--- @param queueGroup integer
+--- @return boolean
+function exu.SetParticleSystemRenderQueueGroup(name, queueGroup) end
+
+--- Raises the particle quota on a named particle system.
+--- @param name string
+--- @param quota integer
+--- @return boolean
+function exu.SetParticleSystemParticleQuota(name, quota) end
+
+--- Sets the default billboard dimensions on a named particle system.
+--- @param name string
+--- @param width number
+--- @param height number
+--- @return boolean
+function exu.SetParticleSystemDefaultDimensions(name, width, height) end
+
 --- Returns whether scene bounding boxes are currently shown.
 --- @nodiscard
 --- @return boolean
@@ -963,6 +1134,73 @@ function exu.CloneMaterial(sourceMaterialName, cloneMaterialName, resourceGroup)
 --- @param resourceGroup string? optional
 --- @return boolean
 function exu.SetMaterialTexture(materialName, textureName, techniqueIndex, passIndex, textureUnitIndex, resourceGroup) end
+
+--- Sets the current UV scroll offset on a material pass texture unit.
+--- The technique index defaults to 0, the pass index defaults to 0, the texture unit index defaults to 0,
+--- and the resource group defaults to "General".
+--- @param materialName string
+--- @param u number
+--- @param v number
+--- @param techniqueIndex integer? optional
+--- @param passIndex integer? optional
+--- @param textureUnitIndex integer? optional
+--- @param resourceGroup string? optional
+--- @return boolean
+function exu.SetMaterialTextureScroll(materialName, u, v, techniqueIndex, passIndex, textureUnitIndex, resourceGroup) end
+
+--- Sets the current UV rotation on a material pass texture unit in radians.
+--- The technique index defaults to 0, the pass index defaults to 0, the texture unit index defaults to 0,
+--- and the resource group defaults to "General".
+--- @param materialName string
+--- @param radians number
+--- @param techniqueIndex integer? optional
+--- @param passIndex integer? optional
+--- @param textureUnitIndex integer? optional
+--- @param resourceGroup string? optional
+--- @return boolean
+function exu.SetMaterialTextureRotate(materialName, radians, techniqueIndex, passIndex, textureUnitIndex, resourceGroup) end
+
+--- Sets scrolling UV animation speeds on a material pass texture unit.
+--- The technique index defaults to 0, the pass index defaults to 0, the texture unit index defaults to 0,
+--- and the resource group defaults to "General".
+--- @param materialName string
+--- @param uSpeed number
+--- @param vSpeed number
+--- @param techniqueIndex integer? optional
+--- @param passIndex integer? optional
+--- @param textureUnitIndex integer? optional
+--- @param resourceGroup string? optional
+--- @return boolean
+function exu.SetMaterialTextureScrollAnimation(materialName, uSpeed, vSpeed, techniqueIndex, passIndex, textureUnitIndex, resourceGroup) end
+
+--- Sets rotational UV animation speed on a material pass texture unit in radians per second.
+--- The technique index defaults to 0, the pass index defaults to 0, the texture unit index defaults to 0,
+--- and the resource group defaults to "General".
+--- @param materialName string
+--- @param speed number
+--- @param techniqueIndex integer? optional
+--- @param passIndex integer? optional
+--- @param textureUnitIndex integer? optional
+--- @param resourceGroup string? optional
+--- @return boolean
+function exu.SetMaterialTextureRotateAnimation(materialName, speed, techniqueIndex, passIndex, textureUnitIndex, resourceGroup) end
+
+--- Resolves a terrain atlas material name from a TRN file.
+--- When no argument is provided, EXU asks stock Lua for the current map's TRN and reads `[Atlases] MaterialName`.
+--- @nodiscard
+--- @param trnFilename string? optional
+--- @return string | nil
+function exu.GetTerrainMaterialName(trnFilename) end
+
+--- Applies one or more terrain texture-unit swaps to the active terrain material.
+--- This keeps HG2/TRN tile painting intact and only retargets the terrain material's live texture inputs.
+--- Supported texture fields are `diffuse`, `detail`, `normal`, `specular`, and `emissive`.
+--- EXU also accepts the `*Map` aliases shown in `TerrainTextureSet`.
+--- If `material` is omitted, EXU resolves the current map's terrain material from the TRN.
+--- @param textureSet TerrainTextureSet
+--- @return boolean success
+--- @return string | nil materialName
+function exu.SetTerrainTextureSet(textureSet) end
 
 --- Gets the ambient, diffuse, specular, and emissive colors from a material pass.
 --- The technique index defaults to 0, the pass index defaults to 0, and the resource group defaults to "General".

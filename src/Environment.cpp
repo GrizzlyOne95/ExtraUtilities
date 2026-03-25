@@ -824,21 +824,937 @@ namespace ExtraUtilities::Lua::Environment
 		}
 	}
 
-	bool TryGetSkyPlaneGenParameters(void* sceneManager, Ogre::SkyPlaneGenParameters& outParams)
-	{
-		__try
+		bool TryGetSkyPlaneGenParameters(void* sceneManager, Ogre::SkyPlaneGenParameters& outParams)
 		{
-			return Ogre::GetSkyPlaneGenParameters(sceneManager, outParams);
+			__try
+			{
+				return Ogre::GetSkyPlaneGenParameters(sceneManager, outParams);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Sky] get skyplane params crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+				return false;
+			}
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+
+		template<typename T>
+		T ResolveOgreProc(const char* name)
 		{
-			LogEnvironmentDebug("[EXU::Sky] get skyplane params crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+			HMODULE ogreMain = GetOgreMainModule();
+			if (ogreMain == nullptr)
+			{
+				return nullptr;
+			}
+
+			return reinterpret_cast<T>(GetProcAddress(ogreMain, name));
+		}
+
+		struct OgreQuaternionValue
+		{
+			float w = 1.0f;
+			float x = 0.0f;
+			float y = 0.0f;
+			float z = 0.0f;
+		};
+
+		struct OgrePlaneValue
+		{
+			BZR::VECTOR_3D normal{ 0.0f, -1.0f, 0.0f };
+			float d = 1000.0f;
+		};
+
+		using IsSkyEnabledFn = bool(__thiscall*)(void*);
+		using SetSkyEnabledFn = void(__thiscall*)(void*, bool);
+		using SetSkyBoxFn = void(__thiscall*)(void*, bool, const std::string&, float, bool, const OgreQuaternionValue&, const std::string&);
+		using SetSkyDomeFn = void(__thiscall*)(void*, bool, const std::string&, float, float, float, bool, const OgreQuaternionValue&, int, int, int, const std::string&);
+		using SetSkyPlaneFn = void(__thiscall*)(void*, bool, const OgrePlaneValue&, const std::string&, float, float, bool, float, int, int, const std::string&);
+
+		IsSkyEnabledFn ResolveIsSkyBoxEnabled()
+		{
+			static IsSkyEnabledFn fn = ResolveOgreProc<IsSkyEnabledFn>("?isSkyBoxEnabled@SceneManager@Ogre@@UBE_NXZ");
+			return fn;
+		}
+
+		IsSkyEnabledFn ResolveIsSkyDomeEnabled()
+		{
+			static IsSkyEnabledFn fn = ResolveOgreProc<IsSkyEnabledFn>("?isSkyDomeEnabled@SceneManager@Ogre@@UBE_NXZ");
+			return fn;
+		}
+
+		IsSkyEnabledFn ResolveIsSkyPlaneEnabled()
+		{
+			static IsSkyEnabledFn fn = ResolveOgreProc<IsSkyEnabledFn>("?isSkyPlaneEnabled@SceneManager@Ogre@@UBE_NXZ");
+			return fn;
+		}
+
+		SetSkyEnabledFn ResolveSetSkyBoxEnabled()
+		{
+			static SetSkyEnabledFn fn = ResolveOgreProc<SetSkyEnabledFn>("?setSkyBoxEnabled@SceneManager@Ogre@@UAEX_N@Z");
+			return fn;
+		}
+
+		SetSkyEnabledFn ResolveSetSkyDomeEnabled()
+		{
+			static SetSkyEnabledFn fn = ResolveOgreProc<SetSkyEnabledFn>("?setSkyDomeEnabled@SceneManager@Ogre@@UAEX_N@Z");
+			return fn;
+		}
+
+		SetSkyEnabledFn ResolveSetSkyPlaneEnabled()
+		{
+			static SetSkyEnabledFn fn = ResolveOgreProc<SetSkyEnabledFn>("?setSkyPlaneEnabled@SceneManager@Ogre@@UAEX_N@Z");
+			return fn;
+		}
+
+		SetSkyBoxFn ResolveSetSkyBox()
+		{
+			static SetSkyBoxFn fn = ResolveOgreProc<SetSkyBoxFn>("?setSkyBox@SceneManager@Ogre@@UAEX_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@M0ABVQuaternion@2@1@Z");
+			return fn;
+		}
+
+		SetSkyDomeFn ResolveSetSkyDome()
+		{
+			static SetSkyDomeFn fn = ResolveOgreProc<SetSkyDomeFn>("?setSkyDome@SceneManager@Ogre@@UAEX_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@MMM0ABVQuaternion@2@HHH1@Z");
+			return fn;
+		}
+
+		SetSkyPlaneFn ResolveSetSkyPlane()
+		{
+			static SetSkyPlaneFn fn = ResolveOgreProc<SetSkyPlaneFn>("?setSkyPlane@SceneManager@Ogre@@UAEX_NABVPlane@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@MM0MHH2@Z");
+			return fn;
+		}
+
+		bool TryGetSkyEnabled(void* sceneManager, IsSkyEnabledFn fn, bool& outEnabled, const char* label)
+		{
+			outEnabled = false;
+			if (sceneManager == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				outEnabled = fn(sceneManager);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Sky] %s enabled probe crashed sceneManager=%p code=0x%08X", label, sceneManager, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetSkyEnabled(void* sceneManager, SetSkyEnabledFn fn, bool enabled, const char* label)
+		{
+			if (sceneManager == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(sceneManager, enabled);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Sky] %s enabled setter crashed sceneManager=%p enabled=%d code=0x%08X", label, sceneManager, enabled ? 1 : 0, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetSkyBox(void* sceneManager, const std::string& materialName, float distance, bool drawFirst, const std::string& resourceGroup)
+		{
+			const auto fn = ResolveSetSkyBox();
+			if (sceneManager == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			const OgreQuaternionValue identity{};
+			__try
+			{
+				fn(sceneManager, true, materialName, distance, drawFirst, identity, resourceGroup);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug(
+					"[EXU::Sky] setSkyBox crashed sceneManager=%p material=%s distance=%g drawFirst=%d group=%s code=0x%08X",
+					sceneManager,
+					materialName.c_str(),
+					distance,
+					drawFirst ? 1 : 0,
+					resourceGroup.c_str(),
+					GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetSkyDome(
+			void* sceneManager,
+			const std::string& materialName,
+			float curvature,
+			float tiling,
+			float distance,
+			bool drawFirst,
+			int xsegments,
+			int ysegments,
+			int ysegmentsKeep,
+			const std::string& resourceGroup)
+		{
+			const auto fn = ResolveSetSkyDome();
+			if (sceneManager == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			const OgreQuaternionValue identity{};
+			__try
+			{
+				fn(sceneManager, true, materialName, curvature, tiling, distance, drawFirst, identity, xsegments, ysegments, ysegmentsKeep, resourceGroup);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug(
+					"[EXU::Sky] setSkyDome crashed sceneManager=%p material=%s curvature=%g tiling=%g distance=%g drawFirst=%d group=%s code=0x%08X",
+					sceneManager,
+					materialName.c_str(),
+					curvature,
+					tiling,
+					distance,
+					drawFirst ? 1 : 0,
+					resourceGroup.c_str(),
+					GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetSkyPlane(
+			void* sceneManager,
+			const OgrePlaneValue& plane,
+			const std::string& materialName,
+			float scale,
+			float tiling,
+			bool drawFirst,
+			float bow,
+			int xsegments,
+			int ysegments,
+			const std::string& resourceGroup)
+		{
+			const auto fn = ResolveSetSkyPlane();
+			if (sceneManager == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(sceneManager, true, plane, materialName, scale, tiling, drawFirst, bow, xsegments, ysegments, resourceGroup);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug(
+					"[EXU::Sky] setSkyPlane crashed sceneManager=%p material=%s scale=%g tiling=%g drawFirst=%d bow=%g group=%s code=0x%08X",
+					sceneManager,
+					materialName.c_str(),
+					scale,
+					tiling,
+					drawFirst ? 1 : 0,
+					bow,
+					resourceGroup.c_str(),
+					GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryReadSkyPlane(lua_State* L, int idx, OgrePlaneValue& outPlane)
+		{
+			luaL_checktype(L, idx, LUA_TTABLE);
+
+			BZR::VECTOR_3D normal{ 0.0f, -1.0f, 0.0f };
+			lua_getfield(L, idx, "normal");
+			if (!lua_isnil(L, -1))
+			{
+				normal = CheckVectorOrSingles(L, -1);
+			}
+			lua_pop(L, 1);
+
+			bool hasDistance = false;
+			float distance = 1000.0f;
+			lua_getfield(L, idx, "d");
+			if (!lua_isnil(L, -1))
+			{
+				hasDistance = true;
+				distance = static_cast<float>(luaL_checknumber(L, -1));
+			}
+			lua_pop(L, 1);
+
+			if (!hasDistance)
+			{
+				lua_getfield(L, idx, "distance");
+				if (!lua_isnil(L, -1))
+				{
+					hasDistance = true;
+					distance = static_cast<float>(luaL_checknumber(L, -1));
+				}
+				lua_pop(L, 1);
+			}
+
+			if (!hasDistance)
+			{
+				luaL_error(L, "sky plane table requires a numeric d or distance field");
+				return false;
+			}
+
+			outPlane.normal = normal;
+			outPlane.d = distance;
+			return true;
+		}
+
+		std::string CheckOptionalSkyResourceGroup(lua_State* L, int idx)
+		{
+			if (lua_isnoneornil(L, idx))
+			{
+				return "General";
+			}
+
+			return luaL_checkstring(L, idx);
+		}
+
+		constexpr std::string_view kManagedParticleNodePrefix = "__exu_ps_node_";
+		constexpr int kOgreTransformSpaceLocal = 0;
+
+		using CreateParticleSystemFn = void*(__thiscall*)(void*, const std::string&, const std::string&);
+		using DestroyParticleSystemFn = void(__thiscall*)(void*, const std::string&);
+		using GetParticleSystemFn = void*(__thiscall*)(void*, const std::string&);
+		using HasParticleSystemFn = bool(__thiscall*)(void*, const std::string&);
+		using GetRootSceneNodeFn = void*(__thiscall*)(void*);
+		using CreateChildSceneNodeFn = void*(__thiscall*)(void*, const std::string&, const BZR::VECTOR_3D&, const OgreQuaternionValue&);
+		using GetSceneNodeFn = void*(__thiscall*)(void*, const std::string&);
+		using HasSceneNodeFn = bool(__thiscall*)(void*, const std::string&);
+		using DestroySceneNodeFn = void(__thiscall*)(void*, const std::string&);
+		using AttachObjectFn = void(__thiscall*)(void*, void*);
+		using SetNodePositionFn = void(__thiscall*)(void*, const BZR::VECTOR_3D&);
+		using SetSceneNodeDirectionFn = void(__thiscall*)(void*, const BZR::VECTOR_3D&, int, const BZR::VECTOR_3D&);
+		using SetParticleSystemEmittingFn = void(__thiscall*)(void*, bool);
+		using SetParticleSystemSpeedFactorFn = void(__thiscall*)(void*, float);
+		using SetParticleSystemKeepLocalSpaceFn = void(__thiscall*)(void*, bool);
+		using SetParticleSystemMaterialFn = void(__thiscall*)(void*, const std::string&, const std::string&);
+		using SetParticleSystemRenderQueueGroupFn = void(__thiscall*)(void*, uint8_t);
+		using SetParticleSystemParticleQuotaFn = void(__thiscall*)(void*, uint32_t);
+		using SetParticleSystemDefaultDimensionsFn = void(__thiscall*)(void*, float, float);
+		using SetMovableObjectVisibleFn = void(__thiscall*)(void*, bool);
+
+		CreateParticleSystemFn ResolveCreateParticleSystem()
+		{
+			static CreateParticleSystemFn fn = ResolveOgreProc<CreateParticleSystemFn>("?createParticleSystem@SceneManager@Ogre@@UAEPAVParticleSystem@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0@Z");
+			return fn;
+		}
+
+		DestroyParticleSystemFn ResolveDestroyParticleSystem()
+		{
+			static DestroyParticleSystemFn fn = ResolveOgreProc<DestroyParticleSystemFn>("?destroyParticleSystem@SceneManager@Ogre@@UAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
+			return fn;
+		}
+
+		GetParticleSystemFn ResolveGetParticleSystem()
+		{
+			static GetParticleSystemFn fn = ResolveOgreProc<GetParticleSystemFn>("?getParticleSystem@SceneManager@Ogre@@UBEPAVParticleSystem@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
+			return fn;
+		}
+
+		HasParticleSystemFn ResolveHasParticleSystem()
+		{
+			static HasParticleSystemFn fn = ResolveOgreProc<HasParticleSystemFn>("?hasParticleSystem@SceneManager@Ogre@@UBE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
+			return fn;
+		}
+
+		GetRootSceneNodeFn ResolveGetRootSceneNode()
+		{
+			static GetRootSceneNodeFn fn = ResolveOgreProc<GetRootSceneNodeFn>("?getRootSceneNode@SceneManager@Ogre@@UAEPAVSceneNode@2@XZ");
+			return fn;
+		}
+
+		CreateChildSceneNodeFn ResolveCreateChildSceneNode()
+		{
+			static CreateChildSceneNodeFn fn = ResolveOgreProc<CreateChildSceneNodeFn>("?createChildSceneNode@SceneNode@Ogre@@UAEPAV12@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@ABVVector3@2@ABVQuaternion@2@@Z");
+			return fn;
+		}
+
+		GetSceneNodeFn ResolveGetSceneNode()
+		{
+			static GetSceneNodeFn fn = ResolveOgreProc<GetSceneNodeFn>("?getSceneNode@SceneManager@Ogre@@UBEPAVSceneNode@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
+			return fn;
+		}
+
+		HasSceneNodeFn ResolveHasSceneNode()
+		{
+			static HasSceneNodeFn fn = ResolveOgreProc<HasSceneNodeFn>("?hasSceneNode@SceneManager@Ogre@@UBE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
+			return fn;
+		}
+
+		DestroySceneNodeFn ResolveDestroySceneNode()
+		{
+			static DestroySceneNodeFn fn = ResolveOgreProc<DestroySceneNodeFn>("?destroySceneNode@SceneManager@Ogre@@UAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
+			return fn;
+		}
+
+		AttachObjectFn ResolveAttachObject()
+		{
+			static AttachObjectFn fn = ResolveOgreProc<AttachObjectFn>("?attachObject@SceneNode@Ogre@@UAEXPAVMovableObject@2@@Z");
+			return fn;
+		}
+
+		SetNodePositionFn ResolveSetNodePosition()
+		{
+			static SetNodePositionFn fn = ResolveOgreProc<SetNodePositionFn>("?setPosition@Node@Ogre@@UAEXABVVector3@2@@Z");
+			return fn;
+		}
+
+		SetSceneNodeDirectionFn ResolveSetSceneNodeDirection()
+		{
+			static SetSceneNodeDirectionFn fn = ResolveOgreProc<SetSceneNodeDirectionFn>("?setDirection@SceneNode@Ogre@@UAEXABVVector3@2@W4TransformSpace@Node@2@0@Z");
+			return fn;
+		}
+
+		SetParticleSystemEmittingFn ResolveSetParticleSystemEmitting()
+		{
+			static SetParticleSystemEmittingFn fn = ResolveOgreProc<SetParticleSystemEmittingFn>("?setEmitting@ParticleSystem@Ogre@@QAEX_N@Z");
+			return fn;
+		}
+
+		SetParticleSystemSpeedFactorFn ResolveSetParticleSystemSpeedFactor()
+		{
+			static SetParticleSystemSpeedFactorFn fn = ResolveOgreProc<SetParticleSystemSpeedFactorFn>("?setSpeedFactor@ParticleSystem@Ogre@@QAEXM@Z");
+			return fn;
+		}
+
+		SetParticleSystemKeepLocalSpaceFn ResolveSetParticleSystemKeepLocalSpace()
+		{
+			static SetParticleSystemKeepLocalSpaceFn fn = ResolveOgreProc<SetParticleSystemKeepLocalSpaceFn>("?setKeepParticlesInLocalSpace@ParticleSystem@Ogre@@QAEX_N@Z");
+			return fn;
+		}
+
+		SetParticleSystemMaterialFn ResolveSetParticleSystemMaterial()
+		{
+			static SetParticleSystemMaterialFn fn = ResolveOgreProc<SetParticleSystemMaterialFn>("?setMaterialName@ParticleSystem@Ogre@@UAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0@Z");
+			return fn;
+		}
+
+		SetParticleSystemRenderQueueGroupFn ResolveSetParticleSystemRenderQueueGroup()
+		{
+			static SetParticleSystemRenderQueueGroupFn fn = ResolveOgreProc<SetParticleSystemRenderQueueGroupFn>("?setRenderQueueGroup@ParticleSystem@Ogre@@UAEXE@Z");
+			return fn;
+		}
+
+		SetParticleSystemParticleQuotaFn ResolveSetParticleSystemParticleQuota()
+		{
+			static SetParticleSystemParticleQuotaFn fn = ResolveOgreProc<SetParticleSystemParticleQuotaFn>("?setParticleQuota@ParticleSystem@Ogre@@QAEXI@Z");
+			return fn;
+		}
+
+		SetParticleSystemDefaultDimensionsFn ResolveSetParticleSystemDefaultDimensions()
+		{
+			static SetParticleSystemDefaultDimensionsFn fn = ResolveOgreProc<SetParticleSystemDefaultDimensionsFn>("?setDefaultDimensions@ParticleSystem@Ogre@@UAEXMM@Z");
+			return fn;
+		}
+
+		SetMovableObjectVisibleFn ResolveSetMovableObjectVisible()
+		{
+			static SetMovableObjectVisibleFn fn = ResolveOgreProc<SetMovableObjectVisibleFn>("?setVisible@MovableObject@Ogre@@UAEX_N@Z");
+			return fn;
+		}
+
+		std::string BuildManagedParticleNodeName(std::string_view particleName)
+		{
+			std::string result(kManagedParticleNodePrefix);
+			result += particleName;
+			return result;
+		}
+
+		std::string CheckOptionalParticleResourceGroup(lua_State* L, int idx)
+		{
+			if (lua_isnoneornil(L, idx))
+			{
+				return "General";
+			}
+
+			return luaL_checkstring(L, idx);
+		}
+
+		bool TryHasParticleSystem(void* sceneManager, const std::string& name, bool& outHasParticleSystem)
+		{
+			outHasParticleSystem = false;
+			const auto fn = ResolveHasParticleSystem();
+			if (sceneManager == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				outHasParticleSystem = fn(sceneManager, name);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] hasParticleSystem crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryHasSceneNode(void* sceneManager, const std::string& name, bool& outHasSceneNode)
+		{
+			outHasSceneNode = false;
+			const auto fn = ResolveHasSceneNode();
+			if (sceneManager == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				outHasSceneNode = fn(sceneManager, name);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] hasSceneNode crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryGetParticleSystem(void* sceneManager, const std::string& name, void*& outParticleSystem)
+		{
+			outParticleSystem = nullptr;
+			bool hasParticleSystem = false;
+			if (!TryHasParticleSystem(sceneManager, name, hasParticleSystem) || !hasParticleSystem)
+			{
+				return false;
+			}
+
+			const auto fn = ResolveGetParticleSystem();
+			if (fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				outParticleSystem = fn(sceneManager, name);
+				return outParticleSystem != nullptr;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] getParticleSystem crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryGetSceneNode(void* sceneManager, const std::string& nodeName, void*& outSceneNode)
+		{
+			outSceneNode = nullptr;
+			bool hasSceneNode = false;
+			if (!TryHasSceneNode(sceneManager, nodeName, hasSceneNode) || !hasSceneNode)
+			{
+				return false;
+			}
+
+			const auto fn = ResolveGetSceneNode();
+			if (fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				outSceneNode = fn(sceneManager, nodeName);
+				return outSceneNode != nullptr;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] getSceneNode crashed sceneManager=%p node=%s code=0x%08X", sceneManager, nodeName.c_str(), GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryGetManagedParticleSceneNode(void* sceneManager, const std::string& particleName, void*& outSceneNode)
+		{
+			return TryGetSceneNode(sceneManager, BuildManagedParticleNodeName(particleName), outSceneNode);
+		}
+
+		bool TryDestroyParticleSystemByName(void* sceneManager, const std::string& name)
+		{
+			const auto fn = ResolveDestroyParticleSystem();
+			if (sceneManager == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			bool hasParticleSystem = false;
+			if (!TryHasParticleSystem(sceneManager, name, hasParticleSystem) || !hasParticleSystem)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(sceneManager, name);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] destroyParticleSystem crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryDestroySceneNodeByName(void* sceneManager, const std::string& nodeName)
+		{
+			const auto fn = ResolveDestroySceneNode();
+			if (sceneManager == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			bool hasSceneNode = false;
+			if (!TryHasSceneNode(sceneManager, nodeName, hasSceneNode) || !hasSceneNode)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(sceneManager, nodeName);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] destroySceneNode crashed sceneManager=%p node=%s code=0x%08X", sceneManager, nodeName.c_str(), GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryDestroyManagedParticleSystem(void* sceneManager, const std::string& name)
+		{
+			if (sceneManager == nullptr)
+			{
+				return false;
+			}
+
+			bool removedAny = false;
+			removedAny = TryDestroyParticleSystemByName(sceneManager, name) || removedAny;
+			removedAny = TryDestroySceneNodeByName(sceneManager, BuildManagedParticleNodeName(name)) || removedAny;
+			return removedAny;
+		}
+
+		bool TryCreateParticleSystemAttachment(void* sceneManager, const std::string& name, const std::string& templateName, const std::string& nodeName, const BZR::VECTOR_3D& position)
+		{
+			const auto createParticleFn = ResolveCreateParticleSystem();
+			const auto getRootSceneNodeFn = ResolveGetRootSceneNode();
+			const auto createChildSceneNodeFn = ResolveCreateChildSceneNode();
+			const auto attachObjectFn = ResolveAttachObject();
+			if (sceneManager == nullptr || createParticleFn == nullptr || getRootSceneNodeFn == nullptr ||
+				createChildSceneNodeFn == nullptr || attachObjectFn == nullptr)
+			{
+				return false;
+			}
+
+			void* rootSceneNode = nullptr;
+			void* particleSystem = nullptr;
+			void* childSceneNode = nullptr;
+			const OgreQuaternionValue identity{};
+			__try
+			{
+				rootSceneNode = getRootSceneNodeFn(sceneManager);
+				if (rootSceneNode == nullptr)
+				{
+					LogEnvironmentDebug("[EXU::Particle] create skipped sceneManager=%p name=%s reason=no_root_scene_node", sceneManager, name.c_str());
+					return false;
+				}
+
+				particleSystem = createParticleFn(sceneManager, name, templateName);
+				if (particleSystem == nullptr)
+				{
+					LogEnvironmentDebug("[EXU::Particle] create failed sceneManager=%p name=%s template=%s reason=null_particle", sceneManager, name.c_str(), templateName.c_str());
+					return false;
+				}
+
+				childSceneNode = createChildSceneNodeFn(rootSceneNode, nodeName, position, identity);
+				if (childSceneNode == nullptr)
+				{
+					LogEnvironmentDebug("[EXU::Particle] create failed sceneManager=%p name=%s node=%s reason=null_scene_node", sceneManager, name.c_str(), nodeName.c_str());
+					return false;
+				}
+
+				attachObjectFn(childSceneNode, particleSystem);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug(
+					"[EXU::Particle] create crashed sceneManager=%p name=%s template=%s node=%s code=0x%08X",
+					sceneManager,
+					name.c_str(),
+					templateName.c_str(),
+					nodeName.c_str(),
+					GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryCreateManagedParticleSystem(void* sceneManager, const std::string& name, const std::string& templateName, const BZR::VECTOR_3D& position)
+		{
+			if (sceneManager == nullptr)
+			{
+				return false;
+			}
+
+			bool hasParticleSystem = false;
+			if (TryHasParticleSystem(sceneManager, name, hasParticleSystem) && hasParticleSystem)
+			{
+				LogEnvironmentDebug("[EXU::Particle] create skipped sceneManager=%p name=%s reason=particle_exists", sceneManager, name.c_str());
+				return false;
+			}
+
+			const std::string nodeName = BuildManagedParticleNodeName(name);
+			bool hasSceneNode = false;
+			if (TryHasSceneNode(sceneManager, nodeName, hasSceneNode) && hasSceneNode)
+			{
+				LogEnvironmentDebug("[EXU::Particle] create skipped sceneManager=%p name=%s node=%s reason=node_exists", sceneManager, name.c_str(), nodeName.c_str());
+				return false;
+			}
+
+			if (TryCreateParticleSystemAttachment(sceneManager, name, templateName, nodeName, position))
+			{
+				return true;
+			}
+
+			TryDestroyManagedParticleSystem(sceneManager, name);
 			return false;
 		}
-	}
 
-	using GetViewportOverlaysEnabledFn = bool(__thiscall*)(void*);
-	using SetViewportOverlaysEnabledFn = void(__thiscall*)(void*, bool);
+		bool TrySetManagedParticleSceneNodePosition(void* sceneManager, const std::string& name, const BZR::VECTOR_3D& position)
+		{
+			void* sceneNode = nullptr;
+			const auto fn = ResolveSetNodePosition();
+			if (!TryGetManagedParticleSceneNode(sceneManager, name, sceneNode) || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(sceneNode, position);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] setPosition crashed sceneNode=%p name=%s code=0x%08X", sceneNode, name.c_str(), GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetManagedParticleSceneNodeDirection(void* sceneManager, const std::string& name, const BZR::VECTOR_3D& direction)
+		{
+			void* sceneNode = nullptr;
+			const auto fn = ResolveSetSceneNodeDirection();
+			if (!TryGetManagedParticleSceneNode(sceneManager, name, sceneNode) || fn == nullptr)
+			{
+				return false;
+			}
+
+			const BZR::VECTOR_3D localDirectionVector{ 0.0f, 0.0f, -1.0f };
+			__try
+			{
+				fn(sceneNode, direction, kOgreTransformSpaceLocal, localDirectionVector);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] setDirection crashed sceneNode=%p name=%s code=0x%08X", sceneNode, name.c_str(), GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetParticleSystemEmitting(void* sceneManager, const std::string& name, bool enabled)
+		{
+			void* particleSystem = nullptr;
+			const auto fn = ResolveSetParticleSystemEmitting();
+			if (!TryGetParticleSystem(sceneManager, name, particleSystem) || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(particleSystem, enabled);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] setEmitting crashed particleSystem=%p name=%s enabled=%d code=0x%08X", particleSystem, name.c_str(), enabled ? 1 : 0, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetParticleSystemVisible(void* sceneManager, const std::string& name, bool enabled)
+		{
+			void* particleSystem = nullptr;
+			const auto fn = ResolveSetMovableObjectVisible();
+			if (!TryGetParticleSystem(sceneManager, name, particleSystem) || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(particleSystem, enabled);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] setVisible crashed particleSystem=%p name=%s enabled=%d code=0x%08X", particleSystem, name.c_str(), enabled ? 1 : 0, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetParticleSystemSpeedFactor(void* sceneManager, const std::string& name, float speedFactor)
+		{
+			void* particleSystem = nullptr;
+			const auto fn = ResolveSetParticleSystemSpeedFactor();
+			if (!TryGetParticleSystem(sceneManager, name, particleSystem) || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(particleSystem, speedFactor);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] setSpeedFactor crashed particleSystem=%p name=%s speed=%g code=0x%08X", particleSystem, name.c_str(), speedFactor, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetParticleSystemKeepLocalSpace(void* sceneManager, const std::string& name, bool enabled)
+		{
+			void* particleSystem = nullptr;
+			const auto fn = ResolveSetParticleSystemKeepLocalSpace();
+			if (!TryGetParticleSystem(sceneManager, name, particleSystem) || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(particleSystem, enabled);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] setKeepParticlesInLocalSpace crashed particleSystem=%p name=%s enabled=%d code=0x%08X", particleSystem, name.c_str(), enabled ? 1 : 0, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetParticleSystemMaterial(void* sceneManager, const std::string& name, const std::string& materialName, const std::string& resourceGroup)
+		{
+			void* particleSystem = nullptr;
+			const auto fn = ResolveSetParticleSystemMaterial();
+			if (!TryGetParticleSystem(sceneManager, name, particleSystem) || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(particleSystem, materialName, resourceGroup);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug(
+					"[EXU::Particle] setMaterialName crashed particleSystem=%p name=%s material=%s group=%s code=0x%08X",
+					particleSystem,
+					name.c_str(),
+					materialName.c_str(),
+					resourceGroup.c_str(),
+					GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetParticleSystemRenderQueueGroup(void* sceneManager, const std::string& name, uint8_t renderQueueGroup)
+		{
+			void* particleSystem = nullptr;
+			const auto fn = ResolveSetParticleSystemRenderQueueGroup();
+			if (!TryGetParticleSystem(sceneManager, name, particleSystem) || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(particleSystem, renderQueueGroup);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] setRenderQueueGroup crashed particleSystem=%p name=%s queue=%u code=0x%08X", particleSystem, name.c_str(), renderQueueGroup, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetParticleSystemParticleQuota(void* sceneManager, const std::string& name, uint32_t quota)
+		{
+			void* particleSystem = nullptr;
+			const auto fn = ResolveSetParticleSystemParticleQuota();
+			if (!TryGetParticleSystem(sceneManager, name, particleSystem) || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(particleSystem, quota);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] setParticleQuota crashed particleSystem=%p name=%s quota=%u code=0x%08X", particleSystem, name.c_str(), quota, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetParticleSystemDefaultDimensions(void* sceneManager, const std::string& name, float width, float height)
+		{
+			void* particleSystem = nullptr;
+			const auto fn = ResolveSetParticleSystemDefaultDimensions();
+			if (!TryGetParticleSystem(sceneManager, name, particleSystem) || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(particleSystem, width, height);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] setDefaultDimensions crashed particleSystem=%p name=%s width=%g height=%g code=0x%08X", particleSystem, name.c_str(), width, height, GetExceptionCode());
+				return false;
+			}
+		}
+
+		using GetViewportOverlaysEnabledFn = bool(__thiscall*)(void*);
+		using SetViewportOverlaysEnabledFn = void(__thiscall*)(void*, bool);
 
 	GetViewportOverlaysEnabledFn ResolveGetViewportOverlaysEnabled()
 	{
@@ -1491,6 +2407,452 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		PushSkyPlaneParams(L, params);
+		return 1;
+	}
+
+	int GetSkyBoxEnabled(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		bool enabled = false;
+		if (sceneManager != nullptr)
+		{
+			TryGetSkyEnabled(sceneManager, ResolveIsSkyBoxEnabled(), enabled, "skybox");
+		}
+
+		lua_pushboolean(L, enabled ? 1 : 0);
+		return 1;
+	}
+
+	int SetSkyBoxEnabled(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			return 0;
+		}
+
+		const bool enabled = CheckBool(L, 1);
+		TrySetSkyEnabled(sceneManager, ResolveSetSkyBoxEnabled(), enabled, "skybox");
+		return 0;
+	}
+
+	int SetSkyBox(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string materialName = luaL_checkstring(L, 1);
+		const float distance = static_cast<float>(luaL_optnumber(L, 2, 5000.0));
+		const bool drawFirst = lua_gettop(L) < 3 || lua_toboolean(L, 3) != 0;
+		const std::string resourceGroup = CheckOptionalSkyResourceGroup(L, 4);
+
+		lua_pushboolean(L, TrySetSkyBox(sceneManager, materialName, distance, drawFirst, resourceGroup) ? 1 : 0);
+		return 1;
+	}
+
+	int GetSkyDomeEnabled(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		bool enabled = false;
+		if (sceneManager != nullptr)
+		{
+			TryGetSkyEnabled(sceneManager, ResolveIsSkyDomeEnabled(), enabled, "skydome");
+		}
+
+		lua_pushboolean(L, enabled ? 1 : 0);
+		return 1;
+	}
+
+	int SetSkyDomeEnabled(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			return 0;
+		}
+
+		const bool enabled = CheckBool(L, 1);
+		TrySetSkyEnabled(sceneManager, ResolveSetSkyDomeEnabled(), enabled, "skydome");
+		return 0;
+	}
+
+	int SetSkyDome(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string materialName = luaL_checkstring(L, 1);
+		const float curvature = static_cast<float>(luaL_optnumber(L, 2, 10.0));
+		const float tiling = static_cast<float>(luaL_optnumber(L, 3, 8.0));
+		const float distance = static_cast<float>(luaL_optnumber(L, 4, 4000.0));
+		const bool drawFirst = lua_gettop(L) < 5 || lua_toboolean(L, 5) != 0;
+		const int xsegments = luaL_optint(L, 6, 16);
+		const int ysegments = luaL_optint(L, 7, 16);
+		const int ysegmentsKeep = luaL_optint(L, 8, -1);
+		const std::string resourceGroup = CheckOptionalSkyResourceGroup(L, 9);
+
+		lua_pushboolean(L, TrySetSkyDome(
+			sceneManager,
+			materialName,
+			curvature,
+			tiling,
+			distance,
+			drawFirst,
+			xsegments,
+			ysegments,
+			ysegmentsKeep,
+			resourceGroup) ? 1 : 0);
+		return 1;
+	}
+
+	int GetSkyPlaneEnabled(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		bool enabled = false;
+		if (sceneManager != nullptr)
+		{
+			TryGetSkyEnabled(sceneManager, ResolveIsSkyPlaneEnabled(), enabled, "skyplane");
+		}
+
+		lua_pushboolean(L, enabled ? 1 : 0);
+		return 1;
+	}
+
+	int SetSkyPlaneEnabled(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			return 0;
+		}
+
+		const bool enabled = CheckBool(L, 1);
+		TrySetSkyEnabled(sceneManager, ResolveSetSkyPlaneEnabled(), enabled, "skyplane");
+		return 0;
+	}
+
+	int SetSkyPlane(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string materialName = luaL_checkstring(L, 1);
+		OgrePlaneValue plane{};
+		TryReadSkyPlane(L, 2, plane);
+		const float scale = static_cast<float>(luaL_optnumber(L, 3, 1000.0));
+		const float tiling = static_cast<float>(luaL_optnumber(L, 4, 10.0));
+		const bool drawFirst = lua_gettop(L) < 5 || lua_toboolean(L, 5) != 0;
+		const float bow = static_cast<float>(luaL_optnumber(L, 6, 0.0));
+		const int xsegments = luaL_optint(L, 7, 1);
+		const int ysegments = luaL_optint(L, 8, 1);
+		const std::string resourceGroup = CheckOptionalSkyResourceGroup(L, 9);
+
+		lua_pushboolean(L, TrySetSkyPlane(
+			sceneManager,
+			plane,
+			materialName,
+			scale,
+			tiling,
+			drawFirst,
+			bow,
+			xsegments,
+			ysegments,
+			resourceGroup) ? 1 : 0);
+		return 1;
+	}
+
+	int HasParticleSystem(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		bool hasParticleSystem = false;
+		if (sceneManager != nullptr)
+		{
+			const std::string name = luaL_checkstring(L, 1);
+			TryHasParticleSystem(sceneManager, name, hasParticleSystem);
+		}
+
+		lua_pushboolean(L, hasParticleSystem ? 1 : 0);
+		return 1;
+	}
+
+	int CreateParticleSystem(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const std::string templateName = luaL_checkstring(L, 2);
+		BZR::VECTOR_3D position{ 0.0f, 0.0f, 0.0f };
+		if (!lua_isnoneornil(L, 3))
+		{
+			position = CheckVectorOrSingles(L, 3);
+			if (!IsFiniteVector(position))
+			{
+				return luaL_argerror(L, 3, "CreateParticleSystem requires a finite position vector");
+			}
+		}
+
+		lua_pushboolean(L, TryCreateManagedParticleSystem(sceneManager, name, templateName, position) ? 1 : 0);
+		return 1;
+	}
+
+	int DestroyParticleSystem(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		lua_pushboolean(L, TryDestroyManagedParticleSystem(sceneManager, name) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleSystemPosition(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const BZR::VECTOR_3D position = CheckVectorOrSingles(L, 2);
+		if (!IsFiniteVector(position))
+		{
+			return luaL_argerror(L, 2, "SetParticleSystemPosition requires a finite position vector");
+		}
+
+		lua_pushboolean(L, TrySetManagedParticleSceneNodePosition(sceneManager, name, position) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleSystemDirection(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const BZR::VECTOR_3D direction = CheckVectorOrSingles(L, 2);
+		if (!IsFiniteVector(direction))
+		{
+			return luaL_argerror(L, 2, "SetParticleSystemDirection requires a finite direction vector");
+		}
+
+		lua_pushboolean(L, TrySetManagedParticleSceneNodeDirection(sceneManager, name, direction) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleSystemEmitting(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const bool enabled = CheckBool(L, 2);
+		lua_pushboolean(L, TrySetParticleSystemEmitting(sceneManager, name, enabled) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleSystemVisible(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const bool enabled = CheckBool(L, 2);
+		lua_pushboolean(L, TrySetParticleSystemVisible(sceneManager, name, enabled) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleSystemSpeedFactor(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const float speedFactor = static_cast<float>(luaL_checknumber(L, 2));
+		if (!IsFiniteScalar(speedFactor))
+		{
+			return luaL_argerror(L, 2, "SetParticleSystemSpeedFactor requires a finite numeric value");
+		}
+
+		lua_pushboolean(L, TrySetParticleSystemSpeedFactor(sceneManager, name, speedFactor) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleSystemKeepLocalSpace(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const bool enabled = CheckBool(L, 2);
+		lua_pushboolean(L, TrySetParticleSystemKeepLocalSpace(sceneManager, name, enabled) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleSystemMaterial(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const std::string materialName = luaL_checkstring(L, 2);
+		const std::string resourceGroup = CheckOptionalParticleResourceGroup(L, 3);
+		lua_pushboolean(L, TrySetParticleSystemMaterial(sceneManager, name, materialName, resourceGroup) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleSystemRenderQueueGroup(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const lua_Integer queueGroup = luaL_checkinteger(L, 2);
+		if (queueGroup < 0 || queueGroup > 255)
+		{
+			return luaL_argerror(L, 2, "SetParticleSystemRenderQueueGroup requires an integer in the range 0-255");
+		}
+
+		lua_pushboolean(L, TrySetParticleSystemRenderQueueGroup(sceneManager, name, static_cast<uint8_t>(queueGroup)) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleSystemParticleQuota(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const lua_Integer quota = luaL_checkinteger(L, 2);
+		if (quota < 0)
+		{
+			return luaL_argerror(L, 2, "SetParticleSystemParticleQuota requires a non-negative integer");
+		}
+
+		lua_pushboolean(L, TrySetParticleSystemParticleQuota(sceneManager, name, static_cast<uint32_t>(quota)) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleSystemDefaultDimensions(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const float width = static_cast<float>(luaL_checknumber(L, 2));
+		const float height = static_cast<float>(luaL_checknumber(L, 3));
+		if (!IsFiniteScalar(width))
+		{
+			return luaL_argerror(L, 2, "SetParticleSystemDefaultDimensions requires a finite width");
+		}
+		if (!IsFiniteScalar(height))
+		{
+			return luaL_argerror(L, 3, "SetParticleSystemDefaultDimensions requires a finite height");
+		}
+
+		lua_pushboolean(L, TrySetParticleSystemDefaultDimensions(sceneManager, name, width, height) ? 1 : 0);
 		return 1;
 	}
 
