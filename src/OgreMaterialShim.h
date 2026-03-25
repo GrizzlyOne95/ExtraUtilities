@@ -35,6 +35,16 @@ namespace Ogre
 		float a = 1.0f;
 	};
 
+	class Radian
+	{
+	public:
+		explicit Radian(float value = 0.0f)
+			: mRad(value) {}
+
+	private:
+		float mRad = 0.0f;
+	};
+
 	template<typename T>
 	class SharedPtr
 	{
@@ -201,6 +211,59 @@ namespace Ogre
 		}
 
 		fn(textureUnitState, name, type);
+		return true;
+	}
+
+	inline bool SetTextureUnitStateTextureScroll(TextureUnitState* textureUnitState, float u, float v)
+	{
+		using Fn = void(__thiscall*)(TextureUnitState*, float, float);
+		static Fn fn = Detail::ResolveProc<Fn>("?setTextureScroll@TextureUnitState@Ogre@@QAEXMM@Z");
+		if (fn == nullptr || textureUnitState == nullptr)
+		{
+			return false;
+		}
+
+		fn(textureUnitState, u, v);
+		return true;
+	}
+
+	inline bool SetTextureUnitStateTextureRotate(TextureUnitState* textureUnitState, float radians)
+	{
+		using Fn = void(__thiscall*)(TextureUnitState*, const Radian&);
+		static Fn fn = Detail::ResolveProc<Fn>("?setTextureRotate@TextureUnitState@Ogre@@QAEXABVRadian@2@@Z");
+		if (fn == nullptr || textureUnitState == nullptr)
+		{
+			return false;
+		}
+
+		const Radian angle(radians);
+		fn(textureUnitState, angle);
+		return true;
+	}
+
+	inline bool SetTextureUnitStateScrollAnimation(TextureUnitState* textureUnitState, float uSpeed, float vSpeed)
+	{
+		using Fn = void(__thiscall*)(TextureUnitState*, float, float);
+		static Fn fn = Detail::ResolveProc<Fn>("?setScrollAnimation@TextureUnitState@Ogre@@QAEXMM@Z");
+		if (fn == nullptr || textureUnitState == nullptr)
+		{
+			return false;
+		}
+
+		fn(textureUnitState, uSpeed, vSpeed);
+		return true;
+	}
+
+	inline bool SetTextureUnitStateRotateAnimation(TextureUnitState* textureUnitState, float speed)
+	{
+		using Fn = void(__thiscall*)(TextureUnitState*, float);
+		static Fn fn = Detail::ResolveProc<Fn>("?setRotateAnimation@TextureUnitState@Ogre@@QAEXM@Z");
+		if (fn == nullptr || textureUnitState == nullptr)
+		{
+			return false;
+		}
+
+		fn(textureUnitState, speed);
 		return true;
 	}
 

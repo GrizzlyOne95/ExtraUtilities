@@ -53,6 +53,12 @@ namespace ExtraUtilities::Lua::GameObject
 	int MaterialExists(lua_State* L);
 	int CloneMaterial(lua_State* L);
 	int SetMaterialTexture(lua_State* L);
+	int SetMaterialTextureScroll(lua_State* L);
+	int SetMaterialTextureRotate(lua_State* L);
+	int SetMaterialTextureScrollAnimation(lua_State* L);
+	int SetMaterialTextureRotateAnimation(lua_State* L);
+	int GetTerrainMaterialName(lua_State* L);
+	int SetTerrainTextureSet(lua_State* L);
 	int GetMaterialPassColors(lua_State* L);
 	int SetMaterialPassColors(lua_State* L);
 
