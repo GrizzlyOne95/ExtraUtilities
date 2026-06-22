@@ -818,6 +818,11 @@ namespace ExtraUtilities::Lua
 
 			// Sound Options
 			{ "GetMusicVolume",   &SoundOptions::GetMusicVolume },
+			{ "SetMusicTrack",    &SoundOptions::SetMusicTrack },
+			{ "StopMusic",        &SoundOptions::StopMusic },
+			{ "PauseMusic",       &SoundOptions::PauseMusic },
+			{ "ResumeMusic",      &SoundOptions::ResumeMusic },
+			{ "GetMusicTrack",    &SoundOptions::GetMusicTrack },
 			//{ "GetEffectsVolume", &SoundOptions::GetEffectsVolume },
 			//{ "SetEffectsVolume", &SoundOptions::SetEffectsVolume },
 			//{ "GetVoiceVolume",   &SoundOptions::GetVoiceVolume },

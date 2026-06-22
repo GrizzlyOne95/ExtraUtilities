@@ -42,6 +42,8 @@ Recent additions:
 - Local smart-reticle hovercraft shot convergence via `exu.GetPlayerReticleShotConvergence()` and `exu.SetPlayerReticleShotConvergence(enabled)`.
 - Hardened environment/material-scheme access so bad viewport state is logged instead of crashing the caller when Ogre data is unavailable.
 - Terrain material convenience helpers via `exu.GetTerrainMaterialName([trnFilename])` and `exu.SetTerrainTextureSet(textureSet)` for live planet-style terrain re-theming without reloading HG2/TRN.
+- OpenShim music bridge helpers: `exu.SetMusicTrack(index)`, `exu.GetMusicTrack()`, `exu.StopMusic()`, `exu.PauseMusic()`, and `exu.ResumeMusic()`. These resolve optional OpenShim `winmm.dll` exports at runtime and fail closed when OpenShim or a specific native music control is unavailable.
+- Co-op mission sync helper example in `examples/openshim_coop_sync.lua`, wrapping stock Lua `Send`/`Receive` for host-authoritative objective text, markers, mission state, and win/loss synchronization.
 
 ## Terrain Planet Swap
 
