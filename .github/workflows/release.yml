@@ -23,11 +23,14 @@ jobs:
         run: |
           # OgreNativeFontBridge.cpp includes <OgreFont.h>, <OgreFontManager.h>, etc.
           # The vcxproj resolves these from $(ProjectDir)..\ogre-1.10.0\...
-          # so we need the headers in a sibling directory of the workspace.
+          # so the headers must land in a sibling directory of the workspace.
+          # Commit hash from OgreSceneManagerShim.h (tag v1.10.0 = f1f1937).
           $ogreDir = Join-Path (Split-Path "${{ github.workspace }}") "ogre-1.10.0"
-          git clone --depth 1 --branch v1-10-0 --filter=blob:none --sparse `
+          git clone --filter=blob:none --no-checkout `
             https://github.com/OGRECave/ogre.git $ogreDir
+          git -C $ogreDir sparse-checkout init --cone
           git -C $ogreDir sparse-checkout set OgreMain/include Components/Overlay/include
+          git -C $ogreDir checkout f1f1937fd6cbad05a4b9170b9882da91f42f53a5
 
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
