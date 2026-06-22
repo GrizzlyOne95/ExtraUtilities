@@ -32,6 +32,11 @@ namespace ExtraUtilities::Lua::SoundOptions
 	// inline Scanner voiceVolume(soundStruct2, { voiceOffset }, BasicScanner::Restore::DISABLED);
 
 	int GetMusicVolume(lua_State* L);
+	int SetMusicTrack(lua_State* L);
+	int StopMusic(lua_State* L);
+	int PauseMusic(lua_State* L);
+	int ResumeMusic(lua_State* L);
+	int GetMusicTrack(lua_State* L);
 	//int GetEffectsVolume(lua_State* L);
 	//int SetEffectsVolume(lua_State* L);
 	//int GetVoiceVolume(lua_State* L);
