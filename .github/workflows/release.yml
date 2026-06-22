@@ -18,6 +18,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Checkout Ogre 1.10.0 headers
+        shell: pwsh
+        run: |
+          # OgreNativeFontBridge.cpp includes <OgreFont.h>, <OgreFontManager.h>, etc.
+          # The vcxproj resolves these from $(ProjectDir)..\ogre-1.10.0\...
+          # so we need the headers in a sibling directory of the workspace.
+          $ogreDir = Join-Path (Split-Path "${{ github.workspace }}") "ogre-1.10.0"
+          git clone --depth 1 --branch v1-10-0 --filter=blob:none --sparse `
+            https://github.com/OGRECave/ogre.git $ogreDir
+          git -C $ogreDir sparse-checkout set OgreMain/include Components/Overlay/include
+
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
 
