@@ -1,0 +1,486 @@
+{
+  "$comment": "Machine-readable address catalog for Extra Utilities G1 (BZR 2.2.301).",
+  "$comment2": "Each entry carries the known hardcoded address alongside a 'pattern' field.",
+  "$comment3": "Patterns are IDA-style byte sequences (? = wildcard byte). Where no pattern has",
+  "$comment3b": "been derived yet the field is null — address was taken from the 2.2.301 PDB.",
+  "$comment4": "Future contributors: run Ghidra + pyghidra to derive patterns from the EXE bytes",
+  "$comment4b": "that surround each function/data location, then fill in the null pattern fields.",
+  "target": {
+    "game": "Battlezone 98 Redux",
+    "version": "2.2.301",
+    "exe": "bzr.exe",
+    "pdb": "bzr.pdb",
+    "architecture": "x86",
+    "note": "BZR is a 32-bit process. All absolute addresses are virtual addresses in the default load image."
+  },
+  "addresses": {
+    "Camera": {
+      "View_Record_MainCam": {
+        "address": "0x008EAAE0",
+        "type": "BZR_Camera*",
+        "description": "Pointer to the primary in-game camera record. Contains projection matrix, frustum planes, position, and zoom.",
+        "pattern": null
+      },
+      "zoomFactorFPP": {
+        "address": "0x008EAD10",
+        "type": "float*",
+        "description": "First-person (cockpit/FPP) camera zoom factor. Stock value ~1.0.",
+        "pattern": null
+      },
+      "zoomFactorTPP": {
+        "address": "0x008EAB10",
+        "type": "float*",
+        "description": "Third-person (chase/TPP) camera zoom factor. Stock value ~1.0.",
+        "pattern": null
+      },
+      "maxZoomFactor": {
+        "address": "0x008A2688",
+        "type": "float*",
+        "description": "Upper clamp on camera zoom. Default 1.6.",
+        "pattern": null
+      },
+      "minZoomFactor": {
+        "address": "0x008A25FC",
+        "type": "float*",
+        "description": "Lower clamp on camera zoom. Default 0.99.",
+        "pattern": null
+      },
+      "viewFrustum": {
+        "address": "0x008EABE0",
+        "type": "void*",
+        "description": "Base of the active view frustum structure.",
+        "pattern": null
+      },
+      "currentView": {
+        "address": "0x02CECEA0",
+        "type": "int*",
+        "description": "Active camera view enum (see Camera::View). 0x100 = first-person, 0x101 = third-person.",
+        "pattern": null
+      },
+      "Set_View": {
+        "address": "0x0061D120",
+        "type": "function: void __cdecl(tagENTITY*, int)",
+        "description": "Sets the active camera view. Second parameter is a Camera::View enum value.",
+        "pattern": null
+      }
+    },
+    "Math": {
+      "Matrix_Inverse": {
+        "address": "0x008203F0",
+        "type": "function: void __cdecl(MAT_3D* out, MAT_3D* in)",
+        "description": "Computes the inverse of a 3D transform matrix.",
+        "pattern": null
+      },
+      "Vector_Unrotate": {
+        "address": "0x00440300",
+        "type": "function: void __cdecl(VECTOR_3D* out, VECTOR_3D* vec, MAT_3D* mat)",
+        "description": "Unrotates a vector by the rotation component of a transform matrix.",
+        "pattern": null
+      }
+    },
+    "Cheats": {
+      "editMode": {
+        "address": "0x009454B8",
+        "type": "bool*",
+        "description": "True when the in-game editor (CTRL+E / Terrain Edit) mode is active.",
+        "pattern": null
+      }
+    },
+    "ControlPanel": {
+      "p_controlPanel": {
+        "address": "0x00978E20",
+        "type": "ControlPanel*",
+        "description": "Singleton pointer to the BZR command/control panel object.",
+        "pattern": null
+      },
+      "SelectOne": {
+        "address": "0x004A6CD0",
+        "type": "function: void __thiscall(ControlPanel*, GameObject*)",
+        "description": "Selects exactly one unit in the command panel, deselecting all others.",
+        "pattern": null
+      },
+      "SelectNone": {
+        "address": "0x004A6D50",
+        "type": "function: void __thiscall(ControlPanel*)",
+        "description": "Clears the current command panel selection.",
+        "pattern": null
+      },
+      "SelectAdd": {
+        "address": "0x004A6C70",
+        "type": "function: void __thiscall(ControlPanel*, GameObject*)",
+        "description": "Adds a unit to the current command panel selection.",
+        "pattern": null
+      }
+    },
+    "Environment": {
+      "gravityVector": {
+        "address": "0x00871A80",
+        "type": "VECTOR_3D*",
+        "description": "World gravity vector. Default {0, -9.8, 0}.",
+        "pattern": null
+      },
+      "timeOfDay": {
+        "address": "0x02CD94E4",
+        "type": "int*",
+        "description": "Current time of day in BZR's internal 0-1439 minute format.",
+        "pattern": null
+      },
+      "sunDirection": {
+        "address": "0x02CEB830",
+        "type": "VECTOR_3D*",
+        "description": "Sun direction vector in world space (normalized).",
+        "pattern": null
+      },
+      "SetTimeOfDay": {
+        "address": "0x0068A230",
+        "type": "function: void __cdecl(int hourOfDay)",
+        "description": "Sets the time of day (0-23 in BZR's scale). Triggers lighting recalculation.",
+        "pattern": null
+      },
+      "RefreshTerrainMasterLight": {
+        "address": "0x0067E0E0",
+        "type": "function: void __cdecl()",
+        "description": "Forces terrain lighting recalculation after directional light changes.",
+        "pattern": null
+      }
+    },
+    "GameObject": {
+      "GetHandle": {
+        "address": "0x00462380",
+        "type": "function: handle __thiscall(GameObject*)",
+        "description": "Returns the BZR handle for a GameObject. Handles are packed 32-bit IDs.",
+        "pattern": null
+      },
+      "GetObj_base": {
+        "address": "0x0260DB20",
+        "type": "uintptr_t (base of object table)",
+        "description": "Base of the flat GameObject pointer table. Used in: (h >> 0x14) * 0x400 + base.",
+        "pattern": null
+      },
+      "SetAsUser": {
+        "address": "0x004DB930",
+        "type": "function: void __thiscall(GameObject*)",
+        "description": "Marks this GameObject as the player-controlled unit.",
+        "pattern": null
+      },
+      "p_userObject": {
+        "address": "0x00917AFC",
+        "type": "void*",
+        "description": "Pointer to the current user-controlled game object. Null between missions.",
+        "pattern": null
+      },
+      "user_entity_ptr": {
+        "address": "0x00920C78",
+        "type": "tagENTITY**",
+        "description": "Pointer to the tagENTITY* for the user vehicle. Cross-referenced from PDB name 'user_entity_ptr'.",
+        "pattern": null
+      }
+    },
+    "GraphicsOptions": {
+      "isFullscreen": {
+        "address": "0x009183B8",
+        "type": "bool*",
+        "description": "True when the game is running in fullscreen mode.",
+        "pattern": null
+      },
+      "uiScaling": {
+        "address": "0x008E77A8",
+        "type": "int*",
+        "description": "UI scaling integer. Also aliases Radar::radarLeft (shared address; read context carefully).",
+        "pattern": null,
+        "note": "This address is aliased as both Radar::radarLeft and GraphicsOptions::uiScaling."
+      }
+    },
+    "Multiplayer": {
+      "isNetGame": {
+        "address": "0x00917F7B",
+        "type": "bool*",
+        "description": "True when the current session is a network game.",
+        "pattern": null
+      },
+      "lives": {
+        "address": "0x008E8D04",
+        "type": "int*",
+        "description": "Real-time life counter. Does not automatically update the scoreboard display.",
+        "pattern": null
+      },
+      "myNetID": {
+        "address": "0x009180D4",
+        "type": "uint8_t*",
+        "description": "Local player's network ID, used with Send() and Receive() calls.",
+        "pattern": null
+      },
+      "showScoreboard": {
+        "address": "0x02A17494",
+        "type": "bool*",
+        "description": "Controls scoreboard visibility overlay.",
+        "pattern": null
+      },
+      "UpdateLives": {
+        "address": "0x006260F0",
+        "type": "function: void()",
+        "description": "Forces the scoreboard to refresh with the current life count value.",
+        "pattern": null
+      }
+    },
+    "Ogre": {
+      "_note": "These are RVAs (relative virtual addresses) within OgreMain.dll, not absolute EXE addresses.",
+      "getAmbientLightOffset":       { "rva": "0x3C8D90", "description": "SceneManager::getAmbientLight" },
+      "setAmbientLightOffset":       { "rva": "0x3D35E0", "description": "SceneManager::setAmbientLight" },
+      "getDiffuseColorOffset":       { "rva": "0x18219",  "description": "Light::getDiffuseColour" },
+      "setDiffuseColorOffset":       { "rva": "0x220280", "description": "Light::setDiffuseColour" },
+      "getSpecularColorOffset":      { "rva": "0x21F490", "description": "Light::getSpecularColour" },
+      "setSpecularColorOffset":      { "rva": "0x2204B0", "description": "Light::setSpecularColour" },
+      "setSpotlightRangeOffset":     { "rva": "0x220550", "description": "Light::setSpotlightRange" },
+      "setVisibleOffset":            { "rva": "0x220EF0", "description": "MovableObject::setVisible" },
+      "getSkyBoxGenParametersOffset":{ "rva": "0x2E4C9",  "description": "SceneManager::getSkyBoxGenParameters" },
+      "getSkyBoxNodeOffset":         { "rva": "0x21855",  "description": "SceneManager::getSkyBoxNode" },
+      "getSkyDomeGenParametersOffset":{ "rva": "0x2A509", "description": "SceneManager::getSkyDomeGenParameters" },
+      "getSkyDomeNodeOffset":        { "rva": "0x11987",  "description": "SceneManager::getSkyDomeNode" },
+      "getSkyPlaneGenParametersOffset":{ "rva": "0x3F41D","description": "SceneManager::getSkyPlaneGenParameters" },
+      "getSkyPlaneNodeOffset":       { "rva": "0x01983",  "description": "SceneManager::getSkyPlaneNode" },
+      "terrain_masterlight": {
+        "address": "0x00920CA0",
+        "type": "void** (BZR EXE absolute)",
+        "description": "Pointer to the Ogre sun/directional light object used for terrain master lighting."
+      },
+      "sceneManagerStructure": {
+        "address": "0x00920EA0",
+        "type": "void** (BZR EXE absolute)",
+        "description": "Base of an Ogre structure from which the SceneManager is reached at offset 0x08."
+      }
+    },
+    "Ordnance": {
+      "OrdnanceClassList": {
+        "address": "0x009C915C",
+        "type": "uintptr_t (base of OrdnanceClass list)",
+        "description": "Base of the loaded OrdnanceClass (bullet/missile type) list.",
+        "pattern": null
+      },
+      "Build": {
+        "address": "0x00586FF0",
+        "type": "function: Ordnance* __thiscall(OrdnanceClass*, Mat3*, OBJ76*)",
+        "description": "Spawns a live ordnance instance from a class definition at a given transform.",
+        "pattern": null
+      },
+      "coeffBallistic": {
+        "address": "0x008A2858",
+        "type": "float*",
+        "description": "Global ballistic coefficient for ordnance arc. Default 4.9.",
+        "pattern": null
+      }
+    },
+    "PlayOption": {
+      "userProfilePtr": {
+        "address": "0x0094672C",
+        "type": "void*",
+        "description": "Pointer to the user profile options structure. Play options are at +0x30 from here.",
+        "pattern": null
+      },
+      "difficulty": {
+        "address": "0x025CFA1C",
+        "type": "uint8_t*",
+        "description": "Current game difficulty setting (0=Very Easy .. 4=Very Hard).",
+        "pattern": null
+      }
+    },
+    "Radar": {
+      "state": {
+        "address": "0x008EAAAC",
+        "type": "uint8_t*",
+        "description": "Radar display mode: 0 = minimap, 1 = radar sweep.",
+        "pattern": null
+      },
+      "scale": {
+        "address": "0x008E77B0",
+        "type": "float*",
+        "description": "Radar size scale multiplier.",
+        "pattern": null
+      },
+      "cockpitWireframeProjectionBase": {
+        "address": "0x008E7754",
+        "type": "float*",
+        "description": "Left edge anchor for the cockpit wireframe radar projection.",
+        "pattern": null
+      },
+      "cockpitWireframeProjectionRadius": {
+        "address": "0x009173C0",
+        "type": "int*",
+        "description": "Pixel radius of the cockpit wireframe radar disc.",
+        "pattern": null
+      },
+      "radarLeftBase": {
+        "address": "0x009782A0",
+        "type": "float*",
+        "description": "Float base value from which the radar left pixel position is derived.",
+        "pattern": null
+      },
+      "radarLeft": {
+        "address": "0x008E77A8",
+        "type": "int*",
+        "description": "Computed integer left pixel position for the radar panel. Aliased as GraphicsOptions::uiScaling.",
+        "pattern": null
+      },
+      "radarBottom": {
+        "address": "0x008E77AC",
+        "type": "int*",
+        "description": "Bottom pixel position for the radar panel.",
+        "pattern": null
+      },
+      "commandPanelLeftBase": {
+        "address": "0x008E7918",
+        "type": "float*",
+        "description": "Float base for command panel horizontal positioning.",
+        "pattern": null
+      },
+      "commandPanelLeft": {
+        "address": "0x008E7924",
+        "type": "int*",
+        "description": "Computed left pixel position for the command panel.",
+        "pattern": null
+      },
+      "commandPanelBottom": {
+        "address": "0x008E7928",
+        "type": "int*",
+        "description": "Bottom pixel position for the command panel.",
+        "pattern": null
+      },
+      "edgeMinX": { "address": "0x00917388", "type": "float*", "description": "Edge path X minimum bound.", "pattern": null },
+      "edgeMaxX": { "address": "0x0091738C", "type": "float*", "description": "Edge path X maximum bound.", "pattern": null },
+      "edgeMinZ": { "address": "0x00917390", "type": "float*", "description": "Edge path Z minimum bound.", "pattern": null },
+      "edgeMaxZ": { "address": "0x00917394", "type": "float*", "description": "Edge path Z maximum bound.", "pattern": null },
+      "RefreshCockpitWireframeAnchor": {
+        "address": "0x00404CF0",
+        "type": "function: void __cdecl()",
+        "description": "Recomputes the radar left anchor from the current cockpit projection base float.",
+        "pattern": null
+      },
+      "RefreshLayout": {
+        "address": "0x00492EC0",
+        "type": "function: void __cdecl(int screenHeight)",
+        "description": "Recalculates radar and command panel placement after HUD sizing changes.",
+        "pattern": null
+      },
+      "FindNamedPath": {
+        "address": "0x00460FC0",
+        "type": "function: RuntimePath* __cdecl(const char* name)",
+        "description": "Looks up an edge path by name string.",
+        "pattern": null
+      },
+      "RefreshEdgePathBounds": {
+        "address": "0x0046AF20",
+        "type": "function: void __thiscall(void* self)",
+        "description": "Recalculates min/max XZ bounds for all edge paths.",
+        "pattern": null
+      }
+    },
+    "Reticle": {
+      "angle": {
+        "address": "0x025CE714",
+        "type": "float*",
+        "description": "Current reticle rotation angle in radians.",
+        "pattern": null
+      },
+      "position": {
+        "address": "0x025CE79C",
+        "type": "VECTOR_3D*",
+        "description": "World-space position of the aim reticle.",
+        "pattern": null
+      },
+      "range": {
+        "address": "0x00886B20",
+        "type": "float*",
+        "description": "Maximum reticle lock-on range in metres. Default 200.",
+        "pattern": null
+      },
+      "object": {
+        "address": "0x00979F40",
+        "type": "int*",
+        "description": "Handle of the object currently under the reticle (0 if none).",
+        "pattern": null
+      },
+      "matrix": {
+        "address": "0x025CE6F8",
+        "type": "MAT_3D*",
+        "description": "Full 3D transform matrix for the reticle orientation.",
+        "pattern": null
+      }
+    },
+    "Satellite": {
+      "state": {
+        "address": "0x008E8F9C",
+        "type": "bool*",
+        "description": "True when the satellite view is active.",
+        "pattern": null
+      },
+      "cursorPos": {
+        "address": "0x009C9194",
+        "type": "VECTOR_3D*",
+        "description": "World-space cursor position in satellite view.",
+        "pattern": null
+      },
+      "camPos": {
+        "address": "0x009C91B4",
+        "type": "VECTOR_3D*",
+        "description": "World-space camera position in satellite view.",
+        "pattern": null
+      },
+      "clickPos": {
+        "address": "0x009C9188",
+        "type": "VECTOR_3D*",
+        "description": "World-space position of the last satellite click.",
+        "pattern": null
+      },
+      "panSpeed": {
+        "address": "0x009C91D0",
+        "type": "float*",
+        "description": "Satellite camera pan speed. Default 1250.",
+        "pattern": null
+      },
+      "minZoom": {
+        "address": "0x00872400",
+        "type": "float*",
+        "description": "Minimum satellite zoom level. Default 2.0.",
+        "pattern": null
+      },
+      "maxZoom": {
+        "address": "0x008723F4",
+        "type": "float*",
+        "description": "Maximum satellite zoom level. Default 8.0.",
+        "pattern": null
+      },
+      "zoom": {
+        "address": "0x009C91B0",
+        "type": "float*",
+        "description": "Current satellite zoom level.",
+        "pattern": null
+      }
+    },
+    "SoundOptions": {
+      "soundStruct1": {
+        "address": "0x0094672C",
+        "type": "uint8_t*",
+        "description": "Base of user profile sound struct (same base as PlayOption::userProfilePtr). Music display value at +0x2A.",
+        "pattern": null,
+        "note": "Aliased with PlayOption::userProfilePtr — same base address, different typed interpretation."
+      },
+      "soundStruct2": {
+        "address": "0x00915594",
+        "type": "uint32_t*",
+        "description": "Base of a second sound struct. SFX real value at +0x08, voice real value at +0x0C.",
+        "pattern": null
+      },
+      "musicOffset":  { "value": "0x2A", "description": "Byte offset from soundStruct1 to the music volume display byte." },
+      "sfxOffset":    { "value": "0x08", "description": "Byte offset from soundStruct2 to the SFX volume real value." },
+      "voiceOffset":  { "value": "0x0C", "description": "Byte offset from soundStruct2 to the voice volume real value." }
+    },
+    "Steam": {
+      "steam64": {
+        "address": "0x0260B1D0",
+        "type": "uint64_t*",
+        "description": "Local player's 64-bit Steam ID.",
+        "pattern": null
+      }
+    }
+  }
+}
