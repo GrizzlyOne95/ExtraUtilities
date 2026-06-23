@@ -77,8 +77,8 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)..\ogre-1.10.0\OgreMain\include;$(ProjectDir)..\ogre-1.10.0\Components\Overlay\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)third_party\ogre-1.10.0-bzr\_work\OgreMain\include;$(ProjectDir)third_party\ogre-1.10.0-bzr\_work\Components\Overlay\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp23</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <TreatWarningAsError>true</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -110,8 +110,8 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)..\ogre-1.10.0\OgreMain\include;$(ProjectDir)..\ogre-1.10.0\Components\Overlay\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)third_party\ogre-1.10.0-bzr\_work\OgreMain\include;$(ProjectDir)third_party\ogre-1.10.0-bzr\_work\Components\Overlay\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp23</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -154,6 +154,7 @@
     <ClCompile Include="src\IO.cpp" />
     <ClCompile Include="src\KillMessages.cpp" />
     <ClCompile Include="src\LuaExport.cpp" />
+    <ClCompile Include="src\PublicAPI.cpp" />
     <ClCompile Include="src\Multiplayer.cpp" />
     <ClCompile Include="src\OgreNativeFontBridge.cpp">
       <LanguageStandard>stdcpp14</LanguageStandard>
@@ -186,6 +187,7 @@
     <ClInclude Include="src\ControlPanel.h" />
     <ClInclude Include="src\EngineFlameColor.h" />
     <ClInclude Include="src\Environment.h" />
+    <ClInclude Include="include\ExtraUtils.h" />
     <ClInclude Include="src\Exports.h" />
     <ClInclude Include="src\GameObject.h" />
     <ClInclude Include="src\game_state.h" />

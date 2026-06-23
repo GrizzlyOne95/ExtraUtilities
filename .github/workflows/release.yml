@@ -2,9 +2,10 @@ name: Build and Release
 
 on:
   push:
+    branches: [main]       # Build on every push to main (no release)
     tags:
-      - 'v*'
-  workflow_dispatch:
+      - 'v*'               # Build + publish a GitHub Release on version tags
+  workflow_dispatch:       # Manual trigger (artifact upload only, no release)
 
 permissions:
   contents: write
@@ -18,14 +19,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Cache the sparse Ogre header checkout so only the first run per commit
+      # pays the clone cost. Key is pinned to the exact Ogre commit used by the
+      # vcxproj (f1f1937 = tag v1.10.0). Bump this if Ogre headers ever change.
+      - name: Cache Ogre headers
+        id: cache-ogre
+        uses: actions/cache@v4
+        with:
+          path: third_party/ogre-1.10.0-bzr/_work
+          key: ogre-headers-f1f1937fd6cbad05a4b9170b9882da91f42f53a5
+
+      # Sparse-clone just OgreMain/include and Components/Overlay/include into
+      # third_party/ogre-1.10.0-bzr/_work (gitignored via _work/ in that dir).
+      # The vcxproj now references this repo-local path instead of a sibling
+      # directory, so this step is both the CI fix and the documented dev setup.
       - name: Checkout Ogre 1.10.0 headers
+        if: steps.cache-ogre.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
-          # OgreNativeFontBridge.cpp includes <OgreFont.h>, <OgreFontManager.h>, etc.
-          # The vcxproj resolves these from $(ProjectDir)..\ogre-1.10.0\...
-          # so the headers must land in a sibling directory of the workspace.
-          # Commit hash from OgreSceneManagerShim.h (tag v1.10.0 = f1f1937).
-          $ogreDir = Join-Path (Split-Path "${{ github.workspace }}") "ogre-1.10.0"
+          $ogreDir = "third_party\ogre-1.10.0-bzr\_work"
           git clone --filter=blob:none --no-checkout `
             https://github.com/OGRECave/ogre.git $ogreDir
           git -C $ogreDir sparse-checkout init --cone
@@ -45,6 +57,20 @@ jobs:
             throw "exu.dll was not built!"
           }
 
+      # Upload exu.dll as a workflow artifact on non-tag builds (main pushes and
+      # manual triggers). This lets collaborators download a build from any commit
+      # without needing to build locally. Retained for 7 days.
+      - name: Upload development artifact
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        uses: actions/upload-artifact@v4
+        with:
+          name: exu-dev-${{ github.sha }}
+          path: |
+            Release/exu.dll
+            Release/exu.pdb
+          retention-days: 7
+
+      # On version tags only: create a GitHub Release with the built DLL and PDB.
       - name: Release DLL
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')

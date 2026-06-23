@@ -2,18 +2,183 @@
 
 Extra Utilities is the only public script extender for Battlezone 98 Redux 2.2.301. Support open modding!
 
-Usage:
-Build the DLL or download the latest release from the releases tab. Then simply require() exu.dll from lua and refer to the function documentation on the wiki page.
+## Compatibility
 
-Compatibility:
-- Windows: Yes
-- Mac: No
-- Linux: No
-- Steam: Yes
-- GOG: No
-- Battlezone 1.5: of course not lol
+| Platform | Supported |
+|---|---|
+| Windows | ✅ Yes |
+| Steam | ✅ Yes |
+| Mac | ❌ No |
+| Linux | ❌ No |
+| GOG | ❌ No |
+| Battlezone 1.5 | ❌ No |
 
 Forked from VTRider's initial project. Massive kudos to him for figuring out how to implement EXU in the first place!
+
+---
+
+## Using EXU in a Lua mission
+
+### The short version
+
+Download `exu.dll` from the [latest release](../../releases/latest) and place it in your mission's
+folder (or anywhere on BZR's DLL search path). Then load it from your mission script:
+
+```lua
+local exu = require("exu")
+```
+
+That's it. After this line, all EXU functions are available under the `exu` table.
+
+### Minimal working example
+
+```lua
+-- HelloEXU.lua — minimal mission demonstrating EXU setup
+
+local exu = require("exu")
+
+-- Print the loaded EXU version to the game console
+print("EXU version: " .. exu.VERSION)
+
+function Start()
+    -- Example: disable global turbo (patch-driven behaviour change)
+    exu.SetGlobalTurbo(false)
+
+    -- Example: read the current camera view enum
+    local view = exu.GetCameraView()
+    print("Camera view on start: " .. tostring(view))
+end
+
+function Update(dtime)
+    -- Example: read satellite cursor position if sat is active
+    if exu.GetSatState() == exu.SATELLITE.ENABLED then
+        local pos = exu.GetSatCursorPos()
+        -- pos.x, pos.y, pos.z are the world-space coordinates
+    end
+end
+```
+
+### What `Definitions/ExtraUtils.lua` is for
+
+`Definitions/ExtraUtils.lua` is a **type-annotation-only** file for editor tooling (e.g. the Lua
+Language Server / VS Code extension). It contains `@class`, `@field`, and `@param`/`@return`
+annotations that give your editor autocomplete and type-checking for EXU's API. It is **not**
+required at runtime — it raises an error if `require()`d directly. Copy it into your project's
+definitions path and point your editor at it.
+
+### Vendoring policy
+
+Mod authors should depend on the EXU Steam Workshop item rather than shipping a copy of `exu.dll`
+with their mod. Vendoring a fixed DLL version prevents your users from automatically receiving
+bugfixes, and creates compatibility problems when multiple mods load different copies. The Workshop
+item is updated alongside releases; pinning to it is one line in your mod's dependency list.
+
+---
+
+## Building from source
+
+### Prerequisites
+
+- Visual Studio 2022 (any edition) with the **Desktop development with C++** workload
+- The **v143 toolset** (installed by default with VS2022)
+
+### First-time setup
+
+Run the included setup script once after cloning:
+
+```powershell
+.\setup-dev.ps1
+```
+
+This performs a sparse checkout of the Ogre 1.10.0 headers into
+`third_party\ogre-1.10.0-bzr\_work`. No other dependencies need manual setup —
+all libraries (Lua 5.1, OgreMain, OgreOverlay) are already checked in under `lib\`.
+
+After the script completes, open `ExtraUtilities.sln` and build the **Release|x86**
+solution configuration. It maps to the project-level `Release|Win32` target and
+writes the output DLL to `Release\exu.dll`.
+
+From a Visual Studio developer prompt, the same build is:
+
+```powershell
+msbuild ExtraUtilities.sln /p:Configuration=Release /p:Platform=x86
+```
+
+### Using EXU as a C++ dependency (DLL consumers)
+
+If you are writing a native DLL mission (e.g. `Battlezone98Redux_Shim`) and want to call
+into EXU from C++:
+
+1. Add `include/` from this repo to your project's include paths.
+2. Link against `Release/exu.lib` (the import library produced by the EXU build).
+3. Include `<ExtraUtils.h>`. Do **not** define `EXTRAUTILITIES_EXPORTS` in your project.
+
+```cpp
+#include <cstring>
+#include <Windows.h>
+#include <ExtraUtils.h>
+
+void OnMissionInit()
+{
+    // Check for a compatible EXU version at runtime
+    if (strcmp(EXU_GetVersion(), EXU_VERSION_EXPECTED) != 0) {
+        OutputDebugStringA("exu.dll version mismatch — update your EXU installation");
+        return;
+    }
+
+    // Get the Lua state EXU registered during luaopen_exu
+    lua_State* L = EXU_GetLuaState();
+    if (!L) return; // EXU not yet initialized from Lua
+    // ... use the Lua C API
+}
+```
+
+---
+
+## Maintenance: what to do when BZR updates
+
+BZR ships infrequently, but when it does, the hardcoded addresses in `src/bzr.h` need to
+be re-verified. This section documents the process.
+
+### 1. Check whether addresses are still valid
+
+Open `exu.json` at the repo root. Every address EXU relies on is documented there with
+a description and the BZR version it was verified against. Load the new EXE + PDB into
+your reverse-engineering tool (Ghidra, IDA, x64dbg, or the Battlezone98Redux_Shim RE
+toolchain at `../Battlezone98Redux_Shim`) and verify each address in the JSON.
+
+Look for the functions and data symbols by their PDB names first — the PDB is the fastest
+way to confirm addresses haven't moved. If the PDB is unavailable, use the byte-pattern
+field in `exu.json` (where populated) to locate each function via pattern scan.
+
+### 2. Update bzr.h
+
+For any address that has changed, update the corresponding constant in `src/bzr.h` and
+update the `address` field and `version` comment in `exu.json` to reflect the new BZR version.
+
+### 3. Update the target version comment
+
+At the top of `src/bzr.h`:
+```cpp
+/*
+* Structs and memory offsets for BZR 2.2.301   ← bump this
+*/
+```
+
+Also update `"version"` in `exu.json`.
+
+### 4. Build and test
+
+Build the Release configuration and drop `exu.dll` into a BZR installation. Run
+`examples/RequireTutorial.lua` as a mission script — if it loads and prints the EXU
+version without crashing, the basic address set is intact.
+
+### 5. Tag and release
+
+Once the build is verified, bump `version` in `src/About.h` (e.g. `"1.1.1"`) and push a
+`v1.1.1` tag. The CI workflow will build and publish a GitHub Release automatically.
+
+---
 
 ## High-Level Summary
 
