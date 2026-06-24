@@ -39,91 +39,91 @@
     <ClCompile Include="src\dllmain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Environment.cpp">
+    <ClCompile Include="src\Game\Environment.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\Reticle.cpp">
+    <ClCompile Include="src\UI\Reticle.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\Satellite.cpp">
+    <ClCompile Include="src\Game\Satellite.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\OS.h">
+    <ClCompile Include="src\Util\OS.h">
       <Filter>Header Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\OS.cpp">
+    <ClCompile Include="src\Util\OS.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\Radar.cpp">
+    <ClCompile Include="src\UI\Radar.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\ControlPanel.cpp">
+    <ClCompile Include="src\UI\ControlPanel.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\BulletHitCallback.cpp">
+    <ClCompile Include="src\Patches\BulletHitCallback.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
-    <ClCompile Include="src\GameObject.cpp">
+    <ClCompile Include="src\Game\GameObject.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\game_state.cpp">
+    <ClCompile Include="src\Game\game_state.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\Multiplayer.cpp">
+    <ClCompile Include="src\Game\Multiplayer.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\PlayOption.cpp">
+    <ClCompile Include="src\Util\PlayOption.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
     <ClCompile Include="src\StockExtensions.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\Ordnance.cpp">
+    <ClCompile Include="src\Game\Ordnance.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\SoundOptions.cpp">
+    <ClCompile Include="src\Util\SoundOptions.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\ShotConvergence.cpp">
+    <ClCompile Include="src\Patches\ShotConvergence.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
-    <ClCompile Include="src\GlobalTurbo.cpp">
+    <ClCompile Include="src\Patches\GlobalTurbo.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
-    <ClCompile Include="src\Steam.cpp">
+    <ClCompile Include="src\Game\Steam.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\IO.cpp">
+    <ClCompile Include="src\Util\IO.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\Camera.cpp">
+    <ClCompile Include="src\Game\Camera.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\CommandReplacement.cpp">
+    <ClCompile Include="src\Game\CommandReplacement.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\BulletInitCallback.cpp">
+    <ClCompile Include="src\Patches\BulletInitCallback.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
-    <ClCompile Include="src\OrdnanceVelocity.cpp">
+    <ClCompile Include="src\Patches\OrdnanceVelocity.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
-    <ClCompile Include="src\AddScrapCallback.cpp">
+    <ClCompile Include="src\Patches\AddScrapCallback.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
-    <ClCompile Include="src\Vec3.h">
+    <ClCompile Include="src\Util\Vec3.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\GraphicsOptions.cpp">
+    <ClCompile Include="src\Util\GraphicsOptions.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\KillMessages.cpp">
+    <ClCompile Include="src\Patches\KillMessages.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
-    <ClCompile Include="src\EngineFlameColor.cpp">
+    <ClCompile Include="src\Patches\EngineFlameColor.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
-    <ClCompile Include="src\UnitVo.cpp">
+    <ClCompile Include="src\Patches\UnitVo.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
   </ItemGroup>
@@ -137,7 +137,7 @@
     <ClInclude Include="src\LuaState.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Environment.h">
+    <ClInclude Include="src\Game\Environment.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="include\ExtraUtils.h">
@@ -149,10 +149,10 @@
     <ClInclude Include="src\Scanner.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
-    <ClInclude Include="src\Reticle.h">
+    <ClInclude Include="src\UI\Reticle.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
-    <ClInclude Include="src\Satellite.h">
+    <ClInclude Include="src\Game\Satellite.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Exports.h">
@@ -161,10 +161,10 @@
     <ClInclude Include="src\LuaHelpers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\ControlPanel.h">
+    <ClInclude Include="src\UI\ControlPanel.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
-    <ClInclude Include="src\Radar.h">
+    <ClInclude Include="src\UI\Radar.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\BasicPatch.h">
@@ -173,79 +173,79 @@
     <ClInclude Include="src\InlinePatch.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
-    <ClInclude Include="src\BulletHitCallback.h">
+    <ClInclude Include="src\Patches\BulletHitCallback.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="src\Patches.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\GameObject.h">
+    <ClInclude Include="src\Game\GameObject.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
-    <ClInclude Include="src\game_state.h">
+    <ClInclude Include="src\Game\game_state.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
-    <ClInclude Include="src\Multiplayer.h">
+    <ClInclude Include="src\Game\Multiplayer.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
-    <ClInclude Include="src\PlayOption.h">
+    <ClInclude Include="src\Util\PlayOption.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\StockExtensions.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
-    <ClInclude Include="src\Ordnance.h">
+    <ClInclude Include="src\Game\Ordnance.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
-    <ClInclude Include="src\SoundOptions.h">
+    <ClInclude Include="src\Util\SoundOptions.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\BasicScanner.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
-    <ClInclude Include="src\ShotConvergence.h">
+    <ClInclude Include="src\Patches\ShotConvergence.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
-    <ClInclude Include="src\GlobalTurbo.h">
+    <ClInclude Include="src\Patches\GlobalTurbo.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
-    <ClInclude Include="src\Steam.h">
+    <ClInclude Include="src\Game\Steam.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
-    <ClInclude Include="src\IO.h">
+    <ClInclude Include="src\Util\IO.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
-    <ClInclude Include="src\Camera.h">
+    <ClInclude Include="src\Game\Camera.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
-    <ClInclude Include="src\CommandReplacement.h">
+    <ClInclude Include="src\Game\CommandReplacement.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
-    <ClInclude Include="src\BulletInitCallback.h">
+    <ClInclude Include="src\Patches\BulletInitCallback.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
-    <ClInclude Include="src\OrdnanceVelocity.h">
+    <ClInclude Include="src\Patches\OrdnanceVelocity.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
-    <ClInclude Include="src\Ogre.h">
+    <ClInclude Include="src\Ogre\Ogre.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\AddScrapCallback.h">
+    <ClInclude Include="src\Patches\AddScrapCallback.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
-    <ClInclude Include="src\GraphicsOptions.h">
+    <ClInclude Include="src\Util\GraphicsOptions.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
-    <ClInclude Include="src\VectorSpider.h">
+    <ClInclude Include="src\Util\VectorSpider.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
-    <ClInclude Include="src\KillMessages.h">
+    <ClInclude Include="src\Patches\KillMessages.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
-    <ClInclude Include="src\EngineFlameColor.h">
+    <ClInclude Include="src\Patches\EngineFlameColor.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
-    <ClInclude Include="src\UnitVo.h">
+    <ClInclude Include="src\Patches\UnitVo.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="Resource\resource.h">

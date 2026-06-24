@@ -20,7 +20,7 @@
 
 #include "BZR.h"
 #include "LuaState.h"
-#include "Ogre.h"
+#include "Ogre/Ogre.h"
 
 #include <lua.hpp>
 

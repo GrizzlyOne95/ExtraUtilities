@@ -22,7 +22,7 @@
 
 #include "About.h"
 #include "Exports.h"
-#include "Logging.h"
+#include "Util/Logging.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
 #include "Patches.h"
@@ -477,7 +477,7 @@ namespace ExtraUtilities::Lua
 		DoEventHooks(L);
 		InstallSanitizedStockStringPatches(L);
 		InstallObjectiveObjectsPatch(L);
-		
+
 		return 0;
 	}
 
