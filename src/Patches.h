@@ -22,12 +22,12 @@
 
 #pragma once
 
-#include "AddScrapCallback.h"
-#include "BulletHitCallback.h"
-#include "BulletInitCallback.h"
-#include "EngineFlameColor.h"
-#include "GlobalTurbo.h"
-#include "KillMessages.h"
-#include "OrdnanceVelocity.h"
-#include "ShotConvergence.h"
-#include "UnitVo.h"
+#include "Patches/AddScrapCallback.h"
+#include "Patches/BulletHitCallback.h"
+#include "Patches/BulletInitCallback.h"
+#include "Patches/EngineFlameColor.h"
+#include "Patches/GlobalTurbo.h"
+#include "Patches/KillMessages.h"
+#include "Patches/OrdnanceVelocity.h"
+#include "Patches/ShotConvergence.h"
+#include "Patches/UnitVo.h"
