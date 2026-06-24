@@ -68,10 +68,12 @@ definitions path and point your editor at it.
 
 ### Vendoring policy
 
-Mod authors should depend on the EXU Steam Workshop item rather than shipping a copy of `exu.dll`
-with their mod. Vendoring a fixed DLL version prevents your users from automatically receiving
-bugfixes, and creates compatibility problems when multiple mods load different copies. The Workshop
-item is updated alongside releases; pinning to it is one line in your mod's dependency list.
+**Anti-Vendoring Stance:** Mod authors should depend on the EXU Steam Workshop item rather than
+shipping a copy of `exu.dll` with their mod. Vendoring a fixed DLL version prevents your users
+from automatically receiving bugfixes, and creates compatibility problems when multiple mods
+load different copies (the first one to `require` wins, potentially breaking others that
+needed a newer version). The Workshop item is updated alongside releases; pinning to it
+is the only way to ensure compatibility across the ecosystem.
 
 ---
 
@@ -147,9 +149,11 @@ a description and the BZR version it was verified against. Load the new EXE + PD
 your reverse-engineering tool (Ghidra, IDA, x64dbg, or the Battlezone98Redux_Shim RE
 toolchain at `../Battlezone98Redux_Shim`) and verify each address in the JSON.
 
-Look for the functions and data symbols by their PDB names first — the PDB is the fastest
-way to confirm addresses haven't moved. If the PDB is unavailable, use the byte-pattern
-field in `exu.json` (where populated) to locate each function via pattern scan.
+**Pattern Scans:** Look for the functions and data symbols by their PDB names first — the
+PDB is the fastest way to confirm addresses haven't moved. If the PDB is unavailable, use
+the `pattern` field in `exu.json` to locate each function via pattern scan. Pattern scans
+are more robust than hardcoded addresses as they often survive binary relocation and minor
+code changes.
 
 ### 2. Update bzr.h
 

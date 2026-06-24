@@ -21,14 +21,14 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
     <EnableASAN>false</EnableASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
     <UseOfMfc>false</UseOfMfc>
@@ -77,7 +77,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)third_party\ogre-1.10.0-bzr\_work\OgreMain\include;$(ProjectDir)third_party\ogre-1.10.0-bzr\_work\Components\Overlay\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)third_party\ogre-1.10.0-bzr\include\OgreMain;$(ProjectDir)third_party\ogre-1.10.0-bzr\include\Components\Overlay;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <TreatWarningAsError>true</TreatWarningAsError>
@@ -110,7 +110,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)third_party\ogre-1.10.0-bzr\_work\OgreMain\include;$(ProjectDir)third_party\ogre-1.10.0-bzr\_work\Components\Overlay\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)third_party\ogre-1.10.0-bzr\include\OgreMain;$(ProjectDir)third_party\ogre-1.10.0-bzr\include\Components\Overlay;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -138,89 +138,89 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\AddScrapCallback.cpp" />
-    <ClCompile Include="src\BulletHitCallback.cpp" />
-    <ClCompile Include="src\BulletInitCallback.cpp" />
-    <ClCompile Include="src\Camera.cpp" />
-    <ClCompile Include="src\CommandReplacement.cpp" />
-    <ClCompile Include="src\ControlPanel.cpp" />
+    <ClCompile Include="src\Patches\AddScrapCallback.cpp" />
+    <ClCompile Include="src\Patches\BulletHitCallback.cpp" />
+    <ClCompile Include="src\Patches\BulletInitCallback.cpp" />
+    <ClCompile Include="src\Game\Camera.cpp" />
+    <ClCompile Include="src\Game\CommandReplacement.cpp" />
+    <ClCompile Include="src\UI\ControlPanel.cpp" />
     <ClCompile Include="src\dllmain.cpp" />
-    <ClCompile Include="src\EngineFlameColor.cpp" />
-    <ClCompile Include="src\Environment.cpp" />
-    <ClCompile Include="src\GameObject.cpp" />
-    <ClCompile Include="src\game_state.cpp" />
-    <ClCompile Include="src\GlobalTurbo.cpp" />
-    <ClCompile Include="src\GraphicsOptions.cpp" />
-    <ClCompile Include="src\IO.cpp" />
-    <ClCompile Include="src\KillMessages.cpp" />
+    <ClCompile Include="src\Patches\EngineFlameColor.cpp" />
+    <ClCompile Include="src\Game\Environment.cpp" />
+    <ClCompile Include="src\Game\GameObject.cpp" />
+    <ClCompile Include="src\Game\game_state.cpp" />
+    <ClCompile Include="src\Patches\GlobalTurbo.cpp" />
+    <ClCompile Include="src\Util\GraphicsOptions.cpp" />
+    <ClCompile Include="src\Util\IO.cpp" />
+    <ClCompile Include="src\Patches\KillMessages.cpp" />
     <ClCompile Include="src\LuaExport.cpp" />
     <ClCompile Include="src\PublicAPI.cpp" />
-    <ClCompile Include="src\Multiplayer.cpp" />
-    <ClCompile Include="src\OgreNativeFontBridge.cpp">
+    <ClCompile Include="src\Game\Multiplayer.cpp" />
+    <ClCompile Include="src\Ogre\OgreNativeFontBridge.cpp">
       <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
-    <ClCompile Include="src\Overlay.cpp" />
-    <ClCompile Include="src\Ordnance.cpp" />
-    <ClCompile Include="src\OrdnanceVelocity.cpp" />
-    <ClCompile Include="src\OS.cpp" />
-    <ClCompile Include="src\OS.h" />
-    <ClCompile Include="src\PlayOption.cpp" />
-    <ClCompile Include="src\Radar.cpp" />
-    <ClCompile Include="src\Reticle.cpp" />
-    <ClCompile Include="src\Satellite.cpp" />
-    <ClCompile Include="src\ShotConvergence.cpp" />
-    <ClCompile Include="src\SoundOptions.cpp" />
-    <ClCompile Include="src\Steam.cpp" />
+    <ClCompile Include="src\UI\Overlay.cpp" />
+    <ClCompile Include="src\Game\Ordnance.cpp" />
+    <ClCompile Include="src\Patches\OrdnanceVelocity.cpp" />
+    <ClCompile Include="src\Util\OS.cpp" />
+    <ClCompile Include="src\Util\OS.h" />
+    <ClCompile Include="src\Util\PlayOption.cpp" />
+    <ClCompile Include="src\UI\Radar.cpp" />
+    <ClCompile Include="src\UI\Reticle.cpp" />
+    <ClCompile Include="src\Game\Satellite.cpp" />
+    <ClCompile Include="src\Patches\ShotConvergence.cpp" />
+    <ClCompile Include="src\Util\SoundOptions.cpp" />
+    <ClCompile Include="src\Game\Steam.cpp" />
     <ClCompile Include="src\StockExtensions.cpp" />
-    <ClCompile Include="src\UnitVo.cpp" />
-    <ClCompile Include="src\Vec3.h" />
+    <ClCompile Include="src\Patches\UnitVo.cpp" />
+    <ClCompile Include="src\Util\Vec3.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resource\resource.h" />
     <ClInclude Include="src\About.h" />
-    <ClInclude Include="src\AddScrapCallback.h" />
-    <ClInclude Include="src\BulletHitCallback.h" />
-    <ClInclude Include="src\BulletInitCallback.h" />
+    <ClInclude Include="src\Patches\AddScrapCallback.h" />
+    <ClInclude Include="src\Patches\BulletHitCallback.h" />
+    <ClInclude Include="src\Patches\BulletInitCallback.h" />
     <ClInclude Include="src\BZR.h" />
-    <ClInclude Include="src\Camera.h" />
-    <ClInclude Include="src\CommandReplacement.h" />
-    <ClInclude Include="src\ControlPanel.h" />
-    <ClInclude Include="src\EngineFlameColor.h" />
-    <ClInclude Include="src\Environment.h" />
+    <ClInclude Include="src\Game\Camera.h" />
+    <ClInclude Include="src\Game\CommandReplacement.h" />
+    <ClInclude Include="src\UI\ControlPanel.h" />
+    <ClInclude Include="src\Patches\EngineFlameColor.h" />
+    <ClInclude Include="src\Game\Environment.h" />
     <ClInclude Include="include\ExtraUtils.h" />
     <ClInclude Include="src\Exports.h" />
-    <ClInclude Include="src\GameObject.h" />
-    <ClInclude Include="src\game_state.h" />
-    <ClInclude Include="src\GlobalTurbo.h" />
-    <ClInclude Include="src\GraphicsOptions.h" />
+    <ClInclude Include="src\Game\GameObject.h" />
+    <ClInclude Include="src\Game\game_state.h" />
+    <ClInclude Include="src\Patches\GlobalTurbo.h" />
+    <ClInclude Include="src\Util\GraphicsOptions.h" />
     <ClInclude Include="src\Hook.h" />
     <ClInclude Include="src\BasicPatch.h" />
     <ClInclude Include="src\InlinePatch.h" />
-    <ClInclude Include="src\IO.h" />
-    <ClInclude Include="src\KillMessages.h" />
+    <ClInclude Include="src\Util\IO.h" />
+    <ClInclude Include="src\Patches\KillMessages.h" />
     <ClInclude Include="src\LuaHelpers.h" />
     <ClInclude Include="src\LuaState.h" />
-    <ClInclude Include="src\Multiplayer.h" />
-    <ClInclude Include="src\OgreBuildSettings.h" />
-    <ClInclude Include="src\OgreNativeFontBridge.h" />
-    <ClInclude Include="src\OgreOverlayShim.h" />
-    <ClInclude Include="src\Ogre.h" />
-    <ClInclude Include="src\Overlay.h" />
-    <ClInclude Include="src\Ordnance.h" />
-    <ClInclude Include="src\OrdnanceVelocity.h" />
+    <ClInclude Include="src\Game\Multiplayer.h" />
+    <ClInclude Include="src\Ogre\OgreBuildSettings.h" />
+    <ClInclude Include="src\Ogre\OgreNativeFontBridge.h" />
+    <ClInclude Include="src\Ogre\OgreOverlayShim.h" />
+    <ClInclude Include="src\Ogre\Ogre.h" />
+    <ClInclude Include="src\UI\Overlay.h" />
+    <ClInclude Include="src\Game\Ordnance.h" />
+    <ClInclude Include="src\Patches\OrdnanceVelocity.h" />
     <ClInclude Include="src\Scanner.h" />
     <ClInclude Include="src\Patches.h" />
-    <ClInclude Include="src\PlayOption.h" />
-    <ClInclude Include="src\Radar.h" />
-    <ClInclude Include="src\Reticle.h" />
-    <ClInclude Include="src\Satellite.h" />
+    <ClInclude Include="src\Util\PlayOption.h" />
+    <ClInclude Include="src\UI\Radar.h" />
+    <ClInclude Include="src\UI\Reticle.h" />
+    <ClInclude Include="src\Game\Satellite.h" />
     <ClInclude Include="src\BasicScanner.h" />
-    <ClInclude Include="src\ShotConvergence.h" />
-    <ClInclude Include="src\SoundOptions.h" />
-    <ClInclude Include="src\Steam.h" />
+    <ClInclude Include="src\Patches\ShotConvergence.h" />
+    <ClInclude Include="src\Util\SoundOptions.h" />
+    <ClInclude Include="src\Game\Steam.h" />
     <ClInclude Include="src\StockExtensions.h" />
-    <ClInclude Include="src\UnitVo.h" />
-    <ClInclude Include="src\VectorSpider.h" />
+    <ClInclude Include="src\Patches\UnitVo.h" />
+    <ClInclude Include="src\Util\VectorSpider.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource\Resource.rc" />
