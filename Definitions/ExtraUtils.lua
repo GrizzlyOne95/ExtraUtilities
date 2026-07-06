@@ -774,6 +774,14 @@ function exu.GetRetroLightingMode() end
 --- @param enabled boolean
 function exu.SetRetroLightingMode(enabled) end
 
+--- Re-asserts the lighting mode last set via SetLightingMode/SetRetroLightingMode
+--- on any active viewport whose material scheme has drifted (e.g. after satellite
+--- view, sniper scope, or a resolution/scene reload rebuilds the viewport).
+--- Idempotent and cheap — a no-op unless a viewport actually reverted — so it is
+--- safe to call every frame from the mod's Update loop to keep retro/enhanced
+--- lighting from flashing back to the default scheme.
+function exu.EnforceLightingMode() end
+
 --- Returns the current scene visibility mask.
 --- @nodiscard
 --- @return integer | nil

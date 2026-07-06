@@ -48,6 +48,14 @@ namespace ExtraUtilities::Lua::Environment
 			Retro = 3,
 		};
 
+		// The engine recreates/reactivates viewports (satellite view, sniper
+		// scope, resolution or scene reload) and starts each fresh viewport on
+		// its native (modern) material scheme. A one-shot apply therefore
+		// "flashes back" to modern the next time a viewport is rebuilt. We keep
+		// the user's chosen mode here so it can be re-asserted; enforcement is
+		// idempotent and only rewrites a viewport whose scheme has drifted.
+		ViewportLightingMode g_desiredLightingMode = ViewportLightingMode::Default;
+
 		struct ViewportMaterialSchemeLayout
 		{
 			void* vtable = nullptr;
@@ -3056,20 +3064,19 @@ namespace ExtraUtilities::Lua::Environment
 		return 1;
 	}
 
-	int SetLightingMode(lua_State* L)
+	// Shared apply path for SetLightingMode / SetRetroLightingMode / enforcement.
+	// Resolves the modern base scheme from the primary viewport, builds the
+	// target scheme for the requested mode, and applies it to every active
+	// viewport. Returns true if at least one viewport was updated.
+	bool ApplyLightingModeToActiveViewports(
+		const ActiveViewportSet& activeViewports,
+		ViewportLightingMode requestedMode,
+		std::string* outCurrentScheme = nullptr,
+		std::string* outTargetScheme = nullptr)
 	{
-		Patch::TryInitializeOgre();
-
-		const ActiveViewportSet activeViewports = GetActiveViewports();
 		if (activeViewports.count == 0)
 		{
-			return 0;
-		}
-
-		ViewportLightingMode requestedMode = ViewportLightingMode::Default;
-		if (!TryParseLightingModeArg(L, 1, requestedMode))
-		{
-			return 0;
+			return false;
 		}
 
 		std::string currentScheme;
@@ -3099,10 +3106,93 @@ namespace ExtraUtilities::Lua::Environment
 			appliedAny = true;
 			TryRefreshViewport(viewport);
 		}
-		if (!appliedAny)
+
+		if (outCurrentScheme != nullptr)
+		{
+			*outCurrentScheme = currentScheme;
+		}
+		if (outTargetScheme != nullptr)
+		{
+			*outTargetScheme = targetScheme;
+		}
+		return appliedAny;
+	}
+
+	// Re-asserts the user's chosen lighting mode on any active viewport whose
+	// material scheme has drifted back to a different mode (which happens when
+	// the engine rebuilds/reactivates a viewport). Idempotent and cheap: it is a
+	// no-op unless a viewport actually drifted, so it is safe to call every
+	// frame. Default mode is the engine's own scheme, so nothing is enforced.
+	void EnforceDesiredLightingMode()
+	{
+		if (g_desiredLightingMode == ViewportLightingMode::Default)
+		{
+			return;
+		}
+
+		const ActiveViewportSet activeViewports = GetActiveViewports();
+		if (activeViewports.count == 0)
+		{
+			return;
+		}
+
+		bool drifted = false;
+		for (size_t i = 0; i < activeViewports.count; ++i)
+		{
+			std::string scheme;
+			if (!TryGetViewportMaterialScheme(activeViewports.viewports[i], scheme))
+			{
+				continue;
+			}
+			if (GetLightingModeForScheme(scheme) != g_desiredLightingMode)
+			{
+				drifted = true;
+				break;
+			}
+		}
+		if (!drifted)
+		{
+			return;
+		}
+
+		std::string currentScheme;
+		std::string targetScheme;
+		if (ApplyLightingModeToActiveViewports(activeViewports, g_desiredLightingMode, &currentScheme, &targetScheme))
+		{
+			LogEnvironmentDebug(
+				"[EXU::Viewport] re-enforced lighting mode=%s currentScheme=%s targetScheme=%s viewportCount=%zu",
+				GetLightingModeName(g_desiredLightingMode),
+				currentScheme.c_str(),
+				targetScheme.c_str(),
+				activeViewports.count);
+		}
+	}
+
+	int SetLightingMode(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		const ActiveViewportSet activeViewports = GetActiveViewports();
+		if (activeViewports.count == 0)
 		{
 			return 0;
 		}
+
+		ViewportLightingMode requestedMode = ViewportLightingMode::Default;
+		if (!TryParseLightingModeArg(L, 1, requestedMode))
+		{
+			return 0;
+		}
+
+		std::string currentScheme;
+		std::string targetScheme;
+		if (!ApplyLightingModeToActiveViewports(activeViewports, requestedMode, &currentScheme, &targetScheme))
+		{
+			return 0;
+		}
+
+		// Remember the choice so it can be re-asserted after viewport rebuilds.
+		g_desiredLightingMode = requestedMode;
 
 		LogEnvironmentDebug(
 			"[EXU::Viewport] lighting mode=%s currentScheme=%s targetScheme=%s viewportCount=%zu primary=%p secondary=%p",
@@ -3131,36 +3221,14 @@ namespace ExtraUtilities::Lua::Environment
 			: ViewportLightingMode::Default;
 
 		std::string currentScheme;
-		TryGetViewportMaterialScheme(activeViewports.viewports[0], currentScheme);
-		const std::string modernScheme = NormalizeModernMaterialScheme(currentScheme);
-		const std::string targetScheme = BuildLightingMaterialScheme(requestedMode, modernScheme);
-
-		if (IsModernMaterialScheme(modernScheme))
-		{
-			g_lastModernMaterialScheme = modernScheme;
-		}
-
-		bool appliedAny = false;
-		for (size_t i = 0; i < activeViewports.count; ++i)
-		{
-			void* viewport = activeViewports.viewports[i];
-			if (!TrySetViewportMaterialScheme(viewport, targetScheme))
-			{
-				LogEnvironmentDebug(
-					"[EXU::Viewport] failed to set material scheme viewport=%p current=%s target=%s",
-					viewport,
-					currentScheme.c_str(),
-					targetScheme.c_str());
-				continue;
-			}
-
-			appliedAny = true;
-			TryRefreshViewport(viewport);
-		}
-		if (!appliedAny)
+		std::string targetScheme;
+		if (!ApplyLightingModeToActiveViewports(activeViewports, requestedMode, &currentScheme, &targetScheme))
 		{
 			return 0;
 		}
+
+		// Remember the choice so it can be re-asserted after viewport rebuilds.
+		g_desiredLightingMode = requestedMode;
 
 		LogEnvironmentDebug(
 			"[EXU::Viewport] retro lighting=%d currentScheme=%s targetScheme=%s viewportCount=%zu primary=%p secondary=%p",
@@ -3170,6 +3238,18 @@ namespace ExtraUtilities::Lua::Environment
 			activeViewports.count,
 			activeViewports.count > 0 ? activeViewports.viewports[0] : nullptr,
 			activeViewports.count > 1 ? activeViewports.viewports[1] : nullptr);
+		return 0;
+	}
+
+	// Lua-callable: exu.EnforceLightingMode(). Re-asserts the saved lighting mode
+	// if a viewport has drifted. Intended to be called from the mod's per-frame
+	// update so retro/enhanced lighting persists across satellite view, sniper
+	// scope, and resolution/scene reloads.
+	int EnforceLightingMode(lua_State* L)
+	{
+		(void)L;
+		Patch::TryInitializeOgre();
+		EnforceDesiredLightingMode();
 		return 0;
 	}
 
