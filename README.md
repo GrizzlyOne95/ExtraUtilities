@@ -80,7 +80,12 @@ item is updated alongside releases; pinning to it is one line in your mod's depe
 ### Prerequisites
 
 - Visual Studio 2022 (any edition) with the **Desktop development with C++** workload
-- The **v143 toolset** (installed by default with VS2022)
+- The **v143 toolset, version 14.43 or newer** (VS 2022 17.13+). The project builds
+  with `/std:c++23`; older 14.3x toolsets silently ignore that flag and fail with a
+  confusing `error C2429: language feature 'nested-namespace-definition' requires
+  compiler flag '/std:c++17'` rather than a clear "unsupported standard" message. If
+  you have multiple toolsets installed, force a recent one with
+  `msbuild ... /p:VCToolsVersion=14.44.35207` (substitute the version you have).
 
 ### First-time setup
 
