@@ -597,6 +597,7 @@ namespace ExtraUtilities::Lua
 			{ "SetLightingMode", &Environment::SetLightingMode },
 			{ "GetRetroLightingMode", &Environment::GetRetroLightingMode },
 			{ "SetRetroLightingMode", &Environment::SetRetroLightingMode },
+			{ "EnforceLightingMode", &Environment::EnforceLightingMode },
 			{ "GetSceneVisibilityMask", &Environment::GetSceneVisibilityMask },
 			{ "SetSceneVisibilityMask", &Environment::SetSceneVisibilityMask },
 			{ "HasSkyBoxNode", &Environment::HasSkyBoxNode },
