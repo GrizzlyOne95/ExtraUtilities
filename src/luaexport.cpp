@@ -21,13 +21,13 @@
 --------------------------------*/
 
 #include "About.h"
-#include "Culling.h"
+#include "Game/Culling.h"
 #include "Exports.h"
-#include "Logging.h"
+#include "Util/Logging.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
 #include "Patches.h"
-#include "Renderer.h"
+#include "UI/Renderer.h"
 
 #include "lua.hpp"
 #include <Windows.h>

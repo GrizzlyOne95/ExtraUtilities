@@ -24,7 +24,7 @@
 #include "StockExtensions.h"
 
 #include "BZR.h"
-#include "Camera.h"
+#include "Game/Camera.h"
 #include "LuaHelpers.h"
 
 #include <format>

@@ -24,7 +24,7 @@
 
 #include <cstdint>
 
-#include "Vec3.h"
+#include "Util/Vec3.h"
 
 namespace BZR
 {

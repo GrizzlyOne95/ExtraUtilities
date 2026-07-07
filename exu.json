@@ -19,13 +19,13 @@
         "address": "0x008EAAE0",
         "type": "BZR_Camera*",
         "description": "Pointer to the primary in-game camera record. Contains projection matrix, frustum planes, position, and zoom.",
-        "pattern": null
+        "pattern": "A1 E0 AA 8E 00"
       },
       "zoomFactorFPP": {
         "address": "0x008EAD10",
         "type": "float*",
         "description": "First-person (cockpit/FPP) camera zoom factor. Stock value ~1.0.",
-        "pattern": null
+        "pattern": "D9 05 10 AD 8E 00"
       },
       "zoomFactorTPP": {
         "address": "0x008EAB10",
@@ -61,7 +61,7 @@
         "address": "0x0061D120",
         "type": "function: void __cdecl(tagENTITY*, int)",
         "description": "Sets the active camera view. Second parameter is a Camera::View enum value.",
-        "pattern": null
+        "pattern": "55 8B EC 8B 45 08 50 8B 4D 0C 51 E8 ? ? ? ? 83 C4 08 5D C3"
       }
     },
     "Math": {
