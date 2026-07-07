@@ -21,11 +21,13 @@
 --------------------------------*/
 
 #include "About.h"
+#include "Culling.h"
 #include "Exports.h"
 #include "Logging.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
 #include "Patches.h"
+#include "Renderer.h"
 
 #include "lua.hpp"
 #include <Windows.h>
@@ -604,6 +606,12 @@ namespace ExtraUtilities::Lua
 			{ "HasSkyDomeNode", &Environment::HasSkyDomeNode },
 			{ "HasSkyPlaneNode", &Environment::HasSkyPlaneNode },
 
+			// Culling
+			{ "GetCullDistance", &Culling::GetCullDistance },
+			{ "SetCullDistance", &Culling::SetCullDistance },
+			{ "GetCullingEnabled", &Culling::GetCullingEnabled },
+			{ "SetCullingEnabled", &Culling::SetCullingEnabled },
+
 			// Overlay
 			{ "ResetOverlaySupport", &Overlay::ResetOverlaySupport },
 			{ "CreateOverlay", &Overlay::CreateOverlay },
@@ -711,6 +719,13 @@ namespace ExtraUtilities::Lua
 			{ "GetGameResolution", &GraphicsOptions::GetGameResolution },
 			{ "GetUIScaling", &GraphicsOptions::GetUIScaling },
 
+			// Renderer
+			{ "SetWireframe", &Renderer::SetWireframe },
+			{ "GetWireframe", &Renderer::GetWireframe },
+			{ "DrawLine", &Renderer::DrawLine },
+			{ "DrawBox", &Renderer::DrawBox },
+			{ "ClearVisuals", &Renderer::ClearVisuals },
+
 			// IO
 			{ "GetGameKey", &IO::GetGameKey },
 			{ "IsPauseMenuOpen", &IO::IsPauseMenuOpen },
@@ -752,6 +767,10 @@ namespace ExtraUtilities::Lua
 			{ "GetTeamEngineFlameColor", &Patches::GetTeamEngineFlameColor },
 			{ "SetTeamEngineFlameColor", &Patches::SetTeamEngineFlameColor },
 			{ "ClearTeamEngineFlameColor", &Patches::ClearTeamEngineFlameColor },
+			{ "GetInfiniteAmmo", &Patches::GetInfiniteAmmo },
+			{ "SetInfiniteAmmo", &Patches::SetInfiniteAmmo },
+			{ "GetInfiniteScrap", &Patches::GetInfiniteScrap },
+			{ "SetInfiniteScrap", &Patches::SetInfiniteScrap },
 			{ "GetGlobalTurbo",     &Patches::GetGlobalTurbo },
 			{ "SetGlobalTurbo",     &Patches::SetGlobalTurbo },
 			{ "GetUnitTurbo", &Patches::GetUnitTurbo },
@@ -764,6 +783,7 @@ namespace ExtraUtilities::Lua
 			{ "SetShotConvergence", &Patches::SetShotConvergence },
 			{ "GetPlayerReticleShotConvergence", &Patches::GetPlayerReticleShotConvergence },
 			{ "SetPlayerReticleShotConvergence", &Patches::SetPlayerReticleShotConvergence },
+			{ "GetWeaponMask", &Patches::GetWeaponMask },
 			{ "GetUnitVoThrottle", &Patches::GetUnitVoThrottle },
 			{ "SetUnitVoThrottle", &Patches::SetUnitVoThrottle },
 			{ "GetUnitVoQueueDepthLimit", &Patches::GetUnitVoQueueDepthLimit },

@@ -142,8 +142,10 @@
     <ClCompile Include="src\BulletHitCallback.cpp" />
     <ClCompile Include="src\BulletInitCallback.cpp" />
     <ClCompile Include="src\Camera.cpp" />
+    <ClCompile Include="src\Cheats.cpp" />
     <ClCompile Include="src\CommandReplacement.cpp" />
     <ClCompile Include="src\ControlPanel.cpp" />
+    <ClCompile Include="src\Culling.cpp" />
     <ClCompile Include="src\dllmain.cpp" />
     <ClCompile Include="src\EngineFlameColor.cpp" />
     <ClCompile Include="src\Environment.cpp" />
@@ -166,6 +168,7 @@
     <ClCompile Include="src\OS.h" />
     <ClCompile Include="src\PlayOption.cpp" />
     <ClCompile Include="src\Radar.cpp" />
+    <ClCompile Include="src\Renderer.cpp" />
     <ClCompile Include="src\Reticle.cpp" />
     <ClCompile Include="src\Satellite.cpp" />
     <ClCompile Include="src\ShotConvergence.cpp" />
@@ -173,6 +176,7 @@
     <ClCompile Include="src\Steam.cpp" />
     <ClCompile Include="src\StockExtensions.cpp" />
     <ClCompile Include="src\UnitVo.cpp" />
+    <ClCompile Include="src\WeaponMask.cpp" />
     <ClCompile Include="src\Vec3.h" />
   </ItemGroup>
   <ItemGroup>
@@ -183,8 +187,10 @@
     <ClInclude Include="src\BulletInitCallback.h" />
     <ClInclude Include="src\BZR.h" />
     <ClInclude Include="src\Camera.h" />
+    <ClInclude Include="src\Cheats.h" />
     <ClInclude Include="src\CommandReplacement.h" />
     <ClInclude Include="src\ControlPanel.h" />
+    <ClInclude Include="src\Culling.h" />
     <ClInclude Include="src\EngineFlameColor.h" />
     <ClInclude Include="src\Environment.h" />
     <ClInclude Include="include\ExtraUtils.h" />
@@ -212,6 +218,7 @@
     <ClInclude Include="src\Patches.h" />
     <ClInclude Include="src\PlayOption.h" />
     <ClInclude Include="src\Radar.h" />
+    <ClInclude Include="src\Renderer.h" />
     <ClInclude Include="src\Reticle.h" />
     <ClInclude Include="src\Satellite.h" />
     <ClInclude Include="src\BasicScanner.h" />
@@ -221,6 +228,7 @@
     <ClInclude Include="src\StockExtensions.h" />
     <ClInclude Include="src\UnitVo.h" />
     <ClInclude Include="src\VectorSpider.h" />
+    <ClInclude Include="src\WeaponMask.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource\Resource.rc" />
