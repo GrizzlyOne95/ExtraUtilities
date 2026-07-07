@@ -80,7 +80,7 @@ https://github.com/PiercingXX/battlezone-netcode-patch
 
 Note: I'd really like to get the Neutral option (team 0) working without crashing, needs to be looked at again. 
 
-32) Ban feature (back port from prior native implementation) C:\Users\iestu\Documents\Google Drive\Ian Files\Battlezone Files\Archives\ClosedSourceDLL. This should be implemented but want to make sure the UI and such is exposed properly in game so it can be used. 
+32) Ban feature (back port from prior native implementation) C:\Users\iestu\Documents\Google Drive\Ian Files\Battlezone Files\Archives\ClosedSourceDLL. This should be implemented but want to make sure the UI and such is exposed properly in game so it can be used. We should also implement the Multiplayer vehicle descriptions no longer overridden by mod files unless those files come from the selected map.
 
 33) Restore multiplayer flags (rendered 2d flags over all units on a team, each team had a unique flag like in legacy BZ). Parts of the system still seem to exist, question would be adding it to UI and rendering via Ogre.  
 

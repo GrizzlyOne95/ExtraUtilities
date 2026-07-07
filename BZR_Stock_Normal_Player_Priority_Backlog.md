@@ -1,0 +1,746 @@
+# BZR Stock / Normal-Player Experience Priority Backlog
+
+Source: `FeaturesToLookInto.txt`
+
+This version is stricter than the earlier end-user backlog. It prioritizes items that affect:
+
+- stock campaign / instant-action / normal gameplay,
+- normal multiplayer players,
+- shell/HUD/input/camera usability,
+- crashes or broken behavior a regular Workshop subscriber can hit without authoring files.
+
+Items that are mainly **modding API**, **ODF authoring**, **mapmaking/editor-only**, or **content creation features** are moved to the appendix so they are not mixed into the normal-player priority list. Full original entry text is preserved.
+
+Original numbering note: the source file does not contain entries #35 or #40, and #45 had a spacing typo (`45 )`).
+
+---
+
+# Main list — stock / normal-player-facing priority
+
+## Priority 01 — Original #67
+
+**Why here:** Critical stock/runtime stability: random crashes even in stock content destroy trust first.
+
+```text
+67) Random Crashes
+Description: Game crashes seemingly at random, even in stock content. No errors given in log files.
+Factors that increase crash frequency:
+Shadows on max setting
+Alt+Tab or Alt+Enter
+Non-fullscreen mode
+DX11 renderer
+Non-English localization
+```
+
+## Priority 02 — Original #52
+
+**Why here:** Critical Workshop-subscriber UX: normal players can crash just by opening a menu with conflicting subscribed MP mods.
+
+```text
+52) Mod loading separation. Basically, loading a category like the Multiplayer menu and if any MP mods you are subscribed to have conflicting material names (often happens when people overwrite stock content with a mod) the game will crash instantly. Is there a way to "defer" loading until you actually select the item? 
+
+All files from all subbed mods matching the category of menu you open (for example, mulitplayer) load when entering that menu. This means if two DM map mods happen to have duplicate material names in them, it hard crashes game on entering that menu. It should only load those files upon actually launching the mod to prevent issues like this.
+```
+
+## Priority 03 — Original #22
+
+**Why here:** Launch-blocking content crash: normal users experience this as a campaign/mod that simply will not start.
+
+```text
+22) Some BMP formats cause a hard crash when trying to launch a mod or campaign with that thumbnail. Anything other than 24 bit and using "do not write color space info" crashes the game. Need to repro and get crash dump.
+```
+
+## Priority 04 — Original #57
+
+**Why here:** Save/load corruption-style bug during gameplay; can make missions feel haunted/broken after reload.
+
+```text
+57) Earthquake/Dayquake Save Bug
+Description: Saves during earthquake/dayquake effects repeat those effects endlessly on load.
+```
+
+## Priority 05 — Original #64
+
+**Why here:** Crash-class bug with simple invalid state; should become a safe guard instead of division by zero.
+
+```text
+64) Division by Zero - MagnetClass
+Description: Division by zero error in MagnetClass when the range is zero.
+```
+
+## Priority 06 — Original #65
+
+**Why here:** Crash-class allocation bug; should become a safe parse/runtime error.
+
+```text
+65) renderCount Allocation Crash
+Description: When renderCount is nil or isn't read properly, leads to "invalid allocation size" crash in ParameterDB system.
+```
+
+## Priority 07 — Original #49
+
+**Why here:** Instant gameplay crash if content triggers it; normal players see the crash even if the root cause is ODF data.
+
+```text
+49)We should see if we can fix this crash/patch it: 
+Unit weaponMask Crash
+Description: Units with
+weaponMask=00000
+told to follow an allied unit causes instant game crash.
+Workaround: Avoid setting weaponMask to all zeros when using follow commands.
+```
+
+## Priority 08 — Original #62
+
+**Why here:** Core multiplayer correctness: desyncs and host-only state make MP missions/mods unreliable.
+
+```text
+62)Netcode: 
+Multiplayer Sync Issues
+Description: Various multiplayer synchronization problems:
+Building objects via Lua only appears for hosting player when built by non-host
+Removing non-local objects causes them to "respawn"
+SetName() only affects the machine that executed it
+Objective markers not synced by default
+GetPlayerHandle with team number always returns nil
+Weapon changes require Send/Receive to sync properly
+```
+
+## Priority 09 — Original #28
+
+**Why here:** Match stability is directly player-facing; keep testing despite implementation status.
+
+```text
+28)✓Net code updates. Send/Receive Buffer Size adjustments and enforcement, combined with packet reordering. Implemented in shim but needs extensive testing and packet reordering/further improvements to lag handling if possible. 
+Piercing's patch makes a demonstrable improvement to match stability. 
+https://github.com/PiercingXX/battlezone-netcode-patch
+```
+
+## Priority 10 — Original #24
+
+**Why here:** Multiplayer strategy/fairness issue: satellite reveals too much compared to 1.5.
+
+```text
+24) Restore satellite "fog of war" 1.5. 1.5 in satellite you couldn't see anything not discovered or in radar range. Redux just shows everything. Probably an issue between legacy engine and Ogre rendering. Completely ruins multiplayer strategy by showing everything on the map.
+```
+
+## Priority 11 — Original #63
+
+**Why here:** Fairness issue: freecam in MP gives an unfair advantage.
+
+```text
+63) Freecam Exploit
+Description: Freecam mode is possible in multiplayer, providing unfair advantage.
+```
+
+## Priority 12 — Original #26
+
+**Why here:** Connectivity/discoverability: LAN/TCP-IP options affect normal MP users if still functional.
+
+```text
+26)Investigate for TCP/IP and LAN multiplayer options to see if they are functional and can be exposed in the UI, and if the game actually supports it or not.
+```
+
+## Priority 13 — Original #80
+
+**Why here:** Long-term MP infrastructure; not first unless matchmaking breaks, but very player-facing.
+
+```text
+80) see if we can decompile all the netcode for more resilient patching, and creating our own custom matchmaking server
+ 
+
+Final note: we should make a demo mission that implementes basically all these fixes for both Shim and EXU in a visible way so both players and modders can see what's been changed, fixed, what is possible, etc. 
+For example mission has a tank with changing materials
+```
+
+## Priority 14 — Original #32
+
+**Why here:** MP moderation/admin usability if server/player ban support exists.
+
+```text
+32) Ban feature (back port from prior native implementation) C:\Users\iestu\Documents\Google Drive\Ian Files\Battlezone Files\Archives\ClosedSourceDLL. This should be implemented but want to make sure the UI and such is exposed properly in game so it can be used.
+```
+
+## Priority 15 — Original #74
+
+**Why here:** Normal MP rules/options parity with 1.5.
+
+```text
+74) Feature Request: Add Cloak toggle option for MP (1.5 had it)
+ Any Nation as well (off allowed only NSDF/CCA)
+```
+
+## Priority 16 — Original #27
+
+**Why here:** Lobby identity quality-of-life; visible to every MP user who wants a nickname.
+
+```text
+27)You can launch the game with a nickname, would be cool to have that in the lobby shell UI since its technically supported. Investigation updated 2026-03-17 against the live Steam process, local Steam EXE, and BZRNet logs. New concrete Steam findings: the CLI parser writes `nickname=` into a fixed 128-byte buffer at `0x009453E0` (runtime parser anchor around `0x007D591C`), and the outbound auth builder around `0x006C7D33` clearly treats `name` and `realname` as separate fields. It always emits `realname` from a session/profile field at `+0x304`, and only overrides auth `name` when `0x009453E0[0]` is non-zero. Current implication: `/nickname=` is a startup auth override path for `Authorization.name`, not the full live nickname source. Live scan also still points to a strong `cUser::name` candidate matching the advisory `+0x24` offset (`0x07A01338` object base candidate with inline string at `0x07A0135C`), and Steam64 still lives at `0x0260B1D0`. Current blocker: we still need the safe callable live update path after startup, likely either the re-auth/resend caller that uses the auth builder, or the Steam lobby metadata helpers (`CSteamLobby::SetPlayerMetadata`, `CSteamLobby::UpdatePlayerRecord`) plus the in-match `NetPlayer::playerName` / `NotifyNameChanged` path. Added reusable probe helper: `Battlezone98Redux_Shim\\reverse_engineering\\probe_nickname_runtime.py`. Resume from `Battlezone98Redux_Shim\\reverse_engineering\\nickname_live_notes.md`.
+```
+
+## Priority 17 — Original #55
+
+**Why here:** Mission-breaking normal gameplay bug involving tugs and cargo after save/load.
+
+```text
+55) Tugs Cargo Bug
+Description: Tugs that start missions with cargo or load cargo after save/load cannot drop it.
+
+See: https://github.com/Nielk1/BZ98R-Advanced-Lua-API/blob/91d0910e3704e49ae9b2bfccd690f90a34e43e6b/baked/_fix.lua#L131
+```
+
+## Priority 18 — Original #56
+
+**Why here:** Highly visible camera/UI bug during normal play.
+
+```text
+56) Targeting Camera Bug
+Description: Entering satellite/F9 view while targeting causes target camera to remain on screen but not follow target.
+```
+
+## Priority 19 — Original #78
+
+**Why here:** Same player-facing satellite/F9 targeting camera repro; kept separate because it is listed separately.
+
+```text
+78)Sat View While Targeting Bug
+entering sat view (or F9 view) while you have a target causes the target camera to remain on screen, but it no longer follows the targeted object. In F9 view it obstructs the info in that corner of the screen. Untargeting does not remove the camera, you must leave the view.
+```
+
+## Priority 20 — Original #58
+
+**Why here:** Scripted mission presentation bug; visible to campaign players.
+
+```text
+58) Camera Cinematic Bug
+Description: Cinematic camera appears zoomed in incorrectly when triggered during satellite mode.
+```
+
+## Priority 21 — Original #59
+
+**Why here:** Direct camera comfort/quality issue for walker gameplay.
+
+```text
+59) Walker Cockpit Jitter
+Description: Walker cockpits jitter when walking/jumping.
+Workaround: Remove cockpit parent and parent to world (doesn't inherit movement but stops jitter).
+Is there a way to identify and resolve WHY it shakes violently sometimes?
+```
+
+## Priority 22 — Original #61
+
+**Why here:** Visible unit-rule bug; artillery firing undeployed feels wrong to players.
+
+```text
+61)Howitzer Retaliation Bug: Howitzers fire undeployed at enemy pilots who snipe them while on follow/go orders. Guessing the "sniper retaliate" code doesn't check if IsDeployed for artillery
+```
+
+## Priority 23 — Original #53
+
+**Why here:** Friendly-fire/ownership bug that punishes normal gameplay behavior.
+
+```text
+53)WeaponMines Friendly Fire
+Description: WeaponMines attack allied ships when pilots hop out briefly.
+I've also seen this happen with player hopping out of ship plays the "under attack beep" once.
+```
+
+## Priority 24 — Original #54
+
+**Why here:** Player command bug; APC refuses a reasonable deploy action.
+
+```text
+54)APC Deployment Bug
+Description: Cannot deploy soldiers when targeting allied unit while near enemies.
+Workaround: Untarget the allied unit first.
+There should be an exception to target nearest enemy and allow deploying, if the player is manually targeting an ally.
+```
+
+## Priority 25 — Original #46
+
+**Why here:** Splinter gameplay/MP bugs; undead fix is done but collision/duplication are player-visible.
+
+```text
+46) Splinter bugs: 
+
+A. (`classLabel = "spraybomb"`): investigated on 2026-03-19 against the legacy exact-match 1.5 decompile plus the current Redux GOG PDB export. Concrete finding: the deployed splinter is a native `SprayBuilding`, and its custom `SprayBuilding::Simulate` fire loop overrides `Building::Simulate` without preserving the base building destroyed/remove-flag gate. `Building::DamageAlloc` still marks dead buildings with `0x1000200`, but `SprayBuilding::Simulate` ignores that and keeps firing until ammo depletion removes it. This looks patchable in OpenShim by detouring `SprayBuilding::Simulate` and restoring the missing destroyed-path early-out before the stock shot loop continues. Resume notes: `Battlezone98Redux_Shim\\reverse_engineering\\splinter_spraybuilding_undead_bug_notes_20260319.md`. FIXED in OpenShim on 2026-07-06. The advisory VA `0x005242F0` had drifted on the live GOG exe, so `SprayBuilding::Simulate` was re-derived via RTTI to vtable slot 15 = `0x005DA6E0` (SprayBuilding vtable `0x008881EC`, slot addr `0x00888228`; diffed against Building vtable `0x00876630`). Shim now swaps that vtable slot: when the object is destroyed/marked-for-remove (flags `0x01000200` at `[[this+0xF4]+0x14]`) it routes the frame through stock `Building::Simulate` (`0x0047FCB0`) so the base explode/remove gate runs instead of continuing the payload fire loop; live splinters are unaffected. Install is gated by prologue expected-bytes + vtable slot validation (fails safe on future drift), SEH-guarded, toggle `OPENSHIM_DISABLE_SPLINTER_UNDEAD_FIX=1`, trace `OPENSHIM_TRACE_SPLINTER_UNDEAD=1`. Builds clean Release|Win32; in-game repro validation still pending.
+
+B. Collision Bug: Violent collision with deployed sprayBuildingClass, seems abnormally violent/reactive compared to other objects
+
+C. Multiplayer Duplication: Splinters create multiple bullet copies for each player
+```
+
+## Priority 26 — Original #47
+
+**Why here:** Strategy mission correctness bug; patched but still needs live validation.
+
+```text
+47) Constructor remote-build-after-death bug: investigated on 2026-03-19 against the legacy exact-match 1.5 decompile, then patched in OpenShim on 2026-03-23 after Redux 2.2.301 mapping confirmed the live `AI_UnitRemove` body at `0x0068FC60` and `AI_BuildingStalled` at `0x0068FE40`. Root cause was confirmed as the assigned-constructor death path equivalent to `AI_UnitRemove-005083d9.c`: when a constructor dies with `cc_construct_type != 0` and `cc_constructing != 0`, stock cleanup only removes the reserved area instead of following the fuller stalled-building recovery path. OpenShim now detours `AI_UnitRemove` and, only for that death case, applies the missing recovery sequence before forwarding to stock removal: `AIBuild_ConstructionEnd`, `AIBuild_ReservedAreaRemove`, `AI_SpentCreditRefund`, `AIBuild_UnassignedCCAdd`, stock stop-order call, and clearing `cc_construct_type`, `cc_construct_cost`, `cc_constructing`, `cc_account`, and `cc_reserved_area`. Runtime logging uses `[AICONSTRUCT]` in `winmm_shim.log`; extra trace is available via `OPENSHIM_TRACE_CONSTRUCTOR_REMOTE_BUILD=1`, and the fix can be disabled with `OPENSHIM_DISABLE_CONSTRUCTOR_REMOTE_BUILD_FIX=1`. Current status: OpenShim Release|Win32 builds successfully with the fix; fresh live gameplay repro validation is still pending. Notes: `Battlezone98Redux_Shim\\reverse_engineering\\constructor_remote_build_bug_notes_20260319.md`.
+```
+
+## Priority 27 — Original #25
+
+**Why here:** Aggro/perceived-team bug affects normal combat behavior and sniper interactions.
+
+```text
+25)✓ perceivedTeam bug (doesn't udpate if the unit opens fire - for example a sniped unit can start attacking and not draw aggro) - legacy investigation was narrowed on 2026-03-18 to the hostile-reveal write in `GameObject::SetDamageFlags`, with `OffensiveProcess::DoSubTask` / `TurretTankProcess::DoSubTask` as secondary user-reacquire paths. Current OpenShim status on 2026-03-23: first gameplay fix plus verification logging added. The shipped fix now reveals the attacking process owner by forcing `perceivedTeam = realTeam` through the live `OffensiveProcess` / `GunTowerProcess` hook path and the existing attack-state trampoline helper, using one shared native helper in `bzr_hooks.cpp`. Default state is now enabled. Runtime logging uses `[AGGRO]` in `winmm_shim.log`; extra trace is available via `OPENSHIM_TRACE_ATTACK_REVEAL=1` or `BZR_TRACE_ATTACK_REVEAL=1`. Build status: `BZROpenShim.sln` Release|Win32 builds cleanly with the patch. Remaining validation gap: fresh in-game repro of the sniper / open-fire aggro case is still pending, and the current shipped fix is a practical process-hook repair rather than a final direct detour on the Redux `SetDamageFlags` body. Notes: `Battlezone98Redux_Shim\\reverse_engineering\\jump_satellite_perceivedteam_investigation_20260318.md`.
+```
+
+## Priority 28 — Original #23
+
+**Why here:** Legacy behavior regression that normal sniper/pilot players can feel.
+
+```text
+23) Jump sniping back to 1.5 behavior (if you touched ground with sniper selected it'd play the crouch anim, in redux you can just hold jump and even if you touch ground it doesnt do that) Probably tied to Ogre skeletal animation triggers, as person class objects use skeletal (not vdf) animations. See if there is a way to hook into Ogre animations or some other system to force 1.5 behavior.
+```
+
+## Priority 29 — Original #39
+
+**Why here:** Input feel affects every normal session.
+
+```text
+39) True raw mouse input, verify if it exists and how to enable it. // add toggle to PDA
+```
+
+## Priority 30 — Original #45
+
+**Why here:** Controls/keybinding UX affects accessibility and normal usability, though implementation is shell-heavy.
+
+```text
+45)Key-binding shell UI rewrite: scaffold and RE are in place, but no live replacement screen yet input_binding_ui_replacement_notes_20260318.md (line 494) bzr_hooks.cpp (line 5290). Need to get clean UI layout replacing the clunky native UI (it only allows changing a few main actions), allowing free keybinds for all actions, pulling and saving to "C:\Program Files (x86)\GOG Galaxy\Games\Battlezone 98 Redux\input.map" maybe also reference: C:\Program Files (x86)\GOG Galaxy\Games\Battlezone 98 Redux\giddi
+```
+
+## Priority 31 — Original #79
+
+**Why here:** Mission briefing readability affects every campaign player.
+
+```text
+79)Mission briefing text gets cut off, you have to add 10 - 15 line breaks to get scroll to properly display lower text
+```
+
+## Priority 32 — Original #31
+
+**Why here:** HUD clutter/target popup setting affects normal combat readability.
+
+```text
+31)Add a persistent PDA setting for target reticle popups on hit / target health sprites. Shipping scope was narrowed on 2026-03-18 to DEFAULT and EXPLICIT ONLY after the earlier NEUTRAL ONLY experiment proved too crash-prone when patched at the wrong branch site. Investigation completed on 2026-03-17 against the legacy exact-match decompile plus the Redux GOG EXE/PDB exports. Current finding: the popup is driven by `SelectionDisplay::Render` through two paths, explicit target (`userObject->targetHandle`) and a recent-hit timer (`playerShot < now + 2s`). The recent-hit timer is written by `GameObject::SetDamageFlags` when the player-shot damage flag is present. OpenShim now ships the safer render-side recent-hit suppression path and treats legacy / experimental NEUTRAL ONLY requests as DEFAULT unless the native experiment is explicitly forced. Steam revalidation was completed later on 2026-03-17 after launching `battlezone98redux.exe /nointro`: the first 96 bytes of `SelectionDisplay::Render` body at `0x0043E100`, `GameObject::SetDamageFlags` at `0x0046C860`, and `Targeting::Simulate` at `0x00527550` all matched the GOG executable exactly. Resume notes remain in `Battlezone98Redux_Shim\\reverse_engineering\\target_reticle_popup_notes.md` if the experimental neutral-only path is revisited.
+
+Note: I'd really like to get the Neutral option (team 0) working without crashing, needs to be looked at again.
+```
+
+## Priority 33 — Original #30
+
+**Why here:** HUD layout polish; always visible when enabled.
+
+```text
+30)✓Original scrap/pilot meter placement. Implemented across EXU + OpenShim and substantially complete as of 2026-03-22/23. Legacy mode now anchors the scrap/pilot text from the live command-menu bounds through `exu.GetCommandMenuRect()` instead of guessing the HUD width, and Campaign Reimagined caches the last good command-menu rect so it does not need to keep probing `menuunderlay` during mission load. The stock top green scrap/pilot frame sprites are now also handled natively: in legacy mode OpenShim hides them through a cached UV-address fallback that zeroes the live stock panel records directly when the old sprite-id-to-rect-table lookup fails, and when switching back to stock the same cached originals are restored instead of forcing another expensive rediscovery scan. Latest live success signal was EXU reporting `SetHudSpriteRect('scrap_panel', 0, 0, 0, 0) => true`, `SetHudSpriteRect('pilot_panel', 0, 0, 0, 0) => true`, and the other stock panel variants likewise succeeding. Load behavior improved materially after removing the live `menuunderlay` probe and caching the stock panel addresses, though a brief startup hitch may still be worth profiling further if it remains noticeable. Important deployment note: the newest `winmm.dll` must be copied to both the Steam game root and `packaged_mods\\3686673790`, and the updated `PersistentConfig.lua` must also be in the deployed packaged-mod folder or the runtime can swap back to older behavior. One more clean visual verification pass on the newest build is still worth doing, but this is no longer just a TODO or experiment.
+```
+
+## Priority 34 — Original #4
+
+**Why here:** Radar scale/misalignment affects normal HUD use, especially high-resolution players.
+
+```text
+4)✓ A means to re-size the radar. you need a 4k monitor for the larger UI size to not take up 80% of the screen. - implemented in EXU via radar scale at 0x008E77B0 plus layout refresh helper 0x00492EC0, exposed as exu.GetRadarSizeScale()/exu.SetRadarSizeScale(). We also have exu.GetRadarState()/exu.SetRadarState() nearby, so Lua can manage both visibility/state and scale together. This is done and working, but needs a little tweaking as when you scale it above or below the normal bounds the radar itself and the radar background center/origin dont exactly match, leading to misalginment.
+```
+
+## Priority 35 — Original #9
+
+**Why here:** Radio queue spam is normal-player annoyance during rapid commands/big battles.
+
+```text
+9)✓ Access to the radio feedback system, so we can finally do away with the massive amounts of audio clip queueing that makes the units talk non-stop mentioning orders you performed like 4 minutes ago. In BZP even with my enhancements this can still get really bogged down especially when issuing rapid orders to howitzers. I do not have the time or patience to re-write the entire radio feedback system and I think it would be riddled with problems if I attempted it. A nice bonus would be to allow units to be programmed to have alternate lines. I sorta did this with the producer units in BZP (IE: selecting the recycler randomly plays between 2 clips, "recycler here" or "yes sir!") - EXU first pass implemented on 2026-03-16 and then tightened the same day with queue-aware control after cross-checking the completed legacy BZ1 exact decompile against the Redux EXE. The current implementation now hooks the stock `Say -> QueueCB` enqueue path instead of only the low-level sound-object creation path, exposes `exu.GetUnitVoThrottle()`, `exu.SetUnitVoThrottle(ms)`, `exu.GetUnitVoQueueDepthLimit()`, `exu.SetUnitVoQueueDepthLimit(n)`, `exu.GetUnitVoQueueStaleMs()`, `exu.SetUnitVoQueueStaleMs(ms)`, `exu.GetUnitVoMuted()`, `exu.SetUnitVoMuted(enabled)`, `exu.GetUnitVoAlternates(filename)`, and `exu.SetUnitVoAlternates(filename, { ... })`, and keeps the behavior intentionally focused on stock-style unit bark filenames. Current behavior: mute can now suppress likely unit barks before enqueue while leaving unrelated mission audio like `misn*.wav` alone, duplicate queued barks are dropped, stale or over-deep unit-bark queues can be compacted before enqueueing the newest bark, and alternates are chosen before enqueue. Current limitations: this is still not a full rewrite of the entire radio system, and it only manages the verified `Say -> QueueCB` unit-VO paths rather than every possible direct queue caller. Full notes: `unit_vo_notes.md`.
+```
+
+## Priority 36 — Original #10
+
+**Why here:** Autosave shell integration affects ordinary load/recovery experience.
+
+```text
+10)✓ Based off native shell RE findings, we can modify the shell UI. Look into adding autosave native shell UI instead of overwriting a stock save slot. - implemented in BZR-OpenShim rather than EXU. OpenShim now injects an AutoSave button into the load screen, detects auto.sav/auto2.sav in the Save folder, prepares the native load screen selection state, queues the real autosave path into the game's queued-load buffers, and loads it without reusing or overwriting a stock save slot. This is native shell integration, not a fake replacement slot.
+```
+
+## Priority 37 — Original #60
+
+**Why here:** Terrain deformation is visible in normal play.
+
+```text
+60) Terrain Texture Deformation
+Description: Terrain tile texture type 0 gets deformed differently based on orientation. Transitions between type 0 and others also appear deformed.
+Experimentally fixed in CR_ shader rewrites, but needs validation.
+```
+
+## Priority 38 — Original #77
+
+**Why here:** Specific terrain type-0 deformation repro; kept separate because it has a concrete visual case.
+
+```text
+77) Terrain tile texture type 0 is deformed
+It gets deformed differently depending on the orientation. Transitions between type 0 and others can also appear deformed. Other texture types display correctly. It's interesting that only the right/top half of the texture gets deformed. 
+
+Example: https://private-user-images.githubusercontent.com/143971298/416855819-275450ae-49e5-4f19-bec1-86643b8b567a.gif?jwt=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3ODM0NDI3MTYsIm5iZiI6MTc4MzQ0MjQxNiwicGF0aCI6Ii8xNDM5NzEyOTgvNDE2ODU1ODE5LTI3NTQ1MGFlLTQ5ZTUtNGYxOS1iZWMxLTg2NjQzYjhiNTY3YS5naWY_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjYwNzA3JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI2MDcwN1QxNjQwMTZaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT00Njk5NTQxNjg0MTJlNjBiNWI0YTJlNmJkYmM0MWM0NzFmNWZjMjJkZGVjOWQ3Njk1ZGUxNjc5YmRkM2QzZDg5JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZyZXNwb25zZS1jb250ZW50LXR5cGU9aW1hZ2UlMkZnaWYifQ.Ym-Gd8IK_jD00gONFmxfxwmGuuiJr1dyic-9_TlnGV0
+```
+
+## Priority 39 — Original #51
+
+**Why here:** Performance/rendering quality can affect normal large battles, though risky/broad.
+
+```text
+51) Made multiple attempts but basically rewriting the Ogre shaders from scratch to improve optimization and performance, increase visual fidelity, fix some rendering bugs, and add more features if possible. Potentially look at GPU skinning to prevent massive frame drops in big battles, but ran into crazy transform problems with warping and wrong meshes when I tried last.
+```
+
+## Priority 40 — Original #41
+
+**Why here:** Audio clipping/channel limit is noticeable in large battles.
+
+```text
+41) Increase sound channels - experimentally incrementing from 100 to 150. This prevents audio getting clipped out in large battles.
+```
+
+## Priority 41 — Original #34
+
+**Why here:** Vehicle/building explosion chunks are normal-player visual feedback.
+
+```text
+34)✓Come up with a comprehensive solution to restore the geos (components of vehicle/building vdf and sdf) exploding into chunks. They still simulate in BZR, causing explosions and damage, but do not render. 
+The legacy models are fully simulated but not rendered. We need to find a way to "unhide" them, explode the Ogre meshes in a new way, or spawn geometry chunks using Ogre when a unit dies with custom objects. Analyze all repos and files in workspace, including best effort corpus for PDB/GOG EXE, and determine what is the most feasible solution to restore the physical chunks of ships blowing up. -- Update 7-5-2026 Mostly working and implemented!
+```
+
+## Priority 42 — Original #12
+
+**Why here:** Engine flame color is visual polish seen during normal play.
+
+```text
+12)✓Specifying engine flame color per team or handle. Sprite sheets have green/red/blue flame definitions, but it seems to be hardcoded in the game to always use blue. - reverse-engineered and first-pass implemented on 2026-03-16 across stock ODFs, shipped sprite materials, GOG EXE/PDB, EXU, and OpenShim. Stock Redux still fundamentally uses one global `EngineFlame` queue format (`transform + scale` only), so per-team color required a native reroute before submit. Current live GOG addresses revalidated in Shim: `EngineFlame::EngineFlame = 0x004C85F0`, `PreLoad = 0x004C8610`, `AddFlame = 0x004C8800`, `Control = 0x004C88A0`, `Submit = 0x004C88C0`, with hovercraft exhaust callsites at `0x004EAD77` and `0x004EAFDE` inside `HoverCraft::Simulate(0x004EA300)`. Current implementation split is now in place: EXU provides `exu.GetTeamEngineFlameColor(team)`, `exu.SetTeamEngineFlameColor(team, color)`, and `exu.ClearTeamEngineFlameColor(team)` for `"default"`, `"blue"`, `"red"`, and `"green"`, and also exports `EXU_GetTeamEngineFlameColor(int)` for Shim. OpenShim now hooks those two hovercraft exhaust callsites, resolves team via live `GetHandle`/`GetTeamNum`, clones the stock `EngineFlame` managers, swaps red/green textures (`exhaust_r.0` / `rflame`, `exhaust_g.0` / `gflame` candidates), and hooks the live `EngineFlame` vtable `Control`/`Submit` slots so the color-specific managers advance and render. Build chain status is now clean: OpenShim Debug/Release Win32 both pass; EXU Debug/Release x86 both pass after fixing a few unrelated build issues encountered during integration. Current remaining limitation: runtime gameplay validation is still pending, and this first pass only covers the two confirmed hovercraft exhaust callsites, so any other exhaust-emitting class that bypasses that path may still stay stock blue until more callsites are patched. Full RE and test notes: `Battlezone98Redux_Shim\\reverse_engineering\\engine_flame_color_notes.md`.
+```
+
+## Priority 43 — Original #33
+
+**Why here:** Legacy MP team flags are normal-player readability/faction awareness.
+
+```text
+33) Restore multiplayer flags (rendered 2d flags over all units on a team, each team had a unique flag like in legacy BZ). Parts of the system still seem to exist, question would be adding it to UI and rendering via Ogre.
+```
+
+## Priority 44 — Original #36
+
+**Why here:** Empty-craft emissive state is normal gameplay visual feedback.
+
+```text
+36) Emissive lights off in empty craft (valid but no pilot) so "running lights" Use Lua IsAliveAndPilot to determine then call Ogre shaders? // add toggle to PDA
+```
+
+## Priority 45 — Original #37
+
+**Why here:** Emissive pulsing/motion is visual polish.
+
+```text
+37) when emissives on, gradual pulsing or motion - shader code // add toggle to PDA
+```
+
+## Priority 46 — Original #38
+
+**Why here:** Star twinkle is environmental visual polish.
+
+```text
+38) twinkling Stars - can be done via ogre shaders // add toggle to PDA
+```
+
+## Priority 47 — Original #48
+
+**Why here:** Hit markers/reactive reticles are combat feedback for normal players.
+
+```text
+48) Reactive reticles for hitting your target, or "hit markers"? Probably using Ogre shaders as they render the reticles.
+```
+
+## Priority 48 — Original #50
+
+**Why here:** Dynamic HUD responses are normal gameplay feedback.
+
+```text
+50) Dynamic HUD effects based on in game events, like flashing HUD colors when taking damage, or popping up new UI widgets based on events. Ties into the reactive reticle request (calling Ogre updates based on in-engine events with Lua)
+```
+
+## Priority 49 — Original #43
+
+**Why here:** AI tuning affects normal missions if enabled in shipped content.
+
+```text
+43) AI ODF tuning for combat, stuck handling, and scavenger scrap choice. Investigation and first implementation pass landed in OpenShim on 2026-03-19. Legacy cross-check status: `CraftClass.rangeScan` and `CraftClass.periodScan` are already native ODF fields and control scanner range/period, while the stock 200 m combat behavior comes from AI-process defaults (`OffensiveProcess::engageRange = 40000.0`) unless weapon-derived range logic overrides it through `CalcRange(Craft, ...)`. Current OpenShim status: custom AI ODF fields are now parsed directly from unit ODFs in the same addon ODF search roots used elsewhere by Shim. Implemented fields currently recognized are `engageRangeAI`, `weaponRangeMinAI`, `retargetPeriodAI`, `stuckCheckPeriodAI`, `stuckReverseTimeAI`, `stuckStrafeTimeAI`, `scrapPathingAI`, `scrapPathLengthWeightAI`, `scrapStraightDistanceWeightAI`, `scrapPathFailPenaltyAI`, `scrapHardToGetCooldownAI`, and `scrapSearchRadiusAI`. Current live hook status: only the safest verified first hook is active so far, a `CalcRange(Craft, ...)` detour in OpenShim that makes `engageRangeAI` and `weaponRangeMinAI` actually affect AI weapon-range selection while preserving stock weapon-aware max-range behavior. This means ODFs can now push units above the stock baseline without fighting the normal long-range-weapon logic. Bomber follow-up landed the same day: if a craft ODF uses `aiName` or `aiName2` of `BomberFriend` / `BomberEnemy`, and does not already define `engageRangeAI` or `weaponRangeMinAI`, Shim now derives a fallback stand-off range from the bomber's equipped `weaponName1..5` entries by resolving each weapon's `ordName` and using the ordnance `shotSpeed * lifeSpan - 1.0`. That means stock bombers like `avhraz` using the 300 m rocket bomb now hold near 299 m instead of always collapsing to generic close-range attack behavior, while custom bombers with shorter-ranged weapons naturally close in farther. For debugging, OpenShim also now has `OPENSHIM_TRACE_BOMBER_RANGE=1` / `OPENSHIM_TRACE_AI_RANGE=1` trace logging around the bomber range clamp so live sessions can confirm which ODFs are hitting the derived fallback and what final engage range they get. Current not-yet-live status: the scavenger scrap path-scoring, retarget timer override, and stuck-recovery timing fields are parsed and cached but not yet wired into runtime behavior, because the Redux hook sites for `RecycleTask::InitLookingForScrap`, `RecycleTask::IsStuck/DoStuck`, `UnitTask::IsStuck/DoStuck`, and `OffensiveProcess` / `TurretTankProcess` retarget loops still need one more validated hook pass. Intended scavenger behavior remains: gather candidates, reject with `GoodScrapPosition`, run `FindPlan`, reject bad paths, score primarily by `AiPath::GetLength()`, use straight-line distance only as a secondary term, and preserve `HardToGetTo` as a repeated-failure cache. Build status on 2026-03-19: `BZROpenShim.sln` Release|Win32 builds successfully with the current parser plus `CalcRange` hook.
+
+This needs full verification but should be enabled by default if possible.
+```
+
+## Priority 50 — Original #44
+
+**Why here:** AI reaction/scan timing affects normal combat feel.
+
+```text
+44) Data driven by ODF, ai react time: how often they scan for targets. Some units it seems pretty slow like every 6 seconds or so, ideally especially for defensive units they should be scanning for enemies every 0.5 - 1 seconds.
+```
+
+## Priority 51 — Original #7
+
+**Why here:** AI movement/control work is creator-facing internally, but better AI/stuck handling improves normal play.
+
+```text
+7) Some kind of access to individual unit behaviors... like forward movement, strafing, use of jump jets, etc. It would open the door to making better custom unit behaviors... up to and including emulating an actual player. The problem with BZ's AI is that the terrain has a tendency to alter their movement in ways that can stun them or make them do weird movements because a polygon was too step beneath them. Ability to check AI processes and set them, or tweak AI behavior. - partially implemented in EXU. We now have typed AI inspection helpers for this area, not just blind scans: exu.GetAiProcessState(), exu.GetAiTaskState(), exu.SetAiTaskState(), and exu.GetAiRecycleTaskState(). These expose named scavenger process values, recycle-task state, task state integers, target handles, goto vectors, and live unit-task steering factors like steer, braccel, strafe, pitch, omega, and omegaScale. Turbo is also available through the new task-state setter by delegating to EXU's existing per-unit turbo support. Live Steam probing was extended on 2026-03-17 and recorded in `BZR-OpenShim\\reverse_engineering\\probe_ai_craft_controls.py` plus `ai_craft_control_probe_notes.md`. Current probe result: a naive scan for `+0xD0/+0xD4/+0xD8/+0xDC` is too noisy and mostly lands in unrelated `GameObject::Load/Save`, `DayWrecker::*`, and `EditTerrain::*` neighborhoods, so that is not a safe basis for a blind `jump` setter. The strongest current live control-path evidence is still the lower movement pair: the Steam process shows a likely craft/vehicle pointer load through `obj + 0xF4`, then reads at `+0xBC` and `+0xC0` in a `GechProcess::*` neighborhood, which supports the current model that AI task intent feeds a second craft-side control block. What is still missing is a trustworthy live producer/consumer site for `jump` and the broader craft-side control flags, so this is not yet full "emulate a player" coverage, but it is now a real scriptable foothold plus a recorded probe path instead of pure reverse-engineering.
+```
+
+## Priority 52 — Original #18
+
+**Why here:** Turret vertical aim limitation can affect normal combat against high-angle threats.
+
+```text
+18) Add a way to adjust turret aiming range. Currently hardcoded to 0.5 radians so they can't aim straight up at threats for example. This seems to apply to both turrettank class and turret class. - experimental fix added but needs to be verified (turrets should be able to aim almost straight up now). Should we add a ODF toggle or value for radians?
+```
+
+## Priority 53 — Original #11
+
+**Why here:** Stats are player-facing progression/feedback if shipped globally.
+
+```text
+11) Mission, MP round, or career stats (kills, snipes, etc). Easiest way to do this is keep a config file with logged stats, but would need a way to hook into all modes and record player actions. Most likely requires a shim. If that is too complex, we can simply add custom scripting and use EXU/BZFile to write stats per single player mission. Would prefer tracking hooks in multiplayer too though. Seems to work fine in single player
+```
+
+---
+
+# Appendix — lower priority for stock/normal players
+
+These entries are retained in full, but they are mostly modding-framework, ODF authoring, editor/mapmaker, or content-creation territory rather than stock-game/normal-player issues.
+
+## Appendix 01 — Original #1
+
+**Why here:** Mostly modding/API expansion: custom command-menu Lua hooks and arbitrary buttons are creator-facing unless a specific campaign depends on them.
+
+```text
+1) The ability to add and remove commands from the command menu for any unit. By "adding" I mean having a lua hook that would put in text you define and it would execute a lua script for that unit when the button is pressed. Look how the command menu for a unit is switched for something like changing Hunt to Cloak. RE status: investigated in GOG exe/pdb, Steam exe, Campaign Reimagined ODFs, EXU/OpenShim code, and the exact legacy BZ1 global decompile. `cvfigh.odf` does not expose a generic command definition system; the relevant stock delta vs `svfigh.odf` is `CraftClass.cloakAllowed = "True"` rather than a custom button declaration. The native command menu appears to be built from fixed mode tables and class-specific logic (`Wingman::UpdateModeList`, `Wingman::SetActiveMode`, `Craft::SetActiveMode`, `ActionMode::GetCommand`, `ControlPanel::SetModeMenu`, `PathDisplay::DrawCommandMenu`). Important finding: the PDB has `MODE_HUNT` / `CMD_HUNT`, but no `MODE_CLOAK` / `CMD_CLOAK`, which strongly suggests the stock Cloak behavior is a hardcoded substitution of the Hunt slot for cloak-capable craft, not a reusable data-driven feature. The legacy decompile now strengthens that further: `Wingman::UpdateModeList` explicitly installs mode `0x0D`, and `Wingman::SetActiveMode` maps mode `0x0D` directly to `GameObject::SetCommand(CMD_HUNT)`. Prototype started in EXU on 2026-03-16: added `exu.ReplaceStockCmd`, `exu.RemoveStockCmdReplacement`, `exu.HasStockCmdReplacement`, `exu.GetStockCmdReplacement`, `exu.TriggerStockCmdReplacement`, and `exu.UpdateCommandReplacements` with per-handle/per-command Lua callback registration. Current first native end-to-end pass is now in place: EXU scans the live executable for the Redux `Wingman::SetActiveMode` Hunt activation block, hooks it, dispatches selected-unit `Hunt` replacements directly to Lua before stock `CMD_HUNT` is issued, and preserves the replacement label by updating the stock Hunt text pointer at runtime based on the current selection. Campaign update loops still call `exu.UpdateCommandReplacements()`, but that is now mainly for contextual label maintenance and a polling fallback if the native signature ever fails to resolve. Current limitations: only the stock `Hunt` slot is auto-hooked, the current label override is still best-effort via the stock command-text pointer rather than a dedicated draw hook, and truly adding arbitrary extra buttons would still require a deeper control-panel/UI patch. Build status on 2026-03-16: `ExtraUtilities.sln` Release|x86 now builds successfully with the new hook. Full notes: `Battlezone98Redux_Shim\\reverse_engineering\\unit_command_swap_notes.md` and `command_replace_notes.md`.
+
+Note: can we override the text in the Hunt command slot? For example how CRA units like cvtnk.odf has cloakAllowed as the flag that lets it cloak and changes the unit menu from Hunt to Cloak instead. If we can make our own order there and ai process, that'd be the ultimate goal.
+```
+
+## Appendix 02 — Original #2
+
+**Why here:** Implemented modding/UI framework item; normal players only see content built with it.
+
+```text
+2)✓ Add custom UIs directly to the game and have them respond to lua coding. While my efforts/experiments are neat, they tend to be very obtuse, inefficient and tedious to change. - substantially implemented in EXU with native Ogre overlay bindings and runtime font support. We now have Lua-facing overlay APIs like CreateOverlay/DestroyOverlay, CreateOverlayElement, AddOverlay2D, AddOverlayElementChild, SetOverlayPosition, SetOverlayDimensions, SetOverlayMaterial, SetOverlayParameter, SetOverlayCaption, SetOverlayTextFont, SetOverlayTextColor, and SetOverlayTextCharHeight. This gives us Lua-driven material/image/text HUD work without needing the older obtuse shell hacks. Campaign Reimagined is now using this path live for the PDA, mission subtitles, and the autosave popup instead of relying purely on the older subtitle DLL / shell hacks. Still refining edge cases like pause/menu interaction, visibility suppression, and broader higher-level helpers. This is basically implemented at this time.
+```
+
+## Appendix 03 — Original #3
+
+**Why here:** Implemented material API/framework item; mostly creator-facing.
+
+```text
+3)✓ Materials that can be hotswapped - implemented in EXU. We have runtime material inspection/mutation helpers including GetSubEntityMaterial, GetMaterialName, SetEntityMaterial, SetSubEntityMaterial, SetMaterialName, MaterialExists, CloneMaterial, GetMaterialPassColors, and SetMaterialPassColors. This already supports swapping materials on live units plus cloning/tinting per-state variants without authoring separate material files. This is basically complete, we have material swapping working and team color presets for the player team.
+```
+
+## Appendix 04 — Original #5
+
+**Why here:** Runtime mission/map scripting tool; normal players only experience authored usage.
+
+```text
+5)✓ A way to change what part of the minimap is displayed at runtime. If I want a strat map that is a small portion of a huge campaign map, I currently have no way of merging the two practically. Basically a dynamic edge_path which can be adjusted/reloaded to update map boundaries. - implemented in EXU as a first safe native pass. EXU now exposes exu.SetEdgePathCoords(points) and exu.RefreshEdgePathBounds(). The native side uses the runtime "edge_path" lookup plus the rebuild helper at 0x0046AF20, which recomputes the live map-bounds cache at 0x00917388/0x0091738C/0x00917390/0x00917394 and refreshes dependent systems. This affects both minimap framing and gameplay boundary checks, not just editor data. Current limitation: SetEdgePathCoords only replaces coordinates in-place and requires the same point count as the existing runtime edge_path, which is the lower-risk version until path allocation/resizing is fully validated. Input points can be vector userdata, tables with x/z keys, or simple {x, z} arrays. Requires an active mission.
+```
+
+## Appendix 05 — Original #6
+
+**Why here:** Runtime planet/environment swap is content-authoring/modding territory.
+
+```text
+6) A way to swap out the terrain textures and environment at runtime (So any map can take place on any planet, like warcraft 2 did back in the day). - partially implemented in EXU. Full one-call "planet swap" is not done yet, but we do now have a lot of the runtime environment controls needed to build it: fog, gravity, ambient light, sun ambient/diffuse/specular, sun direction, time of day, sun power scale, shadow far distance, viewport shadow toggles, visibility mask controls, and skybox/skydome/skyplane inspection. Combined with the material hot-swap helpers above, we can already script significant visual re-theming; what is still missing is a clean high-level terrain/environment preset pipeline and any direct terrain-texture-set convenience layer. Note: we just need to see if we can hotswap the terrain atlas material on demand.
+```
+
+## Appendix 06 — Original #8
+
+**Why here:** Nested producer menus are advanced content/faction authoring unless shipped in a campaign.
+
+```text
+8) A means to change what you can build without needing stupid odf hot-swapping tricks. Reference how the game opens and uses b_amcmbt.odf, b_ambldg.odf etc. It allows submenues which would be amazing to add to producer menues like Recycler, Factory, Armory and Constructor. - experimentally implemented but needs refinement and testing. Goal is to have like a "Combat Units" on top menu of a factory, then under that selection you could have multiple options. Basically nested menues. System works with the editor build ODF's, so its proven, but not implemented for actual production units.
+```
+
+## Appendix 07 — Original #13
+
+**Why here:** Editor/file-authoring issue; mostly mapmakers saving TRN files.
+
+```text
+13) Sometimes when saving or editing TRN files (saving by editor or manually editing) the line feeds get converted to a different format. They need to be Windows format. The game ignores any and all text with line feeds other than this one.
+The BZ application itself can cause this to happen however. Exact circumstances to reproduce it have not been successful yet. It's been seen to happen when saving mission terrain in the editor (control + s, misnname.trn)
+Can be fixed by mass converting TRN file to ANSI and forcing line feeds to CR LF. Either patch the application to see all line feeds or to force ANSI/CR LF on file saves.
+```
+
+## Appendix 08 — Original #14
+
+**Why here:** ODF/class behavior extension for custom objects; mostly content-authoring, except if applied to stock-like fixes later.
+
+```text
+14) Add team filters for stuff like shield towers, magnet mines, etc. So basically a way to have the object ignore a specified team number. This already happens by default for proxmines, so a way to extend the "ally" detection filter to other classes. Shield tower first pass implemented in OpenShim on 2026-03-23. Current Redux shim status: `ShieldTower::Simulate` is now hooked through the real shield-tower vtable slot, and shield towers can be filtered by ODF with `teamFilter = all|allies|enemies|none` plus `affectAllies = true|false` and `affectEnemies = true|false`. The filter applies to both pushed objects and ordnance by checking relation against the tower or ordnance owner. Default behavior remains stock when those ODF keys are absent. Remaining scope here is other classes like magnet mines / proxmine-adjacent behaviors, not shield towers. In progress.
+```
+
+## Appendix 09 — Original #15
+
+**Why here:** MP whitelist expansion for mod assets; useful to mod users, but primarily enables mod packaging rather than stock play.
+
+```text
+15) Patch the incoming whitelist check to allow .tga (Whitelist .tga for multiplayer) This is harmless addition that allows mods that update sky textures to work in multiplayer. Currently the game gets a whitelist from Rebellion's server every launch and filters what is/is not MP safe that way.
+```
+
+## Appendix 10 — Original #16
+
+**Why here:** Allows replacement UI/cursors/loading screens; content/resource modding territory.
+
+```text
+16) Allow mods to replace UI, cursors, or other non-mission content like loading screens or planet spin animations. Most likely can be achieved by adding an Ogre Resource destination but need confirmation.
+```
+
+## Appendix 11 — Original #17
+
+**Why here:** Lua/OGG soundtrack control is mostly mission/mod authoring.
+
+```text
+17) Allow Lua to play other audio types besides .wav (or grant soundtrack OGG control via Lua). Custom soundtracks have to be done by converting music to .wav, then manipulating it with Start/Stop Sound. A way to control/define the actual soundtrack system (currently only in .TRN files) would be ideal. RE status on 2026-03-23: confirmed statically that stock Lua mission audio remains WAV-only, while Redux separately ships a native OGG soundtrack path with `%02d.ogg`, `OggManager::*`, `CStreamingOggSound`, and `libvorbisfile` imports. Current recommendation is to expose the stock soundtrack manager to Lua first (`SetMusicTrack` / stop/pause/resume / optional filename override) rather than forcing generic `.ogg` support through `StartSound`. Current blocker: exact native caller / hook-site mapping still needs a runtime pass on another machine. Full notes: `Battlezone98Redux_Shim\\reverse_engineering\\music_soundtrack_lua_ogg_notes_20260323.md`.
+
+Note: We should see if we can find a way to play custom tracks through the soundtrack system as well.
+```
+
+## Appendix 12 — Original #19
+
+**Why here:** Modder/API territory per your correction: artillery/minelayer weapon-mask inspection/patching is mostly experienced by modders/mapmakers.
+
+```text
+19) Hardcoded weapon mask issues for howitzer and minelayer classlabels. They only ever use 00001 (or first slot) regardless of Lua or ODF settings. Maybe tied to AI process? ArtilleryFriend and MinelayerFriend. - native investigation landed a more reliable first fix on 2026-03-16. Stock `GetWeaponMask` still reflects the object's stored mask field, but EXU now exposes `exu.GetSelectedWeaponMask(handle)` for the live carrier-selected mounted-weapon mask plus `exu.GetWeaponSelectionInfo(handle)` for deeper debugging of stored-mask vs carrier/mode-list state. Campaign Reimagined's PDA target page now uses the selected-mask API so it reports only the player's actually selected weapons and whether they are in range of the current target. This is a practical gameplay fix even though the stock stored mask field itself is still misleading for some classlabels.
+
+This was crashing as of July 2026 (the artillery mask fix) so this needs to be reverified and fixed.
+```
+
+## Appendix 13 — Original #20
+
+**Why here:** Editor-only Shift-F10 placement issue per your correction; not normal player gameplay.
+
+```text
+20) You cannot place objects in Shift F10 mode in editor. You can if you 'Pause' the game using Pause button on keyboard. Pre Redux you could simply place them, in Redux it does not place the object unless you use Pause button. Unpaused and you hit the key to place an object it does nothing.
+```
+
+## Appendix 14 — Original #21
+
+**Why here:** Implemented Lua iterator bug; mainly script/mod reliability unless a shipped mission used the broken iterator.
+
+```text
+21)✓Stock Lua function `ObjectiveObjects()` bug - investigated in the legacy exact-match BZ1 global decompile and cross-checked against the Redux GOG EXE/PDB corpus on 2026-03-16. The stock iterator helper `ObjectiveObjectsNext` never increments its saved index before re-reading the objective list, so it can repeat the first valid handle forever and hang scripts. Current fix is implemented in EXU rather than OpenShim: EXU now replaces the stock `ObjectiveObjects` global during init, wraps stock `SetObjectiveOn` / `SetObjectiveOff`, tracks active objective handles, and returns a safe iterator that advances correctly. This is acceptable for the current combined EXU + OpenShim deployment model. Current limitation: EXU must be loaded before scripts rely on `ObjectiveObjects()`, since this is a Lua-side stock override rather than a native engine patch.
+```
+
+## Appendix 15 — Original #29
+
+**Why here:** Implemented Steam map-list jump fix; player-facing, but already fixed and lower than unresolved stock-player backlog.
+
+```text
+29)✓Steam map list jumping. WIP fix in the shim, but needs further testing and the manual "refresh" button fixed too. - FIXED in shim, should be done!
+```
+
+## Appendix 16 — Original #42
+
+**Why here:** Constructor selected build index is scripting/API support, not a normal-player bug by itself.
+
+```text
+42) Get constructor selected build index, so you can tell which building is chosen for build (user opens constructor menu, then presses an option like say 4)
+```
+
+## Appendix 17 — Original #66
+
+**Why here:** ODF authoring/layout crash; normal players only hit it through malformed custom content, so lower than stock/player issues.
+
+```text
+66) Pilot Hardpoint Crash
+Description: Having pilot hardpoints under craft class header in ODF files causes hard crash.
+Workaround: Move hardpoints ABOVE craft class header in ODF files.
+```
+
+## Appendix 18 — Original #68
+
+**Why here:** ScriptUtils support for classlabel producer; scripting/API compatibility.
+
+```text
+68) According to syst౿m౿ you can indeed have a classlabel producer in game, though it's only controllable via script as it's not in the UI. IsBusy and CanBuild only check for the sigs RCYC, FACT, ARMR, and CNST so PROD needs to be added so these functions work properly.
+
+This issue appears to be with the ScriptUtils themselves and not just the Lua layer on top.
+```
+
+## Appendix 19 — Original #69
+
+**Why here:** Effect renderer feature/backport; creator-facing unless used by content.
+
+```text
+69)Backport draw_geom from BZ2 to BZR like other rendering was. Reference decompiled BZ2 and BZR for stuff like draw_
+
+Available Draw Types in BZ98R
+• draw_bolt - Lightning/electrical effects
+• draw_emit - Particle emission effects
+• draw_light - Light source effects
+• draw_multi - Multiple layered effects
+• draw_null - Invisible placeholder
+• draw_planar - Flat sprite effects
+• draw_shock - Shockwave/explosion rings
+• draw_sphere - Spherical effects
+• draw_sprite - 2D sprite effects
+• draw_tracer - Bullet trail effects
+• draw_twirl - Spinning/rotating effects
+• draw_twirl_trail - Spinning trail effects
+```
+
+## Appendix 20 — Original #70
+
+**Why here:** Legacy filename limit is broad resource-system compatibility, but mainly mod/content-authoring and very high-risk.
+
+```text
+70) Feature Request: Remove 8 character limit on legacy BZ file structure
+HIGHLY UNLIKELY to be feasible, but may as well investigate it.
+```
+
+## Appendix 21 — Original #71
+
+**Why here:** Custom faction categories in MP unit selection are mod presentation/organization.
+
+```text
+71) Feature Request: Allow defining your own factions in MP unit selection menu (so everthing custom isn't under "Other")
+e.g. ISDF, Scion, West German faction lists
+```
+
+## Appendix 22 — Original #72
+
+**Why here:** Animation-system authoring toggle; creator-facing unless a shipped unit depends on it.
+
+```text
+72) Feature Request: Allow animated game objects to use skeletal or VDF based animations (ODF toggle?)
+Pilots always use skeletal, everything else always uses VDF.
+
+Currently everything uses VDF animations and the bones just follow along - EXCEPT for pilots (person class). They always use skeletal.
+```
+
+## Appendix 23 — Original #73
+
+**Why here:** TRN/shader authoring option; visual result is player-facing but request is content-authoring.
+
+```text
+73)Feature Request: Add TRN parameter to allow tiles to scale from their center instead of their SW corner
+This is experimentally fixed in the CR_ shader set but needs verification.
+```
+
+## Appendix 24 — Original #75
+
+**Why here:** Animated terrain waves are content-authoring/visual feature.
+
+```text
+75) Feature Request: Add back "ctrl shift waves" for animated tiles
+This was in 1.5 TRN file with a line item wave=1 where 1 is the material or tile ID to be animated. Can something similar be implemented in Ogre?
+```
+
+## Appendix 25 — Original #76
+
+**Why here:** TRN tile-blending toggle is content-authoring/visual feature.
+
+```text
+76) Feature Request: Add a toggle to TRN files to enable/disable tile blending
+Works much better for synthetic looking worlds. Experimentally added in CR_ shader set but needs verification.
+```
+
