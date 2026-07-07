@@ -18,9 +18,9 @@
 
 // dllmain.cpp : Defines the entry point for the DLL application.
 
-#include "Logging.h"
+#include "Util/Logging.h"
 #include "BasicPatch.h"
-#include "Overlay.h"
+#include "UI/Overlay.h"
 
 #include <Windows.h>
 
