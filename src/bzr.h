@@ -178,6 +178,9 @@ namespace BZR
 	namespace Cheats
 	{
 		inline auto editMode = (bool*)0x009454B8;
+		constexpr uintptr_t InfiniteAmmoAddr = 0x004A7709;
+		constexpr uintptr_t InfiniteScrapAddr = 0x005E10D7;
+		constexpr uintptr_t WeaponMaskCaptureAddr = 0x0060A8C6;
 	}
 
 	class ControlPanel
