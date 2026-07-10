@@ -265,39 +265,102 @@ namespace ExtraUtilities::Patch
 				return 0;
 			}
 
+			// The first thing QueueCB does after its prologue is test the
+			// NoMoreCB mute flag: 83 3D <imm32> 00 (cmp dword [imm32], 0). The
+			// exact prologue byte count varies between builds (the live GOG/Steam
+			// 2.2.301 exe has the cmp at +13, the layout this code was written
+			// against had it at +14), so scan a small window instead of assuming
+			// a fixed offset. The queue list head pointer sits one dword below
+			// the flag.
 			const auto* queueFn = reinterpret_cast<const uint8_t*>(queueFnAddress);
-			if (queueFn[14] != 0x83 || queueFn[15] != 0x3D || queueFn[20] != 0x00)
+			constexpr size_t kCmpScanWindow = 0x30;
+			for (size_t offset = 0; offset + 7 <= kCmpScanWindow; ++offset)
 			{
-				Logging::LogMessage("[EXU::UnitVo] QueueCB prologue did not match expected layout");
-				return 0;
+				if (queueFn[offset] != 0x83 || queueFn[offset + 1] != 0x3D || queueFn[offset + 6] != 0x00)
+				{
+					continue;
+				}
+
+				uint32_t noMoreCbAddress = 0;
+				std::memcpy(&noMoreCbAddress, queueFn + offset + 2, sizeof(noMoreCbAddress));
+				const uintptr_t queueListAddress = static_cast<uintptr_t>(noMoreCbAddress) - sizeof(uint32_t);
+				Logging::LogMessage(
+					"[EXU::UnitVo] resolved QueueCB queue-list storage at %p (cmp at +0x%X)",
+					reinterpret_cast<void*>(queueListAddress),
+					static_cast<unsigned>(offset)
+				);
+				return queueListAddress;
 			}
 
-			uint32_t noMoreCbAddress = 0;
-			std::memcpy(&noMoreCbAddress, queueFn + 16, sizeof(noMoreCbAddress));
-			const uintptr_t queueListAddress = static_cast<uintptr_t>(noMoreCbAddress) - sizeof(uint32_t);
-			Logging::LogMessage(
-				"[EXU::UnitVo] resolved QueueCB queue-list storage at %p",
-				reinterpret_cast<void*>(queueListAddress)
-			);
-			return queueListAddress;
+			Logging::LogMessage("[EXU::UnitVo] QueueCB prologue did not match expected layout");
+			return 0;
 		}
 
-		UnitVoKillQueueFn ResolveKillQueueFunction(uintptr_t queueFnAddress)
+		bool LooksLikeKillQueueFunction(uintptr_t target, uintptr_t queueListAddress)
 		{
-			if (queueFnAddress == 0)
+			if (target == 0 || queueListAddress == 0)
+			{
+				return false;
+			}
+
+			// KillCBQueue opens by loading the queue list head:
+			// push ebp; mov ebp,esp; push ecx; mov eax,[queueList].
+			const auto* bytes = reinterpret_cast<const uint8_t*>(target);
+			if (bytes[0] != 0x55 || bytes[1] != 0x8B || bytes[2] != 0xEC || bytes[3] != 0x51 || bytes[4] != 0xA1)
+			{
+				return false;
+			}
+
+			uint32_t headAddress = 0;
+			std::memcpy(&headAddress, bytes + 5, sizeof(headAddress));
+			return headAddress == queueListAddress;
+		}
+
+		UnitVoKillQueueFn ResolveKillQueueFunction(uintptr_t queueFnAddress, uintptr_t queueListAddress)
+		{
+			if (queueFnAddress == 0 || queueListAddress == 0)
 			{
 				return nullptr;
 			}
 
-			const uintptr_t killQueueCallSite = queueFnAddress + 0xCA;
-			const auto* bytes = reinterpret_cast<const uint8_t*>(queueFnAddress + 0xC8);
-			if (bytes[0] != 0x6A || bytes[1] != 0x00 || bytes[2] != 0xE8)
+			// QueueCB flushes stale entries via "push 0; call KillCBQueue". Try
+			// the known +0xC8 slot first, then scan the function body for any
+			// push 0/call pair whose target passes the KillCBQueue shape check;
+			// QueueCB also has an unrelated early-out "push 0; call SetNoMoreCB"
+			// that the shape check rejects.
+			const auto* queueFn = reinterpret_cast<const uint8_t*>(queueFnAddress);
+			constexpr size_t kKillQueueScanWindow = 0x180;
+			const auto resolveAt = [&](size_t offset) -> uintptr_t
+			{
+				if (queueFn[offset] != 0x6A || queueFn[offset + 1] != 0x00 || queueFn[offset + 2] != 0xE8)
+				{
+					return 0;
+				}
+
+				int32_t displacement = 0;
+				std::memcpy(&displacement, queueFn + offset + 3, sizeof(displacement));
+				const uintptr_t callSite = queueFnAddress + offset + 2;
+				const uintptr_t target = callSite + 5 + static_cast<intptr_t>(displacement);
+				return LooksLikeKillQueueFunction(target, queueListAddress) ? target : 0;
+			};
+
+			uintptr_t target = resolveAt(0xC8);
+			for (size_t offset = 0; target == 0 && offset + 7 <= kKillQueueScanWindow; ++offset)
+			{
+				target = resolveAt(offset);
+			}
+
+			if (target == 0)
 			{
 				Logging::LogMessage("[EXU::UnitVo] QueueCB kill-queue call layout did not match expected bytes");
 				return nullptr;
 			}
 
-			return reinterpret_cast<UnitVoKillQueueFn>(ResolveRelativeCallTarget(killQueueCallSite, "KillCBQueue"));
+			Logging::LogMessage(
+				"[EXU::UnitVo] resolved KillCBQueue target %p",
+				reinterpret_cast<void*>(target)
+			);
+			return reinterpret_cast<UnitVoKillQueueFn>(target);
 		}
 
 		bool EndsWith(std::string_view value, std::string_view suffix)
@@ -548,7 +611,7 @@ namespace ExtraUtilities::Patch
 				: ResolveRelativeCallTarget(g_unitVoRecycleTaskQueueCallSite, "QueueCB");
 			g_unitVoQueue = reinterpret_cast<UnitVoQueueFn>(queueTarget);
 			g_unitVoQueueListStorageAddress = ResolveQueueListStorageAddress(queueTarget);
-			g_unitVoKillQueue = ResolveKillQueueFunction(queueTarget);
+			g_unitVoKillQueue = ResolveKillQueueFunction(queueTarget, g_unitVoQueueListStorageAddress);
 			return g_unitVoSayQueueCallSite;
 		}
 

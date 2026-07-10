@@ -208,8 +208,13 @@ if (-not (Test-Path $OgreSourceDir)) {
 }
 
 if (-not $SkipPatch) {
-    $patchFile = Join-Path $PSScriptRoot "patches\0001-suppress-cross-renderer-hlsl-target-warnings.patch"
-    Ensure-PatchApplied -GitExe $gitExe -PatchFile $patchFile -SourceDir $OgreSourceDir
+    $patchFiles = @(
+        (Join-Path $PSScriptRoot "patches\0001-suppress-cross-renderer-hlsl-target-warnings.patch"),
+        (Join-Path $PSScriptRoot "patches\0002-d3d11-resource-hardening.patch")
+    )
+    foreach ($patchFile in $patchFiles) {
+        Ensure-PatchApplied -GitExe $gitExe -PatchFile $patchFile -SourceDir $OgreSourceDir
+    }
 }
 
 if ($RenderSystem -eq "D3D9" -and -not $env:DXSDK_DIR) {
