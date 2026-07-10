@@ -1,0 +1,70 @@
+diff --git a/RenderSystems/Direct3D11/src/OgreD3D11Texture.cpp b/RenderSystems/Direct3D11/src/OgreD3D11Texture.cpp
+--- a/RenderSystems/Direct3D11/src/OgreD3D11Texture.cpp
++++ b/RenderSystems/Direct3D11/src/OgreD3D11Texture.cpp
+@@ -623,7 +623,18 @@
+             }
+         }
+
+-        hr = mDevice->CreateShaderResourceView(mp2DTex.Get(), &mSRVDesc,mpShaderResourceView.ReleaseAndGetAddressOf());
++        // A texture created without the shader-resource bind flag cannot have an
++        // SRV. This is valid for render-only resources; attempting the call
++        // anyway turns a recoverable resource configuration into a D3D11 error.
++        if (desc.BindFlags & D3D11_BIND_SHADER_RESOURCE)
++        {
++            hr = mDevice->CreateShaderResourceView(mp2DTex.Get(), &mSRVDesc,mpShaderResourceView.ReleaseAndGetAddressOf());
++        }
++        else
++        {
++            mpShaderResourceView.Reset();
++            hr = S_OK;
++        }
+         if (FAILED(hr) || mDevice.isError())
+         {
+             String errorDescription = mDevice.getErrorDescription(hr);
+diff --git a/RenderSystems/Direct3D11/src/OgreD3D11HardwarePixelBuffer.cpp b/RenderSystems/Direct3D11/src/OgreD3D11HardwarePixelBuffer.cpp
+--- a/RenderSystems/Direct3D11/src/OgreD3D11HardwarePixelBuffer.cpp
++++ b/RenderSystems/Direct3D11/src/OgreD3D11HardwarePixelBuffer.cpp
+@@ -533,5 +533,6 @@
+     {
+         D3D11Texture *tex = static_cast<D3D11Texture*>(mParentTexture);
++        HRESULT hr = E_INVALIDARG;
+
+         switch (mParentTexture->getTextureType())
+         {
+@@ -546,7 +547,7 @@
+                 desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE | D3D11_CPU_ACCESS_READ;
+                 desc.Usage = D3D11_USAGE_STAGING;
+
+-                mDevice->CreateTexture1D(&desc, NULL, (ID3D11Texture1D**)mStagingBuffer.ReleaseAndGetAddressOf());
++                hr = mDevice->CreateTexture1D(&desc, NULL, (ID3D11Texture1D**)mStagingBuffer.ReleaseAndGetAddressOf());
+             }
+             break;
+         case TEX_TYPE_2D:
+@@ -561,7 +562,7 @@
+                 desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE | D3D11_CPU_ACCESS_READ;
+                 desc.Usage = D3D11_USAGE_STAGING;
+
+-                mDevice->CreateTexture2D(&desc, NULL, (ID3D11Texture2D**)mStagingBuffer.ReleaseAndGetAddressOf());
++                hr = mDevice->CreateTexture2D(&desc, NULL, (ID3D11Texture2D**)mStagingBuffer.ReleaseAndGetAddressOf());
+             }
+             break;
+         case TEX_TYPE_3D:
+@@ -574,9 +575,17 @@
+                 desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE | D3D11_CPU_ACCESS_READ;
+                 desc.Usage = D3D11_USAGE_STAGING;
+
+-                mDevice->CreateTexture3D(&desc, NULL, (ID3D11Texture3D**)mStagingBuffer.ReleaseAndGetAddressOf());
++                hr = mDevice->CreateTexture3D(&desc, NULL, (ID3D11Texture3D**)mStagingBuffer.ReleaseAndGetAddressOf());
+             }
+             break;
+         }
++
++        if (FAILED(hr) || mDevice.isError())
++        {
++            String errorDescription = mDevice.getErrorDescription(hr);
++            OGRE_EXCEPT_EX(Exception::ERR_RENDERINGAPI_ERROR, hr,
++                "Error creating D3D11 staging texture.\nError Description:" + errorDescription,
++                "D3D11HardwarePixelBuffer::createStagingBuffer");
++        }
+     }
+ };
