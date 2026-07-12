@@ -28,6 +28,11 @@ namespace ExtraUtilities::Lua::Radar
 	inline Scanner state(BZR::Radar::state);
 	inline Scanner sizeScale(BZR::Radar::scale);
 
+	// Retargets the engine's RefreshLayout call sites at the concentric
+	// wrapper so radar mesh and background stay aligned at any size scale.
+	// Idempotent; safe to call every Init.
+	void InstallRefreshLayoutHooks();
+
 	// 1 = radar
 	// 0 = minimap
 	int GetState(lua_State* L);

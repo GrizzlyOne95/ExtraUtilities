@@ -2897,6 +2897,101 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
+		bool TryCollectMaterialTintPassesCpp(
+			const std::string& materialName,
+			const std::string& resourceGroup,
+			int passIndex,
+			std::vector<::Ogre::Pass*>& outPasses)
+		{
+			try
+			{
+				outPasses.clear();
+
+				::Ogre::Material* material = nullptr;
+				if (!TryResolveMaterialCpp(materialName, resourceGroup, material))
+				{
+					return false;
+				}
+
+				const unsigned short techniqueCount = ::Ogre::GetMaterialNumTechniques(material);
+				for (unsigned short t = 0; t < techniqueCount; ++t)
+				{
+					auto* technique = ::Ogre::GetMaterialTechnique(material, t);
+					if (technique == nullptr)
+					{
+						continue;
+					}
+
+					// Retro ("og-") scheme techniques intentionally keep their
+					// stock flat look; tints target only the default and
+					// enhanced ("en-") scheme techniques. The "glow" scheme is the
+					// bloom-mask pass (ambient/diffuse/emissive = $glow over the
+					// emissive map); tinting it makes the whole mesh bleed into the
+					// glow buffer and kills emissive bloom, so it must stay stock.
+					const ::Ogre::String* schemeName = ::Ogre::GetTechniqueSchemeName(technique);
+					if (schemeName != nullptr &&
+						(schemeName->rfind("og-", 0) == 0 || *schemeName == "glow"))
+					{
+						continue;
+					}
+
+					const unsigned short passCount = ::Ogre::GetTechniqueNumPasses(technique);
+					if (passIndex >= 0)
+					{
+						if (passIndex < static_cast<int>(passCount))
+						{
+							auto* pass = ::Ogre::GetTechniquePass(technique, static_cast<unsigned short>(passIndex));
+							if (pass != nullptr)
+							{
+								outPasses.push_back(pass);
+							}
+						}
+						continue;
+					}
+
+					for (unsigned short p = 0; p < passCount; ++p)
+					{
+						auto* pass = ::Ogre::GetTechniquePass(technique, p);
+						if (pass != nullptr)
+						{
+							outPasses.push_back(pass);
+						}
+					}
+				}
+
+				return !outPasses.empty();
+			}
+			catch (const std::exception& ex)
+			{
+				LogMaterialDebug(
+					"[EXU::Material] CollectMaterialTintPasses threw material=%s what=%s",
+					materialName.c_str(),
+					ex.what());
+				return false;
+			}
+		}
+
+		bool TryCollectMaterialTintPasses(
+			const std::string& materialName,
+			const std::string& resourceGroup,
+			int passIndex,
+			std::vector<::Ogre::Pass*>& outPasses)
+		{
+			__try
+			{
+				return TryCollectMaterialTintPassesCpp(materialName, resourceGroup, passIndex, outPasses);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogMaterialDebug(
+					"[EXU::Material] CollectMaterialTintPasses crashed material=%s pass=%d code=0x%08X",
+					materialName.c_str(),
+					passIndex,
+					GetExceptionCode());
+				return false;
+			}
+		}
+
 		bool TryResolveMaterialTextureUnit(
 			const std::string& materialName,
 			const std::string& resourceGroup,
@@ -3857,11 +3952,27 @@ namespace ExtraUtilities::Lua::GameObject
 		int passIndex = luaL_optint(L, 4, 0);
 		std::string resourceGroup = CheckOptionalResourceGroup(L, 5);
 
-		MaterialPassHandle handle;
-		if (!TryResolveMaterialPass(materialName, resourceGroup, techniqueIndex, passIndex, handle))
+		// techniqueIndex -1 targets every technique (passIndex -1 every pass)
+		// so tints survive the viewport scheme swaps done by the lighting
+		// modes ("en-" enhanced); the collector skips retro "og-" techniques.
+		std::vector<::Ogre::Pass*> passes;
+		if (techniqueIndex < 0)
 		{
-			lua_pushboolean(L, 0);
-			return 1;
+			if (!TryCollectMaterialTintPasses(materialName, resourceGroup, passIndex, passes))
+			{
+				lua_pushboolean(L, 0);
+				return 1;
+			}
+		}
+		else
+		{
+			MaterialPassHandle handle;
+			if (!TryResolveMaterialPass(materialName, resourceGroup, techniqueIndex, passIndex, handle))
+			{
+				lua_pushboolean(L, 0);
+				return 1;
+			}
+			passes.push_back(handle.pass);
 		}
 
 		bool success = true;
@@ -3869,24 +3980,36 @@ namespace ExtraUtilities::Lua::GameObject
 
 		if (ReadOptionalPassColorField(L, 2, "ambient", color))
 		{
-			success = TrySetPassAmbient(handle.pass, color) && success;
+			for (auto* pass : passes)
+			{
+				success = TrySetPassAmbient(pass, color) && success;
+			}
 		}
 
 		if (ReadOptionalPassColorField(L, 2, "diffuse", color))
 		{
-			success = TrySetPassDiffuse(handle.pass, color) && success;
+			for (auto* pass : passes)
+			{
+				success = TrySetPassDiffuse(pass, color) && success;
+			}
 		}
 
 		if (ReadOptionalPassColorField(L, 2, "specular", color))
 		{
-			success = TrySetPassSpecular(handle.pass, color) && success;
+			for (auto* pass : passes)
+			{
+				success = TrySetPassSpecular(pass, color) && success;
+			}
 		}
 
 		if (ReadOptionalPassColorField(L, 2, "emissive", color)
 			|| ReadOptionalPassColorField(L, 2, "selfIllumination", color)
 			|| ReadOptionalPassColorField(L, 2, "selfillumination", color))
 		{
-			success = TrySetPassSelfIllumination(handle.pass, color) && success;
+			for (auto* pass : passes)
+			{
+				success = TrySetPassSelfIllumination(pass, color) && success;
+			}
 		}
 
 		lua_pushboolean(L, success ? 1 : 0);

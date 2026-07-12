@@ -173,6 +173,20 @@ namespace Ogre
 		return fn == nullptr || material == nullptr ? nullptr : fn(material, index);
 	}
 
+	inline unsigned short GetMaterialNumTechniques(const Material* material)
+	{
+		using Fn = unsigned short(__thiscall*)(const Material*);
+		static Fn fn = Detail::ResolveProc<Fn>("?getNumTechniques@Material@Ogre@@QBEGXZ");
+		return fn == nullptr || material == nullptr ? 0 : fn(material);
+	}
+
+	inline const String* GetTechniqueSchemeName(const Technique* technique)
+	{
+		using Fn = const String& (__thiscall*)(const Technique*);
+		static Fn fn = Detail::ResolveProc<Fn>("?getSchemeName@Technique@Ogre@@QBEABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@XZ");
+		return fn == nullptr || technique == nullptr ? nullptr : &fn(technique);
+	}
+
 	inline unsigned short GetTechniqueNumPasses(const Technique* technique)
 	{
 		using Fn = unsigned short(__thiscall*)(const Technique*);

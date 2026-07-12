@@ -505,9 +505,12 @@ namespace BZR
 		inline auto radarLeftBase = (float*)0x009782A0;
 		inline auto radarLeft = (int*)0x008E77A8;
 		inline auto radarBottom = (int*)0x008E77AC;
-		inline auto commandPanelLeftBase = (float*)0x008E7918;
-		inline auto commandPanelLeft = (int*)0x008E7924;
-		inline auto commandPanelBottom = (int*)0x008E7928;
+		inline auto cockpitWireframeCenterBase = (float*)0x008E7918;
+		// Screen-space centre of the cockpit radar wireframe: the world origin
+		// (player) projects exactly onto this point (see 0x00493330, which adds
+		// centerX and subtracts from centerY).
+		inline auto cockpitWireframeCenterX = (int*)0x008E7924;
+		inline auto cockpitWireframeCenterY = (int*)0x008E7928;
 		inline auto edgeMinX = (float*)0x00917388;
 		inline auto edgeMaxX = (float*)0x0091738C;
 		inline auto edgeMinZ = (float*)0x00917390;
