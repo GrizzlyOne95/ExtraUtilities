@@ -18,9 +18,12 @@
 
 #include "Radar.h"
 #include "ControlPanel.h"
+#include "InlinePatch.h"
 #include "LuaHelpers.h"
 
 #include <cmath>
+#include <cstdint>
+#include <cstring>
 
 namespace ExtraUtilities::Lua::Radar
 {
@@ -29,7 +32,6 @@ namespace ExtraUtilities::Lua::Radar
 		struct CockpitWireframeScaleBaselines
 		{
 			float projectionBase = 1.0f;
-			int projectionRadius = 1;
 			bool initialized = false;
 		};
 
@@ -51,12 +53,6 @@ namespace ExtraUtilities::Lua::Radar
 				if (!std::isfinite(baselines.projectionBase) || baselines.projectionBase <= 0.0f)
 				{
 					baselines.projectionBase = 1.0f;
-				}
-
-				baselines.projectionRadius = *BZR::Radar::cockpitWireframeProjectionRadius;
-				if (baselines.projectionRadius < 1)
-				{
-					baselines.projectionRadius = 1;
 				}
 
 				baselines.initialized = true;
@@ -92,16 +88,90 @@ namespace ExtraUtilities::Lua::Radar
 				scaledProjectionBase = projectionBase;
 			}
 
-			int scaledProjectionRadius = static_cast<int>(
-				std::lround(static_cast<double>(baselines.projectionRadius) * static_cast<double>(scale)));
-			if (scaledProjectionRadius < 1)
+			*BZR::Radar::cockpitWireframeProjectionBase = scaledProjectionBase;
+			BZR::Radar::RefreshCockpitWireframeAnchor();
+		}
+
+		// The engine's RefreshLayout shifts the radar background left by the
+		// full projection-radius delta but moves the wireframe centre by only
+		// half of it, and it never moves the centre vertically at all, so the
+		// mesh and its black underlay only line up at 100% scale. Re-run the
+		// layout at scale 1 to learn the intended relative geometry, then run
+		// it at the requested scale and place the background and wireframe
+		// centre so everything scales concentrically from the radar's
+		// bottom-left screen anchor.
+		void __cdecl RefreshLayoutConcentric(int screenHeight)
+		{
+			const CockpitWireframeScaleBaselines& baselines = GetCockpitWireframeScaleBaselines();
+			const float requestedScale = *BZR::Radar::scale;
+			const float scaledProjectionBase = *BZR::Radar::cockpitWireframeProjectionBase;
+
+			if (!std::isfinite(requestedScale) || std::fabs(requestedScale - 1.0f) < 0.001f)
 			{
-				scaledProjectionRadius = 1;
+				BZR::Radar::RefreshLayout(screenHeight);
+				return;
 			}
 
-			*BZR::Radar::cockpitWireframeProjectionBase = scaledProjectionBase;
-			*BZR::Radar::cockpitWireframeProjectionRadius = scaledProjectionRadius;
+			// Reference pass at scale 1.
+			*BZR::Radar::scale = 1.0f;
+			*BZR::Radar::cockpitWireframeProjectionBase = baselines.projectionBase;
 			BZR::Radar::RefreshCockpitWireframeAnchor();
+			BZR::Radar::RefreshLayout(screenHeight);
+			const int centerX1 = *BZR::Radar::cockpitWireframeCenterX;
+			const int centerY1 = *BZR::Radar::cockpitWireframeCenterY;
+			const int left1 = *BZR::Radar::radarLeft;
+			const int bottom1 = *BZR::Radar::radarBottom;
+
+			// Real pass at the requested scale (background bottom anchoring and
+			// the projection radius are already correct here).
+			*BZR::Radar::scale = requestedScale;
+			*BZR::Radar::cockpitWireframeProjectionBase = scaledProjectionBase;
+			BZR::Radar::RefreshCockpitWireframeAnchor();
+			BZR::Radar::RefreshLayout(screenHeight);
+			const int bottomScaled = *BZR::Radar::radarBottom;
+
+			const auto scaleOffset = [requestedScale](int offset)
+			{
+				return static_cast<int>(std::lround(requestedScale * static_cast<float>(offset)));
+			};
+
+			*BZR::Radar::radarLeft = left1;
+			*BZR::Radar::cockpitWireframeCenterX = left1 + scaleOffset(centerX1 - left1);
+			*BZR::Radar::cockpitWireframeCenterY = bottomScaled + scaleOffset(centerY1 - bottom1);
+		}
+
+		// The engine re-runs RefreshLayout when it (re)builds the cockpit HUD,
+		// which would restore the misaligned native layout, so both of its
+		// call sites are retargeted at the concentric wrapper above.
+		constexpr uintptr_t kRefreshLayoutCallSites[] = { 0x0049325F, 0x0049405B };
+		constexpr uintptr_t kRefreshLayoutEntry = 0x00492EC0;
+
+		void InstallRefreshLayoutCallSiteHooks()
+		{
+			static bool attempted = false;
+			if (attempted)
+			{
+				return;
+			}
+			attempted = true;
+
+			for (uintptr_t site : kRefreshLayoutCallSites)
+			{
+				const uint8_t* bytes = reinterpret_cast<const uint8_t*>(site);
+				int32_t rel = 0;
+				std::memcpy(&rel, bytes + 1, sizeof(rel));
+				const uintptr_t target = site + 5 + static_cast<uintptr_t>(rel);
+				if (bytes[0] != 0xE8 || target != kRefreshLayoutEntry)
+				{
+					// Unexpected code — leave the site alone rather than corrupt it.
+					continue;
+				}
+
+				const int32_t newRel = static_cast<int32_t>(
+					reinterpret_cast<uintptr_t>(&RefreshLayoutConcentric) - (site + 5));
+				// Leaked by design: the patch must outlive every mission/Lua reload.
+				new InlinePatch(site + 1, &newRel, sizeof(newRel), BasicPatch::Status::ACTIVE);
+			}
 		}
 
 		int AbsoluteIndex(lua_State* L, int idx)
@@ -163,6 +233,11 @@ namespace ExtraUtilities::Lua::Radar
 		}
 	}
 
+	void InstallRefreshLayoutHooks()
+	{
+		InstallRefreshLayoutCallSiteHooks();
+	}
+
 	int GetState(lua_State* L)
 	{
 		lua_pushnumber(L, state.Read());
@@ -202,8 +277,13 @@ namespace ExtraUtilities::Lua::Radar
 		if (cam != nullptr && cam->Orig_y > 0.f)
 		{
 			int screenHeight = static_cast<int>(std::floor(cam->Orig_y)) * 2;
-			BZR::Radar::RefreshLayout(screenHeight);
+			// RefreshLayout derives both the 3D projection radius and the HUD
+			// underlay bounds from the projection base. Set the scaled base and
+			// its anchor first, then run the concentric layout wrapper so the
+			// wireframe and its background underlay stay aligned at any scale.
+			InstallRefreshLayoutCallSiteHooks();
 			ApplyCockpitWireframeScale(newScale);
+			RefreshLayoutConcentric(screenHeight);
 			if (hudSnapshot.valid)
 			{
 				ControlPanel::RestoreScrapPilotHudTopLefts(

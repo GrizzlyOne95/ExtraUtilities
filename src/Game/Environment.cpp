@@ -27,7 +27,9 @@
 #include <array>
 #include <cmath>
 #include <cstdarg>
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <mutex>
 #include <string>
@@ -3064,6 +3066,141 @@ namespace ExtraUtilities::Lua::Environment
 		return 1;
 	}
 
+	// ---- Glow compositor gating ------------------------------------------
+	// The bloom compositor ("Glow", BZ_ASSETS_CORE/common/programs/
+	// glow.compositor) renders every material's `scheme glow` technique into
+	// the emissive bloom overlay regardless of which viewport scheme is
+	// active, so retro mode kept glowing. Retro is flat shading only: keep the
+	// compositor disabled while retro is the desired mode.
+	using FnCompositorManagerGetSingletonPtr = void*(__cdecl*)();
+	using FnCompositorManagerSetCompositorEnabled =
+		void(__thiscall*)(void*, void*, const std::string&, bool);
+
+	bool CallSetCompositorEnabledGuarded(
+		FnCompositorManagerSetCompositorEnabled fn,
+		void* manager,
+		void* viewport,
+		const std::string* name,
+		bool enabled)
+	{
+		__try
+		{
+			fn(manager, viewport, *name, enabled);
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentDebug(
+				"[EXU::Viewport] setCompositorEnabled crashed viewport=%p enabled=%d code=0x%08X",
+				viewport,
+				enabled ? 1 : 0,
+				GetExceptionCode());
+			return false;
+		}
+	}
+
+	bool TrySetGlowCompositorEnabled(void* viewport, bool enabled)
+	{
+		static FnCompositorManagerGetSingletonPtr getSingletonPtr =
+			ResolveOgreProc<FnCompositorManagerGetSingletonPtr>(
+				"?getSingletonPtr@CompositorManager@Ogre@@SAPAV12@XZ");
+		static FnCompositorManagerSetCompositorEnabled setCompositorEnabled =
+			ResolveOgreProc<FnCompositorManagerSetCompositorEnabled>(
+				"?setCompositorEnabled@CompositorManager@Ogre@@QAEXPAVViewport@2@"
+				"ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N@Z");
+		if (viewport == nullptr || getSingletonPtr == nullptr || setCompositorEnabled == nullptr)
+		{
+			return false;
+		}
+
+		void* manager = getSingletonPtr();
+		if (manager == nullptr)
+		{
+			return false;
+		}
+
+		static const std::string glowCompositorName("Glow");
+		return CallSetCompositorEnabledGuarded(
+			setCompositorEnabled, manager, viewport, &glowCompositorName, enabled);
+	}
+
+	// ---- Game viewport scheme call-site takeover ---------------------------
+	// The exe re-asserts each viewport's material scheme from its own graphics
+	// settings roughly once a second (0x00680FE0 walks every viewport of the
+	// render target) and on viewport creation (0x00682AA0/0x00682EA7, literal
+	// "low-noshadow"), always through `call [IAT 0x00869810]` =
+	// Ogre::Viewport::setMaterialScheme. Re-enforcing our scheme afterwards
+	// produced a visible default<->enhanced flip every second. Rewriting the
+	// scheme inside the game's own call removes the fight entirely and makes
+	// enhanced/retro safely hot-swappable.
+	constexpr uintptr_t kViewportSetMaterialSchemeIat = 0x00869810;
+	constexpr uintptr_t kViewportSchemeCallSites[] = {
+		0x00681585, // settings reassert loop over all viewports
+		0x00682AA0, // secondary viewport creation ("low-noshadow")
+		0x00682EA7, // tertiary viewport creation ("low-noshadow")
+	};
+
+	using FnViewportSetMaterialScheme = void(__thiscall*)(void*, const std::string&);
+
+	std::string g_lastSchemeRewriteLogged;
+
+	// __fastcall(this, edx, one stack arg) matches the __thiscall call site:
+	// ecx carries the viewport, the string ref stays on the stack, and the
+	// callee cleans the 4 stack bytes exactly like the original would.
+	void __fastcall GameViewportSetMaterialSchemeHook(
+		void* viewport,
+		void* /*unusedEdx*/,
+		const std::string* scheme)
+	{
+		const FnViewportSetMaterialScheme original =
+			*reinterpret_cast<FnViewportSetMaterialScheme*>(kViewportSetMaterialSchemeIat);
+
+		std::string incoming;
+		if (scheme != nullptr)
+		{
+			incoming = *scheme;
+		}
+
+		// Quality changes flow through here; remember the game's modern base
+		// so mode switches keep tracking the user's graphics settings.
+		if (IsModernMaterialScheme(incoming))
+		{
+			g_lastModernMaterialScheme = incoming;
+		}
+
+		std::string finalScheme = incoming;
+		if (g_desiredLightingMode != ViewportLightingMode::Default && !incoming.empty())
+		{
+			finalScheme = BuildLightingMaterialScheme(
+				g_desiredLightingMode,
+				NormalizeModernMaterialScheme(incoming));
+		}
+
+		if (finalScheme != incoming && g_lastSchemeRewriteLogged != finalScheme)
+		{
+			g_lastSchemeRewriteLogged = finalScheme;
+			LogEnvironmentDebug(
+				"[EXU::Viewport] game scheme call rewritten viewport=%p incoming=%s final=%s",
+				viewport,
+				incoming.c_str(),
+				finalScheme.c_str());
+		}
+
+		if (original != nullptr)
+		{
+			original(viewport, finalScheme);
+		}
+		else
+		{
+			TrySetViewportMaterialScheme(viewport, finalScheme);
+		}
+	}
+
+	// The call sites are patched to `call [&this pointer]`, so it must outlive
+	// the process (it does: namespace-scope static).
+	void* const g_GameViewportSetMaterialSchemeHookPtr =
+		reinterpret_cast<void*>(&GameViewportSetMaterialSchemeHook);
+
 	// Shared apply path for SetLightingMode / SetRetroLightingMode / enforcement.
 	// Resolves the modern base scheme from the primary viewport, builds the
 	// target scheme for the requested mode, and applies it to every active
@@ -3105,6 +3242,7 @@ namespace ExtraUtilities::Lua::Environment
 
 			appliedAny = true;
 			TryRefreshViewport(viewport);
+			TrySetGlowCompositorEnabled(viewport, requestedMode != ViewportLightingMode::Retro);
 		}
 
 		if (outCurrentScheme != nullptr)
@@ -3134,6 +3272,18 @@ namespace ExtraUtilities::Lua::Environment
 		if (activeViewports.count == 0)
 		{
 			return;
+		}
+
+		// The game re-enables the Glow compositor when it rebuilds a viewport,
+		// which would leak emissive bloom back into retro without any scheme
+		// drift to trigger a reapply. setCompositorEnabled is idempotent, so
+		// assert it on every enforcement tick.
+		if (g_desiredLightingMode == ViewportLightingMode::Retro)
+		{
+			for (size_t i = 0; i < activeViewports.count; ++i)
+			{
+				TrySetGlowCompositorEnabled(activeViewports.viewports[i], false);
+			}
 		}
 
 		bool drifted = false;
@@ -3172,27 +3322,36 @@ namespace ExtraUtilities::Lua::Environment
 	{
 		Patch::TryInitializeOgre();
 
-		const ActiveViewportSet activeViewports = GetActiveViewports();
-		if (activeViewports.count == 0)
-		{
-			return 0;
-		}
-
 		ViewportLightingMode requestedMode = ViewportLightingMode::Default;
 		if (!TryParseLightingModeArg(L, 1, requestedMode))
 		{
-			return 0;
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		// Remember the choice unconditionally: at mission start this can run
+		// before the first viewport exists, and EnforceDesiredLightingMode /
+		// the next call must still know what the user asked for. Dropping the
+		// request here is what used to leave enhanced mode stuck on default.
+		g_desiredLightingMode = requestedMode;
+
+		const ActiveViewportSet activeViewports = GetActiveViewports();
+		if (activeViewports.count == 0)
+		{
+			LogEnvironmentDebug(
+				"[EXU::Viewport] lighting mode=%s deferred (no active viewport yet)",
+				GetLightingModeName(requestedMode));
+			lua_pushboolean(L, 0);
+			return 1;
 		}
 
 		std::string currentScheme;
 		std::string targetScheme;
 		if (!ApplyLightingModeToActiveViewports(activeViewports, requestedMode, &currentScheme, &targetScheme))
 		{
-			return 0;
+			lua_pushboolean(L, 0);
+			return 1;
 		}
-
-		// Remember the choice so it can be re-asserted after viewport rebuilds.
-		g_desiredLightingMode = requestedMode;
 
 		LogEnvironmentDebug(
 			"[EXU::Viewport] lighting mode=%s currentScheme=%s targetScheme=%s viewportCount=%zu primary=%p secondary=%p",
@@ -3202,33 +3361,37 @@ namespace ExtraUtilities::Lua::Environment
 			activeViewports.count,
 			activeViewports.count > 0 ? activeViewports.viewports[0] : nullptr,
 			activeViewports.count > 1 ? activeViewports.viewports[1] : nullptr);
-		return 0;
+		lua_pushboolean(L, 1);
+		return 1;
 	}
 
 	int SetRetroLightingMode(lua_State* L)
 	{
 		Patch::TryInitializeOgre();
 
-		const ActiveViewportSet activeViewports = GetActiveViewports();
-		if (activeViewports.count == 0)
-		{
-			return 0;
-		}
-
 		const bool enabled = CheckBool(L, 1);
 		const ViewportLightingMode requestedMode = enabled
 			? ViewportLightingMode::Retro
 			: ViewportLightingMode::Default;
 
+		// Remember the choice before touching viewports so a pre-viewport call
+		// still takes effect once EnforceDesiredLightingMode sees a viewport.
+		g_desiredLightingMode = requestedMode;
+
+		const ActiveViewportSet activeViewports = GetActiveViewports();
+		if (activeViewports.count == 0)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
 		std::string currentScheme;
 		std::string targetScheme;
 		if (!ApplyLightingModeToActiveViewports(activeViewports, requestedMode, &currentScheme, &targetScheme))
 		{
-			return 0;
+			lua_pushboolean(L, 0);
+			return 1;
 		}
-
-		// Remember the choice so it can be re-asserted after viewport rebuilds.
-		g_desiredLightingMode = requestedMode;
 
 		LogEnvironmentDebug(
 			"[EXU::Viewport] retro lighting=%d currentScheme=%s targetScheme=%s viewportCount=%zu primary=%p secondary=%p",
@@ -3238,7 +3401,8 @@ namespace ExtraUtilities::Lua::Environment
 			activeViewports.count,
 			activeViewports.count > 0 ? activeViewports.viewports[0] : nullptr,
 			activeViewports.count > 1 ? activeViewports.viewports[1] : nullptr);
-		return 0;
+		lua_pushboolean(L, 1);
+		return 1;
 	}
 
 	// Lua-callable: exu.EnforceLightingMode(). Re-asserts the saved lighting mode
@@ -3251,6 +3415,40 @@ namespace ExtraUtilities::Lua::Environment
 		Patch::TryInitializeOgre();
 		EnforceDesiredLightingMode();
 		return 0;
+	}
+
+	void InstallGameViewportSchemeHooks()
+	{
+		static bool attempted = false;
+		if (attempted)
+		{
+			return;
+		}
+		attempted = true;
+
+		for (uintptr_t site : kViewportSchemeCallSites)
+		{
+			const auto* bytes = reinterpret_cast<const uint8_t*>(site);
+			uint32_t disp = 0;
+			std::memcpy(&disp, bytes + 2, sizeof(disp));
+			if (bytes[0] != 0xFF || bytes[1] != 0x15 || disp != kViewportSetMaterialSchemeIat)
+			{
+				LogEnvironmentDebug(
+					"[EXU::Viewport] scheme call site mismatch at 0x%08X (%02X %02X disp=0x%08X); hook skipped",
+					static_cast<unsigned>(site),
+					bytes[0],
+					bytes[1],
+					disp);
+				continue;
+			}
+
+			const uint32_t hookPtrAddress = static_cast<uint32_t>(
+				reinterpret_cast<uintptr_t>(&g_GameViewportSetMaterialSchemeHookPtr));
+			new InlinePatch(site + 2, &hookPtrAddress, sizeof(hookPtrAddress), BasicPatch::Status::ACTIVE);
+			LogEnvironmentDebug(
+				"[EXU::Viewport] game scheme call site hooked at 0x%08X",
+				static_cast<unsigned>(site));
+		}
 	}
 
 	int GetSceneVisibilityMask(lua_State* L)

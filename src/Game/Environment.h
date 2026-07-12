@@ -96,6 +96,10 @@ namespace ExtraUtilities::Lua::Environment
 	int GetRetroLightingMode(lua_State* L);
 	int SetRetroLightingMode(lua_State* L);
 	int EnforceLightingMode(lua_State* L);
+	// Patches the exe's own Viewport::setMaterialScheme call sites so the
+	// game's periodic scheme reasserts apply the user's chosen lighting mode
+	// instead of fighting it. Install once after deferred patch activation.
+	void InstallGameViewportSchemeHooks();
 	int GetSceneVisibilityMask(lua_State* L);
 	int SetSceneVisibilityMask(lua_State* L);
 

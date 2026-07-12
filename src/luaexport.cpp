@@ -479,7 +479,9 @@ namespace ExtraUtilities::Lua
 		DoEventHooks(L);
 		InstallSanitizedStockStringPatches(L);
 		InstallObjectiveObjectsPatch(L);
-		
+		Radar::InstallRefreshLayoutHooks();
+		Environment::InstallGameViewportSchemeHooks();
+
 		return 0;
 	}
 
