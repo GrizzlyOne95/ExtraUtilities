@@ -19,7 +19,9 @@
 #include "UnitVo.h"
 
 #include "Hook.h"
+#include "LuaHelpers.h"
 #include "Util/Logging.h"
+#include "bzr.h"
 
 #include <Windows.h>
 
@@ -632,6 +634,14 @@ namespace ExtraUtilities::Lua::Patches
 		using OpenShimSetHowitzerVolleyEnabledFn = BOOL(WINAPI*)(BOOL);
 		using OpenShimSetWeaponMaskCarrierBiasEnabledFn = BOOL(WINAPI*)(BOOL);
         using OpenShimSetAiOdfGameplayTuningEnabledFn = BOOL(WINAPI*)(BOOL);
+        using OpenShimSetAiUnitTuningFn = BOOL(WINAPI*)(void*, float, float, float);
+        using OpenShimSetAiUnitTuningV2Fn = BOOL(WINAPI*)(void*, float, float, float,
+                                                          float, float, float, BOOL);
+        using OpenShimSetAiUnitTuningV3Fn = BOOL(WINAPI*)(void*, float, float, float,
+                                                          float, float, float, BOOL,
+                                                          float, float);
+        using OpenShimClearAiUnitTuningFn = BOOL(WINAPI*)(void*);
+        using OpenShimClearAllAiUnitTuningFn = BOOL(WINAPI*)();
         using OpenShimSetTurretAimPitchEnabledFn = BOOL(WINAPI*)(BOOL);
         using OpenShimSetAttackRevealEnabledFn = BOOL(WINAPI*)(BOOL);
 		using OpenShimResetMissionHookOverridesFn = BOOL(WINAPI*)();
@@ -787,6 +797,116 @@ namespace ExtraUtilities::Lua::Patches
             {
                 loggedMissing = true;
                 Logging::LogMessage("[EXU::UnitVo] OpenShim AI ODF gameplay tuning bridge unavailable");
+            }
+
+            return fn;
+        }
+
+        OpenShimSetAiUnitTuningFn ResolveAiUnitTuningSetBridge()
+        {
+            static OpenShimSetAiUnitTuningFn fn = nullptr;
+            static bool attempted = false;
+            static bool loggedMissing = false;
+            if (attempted)
+            {
+                return fn;
+            }
+
+            attempted = true;
+            if (HMODULE module = GetModuleHandleA("winmm.dll"))
+            {
+                fn = reinterpret_cast<OpenShimSetAiUnitTuningFn>(
+                    GetProcAddress(module, "OpenShimSetAiUnitTuning"));
+            }
+
+            if (!fn && !loggedMissing)
+            {
+                loggedMissing = true;
+                Logging::LogMessage("[EXU::UnitVo] OpenShim per-unit AI tuning bridge unavailable");
+            }
+
+            return fn;
+        }
+
+        OpenShimSetAiUnitTuningV2Fn ResolveAiUnitTuningSetV2Bridge()
+        {
+            static OpenShimSetAiUnitTuningV2Fn fn = nullptr;
+            static bool attempted = false;
+            if (!attempted)
+            {
+                attempted = true;
+                if (HMODULE module = GetModuleHandleA("winmm.dll"))
+                {
+                    fn = reinterpret_cast<OpenShimSetAiUnitTuningV2Fn>(
+                        GetProcAddress(module, "OpenShimSetAiUnitTuningV2"));
+                }
+            }
+            return fn;
+        }
+
+        OpenShimSetAiUnitTuningV3Fn ResolveAiUnitTuningSetV3Bridge()
+        {
+            static OpenShimSetAiUnitTuningV3Fn fn = nullptr;
+            static bool attempted = false;
+            if (!attempted)
+            {
+                attempted = true;
+                if (HMODULE module = GetModuleHandleA("winmm.dll"))
+                {
+                    fn = reinterpret_cast<OpenShimSetAiUnitTuningV3Fn>(
+                        GetProcAddress(module, "OpenShimSetAiUnitTuningV3"));
+                }
+            }
+            return fn;
+        }
+
+        OpenShimClearAiUnitTuningFn ResolveAiUnitTuningClearBridge()
+        {
+            static OpenShimClearAiUnitTuningFn fn = nullptr;
+            static bool attempted = false;
+            static bool loggedMissing = false;
+            if (attempted)
+            {
+                return fn;
+            }
+
+            attempted = true;
+            if (HMODULE module = GetModuleHandleA("winmm.dll"))
+            {
+                fn = reinterpret_cast<OpenShimClearAiUnitTuningFn>(
+                    GetProcAddress(module, "OpenShimClearAiUnitTuning"));
+            }
+
+            if (!fn && !loggedMissing)
+            {
+                loggedMissing = true;
+                Logging::LogMessage("[EXU::UnitVo] OpenShim per-unit AI tuning clear bridge unavailable");
+            }
+
+            return fn;
+        }
+
+        OpenShimClearAllAiUnitTuningFn ResolveAiUnitTuningClearAllBridge()
+        {
+            static OpenShimClearAllAiUnitTuningFn fn = nullptr;
+            static bool attempted = false;
+            static bool loggedMissing = false;
+            if (attempted)
+            {
+                return fn;
+            }
+
+            attempted = true;
+            if (HMODULE module = GetModuleHandleA("winmm.dll"))
+            {
+                fn = reinterpret_cast<OpenShimClearAllAiUnitTuningFn>(
+                    GetProcAddress(module, "OpenShimClearAllAiUnitTuning"));
+            }
+
+            if (!fn && !loggedMissing)
+            {
+                loggedMissing = true;
+                Logging::LogMessage("[EXU::UnitVo] OpenShim per-unit AI tuning clear-all bridge unavailable");
             }
 
             return fn;
@@ -1134,6 +1254,262 @@ namespace ExtraUtilities::Lua::Patches
         return 1;
     }
 
+    // exu.SetAiUnitTuning(handle, { engageRange = m, weaponRangeMin = m,
+    //   retargetPeriod = s, kiteDesiredRange = m, kiteEnterRange = m,
+    //   kiteExitRange = m, kitePreserveLos = bool })
+    // Values act as per-unit floors applied by the OpenShim CalcRange/retarget hooks;
+    // they win over ODF-level tuning. Omitted/nil keys are unset; an empty table clears.
+    int SetAiUnitTuning(lua_State* L)
+    {
+        const BZR::handle h = CheckHandle(L, 1);
+
+        float engageRange = -1.0f;
+        float weaponRangeMin = -1.0f;
+        float retargetPeriod = -1.0f;
+        float kiteDesiredRange = -1.0f;
+        float kiteEnterRange = -1.0f;
+        float kiteExitRange = -1.0f;
+        BOOL kitePreserveLos = FALSE;
+        float kiteStrafe = -1.0f;
+        float kiteSwitchPeriod = -1.0f;
+
+        if (!lua_isnoneornil(L, 2))
+        {
+            luaL_checktype(L, 2, LUA_TTABLE);
+
+            lua_getfield(L, 2, "engageRange");
+            if (lua_isnumber(L, -1))
+            {
+                engageRange = static_cast<float>(lua_tonumber(L, -1));
+            }
+            lua_pop(L, 1);
+
+            lua_getfield(L, 2, "weaponRangeMin");
+            if (lua_isnumber(L, -1))
+            {
+                weaponRangeMin = static_cast<float>(lua_tonumber(L, -1));
+            }
+            lua_pop(L, 1);
+
+            lua_getfield(L, 2, "retargetPeriod");
+            if (lua_isnumber(L, -1))
+            {
+                retargetPeriod = static_cast<float>(lua_tonumber(L, -1));
+            }
+            lua_pop(L, 1);
+
+            lua_getfield(L, 2, "kiteDesiredRange");
+            if (lua_isnumber(L, -1))
+            {
+                kiteDesiredRange = static_cast<float>(lua_tonumber(L, -1));
+            }
+            lua_pop(L, 1);
+
+            lua_getfield(L, 2, "kiteEnterRange");
+            if (lua_isnumber(L, -1))
+            {
+                kiteEnterRange = static_cast<float>(lua_tonumber(L, -1));
+            }
+            lua_pop(L, 1);
+
+            lua_getfield(L, 2, "kiteExitRange");
+            if (lua_isnumber(L, -1))
+            {
+                kiteExitRange = static_cast<float>(lua_tonumber(L, -1));
+            }
+            lua_pop(L, 1);
+
+            lua_getfield(L, 2, "kitePreserveLos");
+            if (lua_isboolean(L, -1))
+            {
+                kitePreserveLos = lua_toboolean(L, -1) ? TRUE : FALSE;
+            }
+            lua_pop(L, 1);
+
+            lua_getfield(L, 2, "kiteStrafe");
+            if (lua_isnumber(L, -1))
+            {
+                kiteStrafe = static_cast<float>(lua_tonumber(L, -1));
+            }
+            lua_pop(L, 1);
+
+            lua_getfield(L, 2, "kiteSwitchPeriod");
+            if (lua_isnumber(L, -1))
+            {
+                kiteSwitchPeriod = static_cast<float>(lua_tonumber(L, -1));
+            }
+            lua_pop(L, 1);
+        }
+
+        OpenShimSetAiUnitTuningV3Fn fnV3 = ResolveAiUnitTuningSetV3Bridge();
+        OpenShimSetAiUnitTuningV2Fn fnV2 = ResolveAiUnitTuningSetV2Bridge();
+        OpenShimSetAiUnitTuningFn fn = ResolveAiUnitTuningSetBridge();
+        const bool requestedKite = kiteDesiredRange > 0.0f ||
+                                   kiteEnterRange > 0.0f ||
+                                   kiteExitRange > 0.0f;
+        const bool requestedStrafe = kiteStrafe > 0.0f || kiteSwitchPeriod > 0.0f;
+        if (!fnV3 && requestedStrafe)
+        {
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        if (!fnV3 && !fnV2 && (!fn || requestedKite))
+        {
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+
+        BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+        if (obj == nullptr)
+        {
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+
+        const BOOL ok = fnV3
+            ? fnV3(obj,
+                   engageRange,
+                   weaponRangeMin,
+                   retargetPeriod,
+                   kiteDesiredRange,
+                   kiteEnterRange,
+                   kiteExitRange,
+                   kitePreserveLos,
+                   kiteStrafe,
+                   kiteSwitchPeriod)
+            : fnV2
+            ? fnV2(obj,
+                   engageRange,
+                   weaponRangeMin,
+                   retargetPeriod,
+                   kiteDesiredRange,
+                   kiteEnterRange,
+                   kiteExitRange,
+                   kitePreserveLos)
+            : fn(obj, engageRange, weaponRangeMin, retargetPeriod);
+        if (ok)
+        {
+            const bool hasEngage = engageRange > 0.0f;
+            const bool hasWeaponMin = weaponRangeMin > 0.0f;
+            const bool hasRetarget = retargetPeriod > 0.0f;
+            const bool hasKite = kiteDesiredRange > 0.0f &&
+                                 kiteEnterRange > 0.0f &&
+                                 kiteExitRange > kiteEnterRange &&
+                                 kiteDesiredRange > kiteEnterRange &&
+                                 kiteDesiredRange < kiteExitRange;
+            if (hasEngage || hasWeaponMin || hasRetarget || hasKite)
+            {
+                Patch::AiUnitTuningMirror mirror = {};
+                mirror.hasEngageRange = hasEngage;
+                mirror.engageRange = hasEngage ? engageRange : 0.0f;
+                mirror.hasWeaponRangeMin = hasWeaponMin;
+                mirror.weaponRangeMin = hasWeaponMin ? weaponRangeMin : 0.0f;
+                mirror.hasRetargetPeriod = hasRetarget;
+                mirror.retargetPeriod = hasRetarget ? retargetPeriod : 0.0f;
+                mirror.hasKiteRanges = hasKite;
+                mirror.kiteDesiredRange = hasKite ? kiteDesiredRange : 0.0f;
+                mirror.kiteEnterRange = hasKite ? kiteEnterRange : 0.0f;
+                mirror.kiteExitRange = hasKite ? kiteExitRange : 0.0f;
+                mirror.kitePreserveLos = hasKite && kitePreserveLos != FALSE;
+                mirror.kiteStrafe = hasKite && kiteStrafe > 0.0f ? kiteStrafe : 0.0f;
+                mirror.kiteSwitchPeriod = hasKite && kiteSwitchPeriod > 0.0f ? kiteSwitchPeriod : 0.0f;
+                Patch::aiUnitTuning[static_cast<uint32_t>(h)] = mirror;
+            }
+            else
+            {
+                Patch::aiUnitTuning.erase(static_cast<uint32_t>(h));
+            }
+        }
+        lua_pushboolean(L, ok ? 1 : 0);
+        return 1;
+    }
+
+    int GetAiUnitTuning(lua_State* L)
+    {
+        const BZR::handle h = CheckHandle(L, 1);
+        const auto it = Patch::aiUnitTuning.find(static_cast<uint32_t>(h));
+        if (it == Patch::aiUnitTuning.end())
+        {
+            lua_pushnil(L);
+            return 1;
+        }
+
+        lua_createtable(L, 0, 9);
+        if (it->second.hasEngageRange)
+        {
+            lua_pushnumber(L, it->second.engageRange);
+            lua_setfield(L, -2, "engageRange");
+        }
+        if (it->second.hasWeaponRangeMin)
+        {
+            lua_pushnumber(L, it->second.weaponRangeMin);
+            lua_setfield(L, -2, "weaponRangeMin");
+        }
+        if (it->second.hasRetargetPeriod)
+        {
+            lua_pushnumber(L, it->second.retargetPeriod);
+            lua_setfield(L, -2, "retargetPeriod");
+        }
+        if (it->second.hasKiteRanges)
+        {
+            lua_pushnumber(L, it->second.kiteDesiredRange);
+            lua_setfield(L, -2, "kiteDesiredRange");
+            lua_pushnumber(L, it->second.kiteEnterRange);
+            lua_setfield(L, -2, "kiteEnterRange");
+            lua_pushnumber(L, it->second.kiteExitRange);
+            lua_setfield(L, -2, "kiteExitRange");
+            lua_pushboolean(L, it->second.kitePreserveLos ? 1 : 0);
+            lua_setfield(L, -2, "kitePreserveLos");
+            if (it->second.kiteStrafe > 0.0f)
+            {
+                lua_pushnumber(L, it->second.kiteStrafe);
+                lua_setfield(L, -2, "kiteStrafe");
+            }
+            if (it->second.kiteSwitchPeriod > 0.0f)
+            {
+                lua_pushnumber(L, it->second.kiteSwitchPeriod);
+                lua_setfield(L, -2, "kiteSwitchPeriod");
+            }
+        }
+        return 1;
+    }
+
+    int ClearAiUnitTuning(lua_State* L)
+    {
+        const BZR::handle h = CheckHandle(L, 1);
+        Patch::aiUnitTuning.erase(static_cast<uint32_t>(h));
+
+        OpenShimClearAiUnitTuningFn fn = ResolveAiUnitTuningClearBridge();
+        if (!fn)
+        {
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+
+        BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+        if (obj == nullptr)
+        {
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+
+        lua_pushboolean(L, fn(obj) ? 1 : 0);
+        return 1;
+    }
+
+    int ClearAllAiUnitTuning(lua_State* L)
+    {
+        Patch::aiUnitTuning.clear();
+        if (OpenShimClearAllAiUnitTuningFn fn = ResolveAiUnitTuningClearAllBridge())
+        {
+            lua_pushboolean(L, fn() ? 1 : 0);
+            return 1;
+        }
+
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
     int SetTurretAimPitchEnabled(lua_State* L)
     {
         const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
@@ -1175,6 +1551,8 @@ namespace ExtraUtilities::Lua::Patches
 
 	void ResetOpenShimMissionOverrides()
 	{
+		// The shim-side reset also clears its per-unit AI tuning map.
+		Patch::aiUnitTuning.clear();
 		if (OpenShimResetMissionHookOverridesFn fn = ResolveMissionHookResetBridge())
 		{
 			fn();

@@ -70,7 +70,9 @@ namespace ExtraUtilities::Lua::OS
 			OutputDebugStringA("\n");
 
 			ExtraUtilities::Logging::ResetLogFileForCurrentProcess("exu_native_save.log");
-			std::ofstream file("exu_native_save.log", std::ios::app);
+			std::ofstream file(
+				ExtraUtilities::Logging::GetLogFilePath("exu_native_save.log"),
+				std::ios::app);
 			if (file.is_open())
 			{
 				file << message << '\n';

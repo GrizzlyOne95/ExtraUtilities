@@ -139,6 +139,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\Patches\AddScrapCallback.cpp" />
+    <ClCompile Include="src\Patches\AiTargetSelect.cpp" />
     <ClCompile Include="src\Patches\BulletHitCallback.cpp" />
     <ClCompile Include="src\Patches\BulletInitCallback.cpp" />
     <ClCompile Include="src\Game\Camera.cpp" />
@@ -183,6 +184,7 @@
     <ClInclude Include="Resource\resource.h" />
     <ClInclude Include="src\About.h" />
     <ClInclude Include="src\Patches\AddScrapCallback.h" />
+    <ClInclude Include="src\Patches\AiTargetSelect.h" />
     <ClInclude Include="src\Patches\BulletHitCallback.h" />
     <ClInclude Include="src\Patches\BulletInitCallback.h" />
     <ClInclude Include="src\BZR.h" />
