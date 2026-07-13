@@ -305,7 +305,9 @@ namespace ExtraUtilities::Lua::Environment
 			OutputDebugStringA("\n");
 
 			ExtraUtilities::Logging::ResetLogFileForCurrentProcess("exu_environment_debug.log");
-			std::ofstream file("exu_environment_debug.log", std::ios::app);
+			std::ofstream file(
+				ExtraUtilities::Logging::GetLogFilePath("exu_environment_debug.log"),
+				std::ios::app);
 			if (file.is_open())
 			{
 				file << message << '\n';

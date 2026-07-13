@@ -23,6 +23,7 @@
 #pragma once
 
 #include "Patches/AddScrapCallback.h"
+#include "Patches/AiTargetSelect.h"
 #include "Patches/BulletHitCallback.h"
 #include "Patches/BulletInitCallback.h"
 #include "Patches/Cheats.h"
