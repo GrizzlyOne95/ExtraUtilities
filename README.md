@@ -202,9 +202,10 @@ work falls into four main buckets:
   time-of-day and shadow controls, viewport retro-lighting material-scheme
   switching, Ogre overlay creation and manipulation, and radar state/size and
   edge-path refresh helpers.
-- Patch-driven behavior changes: engine flame color overrides, turbo toggles,
-  ordnance velocity inheritance, hovercraft shot convergence, smart-reticle
-  convergence for the local player, and unit-VO throttling, muting, and bark
+- Patch-driven behavior changes and compatibility bridges: engine flame color
+  overrides, shim-owned global/per-unit turbo and HUD positioning, ordnance
+  velocity inheritance, OpenShim-owned hovercraft/smart-reticle convergence and
+  smart-reticle-range controls, and unit-VO throttling, muting, and bark
   rotation control.
 - Stability and integration hardening: standalone EXU builds, stricter patch and
   scanner validation, safer Ogre/material/environment calls, and better logging
@@ -213,7 +214,21 @@ work falls into four main buckets:
 
 Recent additions:
 - Viewport retro-lighting toggles via `exu.GetRetroLightingMode()` and `exu.SetRetroLightingMode(enabled)`, which switch the active viewport between the stock modern material schemes and the `og-*` retro variants.
-- Local smart-reticle hovercraft shot convergence via `exu.GetPlayerReticleShotConvergence()` and `exu.SetPlayerReticleShotConvergence(enabled)`.
+- Hovercraft convergence and local smart-reticle convergence via
+  `exu.GetShotConvergence()` / `exu.SetShotConvergence(enabled)` and
+  `exu.GetPlayerReticleShotConvergence()` /
+  `exu.SetPlayerReticleShotConvergence(enabled)`. These delegate to OpenShim
+  when its bridge exports are present and retain EXU's native fallback for
+  standalone installs.
+- `exu.GetReticleRange()` / `exu.SetReticleRange(range)` likewise delegate to
+  OpenShim when its smart-reticle-range bridge is present, retaining EXU's
+  direct-memory fallback for standalone installs.
+- Scrap/pilot HUD positioning and global/per-unit turbo APIs delegate to
+  OpenShim when its ownership exports are present. Standalone EXU retains its
+  direct-coordinate and native turbo-hook fallbacks. OpenShim's migrated turbo
+  hook calls back into EXU for optional unit-culling updates.
+- Optional OpenShim APIs are resolved through the shared `OpenShimBridge`
+  helper rather than per-module `GetModuleHandle`/`GetProcAddress` copies.
 - Hardened environment/material-scheme access so bad viewport state is logged instead of crashing the caller when Ogre data is unavailable.
 - Terrain material convenience helpers via `exu.GetTerrainMaterialName([trnFilename])` and `exu.SetTerrainTextureSet(textureSet)` for live planet-style terrain re-theming without reloading HG2/TRN.
 - OpenShim music bridge helpers: `exu.SetMusicTrack(index)`, `exu.GetMusicTrack()`, `exu.StopMusic()`, `exu.PauseMusic()`, and `exu.ResumeMusic()`. These resolve optional OpenShim `winmm.dll` exports at runtime and fail closed when OpenShim or a specific native music control is unavailable.

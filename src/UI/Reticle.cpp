@@ -19,6 +19,14 @@
 #include "Reticle.h"
 
 #include "LuaHelpers.h"
+#include "OpenShimBridge.h"
+
+namespace
+{
+	using OpenShimGetSmartReticleRangeFn = float(WINAPI*)();
+	using OpenShimSetSmartReticleRangeFn = BOOL(WINAPI*)(float);
+
+}
 
 namespace ExtraUtilities::Lua::Reticle
 {
@@ -33,14 +41,25 @@ namespace ExtraUtilities::Lua::Reticle
 
 	int GetRange(lua_State* L)
 	{
-		lua_pushnumber(L, range.Read());
+		const auto bridge = OpenShimBridge::Resolve<OpenShimGetSmartReticleRangeFn>(
+			"OpenShimGetSmartReticleRange");
+		lua_pushnumber(L, bridge ? bridge() : range.Read());
 		return 1;
 	}
 
 	int SetRange(lua_State* L)
 	{
 		float newRange = static_cast<float>(luaL_checknumber(L, 1));
-		range.Write(newRange);
+		const auto bridge = OpenShimBridge::Resolve<OpenShimSetSmartReticleRangeFn>(
+			"OpenShimSetSmartReticleRange");
+		if (bridge)
+		{
+			bridge(newRange);
+		}
+		else
+		{
+			range.Write(newRange);
+		}
 		return 0;
 	}
 

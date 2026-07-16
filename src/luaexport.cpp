@@ -463,6 +463,10 @@ namespace ExtraUtilities::Lua
 		CommandReplacement::ResetState(L);
 		Logging::LogMessage("exu: Init starting");
 		Patches::ResetOpenShimMissionOverrides();
+		// Scripted content gets the legacy jump-snipe crouch fix on by default.
+		// OpenShim keeps it off for stock/MP; a mission can opt out with
+		// exu.SetJumpSnipeCrouch(false).
+		Patches::ApplyJumpSnipeCrouchDefault();
 		BasicPatch::EnableDeferredPatchActivation();
 		Logging::LogMessage("exu: deferred patches activated");
 
@@ -812,6 +816,7 @@ namespace ExtraUtilities::Lua
 			{ "GetAiTargetScoringEnabled", &Patches::GetAiTargetScoringEnabled },
 			{ "SetTurretAimPitchEnabled", &Patches::SetTurretAimPitchEnabled },
 			{ "SetAttackRevealEnabled", &Patches::SetAttackRevealEnabled },
+			{ "SetJumpSnipeCrouch", &Patches::SetJumpSnipeCrouch },
 			{ "ResetMissionHookOverrides", &Patches::ResetMissionHookOverrides },
 
 			// Play Options

@@ -18,6 +18,7 @@
 
 #include "SoundOptions.h"
 #include "Logging.h"
+#include "OpenShimBridge.h"
 
 #include <Windows.h>
 
@@ -62,8 +63,7 @@ namespace ExtraUtilities::Lua::SoundOptions
 		T ResolveOpenShimMusicBridge(const char* exportName)
 		{
 			static bool loggedMissingModule = false;
-			HMODULE module = GetModuleHandleA("winmm.dll");
-			if (!module)
+			if (!OpenShimBridge::GetModule())
 			{
 				if (!loggedMissingModule)
 				{
@@ -73,7 +73,7 @@ namespace ExtraUtilities::Lua::SoundOptions
 				return nullptr;
 			}
 
-			T fn = reinterpret_cast<T>(GetProcAddress(module, exportName));
+			T fn = OpenShimBridge::Resolve<T>(exportName);
 			if (!fn && ShouldLogMissingExport(exportName))
 			{
 				Logging::LogMessage("[EXU::SoundOptions] OpenShim export missing: %s", exportName);

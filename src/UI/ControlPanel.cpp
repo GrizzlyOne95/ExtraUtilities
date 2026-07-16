@@ -21,7 +21,9 @@
 #include "Hook.h"
 #include "Util/Logging.h"
 #include "LuaHelpers.h"
+#include "OpenShimBridge.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -54,6 +56,15 @@ namespace ExtraUtilities::Lua::ControlPanel
 		using OpenShimSetHudSpriteVisibleFn = BOOL(WINAPI*)(LPCSTR, BOOL);
 		using OpenShimRestoreHudSpriteFn = BOOL(WINAPI*)(LPCSTR);
 		using OpenShimRestoreAllHudSpritesFn = BOOL(WINAPI*)();
+		using OpenShimGetScrapPilotHudTopLeftsFn =
+			BOOL(WINAPI*)(int*, int*, int*, int*);
+		using OpenShimSetScrapPilotHudTopLeftsFn =
+			BOOL(WINAPI*)(int, int, int, int);
+		using OpenShimRestoreScrapPilotHudStockFn = BOOL(WINAPI*)();
+
+		OpenShimGetScrapPilotHudTopLeftsFn ResolveScrapPilotHudGetBridge();
+		OpenShimSetScrapPilotHudTopLeftsFn ResolveScrapPilotHudSetBridge();
+		OpenShimRestoreScrapPilotHudStockFn ResolveScrapPilotHudRestoreBridge();
 
 		struct HudTextPoint
 		{
@@ -158,6 +169,19 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		bool RestoreScrapPilotHudOriginalBaseline() noexcept
 		{
+			if (OpenShimRestoreScrapPilotHudStockFn fn = ResolveScrapPilotHudRestoreBridge())
+			{
+				if (!fn())
+					return false;
+				g_scrapPilotHudBaselineValid = false;
+				CaptureScrapPilotHudBaseline();
+				g_scrapPilotHudOffsetX.fill(0);
+				g_scrapPilotHudOffsetY.fill(0);
+				g_scrapPilotHudAppliedX.fill(0);
+				g_scrapPilotHudAppliedY.fill(0);
+				return g_scrapPilotHudBaselineValid;
+			}
+
 			if (!g_scrapPilotHudOriginalBaselineValid)
 			{
 				CaptureScrapPilotHudBaseline();
@@ -229,6 +253,24 @@ namespace ExtraUtilities::Lua::ControlPanel
 				return;
 			}
 
+			if (OpenShimSetScrapPilotHudTopLeftsFn fn = ResolveScrapPilotHudSetBridge())
+			{
+				int scrapLeft = (std::min)(g_scrapPilotHudBaseline[0], g_scrapPilotHudBaseline[2]);
+				int scrapTop = (std::min)(g_scrapPilotHudBaseline[1], g_scrapPilotHudBaseline[3]);
+				int pilotLeft = (std::min)(g_scrapPilotHudBaseline[4], g_scrapPilotHudBaseline[6]);
+				int pilotTop = (std::min)(g_scrapPilotHudBaseline[5], g_scrapPilotHudBaseline[7]);
+				if (fn(
+						scrapLeft + g_scrapPilotHudOffsetX[0],
+						scrapTop + g_scrapPilotHudOffsetY[0],
+						pilotLeft + g_scrapPilotHudOffsetX[1],
+						pilotTop + g_scrapPilotHudOffsetY[1]))
+				{
+					g_scrapPilotHudAppliedX = g_scrapPilotHudOffsetX;
+					g_scrapPilotHudAppliedY = g_scrapPilotHudOffsetY;
+					return;
+				}
+			}
+
 			size_t baselineIndex = 0;
 			for (size_t pointIndex = 0; pointIndex < g_scrapPilotHudTextPoints.size(); ++pointIndex)
 			{
@@ -241,6 +283,20 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 			g_scrapPilotHudAppliedX = g_scrapPilotHudOffsetX;
 			g_scrapPilotHudAppliedY = g_scrapPilotHudOffsetY;
+		}
+
+		void RefreshScrapPilotHudFallback() noexcept
+		{
+			// OpenShim owns persistence and mission-reset behavior when its HUD
+			// bridge is available. Reapplying EXU's cached offset every draw would
+			// otherwise resurrect a mission override after the shim restored the
+			// user's INI baseline.
+			if (ResolveScrapPilotHudSetBridge())
+			{
+				return;
+			}
+
+			ApplyScrapPilotHudOffset();
 		}
 
 		bool GetScrapPilotHudBaselineTopLeft(int& outLeft, int& outTop) noexcept
@@ -293,6 +349,20 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		bool GetHudCurrentTopLeft(HudTextGroup group, int& outLeft, int& outTop) noexcept
 		{
+			if (OpenShimGetScrapPilotHudTopLeftsFn fn = ResolveScrapPilotHudGetBridge())
+			{
+				int scrapLeft = 0;
+				int scrapTop = 0;
+				int pilotLeft = 0;
+				int pilotTop = 0;
+				if (fn(&scrapLeft, &scrapTop, &pilotLeft, &pilotTop))
+				{
+					outLeft = group == HudTextGroup::Scrap ? scrapLeft : pilotLeft;
+					outTop = group == HudTextGroup::Scrap ? scrapTop : pilotTop;
+					return true;
+				}
+			}
+
 			if (!GetHudBaselineTopLeft(group, outLeft, outTop))
 			{
 				return false;
@@ -311,7 +381,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 			g_scrapPilotHudOffsetY[groupIndex] = y;
 		}
 
-		inline ApplyScrapPilotHudOffsetFn g_applyScrapPilotHudOffsetFn = &ApplyScrapPilotHudOffset;
+		inline ApplyScrapPilotHudOffsetFn g_applyScrapPilotHudOffsetFn = &RefreshScrapPilotHudFallback;
 
 		OpenShimGetHudSpriteRectFn ResolveHudSpriteGetRectBridge()
 		{
@@ -324,11 +394,8 @@ namespace ExtraUtilities::Lua::ControlPanel
 			}
 
 			attempted = true;
-			if (HMODULE module = GetModuleHandleA("winmm.dll"))
-			{
-				fn = reinterpret_cast<OpenShimGetHudSpriteRectFn>(
-					GetProcAddress(module, "OpenShimGetHudSpriteRect"));
-			}
+			fn = OpenShimBridge::Resolve<OpenShimGetHudSpriteRectFn>(
+				"OpenShimGetHudSpriteRect");
 
 			if (!fn && !loggedMissing)
 			{
@@ -350,11 +417,8 @@ namespace ExtraUtilities::Lua::ControlPanel
 			}
 
 			attempted = true;
-			if (HMODULE module = GetModuleHandleA("winmm.dll"))
-			{
-				fn = reinterpret_cast<OpenShimSetHudSpriteRectFn>(
-					GetProcAddress(module, "OpenShimSetHudSpriteRect"));
-			}
+			fn = OpenShimBridge::Resolve<OpenShimSetHudSpriteRectFn>(
+				"OpenShimSetHudSpriteRect");
 
 			if (!fn && !loggedMissing)
 			{
@@ -376,11 +440,8 @@ namespace ExtraUtilities::Lua::ControlPanel
 			}
 
 			attempted = true;
-			if (HMODULE module = GetModuleHandleA("winmm.dll"))
-			{
-				fn = reinterpret_cast<OpenShimSetHudSpriteVisibleFn>(
-					GetProcAddress(module, "OpenShimSetHudSpriteVisible"));
-			}
+			fn = OpenShimBridge::Resolve<OpenShimSetHudSpriteVisibleFn>(
+				"OpenShimSetHudSpriteVisible");
 
 			if (!fn && !loggedMissing)
 			{
@@ -402,11 +463,8 @@ namespace ExtraUtilities::Lua::ControlPanel
 			}
 
 			attempted = true;
-			if (HMODULE module = GetModuleHandleA("winmm.dll"))
-			{
-				fn = reinterpret_cast<OpenShimRestoreHudSpriteFn>(
-					GetProcAddress(module, "OpenShimRestoreHudSprite"));
-			}
+			fn = OpenShimBridge::Resolve<OpenShimRestoreHudSpriteFn>(
+				"OpenShimRestoreHudSprite");
 
 			if (!fn && !loggedMissing)
 			{
@@ -428,11 +486,8 @@ namespace ExtraUtilities::Lua::ControlPanel
 			}
 
 			attempted = true;
-			if (HMODULE module = GetModuleHandleA("winmm.dll"))
-			{
-				fn = reinterpret_cast<OpenShimRestoreAllHudSpritesFn>(
-					GetProcAddress(module, "OpenShimRestoreAllHudSprites"));
-			}
+			fn = OpenShimBridge::Resolve<OpenShimRestoreAllHudSpritesFn>(
+				"OpenShimRestoreAllHudSprites");
 
 			if (!fn && !loggedMissing)
 			{
@@ -440,6 +495,30 @@ namespace ExtraUtilities::Lua::ControlPanel
 				Logging::LogMessage("[EXU::ControlPanel] OpenShim HUD sprite restore-all bridge unavailable");
 			}
 
+			return fn;
+		}
+
+		OpenShimGetScrapPilotHudTopLeftsFn ResolveScrapPilotHudGetBridge()
+		{
+			static const auto fn =
+				OpenShimBridge::Resolve<OpenShimGetScrapPilotHudTopLeftsFn>(
+					"OpenShimGetScrapPilotHudTopLefts");
+			return fn;
+		}
+
+		OpenShimSetScrapPilotHudTopLeftsFn ResolveScrapPilotHudSetBridge()
+		{
+			static const auto fn =
+				OpenShimBridge::Resolve<OpenShimSetScrapPilotHudTopLeftsFn>(
+					"OpenShimSetScrapPilotHudTopLefts");
+			return fn;
+		}
+
+		OpenShimRestoreScrapPilotHudStockFn ResolveScrapPilotHudRestoreBridge()
+		{
+			static const auto fn =
+				OpenShimBridge::Resolve<OpenShimRestoreScrapPilotHudStockFn>(
+					"OpenShimRestoreScrapPilotHudStock");
 			return fn;
 		}
 

@@ -22,6 +22,25 @@
 #include "Hook.h"
 #include "InlinePatch.h"
 #include "LuaHelpers.h"
+#include "OpenShimBridge.h"
+
+namespace
+{
+	using OpenShimGetGlobalTurboFn = BOOL(WINAPI*)();
+	using OpenShimSetGlobalTurboFn = BOOL(WINAPI*)(BOOL);
+	using OpenShimGetUnitTurboFn = BOOL(WINAPI*)(DWORD);
+	using OpenShimSetUnitTurboFn = BOOL(WINAPI*)(DWORD, BOOL);
+
+	bool QueryOpenShimUnitTurboOwnership()
+	{
+		// Export presence is the ownership contract. Do not activate EXU's fallback
+		// hooks merely because the shim is still waiting for Steam's runtime bytes
+		// to settle; doing so would create a late-install race over the same sites.
+		return ExtraUtilities::OpenShimBridge::HasExport("OpenShimHasUnitTurboHooks");
+	}
+
+	const bool g_openShimOwnsUnitTurbo = QueryOpenShimUnitTurboOwnership();
+}
 
 namespace ExtraUtilities::Patch
 {
@@ -87,7 +106,11 @@ namespace ExtraUtilities::Patch
 			ret
 		}
 	}
-	Hook turboPatchBegin(turboPatchBeginAddr, &TurboPatchBegin, 6, InlinePatch::Status::ACTIVE);
+	Hook turboPatchBegin(
+		turboPatchBeginAddr,
+		&TurboPatchBegin,
+		6,
+		g_openShimOwnsUnitTurbo ? InlinePatch::Status::INACTIVE : InlinePatch::Status::ACTIVE);
 
 	static void __declspec(naked) TurboPatchEnd()
 	{
@@ -112,13 +135,24 @@ namespace ExtraUtilities::Patch
 			ret
 		}
 	}
-	Hook turboPatchEnd(turboPatchEndAddr, &TurboPatchEnd, 9, InlinePatch::Status::ACTIVE);
+	Hook turboPatchEnd(
+		turboPatchEndAddr,
+		&TurboPatchEnd,
+		9,
+		g_openShimOwnsUnitTurbo ? InlinePatch::Status::INACTIVE : InlinePatch::Status::ACTIVE);
 }
 
 namespace ExtraUtilities::Lua::Patches
 {
 	int GetGlobalTurbo(lua_State* L)
 	{
+		if (const auto fn = OpenShimBridge::Resolve<OpenShimGetGlobalTurboFn>(
+				"OpenShimGetGlobalTurbo"))
+		{
+			lua_pushboolean(L, fn() != FALSE);
+			return 1;
+		}
+
 		if (Patch::turboPatch1.IsActive() && Patch::turboPatch2.IsActive())
 		{
 			lua_pushboolean(L, true);
@@ -128,12 +162,19 @@ namespace ExtraUtilities::Lua::Patches
 			lua_pushboolean(L, false);
 		}
 
-		return 0;
+		return 1;
 	}
 
 	int SetGlobalTurbo(lua_State* L)
 	{
 		bool status = CheckBool(L, 1);
+		Patch::globalTurboEnabled = status;
+		if (const auto fn = OpenShimBridge::Resolve<OpenShimSetGlobalTurboFn>(
+				"OpenShimSetGlobalTurbo"))
+		{
+			fn(status ? TRUE : FALSE);
+			return 0;
+		}
 
 		if (status == true)
 		{
@@ -154,7 +195,13 @@ namespace ExtraUtilities::Lua::Patches
 		BZR::handle h = CheckHandle(L, 1);
 
 		bool result;
-		if (Patch::setTurboUnits.contains(h))
+		if (g_openShimOwnsUnitTurbo)
+		{
+			const auto fn = OpenShimBridge::Resolve<OpenShimGetUnitTurboFn>(
+				"OpenShimGetUnitTurbo");
+			result = fn && fn(static_cast<DWORD>(h)) != FALSE;
+		}
+		else if (Patch::setTurboUnits.contains(h))
 		{
 			result = Patch::setTurboUnits.at(h);
 		}
@@ -173,7 +220,18 @@ namespace ExtraUtilities::Lua::Patches
 		BZR::handle h = CheckHandle(L, 1);
 		bool status = CheckBool(L, 2);
 
-		Patch::setTurboUnits[h] = status;
+		if (g_openShimOwnsUnitTurbo)
+		{
+			if (const auto fn = OpenShimBridge::Resolve<OpenShimSetUnitTurboFn>(
+					"OpenShimSetUnitTurbo"))
+			{
+				fn(static_cast<DWORD>(h), status ? TRUE : FALSE);
+			}
+		}
+		else
+		{
+			Patch::setTurboUnits[h] = status;
+		}
 
 		return 0;
 	}

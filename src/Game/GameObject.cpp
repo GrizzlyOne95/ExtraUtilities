@@ -240,10 +240,10 @@ namespace ExtraUtilities::Lua::GameObject
 		};
 #pragma pack(pop)
 
-		constexpr size_t kGameObjectCarrierOffset = 0x198;
-		constexpr size_t kGameObjectModeListOffset = 0x19C;
-		constexpr size_t kGameObjectModeListEnabledMaskOffset = 0x1C8;
-		constexpr size_t kGameObjectModeListActiveSlotOffset = 0x1CC;
+		constexpr size_t kGameObjectCarrierOffset = 0x1A0; // GOG: PDB 0x198 drifted +8 (0x198 is the scanner); see bzr.h
+		constexpr size_t kGameObjectModeListOffset = 0x1A4;            // GOG: 1.5 PDB 0x19C +8 (verified via MODEPROBE 2026-07-14)
+		constexpr size_t kGameObjectModeListEnabledMaskOffset = 0x1D0; // GOG: 1.5 PDB 0x1C8 +8 (real bitmask; 0x38F wingman, 0x0F producers)
+		constexpr size_t kGameObjectModeListActiveSlotOffset = 0x1D4;  // GOG: 1.5 PDB 0x1CC +8 (valid small slot index)
 		constexpr size_t kGameObjectWeaponMaskOffset = 0x210;
 		constexpr uint32_t kWeaponMaskDecodeXor = 0x33333333u;
 		constexpr uint32_t kModeListEntryCount = 11u;
@@ -2901,6 +2901,7 @@ namespace ExtraUtilities::Lua::GameObject
 			const std::string& materialName,
 			const std::string& resourceGroup,
 			int passIndex,
+			bool includeGlowScheme,
 			std::vector<::Ogre::Pass*>& outPasses)
 		{
 			try
@@ -2926,11 +2927,13 @@ namespace ExtraUtilities::Lua::GameObject
 					// stock flat look; tints target only the default and
 					// enhanced ("en-") scheme techniques. The "glow" scheme is the
 					// bloom-mask pass (ambient/diffuse/emissive = $glow over the
-					// emissive map); tinting it makes the whole mesh bleed into the
-					// glow buffer and kills emissive bloom, so it must stay stock.
+					// emissive map); ordinary tints skip it so they cannot make the
+					// whole mesh bleed into the glow buffer. Emissive-only callers
+					// may opt in when they intentionally control the bloom mask.
 					const ::Ogre::String* schemeName = ::Ogre::GetTechniqueSchemeName(technique);
 					if (schemeName != nullptr &&
-						(schemeName->rfind("og-", 0) == 0 || *schemeName == "glow"))
+						(schemeName->rfind("og-", 0) == 0 ||
+							(!includeGlowScheme && *schemeName == "glow")))
 					{
 						continue;
 					}
@@ -2975,11 +2978,17 @@ namespace ExtraUtilities::Lua::GameObject
 			const std::string& materialName,
 			const std::string& resourceGroup,
 			int passIndex,
+			bool includeGlowScheme,
 			std::vector<::Ogre::Pass*>& outPasses)
 		{
 			__try
 			{
-				return TryCollectMaterialTintPassesCpp(materialName, resourceGroup, passIndex, outPasses);
+				return TryCollectMaterialTintPassesCpp(
+					materialName,
+					resourceGroup,
+					passIndex,
+					includeGlowScheme,
+					outPasses);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -3951,6 +3960,7 @@ namespace ExtraUtilities::Lua::GameObject
 		int techniqueIndex = luaL_optint(L, 3, 0);
 		int passIndex = luaL_optint(L, 4, 0);
 		std::string resourceGroup = CheckOptionalResourceGroup(L, 5);
+		bool includeGlowScheme = lua_toboolean(L, 6) != 0;
 
 		// techniqueIndex -1 targets every technique (passIndex -1 every pass)
 		// so tints survive the viewport scheme swaps done by the lighting
@@ -3958,7 +3968,12 @@ namespace ExtraUtilities::Lua::GameObject
 		std::vector<::Ogre::Pass*> passes;
 		if (techniqueIndex < 0)
 		{
-			if (!TryCollectMaterialTintPasses(materialName, resourceGroup, passIndex, passes))
+			if (!TryCollectMaterialTintPasses(
+				materialName,
+				resourceGroup,
+				passIndex,
+				includeGlowScheme,
+				passes))
 			{
 				lua_pushboolean(L, 0);
 				return 1;

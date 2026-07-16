@@ -149,6 +149,9 @@
     <ClInclude Include="src\LuaState.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\OpenShimBridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\Game\Environment.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
