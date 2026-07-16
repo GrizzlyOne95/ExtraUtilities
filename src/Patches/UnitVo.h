@@ -80,6 +80,11 @@ namespace ExtraUtilities::Lua::Patches
 	int ClearAllAiUnitTuning(lua_State* L);
 	int SetTurretAimPitchEnabled(lua_State* L);
 	int SetAttackRevealEnabled(lua_State* L);
+	int SetJumpSnipeCrouch(lua_State* L);
 	int ResetMissionHookOverrides(lua_State* L);
 	void ResetOpenShimMissionOverrides();
+	// Turns the legacy jump-snipe crouch fix on by default for scripted
+	// content. OpenShim keeps it off unless told, and never applies it in a
+	// network game, so this only affects scripted single-player content.
+	void ApplyJumpSnipeCrouchDefault();
 }

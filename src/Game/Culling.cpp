@@ -58,3 +58,9 @@ namespace ExtraUtilities::Lua::Culling
         return 1;
     }
 }
+
+extern "C" __declspec(dllexport) void __cdecl EXU_UpdateCullingForUnit(void* object)
+{
+    ExtraUtilities::Culling::UpdateUnit(
+        static_cast<BZR::GameObject*>(object));
+}

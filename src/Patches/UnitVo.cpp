@@ -20,6 +20,7 @@
 
 #include "Hook.h"
 #include "LuaHelpers.h"
+#include "OpenShimBridge.h"
 #include "Util/Logging.h"
 #include "bzr.h"
 
@@ -630,6 +631,10 @@ namespace ExtraUtilities::Lua::Patches
 	{
 		using OpenShimSetUnderAttackAlertModeFn = BOOL(WINAPI*)(int);
 		using OpenShimSetTargetReticlePopupModeFn = BOOL(WINAPI*)(int);
+		using OpenShimGetUnitVoValueFn = DWORD(WINAPI*)();
+		using OpenShimSetUnitVoValueFn = BOOL(WINAPI*)(DWORD);
+		using OpenShimGetUnitVoMutedFn = BOOL(WINAPI*)();
+		using OpenShimSetUnitVoMutedFn = BOOL(WINAPI*)(BOOL);
 		using OpenShimSetBomberAiRangeEnabledFn = BOOL(WINAPI*)(BOOL);
 		using OpenShimSetHowitzerVolleyEnabledFn = BOOL(WINAPI*)(BOOL);
 		using OpenShimSetWeaponMaskCarrierBiasEnabledFn = BOOL(WINAPI*)(BOOL);
@@ -644,7 +649,48 @@ namespace ExtraUtilities::Lua::Patches
         using OpenShimClearAllAiUnitTuningFn = BOOL(WINAPI*)();
         using OpenShimSetTurretAimPitchEnabledFn = BOOL(WINAPI*)(BOOL);
         using OpenShimSetAttackRevealEnabledFn = BOOL(WINAPI*)(BOOL);
+        using OpenShimSetJumpSnipeCrouchEnabledFn = BOOL(WINAPI*)(BOOL);
 		using OpenShimResetMissionHookOverridesFn = BOOL(WINAPI*)();
+
+		struct OpenShimUnitVoBridge
+		{
+			OpenShimGetUnitVoValueFn getThrottle = nullptr;
+			OpenShimSetUnitVoValueFn setThrottle = nullptr;
+			OpenShimGetUnitVoValueFn getQueueDepth = nullptr;
+			OpenShimSetUnitVoValueFn setQueueDepth = nullptr;
+			OpenShimGetUnitVoValueFn getQueueStaleMs = nullptr;
+			OpenShimSetUnitVoValueFn setQueueStaleMs = nullptr;
+			OpenShimGetUnitVoMutedFn getMuted = nullptr;
+			OpenShimSetUnitVoMutedFn setMuted = nullptr;
+		};
+
+		const OpenShimUnitVoBridge& ResolveUnitVoBridge()
+		{
+			static OpenShimUnitVoBridge bridge;
+			static bool attempted = false;
+			if (attempted)
+				return bridge;
+			attempted = true;
+
+			bridge.getThrottle = OpenShimBridge::Resolve<OpenShimGetUnitVoValueFn>(
+				"OpenShimGetUnitVoThrottle");
+			bridge.setThrottle = OpenShimBridge::Resolve<OpenShimSetUnitVoValueFn>(
+				"OpenShimSetUnitVoThrottle");
+			bridge.getQueueDepth = OpenShimBridge::Resolve<OpenShimGetUnitVoValueFn>(
+				"OpenShimGetUnitVoQueueDepth");
+			bridge.setQueueDepth = OpenShimBridge::Resolve<OpenShimSetUnitVoValueFn>(
+				"OpenShimSetUnitVoQueueDepth");
+			bridge.getQueueStaleMs = OpenShimBridge::Resolve<OpenShimGetUnitVoValueFn>(
+				"OpenShimGetUnitVoQueueStaleMs");
+			bridge.setQueueStaleMs = OpenShimBridge::Resolve<OpenShimSetUnitVoValueFn>(
+				"OpenShimSetUnitVoQueueStaleMs");
+			bridge.getMuted = OpenShimBridge::Resolve<OpenShimGetUnitVoMutedFn>(
+				"OpenShimGetUnitVoMuted");
+			bridge.setMuted = OpenShimBridge::Resolve<OpenShimSetUnitVoMutedFn>(
+				"OpenShimSetUnitVoMuted");
+
+			return bridge;
+		}
 
 		OpenShimSetUnderAttackAlertModeFn ResolveUnderAttackAlertBridge()
 		{
@@ -657,11 +703,8 @@ namespace ExtraUtilities::Lua::Patches
 			}
 
 			attempted = true;
-			if (HMODULE module = GetModuleHandleA("winmm.dll"))
-			{
-				fn = reinterpret_cast<OpenShimSetUnderAttackAlertModeFn>(
-					GetProcAddress(module, "OpenShimSetUnderAttackAlertMode"));
-			}
+			fn = OpenShimBridge::Resolve<OpenShimSetUnderAttackAlertModeFn>(
+				"OpenShimSetUnderAttackAlertMode");
 
 			if (!fn && !loggedMissing)
 			{
@@ -683,11 +726,8 @@ namespace ExtraUtilities::Lua::Patches
 			}
 
 			attempted = true;
-			if (HMODULE module = GetModuleHandleA("winmm.dll"))
-			{
-				fn = reinterpret_cast<OpenShimSetTargetReticlePopupModeFn>(
-					GetProcAddress(module, "OpenShimSetTargetReticlePopupMode"));
-			}
+			fn = OpenShimBridge::Resolve<OpenShimSetTargetReticlePopupModeFn>(
+				"OpenShimSetTargetReticlePopupMode");
 
 			if (!fn && !loggedMissing)
 			{
@@ -709,11 +749,8 @@ namespace ExtraUtilities::Lua::Patches
 			}
 
 			attempted = true;
-			if (HMODULE module = GetModuleHandleA("winmm.dll"))
-			{
-				fn = reinterpret_cast<OpenShimSetBomberAiRangeEnabledFn>(
-					GetProcAddress(module, "OpenShimSetBomberAiRangeEnabled"));
-			}
+			fn = OpenShimBridge::Resolve<OpenShimSetBomberAiRangeEnabledFn>(
+				"OpenShimSetBomberAiRangeEnabled");
 
 			if (!fn && !loggedMissing)
 			{
@@ -735,11 +772,8 @@ namespace ExtraUtilities::Lua::Patches
 			}
 
 			attempted = true;
-			if (HMODULE module = GetModuleHandleA("winmm.dll"))
-			{
-				fn = reinterpret_cast<OpenShimSetHowitzerVolleyEnabledFn>(
-					GetProcAddress(module, "OpenShimSetHowitzerVolleyEnabled"));
-			}
+			fn = OpenShimBridge::Resolve<OpenShimSetHowitzerVolleyEnabledFn>(
+				"OpenShimSetHowitzerVolleyEnabled");
 
 			if (!fn && !loggedMissing)
 			{
@@ -761,11 +795,8 @@ namespace ExtraUtilities::Lua::Patches
 			}
 
 			attempted = true;
-			if (HMODULE module = GetModuleHandleA("winmm.dll"))
-			{
-				fn = reinterpret_cast<OpenShimSetWeaponMaskCarrierBiasEnabledFn>(
-					GetProcAddress(module, "OpenShimSetWeaponMaskCarrierBiasEnabled"));
-			}
+			fn = OpenShimBridge::Resolve<OpenShimSetWeaponMaskCarrierBiasEnabledFn>(
+				"OpenShimSetWeaponMaskCarrierBiasEnabled");
 
 			if (!fn && !loggedMissing)
 			{
@@ -787,11 +818,8 @@ namespace ExtraUtilities::Lua::Patches
             }
 
             attempted = true;
-            if (HMODULE module = GetModuleHandleA("winmm.dll"))
-            {
-                fn = reinterpret_cast<OpenShimSetAiOdfGameplayTuningEnabledFn>(
-                    GetProcAddress(module, "OpenShimSetAiOdfGameplayTuningEnabled"));
-            }
+            fn = OpenShimBridge::Resolve<OpenShimSetAiOdfGameplayTuningEnabledFn>(
+                "OpenShimSetAiOdfGameplayTuningEnabled");
 
             if (!fn && !loggedMissing)
             {
@@ -813,11 +841,8 @@ namespace ExtraUtilities::Lua::Patches
             }
 
             attempted = true;
-            if (HMODULE module = GetModuleHandleA("winmm.dll"))
-            {
-                fn = reinterpret_cast<OpenShimSetAiUnitTuningFn>(
-                    GetProcAddress(module, "OpenShimSetAiUnitTuning"));
-            }
+            fn = OpenShimBridge::Resolve<OpenShimSetAiUnitTuningFn>(
+                "OpenShimSetAiUnitTuning");
 
             if (!fn && !loggedMissing)
             {
@@ -835,11 +860,8 @@ namespace ExtraUtilities::Lua::Patches
             if (!attempted)
             {
                 attempted = true;
-                if (HMODULE module = GetModuleHandleA("winmm.dll"))
-                {
-                    fn = reinterpret_cast<OpenShimSetAiUnitTuningV2Fn>(
-                        GetProcAddress(module, "OpenShimSetAiUnitTuningV2"));
-                }
+                fn = OpenShimBridge::Resolve<OpenShimSetAiUnitTuningV2Fn>(
+                    "OpenShimSetAiUnitTuningV2");
             }
             return fn;
         }
@@ -851,11 +873,8 @@ namespace ExtraUtilities::Lua::Patches
             if (!attempted)
             {
                 attempted = true;
-                if (HMODULE module = GetModuleHandleA("winmm.dll"))
-                {
-                    fn = reinterpret_cast<OpenShimSetAiUnitTuningV3Fn>(
-                        GetProcAddress(module, "OpenShimSetAiUnitTuningV3"));
-                }
+                fn = OpenShimBridge::Resolve<OpenShimSetAiUnitTuningV3Fn>(
+                    "OpenShimSetAiUnitTuningV3");
             }
             return fn;
         }
@@ -871,11 +890,8 @@ namespace ExtraUtilities::Lua::Patches
             }
 
             attempted = true;
-            if (HMODULE module = GetModuleHandleA("winmm.dll"))
-            {
-                fn = reinterpret_cast<OpenShimClearAiUnitTuningFn>(
-                    GetProcAddress(module, "OpenShimClearAiUnitTuning"));
-            }
+            fn = OpenShimBridge::Resolve<OpenShimClearAiUnitTuningFn>(
+                "OpenShimClearAiUnitTuning");
 
             if (!fn && !loggedMissing)
             {
@@ -897,11 +913,8 @@ namespace ExtraUtilities::Lua::Patches
             }
 
             attempted = true;
-            if (HMODULE module = GetModuleHandleA("winmm.dll"))
-            {
-                fn = reinterpret_cast<OpenShimClearAllAiUnitTuningFn>(
-                    GetProcAddress(module, "OpenShimClearAllAiUnitTuning"));
-            }
+            fn = OpenShimBridge::Resolve<OpenShimClearAllAiUnitTuningFn>(
+                "OpenShimClearAllAiUnitTuning");
 
             if (!fn && !loggedMissing)
             {
@@ -923,11 +936,8 @@ namespace ExtraUtilities::Lua::Patches
             }
 
             attempted = true;
-            if (HMODULE module = GetModuleHandleA("winmm.dll"))
-            {
-                fn = reinterpret_cast<OpenShimSetTurretAimPitchEnabledFn>(
-                    GetProcAddress(module, "OpenShimSetTurretAimPitchEnabled"));
-            }
+            fn = OpenShimBridge::Resolve<OpenShimSetTurretAimPitchEnabledFn>(
+                "OpenShimSetTurretAimPitchEnabled");
 
             if (!fn && !loggedMissing)
             {
@@ -949,16 +959,36 @@ namespace ExtraUtilities::Lua::Patches
             }
 
             attempted = true;
-            if (HMODULE module = GetModuleHandleA("winmm.dll"))
-            {
-                fn = reinterpret_cast<OpenShimSetAttackRevealEnabledFn>(
-                    GetProcAddress(module, "OpenShimSetAttackRevealEnabled"));
-            }
+            fn = OpenShimBridge::Resolve<OpenShimSetAttackRevealEnabledFn>(
+                "OpenShimSetAttackRevealEnabled");
 
             if (!fn && !loggedMissing)
             {
                 loggedMissing = true;
                 Logging::LogMessage("[EXU::UnitVo] OpenShim attack reveal bridge unavailable");
+            }
+
+            return fn;
+        }
+
+        OpenShimSetJumpSnipeCrouchEnabledFn ResolveJumpSnipeCrouchBridge()
+        {
+            static OpenShimSetJumpSnipeCrouchEnabledFn fn = nullptr;
+            static bool attempted = false;
+            static bool loggedMissing = false;
+            if (attempted)
+            {
+                return fn;
+            }
+
+            attempted = true;
+            fn = OpenShimBridge::Resolve<OpenShimSetJumpSnipeCrouchEnabledFn>(
+                "OpenShimSetJumpSnipeCrouchEnabled");
+
+            if (!fn && !loggedMissing)
+            {
+                loggedMissing = true;
+                Logging::LogMessage("[EXU::UnitVo] OpenShim jump-snipe crouch bridge unavailable");
             }
 
             return fn;
@@ -975,11 +1005,8 @@ namespace ExtraUtilities::Lua::Patches
 			}
 
 			attempted = true;
-			if (HMODULE module = GetModuleHandleA("winmm.dll"))
-			{
-				fn = reinterpret_cast<OpenShimResetMissionHookOverridesFn>(
-					GetProcAddress(module, "OpenShimResetMissionHookOverrides"));
-			}
+			fn = OpenShimBridge::Resolve<OpenShimResetMissionHookOverridesFn>(
+				"OpenShimResetMissionHookOverrides");
 
 			if (!fn && !loggedMissing)
 			{
@@ -1011,6 +1038,11 @@ namespace ExtraUtilities::Lua::Patches
 
 	int GetUnitVoThrottle(lua_State* L)
 	{
+		if (const auto fn = ResolveUnitVoBridge().getThrottle)
+		{
+			lua_pushinteger(L, static_cast<lua_Integer>(fn()));
+			return 1;
+		}
 		lua_pushinteger(L, static_cast<lua_Integer>(Patch::unitVoThrottleMs));
 		return 1;
 	}
@@ -1026,11 +1058,18 @@ namespace ExtraUtilities::Lua::Patches
 		std::lock_guard<std::mutex> lock(Patch::g_unitVoMutex);
 		Patch::unitVoThrottleMs = static_cast<uint32_t>(requested);
 		Patch::g_lastUnitVoAttemptTick = 0;
+		if (const auto fn = ResolveUnitVoBridge().setThrottle)
+			fn(static_cast<DWORD>(requested));
 		return 0;
 	}
 
 	int GetUnitVoQueueDepthLimit(lua_State* L)
 	{
+		if (const auto fn = ResolveUnitVoBridge().getQueueDepth)
+		{
+			lua_pushinteger(L, static_cast<lua_Integer>(fn()));
+			return 1;
+		}
 		lua_pushinteger(L, static_cast<lua_Integer>(Patch::unitVoQueueDepthLimit));
 		return 1;
 	}
@@ -1045,11 +1084,18 @@ namespace ExtraUtilities::Lua::Patches
 
 		std::lock_guard<std::mutex> lock(Patch::g_unitVoMutex);
 		Patch::unitVoQueueDepthLimit = static_cast<uint32_t>(requested);
+		if (const auto fn = ResolveUnitVoBridge().setQueueDepth)
+			fn(static_cast<DWORD>(requested));
 		return 0;
 	}
 
 	int GetUnitVoQueueStaleMs(lua_State* L)
 	{
+		if (const auto fn = ResolveUnitVoBridge().getQueueStaleMs)
+		{
+			lua_pushinteger(L, static_cast<lua_Integer>(fn()));
+			return 1;
+		}
 		lua_pushinteger(L, static_cast<lua_Integer>(Patch::unitVoQueueStaleMs));
 		return 1;
 	}
@@ -1064,11 +1110,18 @@ namespace ExtraUtilities::Lua::Patches
 
 		std::lock_guard<std::mutex> lock(Patch::g_unitVoMutex);
 		Patch::unitVoQueueStaleMs = static_cast<uint32_t>(requested);
+		if (const auto fn = ResolveUnitVoBridge().setQueueStaleMs)
+			fn(static_cast<DWORD>(requested));
 		return 0;
 	}
 
 	int GetUnitVoMuted(lua_State* L)
 	{
+		if (const auto fn = ResolveUnitVoBridge().getMuted)
+		{
+			lua_pushboolean(L, fn() ? 1 : 0);
+			return 1;
+		}
 		std::lock_guard<std::mutex> lock(Patch::g_unitVoMutex);
 		lua_pushboolean(L, Patch::unitVoMuted ? 1 : 0);
 		return 1;
@@ -1081,6 +1134,8 @@ namespace ExtraUtilities::Lua::Patches
 		std::lock_guard<std::mutex> lock(Patch::g_unitVoMutex);
 		Patch::unitVoMuted = requested;
 		Patch::g_lastUnitVoAttemptTick = 0;
+		if (const auto fn = ResolveUnitVoBridge().setMuted)
+			fn(requested ? TRUE : FALSE);
 		return 0;
 	}
 
@@ -1185,11 +1240,6 @@ namespace ExtraUtilities::Lua::Patches
 		if (requested < 1 || requested > 3)
 		{
 			return luaL_argerror(L, 1, "Extra Utilities Error: target reticle popup mode must be 1-3");
-		}
-
-		if (requested == 2)
-		{
-			requested = 1;
 		}
 
 		if (OpenShimSetTargetReticlePopupModeFn fn = ResolveTargetReticlePopupBridge())
@@ -1534,6 +1584,29 @@ namespace ExtraUtilities::Lua::Patches
 
         lua_pushboolean(L, 0);
         return 1;
+    }
+
+    int SetJumpSnipeCrouch(lua_State* L)
+    {
+        const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
+        if (OpenShimSetJumpSnipeCrouchEnabledFn fn = ResolveJumpSnipeCrouchBridge())
+        {
+            // Returns the effective state; false means the shim suppressed it
+            // (e.g. multiplayer, or the patch site did not match this build).
+            lua_pushboolean(L, fn(requested) ? 1 : 0);
+            return 1;
+        }
+
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    void ApplyJumpSnipeCrouchDefault()
+    {
+        if (OpenShimSetJumpSnipeCrouchEnabledFn fn = ResolveJumpSnipeCrouchBridge())
+        {
+            fn(TRUE);
+        }
     }
 
 	int ResetMissionHookOverrides(lua_State* L)

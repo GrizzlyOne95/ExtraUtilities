@@ -1223,13 +1223,17 @@ function exu.GetMaterialPassColors(materialName, techniqueIndex, passIndex, reso
 --- Sets one or more colors on a material pass.
 --- Supported table keys are `ambient`, `diffuse`, `specular`, and `emissive`.
 --- The technique index defaults to 0, the pass index defaults to 0, and the resource group defaults to "General".
+--- When targeting every technique (`techniqueIndex == -1`), `includeGlowScheme`
+--- optionally includes bloom-mask passes. It defaults to false so ordinary
+--- material tints do not make the whole mesh bleed into the glow buffer.
 --- @param materialName string
 --- @param colors table
 --- @param techniqueIndex integer? optional
 --- @param passIndex integer? optional
 --- @param resourceGroup string? optional
+--- @param includeGlowScheme boolean? optional
 --- @return boolean
-function exu.SetMaterialPassColors(materialName, colors, techniqueIndex, passIndex, resourceGroup) end
+function exu.SetMaterialPassColors(materialName, colors, techniqueIndex, passIndex, resourceGroup, includeGlowScheme) end
 
 --- Returns whether the entity has a named animation state.
 --- @nodiscard

@@ -23,3 +23,5 @@ namespace ExtraUtilities::Lua::Culling
     int SetCullingEnabled(lua_State* L);
     int GetCullingEnabled(lua_State* L);
 }
+
+extern "C" __declspec(dllexport) void __cdecl EXU_UpdateCullingForUnit(void* object);

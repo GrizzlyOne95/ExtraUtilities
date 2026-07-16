@@ -4,8 +4,10 @@ Date: 2026-03-16
 
 ## Scope
 
-Current EXU-side implementation for stock unit voice throttling, queue
-compaction, and alternate-line selection.
+The global queue policy now lives in BZR-OpenShim so it also applies to stock
+content. EXU retains the Lua-facing mission overrides and alternate-line
+selection, and bridges throttle/depth/staleness/mute values to OpenShim when
+the shim exports are available.
 
 ## Native Path Used
 

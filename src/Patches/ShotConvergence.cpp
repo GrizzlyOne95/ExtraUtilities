@@ -21,6 +21,7 @@
 #include "BZR.h"
 #include "InlinePatch.h"
 #include "LuaHelpers.h"
+#include "OpenShimBridge.h"
 
 #include <cmath>
 
@@ -31,6 +32,9 @@ namespace ExtraUtilities::Patch
 
 namespace
 {
+    using OpenShimGetBoolFn = BOOL(WINAPI*)();
+    using OpenShimSetBoolFn = BOOL(WINAPI*)(BOOL);
+
 #pragma pack(push, 1)
 	struct WeaponLayout
 	{
@@ -160,14 +164,22 @@ namespace ExtraUtilities::Lua::Patches
 {
 	int GetShotConvergence(lua_State* L)
 	{
-		lua_pushboolean(L, Patch::shotConvergence.IsActive());
+		const auto bridge = OpenShimBridge::Resolve<OpenShimGetBoolFn>(
+			"OpenShimGetShotConvergence");
+		lua_pushboolean(L, bridge ? bridge() != FALSE : Patch::shotConvergence.IsActive());
 		return 1;
 	}
 
 	int SetShotConvergence(lua_State* L)
 	{
 		bool status = CheckBool(L, 1);
-		if (status == true)
+		const auto bridge = OpenShimBridge::Resolve<OpenShimSetBoolFn>(
+			"OpenShimSetShotConvergence");
+		if (bridge)
+		{
+			bridge(status ? TRUE : FALSE);
+		}
+		else if (status == true)
 		{
 			Patch::shotConvergence.Reload();
 		}
@@ -180,14 +192,24 @@ namespace ExtraUtilities::Lua::Patches
 
 	int GetPlayerReticleShotConvergence(lua_State* L)
 	{
-		lua_pushboolean(L, Patch::playerReticleShotConvergence.IsActive());
+		const auto bridge = OpenShimBridge::Resolve<OpenShimGetBoolFn>(
+			"OpenShimGetPlayerReticleShotConvergence");
+		lua_pushboolean(
+			L,
+			bridge ? bridge() != FALSE : Patch::playerReticleShotConvergence.IsActive());
 		return 1;
 	}
 
 	int SetPlayerReticleShotConvergence(lua_State* L)
 	{
 		bool status = CheckBool(L, 1);
-		if (status == true)
+		const auto bridge = OpenShimBridge::Resolve<OpenShimSetBoolFn>(
+			"OpenShimSetPlayerReticleShotConvergence");
+		if (bridge)
+		{
+			bridge(status ? TRUE : FALSE);
+		}
+		else if (status == true)
 		{
 			Patch::playerReticleShotConvergence.Reload();
 		}
