@@ -124,7 +124,10 @@ namespace ExtraUtilities::Lua::Patches
 				return luaL_argerror(L, 2, "Extra Utilities Error: Kill message string must be under 32 characters");
 			}
 
-			Patch::messageMap.emplace(team, message);
+			// insert_or_assign, not emplace: emplace leaves an existing entry
+			// untouched, so setting a team's kill message a second time silently
+			// kept the first one forever.
+			Patch::messageMap.insert_or_assign(team, message);
 		}
 
 		return 0;
