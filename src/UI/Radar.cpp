@@ -20,6 +20,7 @@
 #include "ControlPanel.h"
 #include "InlinePatch.h"
 #include "LuaHelpers.h"
+#include "Util/Logging.h"
 
 #include <cmath>
 #include <cstdint>
@@ -149,6 +150,15 @@ namespace ExtraUtilities::Lua::Radar
 
 			if (!std::isfinite(requestedScale) || std::fabs(requestedScale - 1.0f) < 0.001f)
 			{
+				// At scale 1 the native layout is already aligned, so the
+				// correction is skipped. If the second-mission offset were
+				// caused by the scale global being reset under us, it would
+				// show up here as an unexpected passthrough.
+				Logging::LogMessage(
+					"[EXU::Radar] refreshLayout passthrough screenHeight=%d scale=%.4f base=%.6f",
+					screenHeight,
+					static_cast<double>(requestedScale),
+					static_cast<double>(scaledProjectionBase));
 				BZR::Radar::RefreshLayout(screenHeight);
 				return;
 			}
@@ -179,6 +189,32 @@ namespace ExtraUtilities::Lua::Radar
 			*BZR::Radar::radarLeft = left1;
 			*BZR::Radar::cockpitWireframeCenterX = left1 + scaleOffset(centerX1 - left1);
 			*BZR::Radar::cockpitWireframeCenterY = bottomScaled + scaleOffset(centerY1 - bottom1);
+
+			// Diagnostic for the second-mission-load radar offset: the
+			// background sprite and the wireframe grid scale together on the
+			// first mission of a process and drift apart on every load after.
+			// Both call sites of the engine's RefreshLayout are patched, so
+			// this correction does run on the later loads -- one of its inputs
+			// must differ. Log every input and every derived value so a single
+			// misn04 -> misn03 run reduces the problem to a diff of two number
+			// sets. Once per layout refresh, not per frame.
+			static int s_refreshOrdinal = 0;
+			++s_refreshOrdinal;
+			Logging::LogMessage(
+				"[EXU::Radar] refreshLayout #%d screenHeight=%d scale=%.4f "
+				"stockBase=%.6f scaledBase=%.6f "
+				"ref{left=%d bottom=%d cx=%d cy=%d} "
+				"real{bottom=%d} out{left=%d cx=%d cy=%d}",
+				s_refreshOrdinal,
+				screenHeight,
+				static_cast<double>(requestedScale),
+				static_cast<double>(baselines.projectionBase),
+				static_cast<double>(scaledProjectionBase),
+				left1, bottom1, centerX1, centerY1,
+				bottomScaled,
+				*BZR::Radar::radarLeft,
+				*BZR::Radar::cockpitWireframeCenterX,
+				*BZR::Radar::cockpitWireframeCenterY);
 		}
 
 		// The engine re-runs RefreshLayout when it (re)builds the cockpit HUD,
