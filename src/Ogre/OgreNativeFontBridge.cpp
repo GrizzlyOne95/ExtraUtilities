@@ -102,6 +102,8 @@ namespace
 
 	using CreateFontFn = FontPtrPod(__thiscall*)(Ogre::FontManager*, const Ogre::String&, const Ogre::String&, bool, Ogre::ManualResourceLoader*, const Ogre::NameValuePairList*);
 	using InitialiseResourceGroupFn = void(__thiscall*)(Ogre::ResourceGroupManager*, const Ogre::String&);
+	using ClearResourceGroupFn = void(__thiscall*)(Ogre::ResourceGroupManager*, const Ogre::String&);
+	using ResourceLocationExistsFn = bool(__thiscall*)(Ogre::ResourceGroupManager*, const Ogre::String&, const Ogre::String&);
 	using UtfStringCtorFromCharFn = void* (__thiscall*)(void*, const char*);
 	using UtfStringDtorFn = void(__thiscall*)(void*);
 	using ColourValueCtorFn = void* (__thiscall*)(void*, float, float, float, float);
@@ -213,6 +215,22 @@ namespace
 		return fn;
 	}
 
+	ClearResourceGroupFn ResolveClearResourceGroupProc()
+	{
+		static const ClearResourceGroupFn fn = ResolveOgreProc<ClearResourceGroupFn>(
+			GetOgreMainModule(),
+			"?clearResourceGroup@ResourceGroupManager@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
+		return fn;
+	}
+
+	ResourceLocationExistsFn ResolveResourceLocationExistsProc()
+	{
+		static const ResourceLocationExistsFn fn = ResolveOgreProc<ResourceLocationExistsFn>(
+			GetOgreMainModule(),
+			"?resourceLocationExists@ResourceGroupManager@Ogre@@QAE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0@Z");
+		return fn;
+	}
+
 	UtfStringCtorFromCharFn ResolveUtfStringCtorFromCharProc()
 	{
 		static const UtfStringCtorFromCharFn fn = ResolveOgreProc<UtfStringCtorFromCharFn>(
@@ -270,6 +288,33 @@ namespace
 		}
 
 		return true;
+	}
+
+	bool ClearResourceGroupCpp(const char* groupName)
+	{
+		Ogre::ResourceGroupManager* manager = GetResourceGroupManager();
+		const ClearResourceGroupFn clearResourceGroup = ResolveClearResourceGroupProc();
+		if (manager == nullptr || clearResourceGroup == nullptr || groupName == nullptr || groupName[0] == '\0')
+		{
+			return false;
+		}
+
+		clearResourceGroup(manager, Ogre::String(groupName));
+		return true;
+	}
+
+	bool TryClearResourceGroupSeh(const char* groupName, unsigned int& outExceptionCode)
+	{
+		outExceptionCode = 0;
+
+		__try
+		{
+			return ClearResourceGroupCpp(groupName);
+		}
+		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
+		{
+			return false;
+		}
 	}
 
 	bool ParseFontScriptCpp(const char* scriptName, const char* groupName)
@@ -724,6 +769,96 @@ namespace Native
 		}
 	}
 
+	bool TryResetFontResourceGroupIfStale(const char* fontName, const char* groupName) noexcept
+	{
+		if (fontName == nullptr || fontName[0] == '\0' || groupName == nullptr || groupName[0] == '\0')
+		{
+			LogNativeOverlayMessage("[EXU::Overlay] native font group reset rejected font=%s group=%s",
+				fontName != nullptr ? fontName : "<null>",
+				groupName != nullptr ? groupName : "<null>");
+			return false;
+		}
+
+		try
+		{
+			Ogre::ResourceGroupManager* resourceGroups = GetResourceGroupManager();
+			Ogre::FontManager* fontManager = GetFontManager();
+			if (resourceGroups == nullptr || fontManager == nullptr)
+			{
+				LogNativeOverlayMessage("[EXU::Overlay] native font group reset unavailable font=%s group=%s resourceGroups=%d fontManager=%d",
+					fontName,
+					groupName,
+					resourceGroups != nullptr ? 1 : 0,
+					fontManager != nullptr ? 1 : 0);
+				return false;
+			}
+
+			if (!resourceGroups->resourceGroupExists(groupName))
+			{
+				LogNativeOverlayMessage("[EXU::Overlay] native font group reset not needed font=%s group=%s reason=missing",
+					fontName,
+					groupName);
+				return true;
+			}
+
+			bool hasFont = false;
+			unsigned int exceptionCode = 0;
+			if (!TryHasFontResourceSeh(fontName, groupName, hasFont, exceptionCode))
+			{
+				LogNativeOverlayMessage("[EXU::Overlay] native font group reset probe seh font=%s group=%s code=0x%08X",
+					fontName,
+					groupName,
+					exceptionCode);
+				return false;
+			}
+
+			if (hasFont)
+			{
+				LogNativeOverlayMessage("[EXU::Overlay] native font group reset not needed font=%s group=%s reason=current-manager-owns-font",
+					fontName,
+					groupName);
+				return true;
+			}
+
+			if (!TryClearResourceGroupSeh(groupName, exceptionCode))
+			{
+				LogNativeOverlayMessage("[EXU::Overlay] native font group reset seh font=%s group=%s code=0x%08X",
+					fontName,
+					groupName,
+					exceptionCode);
+				return false;
+			}
+
+			LogNativeOverlayMessage("[EXU::Overlay] native font group reset font=%s group=%s reason=current-manager-missing-font",
+				fontName,
+				groupName);
+			return true;
+		}
+		catch (const Ogre::Exception& ex)
+		{
+			LogNativeOverlayMessage("[EXU::Overlay] native font group reset ogre exception font=%s group=%s what=%s",
+				fontName,
+				groupName,
+				ex.getFullDescription().c_str());
+			return false;
+		}
+		catch (const std::exception& ex)
+		{
+			LogNativeOverlayMessage("[EXU::Overlay] native font group reset threw font=%s group=%s what=%s",
+				fontName,
+				groupName,
+				ex.what());
+			return false;
+		}
+		catch (...)
+		{
+			LogNativeOverlayMessage("[EXU::Overlay] native font group reset threw font=%s group=%s",
+				fontName,
+				groupName);
+			return false;
+		}
+	}
+
 	bool TryAddResourceLocation(const char* location, const char* groupName) noexcept
 	{
 		if (location == nullptr || location[0] == '\0' || groupName == nullptr || groupName[0] == '\0')
@@ -746,6 +881,14 @@ namespace Native
 			}
 
 			EnsureResourceGroupExists(*manager, groupName);
+			const ResourceLocationExistsFn resourceLocationExists = ResolveResourceLocationExistsProc();
+			if (resourceLocationExists != nullptr && resourceLocationExists(manager, Ogre::String(location), Ogre::String(groupName)))
+			{
+				LogNativeOverlayMessage("[EXU::Overlay] native addResourceLocation already present location=%s group=%s",
+					location,
+					groupName);
+				return true;
+			}
 			manager->addResourceLocation(location, kOverlayResourceLocationType, groupName, false, true);
 			LogNativeOverlayMessage("[EXU::Overlay] native addResourceLocation location=%s group=%s", location, groupName);
 			return true;

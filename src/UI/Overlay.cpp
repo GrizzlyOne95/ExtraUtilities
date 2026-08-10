@@ -969,6 +969,15 @@ namespace ExtraUtilities::Lua::Overlay
 				return;
 			}
 
+			if (!Native::TryResetFontResourceGroupIfStale(kOverlayRuntimeFontName, kOverlayRuntimeFontResourceGroup))
+			{
+				Logging::LogMessage(
+					"[EXU::Overlay] overlay runtime font failed to prepare resource group name=%s group=%s",
+					kOverlayRuntimeFontName,
+					kOverlayRuntimeFontResourceGroup);
+				return;
+			}
+
 			if (!overlayRuntimeFontScriptPath.empty())
 			{
 				const std::filesystem::path fontScriptPath(overlayRuntimeFontScriptPath);
