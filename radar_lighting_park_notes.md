@@ -51,6 +51,43 @@ stock base from `currentBase / currentScale` is idempotent and strictly
 better than snapshotting a mutable global — but it addresses accumulation,
 which is **not** the reported symptom, so it fixes nothing observable.
 
+## Lighting: narrowed further, and it is probably not the sun writes
+
+`WriteEnvironmentDebug` has no once-gating — it appends on every call — yet a
+whole three-mission session produced exactly **one** `[EXU::SetSunAmbient]`,
+one `[EXU::SetSunDiffuse]`, one `[EXU::SetSunSpecular]`, one
+`[EXU::SetSunDirection]`, one `[EXU::SetSunPowerScale]` and one
+`[EXU::SetSunShadowFarDistance]` record.
+
+So `Environment.lua`'s `Update` drives those setters **once per process**, not
+per mission and not per frame. On the second and third mission loads EXU is
+not writing sun state at all, which means the accumulating glow is **not**
+coming from these calls. Combined with the scene manager pointer never moving,
+the "EXU re-applies lighting per load and it compounds" theory is dead.
+
+What remains in scope for EXU: `fogResetPatch` is applied once and never
+reloaded, and `[EXU::Viewport]` rewrites the material scheme per viewport
+(`incoming=high-pssm final=en-high-pssm`). Both are plausible and neither is
+evidenced yet. It is also entirely possible the glow is the game's or the
+mission script's own fog/light state and not EXU at all — that has not been
+excluded.
+
+## Instrumentation now in place (log-only, no behaviour change)
+
+`RefreshLayoutConcentric` logs every invocation to `exu.log`:
+
+```
+[EXU::Radar] refreshLayout #N screenHeight=.. scale=.. stockBase=.. scaledBase=..
+             ref{left= bottom= cx= cy=} real{bottom=} out{left= cx= cy=}
+[EXU::Radar] refreshLayout passthrough screenHeight=.. scale=.. base=..
+```
+
+A single `misn04 -> misn03` run now reduces the radar bug to a diff of two
+number sets: whichever of `screenHeight`, `scale`, `stockBase`, or the
+reference-pass `left/bottom/cx/cy` differs between the first and second load
+is the cause. The passthrough line catches the case where the scale global is
+reset under us and the correction is skipped entirely.
+
 ## Next step when this is picked up again
 
 Instrument `RefreshLayoutConcentric` to log, per invocation: requested scale,
