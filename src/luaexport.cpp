@@ -485,6 +485,11 @@ namespace ExtraUtilities::Lua
 		InstallObjectiveObjectsPatch(L);
 		Radar::InstallRefreshLayoutHooks();
 		Environment::InstallGameViewportSchemeHooks();
+		// This runs once per Lua state, i.e. once per mission load. The scene
+		// manager and terrain master light from the previous mission are gone
+		// by now, so drop the cached binding and let TryInitializeOgre pick up
+		// the incoming scene.
+		Patch::ResetOgreInitialization();
 
 		return 0;
 	}

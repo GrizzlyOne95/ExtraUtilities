@@ -44,20 +44,61 @@ namespace ExtraUtilities::Lua::Radar
 			bool valid = false;
 		};
 
+		// The stock, unscaled projection base.
+		//
+		// cockpitWireframeProjectionBase is the same engine global that
+		// ApplyCockpitWireframeScale writes `stockBase * scale` into, and the
+		// radar scale global survives a mission change. Snapshotting the global
+		// on first use therefore only yields the stock value if that first use
+		// happens before anything has ever scaled it -- and it does not:
+		// RefreshLayoutConcentric also needs the baseline, and it runs from the
+		// engine's own RefreshLayout call sites every time the cockpit HUD is
+		// rebuilt, which includes every mission load. A baseline captured from
+		// an already-scaled global makes each subsequent apply multiply again,
+		// so the radar grows by the configured factor on every mission load
+		// until it is clamped or fills the screen.
+		//
+		// Derive it instead, from the invariant the writer maintains:
+		//     currentBase == stockBase * currentScale
+		// At process start the engine has set the base and the scale is 1, so
+		// the first derivation is exact; afterwards the result is identical no
+		// matter how many times a scale has been applied. Writing
+		// `stockBase * scale` is then idempotent and cannot accumulate.
+		float ResolveStockProjectionBase()
+		{
+			static float stockProjectionBase = 0.0f;
+			if (stockProjectionBase > 0.0f)
+			{
+				return stockProjectionBase;
+			}
+
+			float currentBase = *BZR::Radar::cockpitWireframeProjectionBase;
+			if (!std::isfinite(currentBase) || currentBase <= 0.f)
+			{
+				return 1.0f; // Not resolvable yet; do not cache a bad value.
+			}
+
+			float currentScale = *BZR::Radar::scale;
+			if (!std::isfinite(currentScale) || currentScale <= 0.f)
+			{
+				currentScale = 1.0f;
+			}
+
+			const float derived = currentBase / currentScale;
+			if (!std::isfinite(derived) || derived <= 0.f)
+			{
+				return currentBase;
+			}
+
+			stockProjectionBase = derived;
+			return stockProjectionBase;
+		}
+
 		CockpitWireframeScaleBaselines& GetCockpitWireframeScaleBaselines()
 		{
 			static CockpitWireframeScaleBaselines baselines{};
-			if (!baselines.initialized)
-			{
-				baselines.projectionBase = *BZR::Radar::cockpitWireframeProjectionBase;
-				if (!std::isfinite(baselines.projectionBase) || baselines.projectionBase <= 0.0f)
-				{
-					baselines.projectionBase = 1.0f;
-				}
-
-				baselines.initialized = true;
-			}
-
+			baselines.projectionBase = ResolveStockProjectionBase();
+			baselines.initialized = true;
 			return baselines;
 		}
 
@@ -269,6 +310,10 @@ namespace ExtraUtilities::Lua::Radar
 			luaL_error(L, "Invalid input: radar size scale must be greater than 0");
 		}
 
+		// Order matters: the stock base is derived from
+		// `currentBase / currentScale`, so it has to be resolved while the
+		// scale global still matches the base currently in memory. Resolving
+		// after the write would divide the old base by the new scale.
 		(void)GetCockpitWireframeScaleBaselines();
 		sizeScale.Write(newScale);
 		const ScrapPilotHudSnapshot hudSnapshot = CaptureScrapPilotHudSnapshot();
