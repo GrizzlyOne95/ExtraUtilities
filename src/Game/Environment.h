@@ -115,4 +115,11 @@ namespace ExtraUtilities::Patch
 	constexpr uintptr_t fogReset = 0x00683370;
 
 	void TryInitializeOgre();
+
+	// Drops the cached Ogre binding so the next TryInitializeOgre re-runs
+	// against the incoming scene. Call once per mission Lua init: the scene
+	// manager and terrain master light do not survive a mission change, and
+	// the engine never calls SceneManager::clearScene, so nothing else
+	// signals that the previous binding is stale.
+	void ResetOgreInitialization();
 }

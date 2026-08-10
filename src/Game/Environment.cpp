@@ -3562,28 +3562,65 @@ namespace ExtraUtilities::Patch
 	* access violations during repeated lighting updates. Callers that need
 	* dynamic sunlight can safely reapply SetSun* on their own update loop.
 	*/
+	namespace
+	{
+		// Which scene the current binding belongs to. A plain `done` latch was
+		// process-lifetime, so after the first mission the fog reset patch was
+		// never reloaded again and every later sun/ambient write in
+		// Environment.lua's Update went at whatever the first mission had left
+		// behind. Redux changes mission in-process and never calls
+		// SceneManager::clearScene, so there is no teardown notification --
+		// track the identity instead and re-bind whenever it moves.
+		void* g_initializedSceneManager = nullptr;
+		void* g_initializedTerrainMasterLight = nullptr;
+		bool g_ogreInitialized = false;
+	}
+
+	void ResetOgreInitialization()
+	{
+		if (g_ogreInitialized)
+		{
+			Lua::Environment::LogEnvironmentDebug(
+				"[EXU::ResetOgreInitialization] dropping binding sceneManager=%p terrainMasterLight=%p",
+				g_initializedSceneManager,
+				g_initializedTerrainMasterLight);
+		}
+		g_initializedSceneManager = nullptr;
+		g_initializedTerrainMasterLight = nullptr;
+		g_ogreInitialized = false;
+	}
+
 	void TryInitializeOgre()
 	{
-		static bool done = false;
-		if (!done)
-		{
-			auto* sceneManager = Lua::Environment::GetSceneManager();
-			auto* terrainMasterLight = Lua::Environment::GetTerrainMasterLight();
-			if (sceneManager == nullptr || terrainMasterLight == nullptr)
-			{
-				Lua::Environment::LogEnvironmentDebug(
-					"[EXU::TryInitializeOgre] waiting sceneManager=%p terrainMasterLight=%p",
-					sceneManager,
-					terrainMasterLight);
-				return;
-			}
+		auto* sceneManager = Lua::Environment::GetSceneManager();
+		auto* terrainMasterLight = Lua::Environment::GetTerrainMasterLight();
 
-			fogResetPatch.Reload();
+		if (g_ogreInitialized &&
+			sceneManager == g_initializedSceneManager &&
+			terrainMasterLight == g_initializedTerrainMasterLight)
+		{
+			return;
+		}
+
+		if (sceneManager == nullptr || terrainMasterLight == nullptr)
+		{
 			Lua::Environment::LogEnvironmentDebug(
-				"[EXU::TryInitializeOgre] initialized sceneManager=%p terrainMasterLight=%p",
+				"[EXU::TryInitializeOgre] waiting sceneManager=%p terrainMasterLight=%p",
 				sceneManager,
 				terrainMasterLight);
-			done = true;
+			return;
 		}
+
+		fogResetPatch.Reload();
+		Lua::Environment::LogEnvironmentDebug(
+			"[EXU::TryInitializeOgre] initialized sceneManager=%p (was %p) terrainMasterLight=%p (was %p) rebind=%d",
+			sceneManager,
+			g_initializedSceneManager,
+			terrainMasterLight,
+			g_initializedTerrainMasterLight,
+			g_ogreInitialized ? 1 : 0);
+		g_initializedSceneManager = sceneManager;
+		g_initializedTerrainMasterLight = terrainMasterLight;
+		g_ogreInitialized = true;
 	}
 }
