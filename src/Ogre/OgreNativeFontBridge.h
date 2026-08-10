@@ -9,6 +9,7 @@ namespace ExtraUtilities
 			namespace Native
 			{
 				bool TryAddResourceLocation(const char* location, const char* groupName) noexcept;
+				bool TryResetFontResourceGroupIfStale(const char* fontName, const char* groupName) noexcept;
 				bool TryParseFontScript(const char* scriptName, const char* groupName) noexcept;
 				bool TryHasFontResource(const char* fontName, const char* groupName) noexcept;
 				bool TryEnsureTrueTypeFont(
