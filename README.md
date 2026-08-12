@@ -1,291 +1,69 @@
 # Extra Utilities
 
-Extra Utilities is the only public script extender for Battlezone 98 Redux 2.2.301. Support open modding!
+Extra Utilities (EXU) is a native Lua extension for Battlezone 98 Redux. It adds engine, renderer, UI, object, multiplayer, and gameplay controls that are not exposed by the stock mission API.
 
-## Compatibility
+EXU currently targets the 32-bit Windows build of Battlezone 98 Redux 2.2.301. It does not support macOS, Linux, or Battlezone 1.5. Native addresses and hooks are build-specific and must be revalidated when the game updates.
 
-| Platform | Supported |
-|---|---|
-| Windows | ✅ Yes |
-| Steam | ✅ Yes |
-| Mac | ❌ No |
-| Linux | ❌ No |
-| GOG | ❌ No |
-| Battlezone 1.5 | ❌ No |
+## Features
 
-Forked from VTRider's initial project. Massive kudos to him for figuring out how to implement EXU in the first place!
+- **Camera and display** — camera modes, matrices, origins, field of view, zoom limits, clip distances, aspect ratio, projection mode, polygon mode, game resolution, UI scaling, and fullscreen state.
+- **Environment and lighting** — fog, gravity, ambient and sun lighting, time of day, shadow distance, skybox/skydome/skyplane controls, visibility masks, retro-lighting schemes, and viewport shadow or overlay toggles.
+- **Particles and debug rendering** — create and control Ogre particle systems, draw lines and boxes, toggle wireframe, show bounding boxes, and clear temporary visuals.
+- **Materials, terrain, and entities** — inspect and replace entity or sub-entity materials, clone materials, modify textures and pass colors, control visibility and render queues, manipulate lights and animations, and re-theme the live terrain material without reloading the map.
+- **Overlays and HUD layout** — create Ogre overlays and text elements, position and style them, move or recolor stock scrap and pilot readouts, manipulate HUD sprite rectangles, and inspect the command-menu bounds.
+- **Radar, reticle, and satellite** — radar mode and scale, edge-path layout, reticle position/range/object data, satellite positions, pan speed, zoom, and state.
+- **Game objects and AI** — object pointers and handles, mass, radar and jamming values, weapon selection masks, construction-rig selection, AI process/task inspection, selected task-state writes, and Lua replacement of the selected-unit Hunt command.
+- **Gameplay hooks** — global and per-unit turbo, shot convergence, ordnance velocity inheritance, engine-flame colors, silent scrap changes, infinite ammo/scrap controls, unit-VO behavior, AI targeting and tuning, turret pitch, attack reveal, and mission-scoped hook resets.
+- **Ordnance and physics** — build ordnance, inspect ordnance attributes, adjust the ballistic coefficient, and use matrix/vector helpers including screen-to-world conversion.
+- **Multiplayer** — synchronized or asynchronous object creation, lives, scoreboard visibility, network player ID, custom kill messages, and starting-recycler control.
+- **Input, preferences, and system utilities** — game-key state, pause-menu detection, play and sound settings, native save requests, screen resolution, Steam ID, and diagnostic message boxes.
+- **OpenShim integration** — optional runtime bridges for shared turbo, HUD, convergence, reticle-range, and music ownership. EXU retains standalone fallbacks where supported and fails closed when an optional bridge is unavailable.
+- **Native consumers** — a small exported C API for version checks, access to the registered Lua state, and selected integration callbacks.
 
----
+Detailed Lua API descriptions and editor annotations are kept in [`Definitions/ExtraUtils.lua`](Definitions/ExtraUtils.lua). That file is for editor tooling only and must not be loaded at runtime; the runtime export table in `src/luaexport.cpp` remains the definitive list of registered functions.
 
-## Using EXU in a Lua mission
+## Using EXU
 
-### The short version
-
-Download `exu.dll` from the [latest release](../../releases/latest) and place it in your mission's
-folder (or anywhere on BZR's DLL search path). Then load it from your mission script:
+Install `exu.dll` through the EXU Steam Workshop item or download it from the [latest release](../../releases/latest), then load it from a mission script:
 
 ```lua
 local exu = require("exu")
 ```
 
-That's it. After this line, all EXU functions are available under the `exu` table.
+Depending on the shared Workshop installation is preferred to bundling a private DLL copy with each mod. A shared installation receives fixes and avoids conflicts when multiple mods expect different EXU versions.
 
-### Minimal working example
+See [`examples/`](examples) for focused demonstrations. C++ consumers can include [`include/ExtraUtils.h`](include/ExtraUtils.h) and link against the import library produced by the build.
 
-```lua
--- HelloEXU.lua — minimal mission demonstrating EXU setup
+## Building
 
-local exu = require("exu")
+Requirements:
 
--- Print the loaded EXU version to the game console
-print("EXU version: " .. exu.VERSION)
+- Visual Studio 2022 with **Desktop development with C++**
+- MSVC v143 14.43 or newer
+- PowerShell for dependency setup
 
-function Start()
-    -- Example: disable global turbo (patch-driven behaviour change)
-    exu.SetGlobalTurbo(false)
-
-    -- Example: read the current camera view enum
-    local view = exu.GetCameraView()
-    print("Camera view on start: " .. tostring(view))
-end
-
-function Update(dtime)
-    -- Example: read satellite cursor position if sat is active
-    if exu.GetSatState() == exu.SATELLITE.ENABLED then
-        local pos = exu.GetSatCursorPos()
-        -- pos.x, pos.y, pos.z are the world-space coordinates
-    end
-end
-```
-
-### What `Definitions/ExtraUtils.lua` is for
-
-`Definitions/ExtraUtils.lua` is a **type-annotation-only** file for editor tooling (e.g. the Lua
-Language Server / VS Code extension). It contains `@class`, `@field`, and `@param`/`@return`
-annotations that give your editor autocomplete and type-checking for EXU's API. It is **not**
-required at runtime — it raises an error if `require()`d directly. Copy it into your project's
-definitions path and point your editor at it.
-
-### Vendoring policy
-
-**Anti-Vendoring Stance:** Mod authors should depend on the EXU Steam Workshop item rather than
-shipping a copy of `exu.dll` with their mod. Vendoring a fixed DLL version prevents your users
-from automatically receiving bugfixes, and creates compatibility problems when multiple mods
-load different copies (the first one to `require` wins, potentially breaking others that
-needed a newer version). The Workshop item is updated alongside releases; pinning to it
-is the only way to ensure compatibility across the ecosystem.
-
----
-
-## Building from source
-
-### Prerequisites
-
-- Visual Studio 2022 (any edition) with the **Desktop development with C++** workload
-- The **v143 toolset, version 14.43 or newer** (VS 2022 17.13+). The project builds
-  with `/std:c++23`; older 14.3x toolsets silently ignore that flag and fail with a
-  confusing `error C2429: language feature 'nested-namespace-definition' requires
-  compiler flag '/std:c++17'` rather than a clear "unsupported standard" message. If
-  you have multiple toolsets installed, force a recent one with
-  `msbuild ... /p:VCToolsVersion=14.44.35207` (substitute the version you have).
-
-### First-time setup
-
-Run the included setup script once after cloning:
+Run `setup-dev.ps1` once after cloning to fetch the required Ogre 1.10 headers. Then build `ExtraUtilities.sln` as **Release|x86**; the project-level target is **Release|Win32** and writes `Release/exu.dll`.
 
 ```powershell
 .\setup-dev.ps1
-```
-
-This performs a sparse checkout of the Ogre 1.10.0 headers into
-`third_party\ogre-1.10.0-bzr\_work`. No other dependencies need manual setup —
-all libraries (Lua 5.1, OgreMain, OgreOverlay) are already checked in under `lib\`.
-
-After the script completes, open `ExtraUtilities.sln` and build the **Release|x86**
-solution configuration. It maps to the project-level `Release|Win32` target and
-writes the output DLL to `Release\exu.dll`.
-
-From a Visual Studio developer prompt, the same build is:
-
-```powershell
 msbuild ExtraUtilities.sln /p:Configuration=Release /p:Platform=x86
 ```
 
-### Using EXU as a C++ dependency (DLL consumers)
+Lua 5.1, OgreMain, and OgreOverlay build dependencies are included in the repository. If several MSVC toolsets are installed, pass `/p:VCToolsVersion=<version>` to select a recent one explicitly.
 
-If you are writing a native DLL mission (e.g. `Battlezone98Redux_Shim`) and want to call
-into EXU from C++:
+## Updating for a game patch
 
-1. Add `include/` from this repo to your project's include paths.
-2. Link against `Release/exu.lib` (the import library produced by the EXU build).
-3. Include `<ExtraUtils.h>`. Do **not** define `EXTRAUTILITIES_EXPORTS` in your project.
-
-```cpp
-#include <cstring>
-#include <Windows.h>
-#include <ExtraUtils.h>
-
-void OnMissionInit()
-{
-    // Check for a compatible EXU version at runtime
-    if (strcmp(EXU_GetVersion(), EXU_VERSION_EXPECTED) != 0) {
-        OutputDebugStringA("exu.dll version mismatch — update your EXU installation");
-        return;
-    }
-
-    // Get the Lua state EXU registered during luaopen_exu
-    lua_State* L = EXU_GetLuaState();
-    if (!L) return; // EXU not yet initialized from Lua
-    // ... use the Lua C API
-}
-```
-
----
-
-## Maintenance: what to do when BZR updates
-
-BZR ships infrequently, but when it does, the hardcoded addresses in `src/bzr.h` need to
-be re-verified. This section documents the process.
-
-### 1. Check whether addresses are still valid
-
-Open `exu.json` at the repo root. Every address EXU relies on is documented there with
-a description and the BZR version it was verified against. Load the new EXE + PDB into
-your reverse-engineering tool (Ghidra, IDA, x64dbg, or the Battlezone98Redux_Shim RE
-toolchain at `../Battlezone98Redux_Shim`) and verify each address in the JSON.
-
-**Pattern Scans:** Look for the functions and data symbols by their PDB names first — the
-PDB is the fastest way to confirm addresses haven't moved. If the PDB is unavailable, use
-the `pattern` field in `exu.json` to locate each function via pattern scan. Pattern scans
-are more robust than hardcoded addresses as they often survive binary relocation and minor
-code changes.
-
-### 2. Update bzr.h
-
-For any address that has changed, update the corresponding constant in `src/bzr.h` and
-update the `address` field and `version` comment in `exu.json` to reflect the new BZR version.
-
-### 3. Update the target version comment
-
-At the top of `src/bzr.h`:
-```cpp
-/*
-* Structs and memory offsets for BZR 2.2.301   ← bump this
-*/
-```
-
-Also update `"version"` in `exu.json`.
-
-### 4. Build and test
-
-Build the Release configuration and drop `exu.dll` into a BZR installation. Run
-`examples/RequireTutorial.lua` as a mission script — if it loads and prints the EXU
-version without crashing, the basic address set is intact.
-
-### 5. Tag and release
-
-Once the build is verified, bump `version` in `src/About.h` (e.g. `"1.1.1"`) and push a
-`v1.1.1` tag. The CI workflow will build and publish a GitHub Release automatically.
-
----
-
-## High-Level Summary
-
-EXU is the Steam-side native script extender layer for addon code. Its current
-work falls into four main buckets:
-
-- Native gameplay/state access: command replacement hooks, selected-weapon mask
-  inspection, AI process/task inspection and limited task writes, pause-menu
-  state probes, native save triggering, multiplayer object-build helpers, life
-  and scoreboard helpers, and custom kill-message support.
-- Rendering and UI controls: fog, gravity, ambient and sun parameters,
-  time-of-day and shadow controls, viewport retro-lighting material-scheme
-  switching, Ogre overlay creation and manipulation, and radar state/size and
-  edge-path refresh helpers.
-- Patch-driven behavior changes and compatibility bridges: engine flame color
-  overrides, shim-owned global/per-unit turbo and HUD positioning, ordnance
-  velocity inheritance, OpenShim-owned hovercraft/smart-reticle convergence and
-  smart-reticle-range controls, and unit-VO throttling, muting, and bark
-  rotation control.
-- Stability and integration hardening: standalone EXU builds, stricter patch and
-  scanner validation, safer Ogre/material/environment calls, and better logging
-  when viewport or render-system state is missing instead of crashing Lua-side
-  callers.
-
-Recent additions:
-- Viewport retro-lighting toggles via `exu.GetRetroLightingMode()` and `exu.SetRetroLightingMode(enabled)`, which switch the active viewport between the stock modern material schemes and the `og-*` retro variants.
-- Hovercraft convergence and local smart-reticle convergence via
-  `exu.GetShotConvergence()` / `exu.SetShotConvergence(enabled)` and
-  `exu.GetPlayerReticleShotConvergence()` /
-  `exu.SetPlayerReticleShotConvergence(enabled)`. These delegate to OpenShim
-  when its bridge exports are present and retain EXU's native fallback for
-  standalone installs.
-- `exu.GetReticleRange()` / `exu.SetReticleRange(range)` likewise delegate to
-  OpenShim when its smart-reticle-range bridge is present, retaining EXU's
-  direct-memory fallback for standalone installs.
-- Scrap/pilot HUD positioning and global/per-unit turbo APIs delegate to
-  OpenShim when its ownership exports are present. Standalone EXU retains its
-  direct-coordinate and native turbo-hook fallbacks. OpenShim's migrated turbo
-  hook calls back into EXU for optional unit-culling updates.
-- Optional OpenShim APIs are resolved through the shared `OpenShimBridge`
-  helper rather than per-module `GetModuleHandle`/`GetProcAddress` copies.
-- Hardened environment/material-scheme access so bad viewport state is logged instead of crashing the caller when Ogre data is unavailable.
-- Terrain material convenience helpers via `exu.GetTerrainMaterialName([trnFilename])` and `exu.SetTerrainTextureSet(textureSet)` for live planet-style terrain re-theming without reloading HG2/TRN.
-- OpenShim music bridge helpers: `exu.SetMusicTrack(index)`, `exu.GetMusicTrack()`, `exu.StopMusic()`, `exu.PauseMusic()`, and `exu.ResumeMusic()`. These resolve optional OpenShim `winmm.dll` exports at runtime and fail closed when OpenShim or a specific native music control is unavailable.
-- Co-op mission sync helper example in `examples/openshim_coop_sync.lua`, wrapping stock Lua `Send`/`Receive` for host-authoritative objective text, markers, mission state, and win/loss synchronization.
-
-## Terrain Planet Swap
-
-EXU now has a terrain-specific material helper for live terrain re-theming. The
-intended workflow is:
-
-- Keep the current map's `HG2` and `TRN` static.
-- Resolve the terrain atlas material from the map's TRN `[Atlases] MaterialName`.
-- Swap one or more live terrain texture units on that material.
-- Pair that with the existing EXU environment calls such as `SetFog`,
-  `SetAmbientLight`, `SetSunDiffuse`, `SetSunSpecular`, `SetSunDirection`,
-  `SetTimeOfDay`, and `SetSunShadowFarDistance`.
-
-`exu.SetTerrainTextureSet` accepts a table with terrain texture keys:
-`diffuse`, `detail`, `normal`, `specular`, and `emissive`. Each field is
-optional, so you can replace only the slots you need.
-
-```lua
-local exu = require("exu")
-
-local ok, materialName = exu.SetTerrainTextureSet({
-    diffuse = "trn_ice_diffuse.dds",
-    detail = "trn_ice_detail.dds",
-    normal = "trn_ice_normal.dds",
-    specular = "trn_ice_specular.dds",
-    emissive = "black.dds",
-})
-
-if ok then
-    exu.SetFog(0.66, 0.76, 0.88, 120, 1200)
-    exu.SetAmbientLight(0.55, 0.60, 0.70, 1.0)
-    exu.SetSunDiffuse(0.80, 0.87, 1.00)
-    exu.SetSunSpecular(0.60, 0.70, 0.90)
-    exu.SetSunDirection(-0.30, -0.95, 0.08)
-    exu.SetTimeOfDay(930, true)
-    exu.SetSunShadowFarDistance(850)
-end
-```
-
-Notes:
-
-- By default EXU resolves the current map's terrain material automatically from
-  `GetMapTRNFilename()` and the TRN's `[Atlases] MaterialName` entry.
-- You can override the target material by passing `material = "my_material"` in
-  the texture-set table.
-- This preserves the map's existing terrain tile painting. It does not hot
-  reload the map's `TRN` or `HG2`.
-- A complete usage example lives in `examples/TerrainPlanetSwap.lua`.
+- Revalidate the addresses and signatures documented in `exu.json` against the new executable.
+- Update the corresponding declarations in `src/bzr.h` and record the verified game version.
+- Build **Release|x86** and smoke-test Lua loading plus the affected feature groups in game.
+- Update the EXU version in `src/About.h` before tagging a release.
 
 ## Credits
 
-- `VTrider` for the original EXU implementation and a large share of the native script-extender codebase.
-- `GrizzlyOne95` for ongoing maintenance, loader and integration work, and newer rendering and stability additions.
-- `Janne` for the original Lua DLL project that paved the way for EXU.
-- `DivisionByZero` for the DLL loader work that later integrations build on.
-- `Business Lawyer` for bug hunting and technical collaboration.
+- **VTrider** — original EXU implementation and much of the native script-extender foundation.
+- **GrizzlyOne95** — ongoing maintenance, integrations, rendering features, and stability work.
+- **Janne** — original Lua DLL project that helped establish the approach.
+- **DivisionByZero** — DLL loader work used by later integrations.
+- **Business Lawyer** — bug hunting and technical collaboration.
+
+See [`COPYING`](COPYING) and [`COPYING.LESSER`](COPYING.LESSER) for license terms.
