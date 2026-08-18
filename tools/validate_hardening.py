@@ -79,7 +79,11 @@ def check_address_catalog() -> None:
     if target.get("version") != "2.2.301" or target.get("architecture") != "x86":
         fail("exu.json target must remain BZR 2.2.301 x86")
 
-    print("Address catalog target OK: BZR 2.2.301 x86")
+    build_validation = read("src/Util/BuildValidation.h")
+    if "0x0061D120u" not in build_validation or "kSetViewSignature" not in build_validation:
+        fail("runtime BZR 2.2.301 signature gate is missing its Set_View anchor")
+
+    print("Address catalog/runtime build gate OK: BZR 2.2.301 x86")
 
 
 def check_hardening_markers() -> None:
@@ -95,6 +99,7 @@ def check_hardening_markers() -> None:
         ("Scanner move deletion", "Scanner(Scanner&&) = delete;" in scanner),
         ("instruction cache flush", "FlushInstructionCache" in basic),
         ("expected-byte validation", "expected bytes do not match" in basic),
+        ("runtime BZR build gate", "BuildValidation::IsSupportedBzr2301()" in basic),
         ("deferred requested status", "m_requestedStatus = s;" in basic),
         ("Lua-state generation", "m_generation" in lua_state),
         ("protected AddScrap call", "lua_pcall(L, 2, 1, 0)" in add_scrap),
