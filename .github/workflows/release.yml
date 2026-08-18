@@ -24,6 +24,12 @@ jobs:
       - name: Validate EXU API and hardening invariants
         run: python tools/validate_hardening.py
 
+      - name: Validate generated BZR build profile
+        run: python tools/generate_bzr_build_profile.py --check
+
+      - name: Test BZR build qualification tooling
+        run: python tools/test_bzr_qualification.py
+
       # Cache the sparse Ogre header checkout so only the first run per commit
       # pays the clone cost. Key is pinned to the exact Ogre commit used by the
       # vcxproj (f1f1937 = tag v1.10.0). Bump this if Ogre headers ever change.
