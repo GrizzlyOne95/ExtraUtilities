@@ -75,6 +75,20 @@ struct lua_State;
 // ---------------------------------------------------------------------------
 #define EXU_VERSION_EXPECTED "1.1.0"
 
+// Result codes returned by EXU_SetMultiplayerNickname. Values 0-5 mirror the
+// stable OpenShim bridge ABI; 0xFFFFFFFF is EXU's graceful "bridge unavailable"
+// sentinel when winmm.dll is stock or an older OpenShim is installed.
+enum class EXU_MultiplayerNicknameResult : std::uint32_t
+{
+    AppliedLive = 0,
+    StoredForNextConnection = 1,
+    InvalidNickname = 2,
+    UnsupportedBuild = 3,
+    NativeStateInvalid = 4,
+    PersistenceFailed = 5,
+    OpenShimUnavailable = 0xFFFFFFFFu,
+};
+
 // ---------------------------------------------------------------------------
 // C linkage exports
 // ---------------------------------------------------------------------------
@@ -99,4 +113,11 @@ extern "C"
     // Native consumers that cache EXU_GetLuaState() can pair the pointer with
     // this value to detect that the prior mission VM has been replaced.
     EXU_API std::uint64_t EXU_GetLuaStateGeneration();
+
+    // Optional high-level bridge to OpenShim's authoritative multiplayer
+    // nickname operation. This function never contains BZRNet/native-memory
+    // logic itself. It returns EXU_MultiplayerNicknameResult as a uint32_t so
+    // the C ABI stays stable and reports OpenShimUnavailable when the optional
+    // winmm.dll export cannot be resolved.
+    EXU_API std::uint32_t EXU_SetMultiplayerNickname(const char* nickname);
 }
