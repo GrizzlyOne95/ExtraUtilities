@@ -20,6 +20,7 @@
 
 #include "Hook.h"
 #include "Util/Logging.h"
+#include "Util/SignatureResolver.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
 
@@ -190,32 +191,7 @@ namespace ExtraUtilities::Lua::CommandReplacement
 
 		const uint8_t* FindPattern(const uint8_t* start, size_t size, const auto& pattern)
 		{
-			if (start == nullptr || size < pattern.size())
-			{
-				return nullptr;
-			}
-
-			const size_t lastOffset = size - pattern.size();
-			for (size_t offset = 0; offset <= lastOffset; ++offset)
-			{
-				bool matched = true;
-				for (size_t index = 0; index < pattern.size(); ++index)
-				{
-					const int expected = pattern[index];
-					if (expected >= 0 && start[offset + index] != static_cast<uint8_t>(expected))
-					{
-						matched = false;
-						break;
-					}
-				}
-
-				if (matched)
-				{
-					return start + offset;
-				}
-			}
-
-			return nullptr;
+			return SignatureResolver::FindPattern(start, size, pattern);
 		}
 
 		uintptr_t ResolveRelativeCallTarget(uintptr_t callSite) noexcept
@@ -773,6 +749,24 @@ namespace ExtraUtilities::Lua::CommandReplacement
 		g_lastUpdateAt = -1.0;
 		RestoreStockHuntLabel();
 		Logging::LogMessage("exu: command replacement registry reset");
+	}
+
+	void ReleaseState(lua_State* L)
+	{
+		if (L == nullptr || g_ownerState != L)
+		{
+			return;
+		}
+
+		for (auto& [_, entry] : g_replacements)
+		{
+			ReleaseEntry(L, entry);
+		}
+		g_replacements.clear();
+		g_ownerState = nullptr;
+		g_lastUpdateAt = -1.0;
+		RestoreStockHuntLabel();
+		Logging::LogMessage("exu: command replacement registry released");
 	}
 
 	bool DispatchRegisteredReplacement(BZR::handle handle, const char* stockCommandName, const char* origin)
