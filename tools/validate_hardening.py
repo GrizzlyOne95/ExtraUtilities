@@ -73,17 +73,64 @@ def check_versions() -> None:
     print(f"Version parity OK: {runtime.group(1)}")
 
 
+def resolve_catalog_path(catalog: dict, path: str) -> dict:
+    node = catalog.get("addresses", {})
+    for part in path.split("."):
+        if not isinstance(node, dict) or part not in node:
+            fail(f"build profile references missing exu.json catalog entry: {path}")
+        node = node[part]
+    if not isinstance(node, dict):
+        fail(f"build profile catalog entry is not an object: {path}")
+    return node
+
+
 def check_address_catalog() -> None:
     catalog = json.loads(read("exu.json"))
     target = catalog.get("target", {})
     if target.get("version") != "2.2.301" or target.get("architecture") != "x86":
         fail("exu.json target must remain BZR 2.2.301 x86")
 
-    build_validation = read("src/Util/BuildValidation.h")
-    if "0x0061D120u" not in build_validation or "kSetViewSignature" not in build_validation:
-        fail("runtime BZR 2.2.301 signature gate is missing its Set_View anchor")
+    profile = json.loads(read("profiles/bzr_2.2.301.json"))
+    if profile.get("schema_version") != 1:
+        fail("unsupported BZR build-profile schema")
+    if profile.get("version") != target.get("version") or profile.get("architecture") != target.get("architecture"):
+        fail("BZR build profile must match exu.json target version/architecture")
 
-    print("Address catalog/runtime build gate OK: BZR 2.2.301 x86")
+    anchors = profile.get("anchors", [])
+    runtime_anchors = [anchor for anchor in anchors if anchor.get("runtime_gate") and anchor.get("required")]
+    if len(runtime_anchors) < 3:
+        fail("runtime BZR build profile must contain at least three required anchors")
+
+    if not any(anchor.get("name") == "Camera.Set_View" for anchor in runtime_anchors):
+        fail("runtime BZR build profile is missing its Set_View anchor")
+
+    for anchor in anchors:
+        if anchor.get("source") == "catalog":
+            entry = resolve_catalog_path(catalog, anchor.get("catalog_path", ""))
+            if not isinstance(entry.get("pattern"), str) or not entry["pattern"].strip():
+                fail(f"catalog-backed build anchor lacks a signature: {anchor.get('name')}")
+        elif anchor.get("source") == "inline":
+            if not isinstance(anchor.get("pattern"), str) or not anchor["pattern"].strip():
+                fail(f"inline build anchor lacks a signature: {anchor.get('name')}")
+        else:
+            fail(f"unsupported build-anchor source: {anchor.get('source')}")
+
+    generated = read("src/Util/BzrBuildProfile.generated.h")
+    build_validation = read("src/Util/BuildValidation.h")
+    required_generated_markers = [
+        'kProfileId = "bzr-2.2.301"',
+        'kGameVersion = "2.2.301"',
+        '"Camera.Set_View"',
+        "kRuntimeAnchors",
+    ]
+    for marker in required_generated_markers:
+        if marker not in generated:
+            fail(f"generated BZR runtime profile is missing marker: {marker}")
+
+    if "BzrBuildProfile.generated.h" not in build_validation or "BzrBuildProfile::kRuntimeAnchors" not in build_validation:
+        fail("runtime BZR build gate is not consuming the generated multi-anchor profile")
+
+    print(f"Address catalog/runtime build profile OK: BZR 2.2.301 x86 ({len(runtime_anchors)} required anchors)")
 
 
 def check_hardening_markers() -> None:
