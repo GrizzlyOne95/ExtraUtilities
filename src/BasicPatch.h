@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "Util/BuildValidation.h"
 #include "Util/SignatureResolver.h"
 
 #include <Windows.h>
@@ -186,8 +187,18 @@ namespace ExtraUtilities
 		}
 
 	public:
-		static void EnableDeferredPatchActivation()
+		// Production callers use the default validation. Synthetic host-side tests
+		// may pass false because they intentionally do not run inside BZR.
+		static bool EnableDeferredPatchActivation(bool validateTargetBuild = true)
 		{
+			if (validateTargetBuild && !BuildValidation::IsSupportedBzr2301())
+			{
+				patchActivationEnabled = false;
+				OutputDebugStringA(
+					"ExtraUtilities: native patch activation refused; unsupported or modified BZR build\n");
+				return false;
+			}
+
 			patchActivationEnabled = true;
 			for (BasicPatch* patch : deferredPatches)
 			{
@@ -196,6 +207,7 @@ namespace ExtraUtilities
 					patch->Reload();
 				}
 			}
+			return true;
 		}
 
 		static void UnloadAllPatches() noexcept
