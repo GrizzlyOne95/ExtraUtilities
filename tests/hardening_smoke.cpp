@@ -1,6 +1,7 @@
 #include "BasicPatch.h"
 #include "Hook.h"
 #include "Scanner.h"
+#include "Util/BuildValidation.h"
 #include "Util/SignatureResolver.h"
 
 #include <Windows.h>
@@ -9,6 +10,7 @@
 #include <cstdint>
 #include <iostream>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 using namespace ExtraUtilities;
@@ -69,6 +71,9 @@ int main()
 	static_assert(!std::is_move_constructible_v<Scanner<int>>);
 
 	bool ok = true;
+	ok &= Check(
+		!BuildValidation::IsSupportedBzr2301(),
+		"synthetic test executable unexpectedly matched the BZR 2.2.301 runtime signature");
 
 	auto* patchPage = static_cast<uint8_t*>(VirtualAlloc(nullptr, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
 	if (!patchPage)
@@ -83,7 +88,9 @@ int main()
 		BytePatch patch(patchPage, 0x22, BasicPatch::Status::ACTIVE, { 0x11 });
 		ok &= Check(patchPage[0] == 0x11, "patch activated before deferred activation");
 
-		BasicPatch::EnableDeferredPatchActivation();
+		// Synthetic tests intentionally bypass only the executable identity gate;
+		// all patch/preimage/lifetime checks remain active.
+		BasicPatch::EnableDeferredPatchActivation(false);
 		ok &= Check(patchPage[0] == 0x22 && patch.IsActive(), "deferred patch did not activate");
 
 		{
@@ -98,7 +105,7 @@ int main()
 		patch.SetStatus(BasicPatch::Status::ACTIVE);
 		ok &= Check(patchPage[0] == 0x11, "SetStatus reactivated while global activation was disabled");
 
-		BasicPatch::EnableDeferredPatchActivation();
+		BasicPatch::EnableDeferredPatchActivation(false);
 		ok &= Check(patchPage[0] == 0x22, "requested active state was not restored on enable");
 		patch.SetStatus(false);
 		ok &= Check(patchPage[0] == 0x11, "boolean SetStatus(false) did not unload patch");
@@ -108,7 +115,7 @@ int main()
 	patchPage[0] = 0x33;
 	{
 		BytePatch rejected(patchPage, 0x44, BasicPatch::Status::ACTIVE, { 0x99 });
-		BasicPatch::EnableDeferredPatchActivation();
+		BasicPatch::EnableDeferredPatchActivation(false);
 		ok &= Check(patchPage[0] == 0x33 && !rejected.IsActive(), "expected-byte mismatch did not fail closed");
 	}
 	BasicPatch::UnloadAllPatches();
