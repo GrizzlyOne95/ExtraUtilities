@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - agent/exu-hardening-pass
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -15,6 +18,7 @@ jobs:
       - name: Checkout hardening branch
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.head_ref || github.ref_name }}
           fetch-depth: 0
 
       - name: Apply large-file hardening edits
@@ -46,6 +50,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "git diff --check failed" }
 
       - name: Commit validated hardening pass
+        if: github.event_name == 'pull_request'
         shell: pwsh
         run: |
           git rm .github/hardening/apply_once.py .github/workflows/hardening-bootstrap.yml
@@ -56,4 +61,4 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Complete EXU hardening pass"
-          git push origin HEAD:${{ github.ref_name }}
+          git push origin HEAD:${{ github.head_ref }}
