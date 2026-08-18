@@ -12,10 +12,10 @@
 
 #include <Windows.h>
 
-#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -29,6 +29,32 @@ namespace ExtraUtilities::SignatureResolver
 		std::string name;
 	};
 
+	inline bool IsReadableProtection(DWORD protection) noexcept
+	{
+		if ((protection & PAGE_GUARD) != 0 || (protection & PAGE_NOACCESS) != 0)
+		{
+			return false;
+		}
+
+		const DWORD baseProtection = protection & 0xFFu;
+		switch (baseProtection)
+		{
+		case PAGE_READONLY:
+		case PAGE_READWRITE:
+		case PAGE_WRITECOPY:
+		case PAGE_EXECUTE:
+		case PAGE_EXECUTE_READ:
+		case PAGE_EXECUTE_READWRITE:
+		case PAGE_EXECUTE_WRITECOPY:
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	// Validate an entire address interval, even when it spans multiple adjacent
+	// VirtualQuery regions. This matters for PE sections, which are not required
+	// to have one protection descriptor covering their full VirtualSize.
 	inline bool IsReadableRange(const void* address, size_t length) noexcept
 	{
 		if (address == nullptr || length == 0)
@@ -36,26 +62,44 @@ namespace ExtraUtilities::SignatureResolver
 			return false;
 		}
 
-		MEMORY_BASIC_INFORMATION mbi{};
-		if (VirtualQuery(address, &mbi, sizeof(mbi)) == 0)
+		const uintptr_t start = reinterpret_cast<uintptr_t>(address);
+		if (length - 1 > (std::numeric_limits<uintptr_t>::max)() - start)
 		{
 			return false;
 		}
+		const uintptr_t end = start + length;
 
-		if (mbi.State != MEM_COMMIT || (mbi.Protect & PAGE_GUARD) != 0 || mbi.Protect == PAGE_NOACCESS)
+		uintptr_t cursor = start;
+		while (cursor < end)
 		{
-			return false;
+			MEMORY_BASIC_INFORMATION mbi{};
+			if (VirtualQuery(reinterpret_cast<const void*>(cursor), &mbi, sizeof(mbi)) == 0)
+			{
+				return false;
+			}
+
+			if (mbi.State != MEM_COMMIT || !IsReadableProtection(mbi.Protect))
+			{
+				return false;
+			}
+
+			const uintptr_t regionBase = reinterpret_cast<uintptr_t>(mbi.BaseAddress);
+			if (cursor < regionBase || mbi.RegionSize == 0 ||
+				mbi.RegionSize > (std::numeric_limits<uintptr_t>::max)() - regionBase)
+			{
+				return false;
+			}
+
+			const uintptr_t regionEnd = regionBase + mbi.RegionSize;
+			if (regionEnd <= cursor)
+			{
+				return false;
+			}
+
+			cursor = regionEnd < end ? regionEnd : end;
 		}
 
-		const auto regionBase = reinterpret_cast<uintptr_t>(mbi.BaseAddress);
-		const auto rangeBase = reinterpret_cast<uintptr_t>(address);
-		if (rangeBase < regionBase)
-		{
-			return false;
-		}
-
-		const auto offset = rangeBase - regionBase;
-		return offset <= mbi.RegionSize && length <= (mbi.RegionSize - offset);
+		return true;
 	}
 
 	inline bool MatchBytes(uintptr_t address, const uint8_t* expected, size_t length) noexcept
@@ -65,7 +109,17 @@ namespace ExtraUtilities::SignatureResolver
 			return false;
 		}
 
-		return std::memcmp(reinterpret_cast<const void*>(address), expected, length) == 0;
+		// Retain the old Overlay scanner's SEH boundary in addition to the range
+		// validation. A target page can theoretically change between VirtualQuery
+		// and the comparison in a live process; fail closed instead of crashing.
+		__try
+		{
+			return std::memcmp(reinterpret_cast<const void*>(address), expected, length) == 0;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			return false;
+		}
 	}
 
 	inline bool MatchBytes(uintptr_t address, const std::vector<uint8_t>& expected) noexcept
@@ -101,14 +155,30 @@ namespace ExtraUtilities::SignatureResolver
 			return false;
 		}
 
-		const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(
-			reinterpret_cast<const uint8_t*>(module) + dos->e_lfanew);
+		if (dos->e_lfanew <= 0)
+		{
+			return false;
+		}
+
+		const uintptr_t moduleBase = reinterpret_cast<uintptr_t>(module);
+		const uintptr_t ntOffset = static_cast<uintptr_t>(dos->e_lfanew);
+		if (ntOffset > (std::numeric_limits<uintptr_t>::max)() - moduleBase)
+		{
+			return false;
+		}
+
+		const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(moduleBase + ntOffset);
 		if (!IsReadableRange(nt, sizeof(IMAGE_NT_HEADERS)) || nt->Signature != IMAGE_NT_SIGNATURE)
 		{
 			return false;
 		}
 
 		const auto* section = IMAGE_FIRST_SECTION(nt);
+		if (!IsReadableRange(section, sizeof(IMAGE_SECTION_HEADER) * nt->FileHeader.NumberOfSections))
+		{
+			return false;
+		}
+
 		for (unsigned int i = 0; i < nt->FileHeader.NumberOfSections; ++i, ++section)
 		{
 			char name[IMAGE_SIZEOF_SHORT_NAME + 1]{};
@@ -121,8 +191,13 @@ namespace ExtraUtilities::SignatureResolver
 			const size_t size = section->Misc.VirtualSize != 0
 				? static_cast<size_t>(section->Misc.VirtualSize)
 				: static_cast<size_t>(section->SizeOfRawData);
-			const auto* data = reinterpret_cast<const uint8_t*>(module) + section->VirtualAddress;
-			if (size == 0 || !IsReadableRange(data, size))
+			if (size == 0 || section->VirtualAddress > (std::numeric_limits<uintptr_t>::max)() - moduleBase)
+			{
+				return false;
+			}
+
+			const auto* data = reinterpret_cast<const uint8_t*>(moduleBase + section->VirtualAddress);
+			if (!IsReadableRange(data, size))
 			{
 				return false;
 			}
@@ -154,19 +229,30 @@ namespace ExtraUtilities::SignatureResolver
 		}
 
 		const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(module);
-		if (!IsReadableRange(dos, sizeof(IMAGE_DOS_HEADER)) || dos->e_magic != IMAGE_DOS_SIGNATURE)
+		if (!IsReadableRange(dos, sizeof(IMAGE_DOS_HEADER)) || dos->e_magic != IMAGE_DOS_SIGNATURE || dos->e_lfanew <= 0)
 		{
 			return sections;
 		}
 
-		const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(
-			reinterpret_cast<const uint8_t*>(module) + dos->e_lfanew);
+		const uintptr_t moduleBase = reinterpret_cast<uintptr_t>(module);
+		const uintptr_t ntOffset = static_cast<uintptr_t>(dos->e_lfanew);
+		if (ntOffset > (std::numeric_limits<uintptr_t>::max)() - moduleBase)
+		{
+			return sections;
+		}
+
+		const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(moduleBase + ntOffset);
 		if (!IsReadableRange(nt, sizeof(IMAGE_NT_HEADERS)) || nt->Signature != IMAGE_NT_SIGNATURE)
 		{
 			return sections;
 		}
 
 		const auto* section = IMAGE_FIRST_SECTION(nt);
+		if (!IsReadableRange(section, sizeof(IMAGE_SECTION_HEADER) * nt->FileHeader.NumberOfSections))
+		{
+			return sections;
+		}
+
 		for (unsigned int i = 0; i < nt->FileHeader.NumberOfSections; ++i, ++section)
 		{
 			if ((section->Characteristics & IMAGE_SCN_MEM_EXECUTE) == 0)
@@ -177,8 +263,13 @@ namespace ExtraUtilities::SignatureResolver
 			const size_t size = section->Misc.VirtualSize != 0
 				? static_cast<size_t>(section->Misc.VirtualSize)
 				: static_cast<size_t>(section->SizeOfRawData);
-			const auto* address = reinterpret_cast<const uint8_t*>(module) + section->VirtualAddress;
-			if (size == 0 || !IsReadableRange(address, size))
+			if (size == 0 || section->VirtualAddress > (std::numeric_limits<uintptr_t>::max)() - moduleBase)
+			{
+				continue;
+			}
+
+			const auto* address = reinterpret_cast<const uint8_t*>(moduleBase + section->VirtualAddress);
+			if (!IsReadableRange(address, size))
 			{
 				continue;
 			}
