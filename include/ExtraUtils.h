@@ -33,6 +33,7 @@
  *   {
  *       lua_State* L = EXU_GetLuaState();
  *       if (!L) return; // EXU not yet initialized from Lua
+ *       // Store EXU_GetLuaStateGeneration() alongside L if the pointer is cached.
  *       lua_getglobal(L, "exu");
  *       // ... call EXU API through Lua C API
  *   }
@@ -50,6 +51,8 @@
  */
 
 #pragma once
+
+#include <cstdint>
 
 // Forward declaration — avoids pulling in lua headers from the consumer side.
 struct lua_State;
@@ -88,11 +91,12 @@ extern "C"
     // Compare against EXU_VERSION_EXPECTED to detect DLL/header mismatches.
     EXU_API const char* EXU_GetVersion();
 
-    // Returns the lua_State* that was registered with EXU during luaopen_exu,
-    // or nullptr if EXU has not yet been initialized from Lua.
-    //
-    // This is useful for C++ DLL mission authors that need to call back into
-    // the Lua runtime without holding their own state pointer. The returned
-    // pointer remains valid for the lifetime of the current mission.
+    // Returns the currently live mission lua_State*, or nullptr before EXU is
+    // initialized and after that mission VM begins teardown.
     EXU_API lua_State* EXU_GetLuaState();
+
+    // Monotonically increases each time EXU attaches to a different mission VM.
+    // Native consumers that cache EXU_GetLuaState() can pair the pointer with
+    // this value to detect that the prior mission VM has been replaced.
+    EXU_API std::uint64_t EXU_GetLuaStateGeneration();
 }
