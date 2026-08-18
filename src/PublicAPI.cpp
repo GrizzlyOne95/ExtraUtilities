@@ -25,6 +25,7 @@
 #include "BasicPatch.h"
 #include "Game/CommandReplacement.h"
 #include "LuaState.h"
+#include "OpenShimBridge.h"
 #include "UI/Overlay.h"
 #include "Util/Logging.h"
 
@@ -145,5 +146,13 @@ extern "C"
     __declspec(dllexport) std::uint64_t EXU_GetLuaStateGeneration()
     {
         return ExtraUtilities::Lua::state.Generation();
+    }
+
+    __declspec(dllexport) std::uint32_t EXU_SetMultiplayerNickname(const char* nickname)
+    {
+        // EXU deliberately owns no BZRNet pointers, process addresses, or
+        // native string ABI. The optional winmm.dll export is the entire seam.
+        return static_cast<std::uint32_t>(
+            ExtraUtilities::OpenShimBridge::SetBzrNetNickname(nickname));
     }
 }
