@@ -49,16 +49,20 @@ jobs:
           git diff --check
           if ($LASTEXITCODE -ne 0) { throw "git diff --check failed" }
 
-      - name: Commit validated hardening pass
+      - name: Commit validated source integration
         if: github.event_name == 'pull_request'
         shell: pwsh
         run: |
-          git rm .github/hardening/apply_once.py .github/workflows/hardening-bootstrap.yml
+          # GITHUB_TOKEN cannot update workflow files. Keep workflow edits out of
+          # this generated commit; the GitHub app applies the validated CI change
+          # separately after the source integration lands.
+          git checkout -- .github/workflows/release.yml .github/workflows/hardening-bootstrap.yml
+          git rm .github/hardening/apply_once.py
           git add -A
           if (git diff --cached --quiet) {
             throw "Hardening bootstrap produced no changes"
           }
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Complete EXU hardening pass"
+          git commit -m "Complete EXU hardening source integration"
           git push origin HEAD:${{ github.head_ref }}
