@@ -20,6 +20,8 @@
 
 #include "BasicPatch.h"
 
+#include <cstring>
+#include <utility>
 #include <vector>
 
 namespace ExtraUtilities
@@ -31,31 +33,54 @@ namespace ExtraUtilities
 
 		void DoPatch() override
 		{
-			if (!CanPatch())
+			if (!CanPatch() || m_payload.size() != m_length || !ValidatePreimage())
 			{
 				return;
 			}
 
 			uint8_t* p_address = reinterpret_cast<uint8_t*>(m_address);
+			DWORD previousProtect{};
 
-			if (!VirtualProtect(p_address, m_length, PAGE_EXECUTE_READWRITE, &m_oldProtect))
+			if (!VirtualProtect(p_address, m_length, PAGE_EXECUTE_READWRITE, &previousProtect))
 			{
 				LogPatchIssue("failed to change inline patch protections", m_address, m_length);
 				return;
 			}
 
 			std::memcpy(p_address, m_payload.data(), m_length);
+			FlushPatchedRange();
 
-			VirtualProtect(p_address, m_length, m_oldProtect, &dummyProtect);
+			if (!VirtualProtect(p_address, m_length, previousProtect, &dummyProtect))
+			{
+				LogPatchIssue("failed to restore inline patch memory protection", m_address, m_length);
+			}
 
 			m_status = Status::ACTIVE;
 		}
 
 	public:
 		// Inline patch from buffer
-		InlinePatch(uintptr_t address, const void* payload, size_t length, Status status)
-			: BasicPatch(address, length, status), m_payload((uint8_t*)payload, (uint8_t*)payload + length)
+		InlinePatch(
+			uintptr_t address,
+			const void* payload,
+			size_t length,
+			Status status,
+			std::vector<uint8_t> expectedBytes = {})
+			: BasicPatch(address, length, status, std::move(expectedBytes)), m_payload(length)
 		{
+			if (payload == nullptr && length != 0)
+			{
+				LogPatchIssue("refusing to install null inline patch payload", m_address, m_length);
+				m_status = Status::INACTIVE;
+				m_requestedStatus = Status::INACTIVE;
+				return;
+			}
+
+			if (length != 0)
+			{
+				std::memcpy(m_payload.data(), payload, length);
+			}
+
 			if (m_status == Status::ACTIVE)
 			{
 				DoPatch();
@@ -63,8 +88,12 @@ namespace ExtraUtilities
 		}
 
 		// Shellcode inline patch
-		InlinePatch(uintptr_t address, std::vector<uint8_t> payload, Status status)
-			: BasicPatch(address, payload.size(), status), m_payload(payload)
+		InlinePatch(
+			uintptr_t address,
+			std::vector<uint8_t> payload,
+			Status status,
+			std::vector<uint8_t> expectedBytes = {})
+			: BasicPatch(address, payload.size(), status, std::move(expectedBytes)), m_payload(std::move(payload))
 		{
 			if (m_status == Status::ACTIVE)
 			{
@@ -73,8 +102,13 @@ namespace ExtraUtilities
 		}
 
 		// Single byte inline patch
-		InlinePatch(uintptr_t address, uint8_t value, size_t length, Status status)
-			: BasicPatch(address, length, status), m_payload(length, value)
+		InlinePatch(
+			uintptr_t address,
+			uint8_t value,
+			size_t length,
+			Status status,
+			std::vector<uint8_t> expectedBytes = {})
+			: BasicPatch(address, length, status, std::move(expectedBytes)), m_payload(length, value)
 		{
 			if (m_status == Status::ACTIVE)
 			{
@@ -84,8 +118,13 @@ namespace ExtraUtilities
 
 		// Multi byte/pointer inline patch
 		template <typename T>
-		InlinePatch(uintptr_t address, T value, Status status)
-			: BasicPatch(address, sizeof(T), status), m_payload((uint8_t*)&value, (uint8_t*)&value + sizeof(T))
+		InlinePatch(
+			uintptr_t address,
+			T value,
+			Status status,
+			std::vector<uint8_t> expectedBytes = {})
+			: BasicPatch(address, sizeof(T), status, std::move(expectedBytes)),
+			  m_payload(reinterpret_cast<uint8_t*>(&value), reinterpret_cast<uint8_t*>(&value) + sizeof(T))
 		{
 			if (m_status == Status::ACTIVE)
 			{
@@ -93,13 +132,15 @@ namespace ExtraUtilities
 			}
 		}
 
-		InlinePatch(InlinePatch& p) = delete;
+		InlinePatch(const InlinePatch&) = delete;
+		InlinePatch& operator=(const InlinePatch&) = delete;
 
 		InlinePatch(InlinePatch&& p) noexcept
-			: BasicPatch(std::move(p))
+			: BasicPatch(std::move(p)), m_payload(std::move(p.m_payload))
 		{
-			this->m_payload = std::move(p.m_payload);
 		}
+
+		InlinePatch& operator=(InlinePatch&&) = delete;
 
 		~InlinePatch() = default;
 	};
