@@ -227,11 +227,79 @@ replace_once(
 ''',
 )
 
-# 4. Keep editor metadata/version and runtime exports in lockstep.
+# 4. Keep editor metadata/version and runtime exports in lockstep. These exports
+# already existed at runtime but had never been declared in the LuaLS definition
+# file. Add conservative vararg declarations rather than silently leaving them
+# invisible; their richer per-function annotations can be refined independently.
 replace_once(
     "Definitions/ExtraUtils.lua",
     "--- This file provides the lua definitions for Extra Utilities version 1.0.0",
     "--- This file provides the lua definitions for Extra Utilities version 1.1.0",
+)
+
+missing_definition_exports = [
+    "ClearAiUnitTuning",
+    "ClearAllAiUnitTuning",
+    "ClearVisuals",
+    "DrawBox",
+    "DrawLine",
+    "GetAiTargetScoringEnabled",
+    "GetAiTargetSelectEnabled",
+    "GetAiUnitTuning",
+    "GetCullDistance",
+    "GetCullingEnabled",
+    "GetHudSpriteRect",
+    "GetInfiniteAmmo",
+    "GetInfiniteScrap",
+    "GetMusicTrack",
+    "GetOrdnanceVelocMode",
+    "GetViewportOverlaysEnabled",
+    "GetWeaponMask",
+    "GetWireframe",
+    "PauseMusic",
+    "ResetMissionHookOverrides",
+    "ResetOverlaySupport",
+    "RestoreAllHudSprites",
+    "RestoreHudSprite",
+    "ResumeMusic",
+    "SetAiOdfGameplayTuningEnabled",
+    "SetAiTargetScoringEnabled",
+    "SetAiTargetSelectEnabled",
+    "SetAiUnitTuning",
+    "SetAttackRevealEnabled",
+    "SetBomberAiRangeEnabled",
+    "SetCullDistance",
+    "SetCullingEnabled",
+    "SetHowitzerVolleyEnabled",
+    "SetHudSpriteRect",
+    "SetHudSpriteVisible",
+    "SetInfiniteAmmo",
+    "SetInfiniteScrap",
+    "SetJumpSnipeCrouch",
+    "SetMusicTrack",
+    "SetOrdnanceVelocMode",
+    "SetTurretAimPitchEnabled",
+    "SetUnderAttackAlertMode",
+    "SetViewportOverlaysEnabled",
+    "SetWeaponMaskCarrierBiasEnabled",
+    "SetWireframe",
+    "StopMusic",
+]
+
+definition_block = [
+    "--- Runtime exports that predated their LuaLS declarations.",
+    "--- These conservative declarations keep editor/runtime API parity exact.",
+]
+for name in missing_definition_exports:
+    definition_block.extend([
+        "--- @param ... any",
+        f"function exu.{name}(...) end",
+        "",
+    ])
+replace_once(
+    "Definitions/ExtraUtils.lua",
+    "\nreturn exu",
+    "\n" + "\n".join(definition_block).rstrip() + "\n\nreturn exu",
 )
 
 # 5. Make PRs build-gated and run the hardening/API smoke checks in normal CI.
