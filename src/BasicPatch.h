@@ -18,11 +18,14 @@
 
 #pragma once
 
+#include "Util/SignatureResolver.h"
+
 #include <Windows.h>
 
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
+#include <utility>
 #include <vector>
 
 namespace ExtraUtilities
@@ -104,7 +107,7 @@ namespace ExtraUtilities
 
 		static void LogPatchIssue(const char* message, uintptr_t address, size_t length) noexcept
 		{
-			char buffer[160]{};
+			char buffer[192]{};
 			std::snprintf(
 				buffer,
 				sizeof(buffer),
@@ -116,32 +119,36 @@ namespace ExtraUtilities
 			OutputDebugStringA(buffer);
 		}
 
-		static bool IsAccessibleRange(uintptr_t address, size_t length) noexcept
+		bool ValidatePreimage() const noexcept
 		{
-			if (address == 0 || length == 0)
+			if (!m_initialized || m_originalBytes.size() != m_length)
 			{
 				return false;
 			}
 
-			MEMORY_BASIC_INFORMATION mbi{};
-			if (VirtualQuery(reinterpret_cast<LPCVOID>(address), &mbi, sizeof(mbi)) == 0)
+			if (!SignatureResolver::MatchBytes(m_address, m_originalBytes))
 			{
+				LogPatchIssue("refusing to patch because the original bytes no longer match", m_address, m_length);
 				return false;
 			}
 
-			if (mbi.State != MEM_COMMIT || (mbi.Protect & PAGE_GUARD) != 0 || mbi.Protect == PAGE_NOACCESS)
+			return true;
+		}
+
+		void FlushPatchedRange() const noexcept
+		{
+			if (m_address == 0 || m_length == 0)
 			{
-				return false;
+				return;
 			}
 
-			auto regionBase = reinterpret_cast<uintptr_t>(mbi.BaseAddress);
-			if (address < regionBase)
+			if (!FlushInstructionCache(
+				GetCurrentProcess(),
+				reinterpret_cast<const void*>(m_address),
+				m_length))
 			{
-				return false;
+				LogPatchIssue("failed to flush instruction cache", m_address, m_length);
 			}
-
-			auto offset = address - regionBase;
-			return offset <= mbi.RegionSize && length <= (mbi.RegionSize - offset);
 		}
 
 		virtual void DoPatch() = 0;
@@ -154,16 +161,21 @@ namespace ExtraUtilities
 			}
 
 			uint8_t* p_address = reinterpret_cast<uint8_t*>(m_address);
+			DWORD previousProtect{};
 
-			if (!VirtualProtect(p_address, m_length, PAGE_EXECUTE_READWRITE, &m_oldProtect))
+			if (!VirtualProtect(p_address, m_length, PAGE_EXECUTE_READWRITE, &previousProtect))
 			{
 				LogPatchIssue("failed to restore patch protections", m_address, m_length);
 				return;
 			}
 
 			std::memcpy(p_address, m_originalBytes.data(), m_length);
+			FlushPatchedRange();
 
-			VirtualProtect(p_address, m_length, m_oldProtect, &dummyProtect);
+			if (!VirtualProtect(p_address, m_length, previousProtect, &dummyProtect))
+			{
+				LogPatchIssue("failed to restore original memory protection", m_address, m_length);
+			}
 
 			m_status = Status::INACTIVE;
 		}
@@ -199,36 +211,48 @@ namespace ExtraUtilities
 			}
 		}
 
-		BasicPatch(uintptr_t address, size_t length, Status status)
+		BasicPatch(
+			uintptr_t address,
+			size_t length,
+			Status status,
+			std::vector<uint8_t> expectedBytes = {})
 			: m_status(patchActivationEnabled ? status : Status::INACTIVE)
 			, m_requestedStatus(status)
 			, m_address(address)
 			, m_length(length)
 		{
-			if (!IsAccessibleRange(m_address, m_length))
+			if (!SignatureResolver::IsReadableRange(reinterpret_cast<const void*>(m_address), m_length))
 			{
 				LogPatchIssue("refusing to patch invalid memory", m_address, m_length);
 				m_status = Status::INACTIVE;
 				return;
 			}
 
-			uint8_t* p_address = reinterpret_cast<uint8_t*>(m_address);
-
-			if (!VirtualProtect(p_address, m_length, PAGE_EXECUTE_READWRITE, &m_oldProtect))
+			if (!expectedBytes.empty())
 			{
-				LogPatchIssue("failed to change patch protections", m_address, m_length);
-				m_status = Status::INACTIVE;
-				return;
+				if (expectedBytes.size() != m_length)
+				{
+					LogPatchIssue("expected-byte preimage length does not match patch length", m_address, m_length);
+					m_status = Status::INACTIVE;
+					return;
+				}
+
+				if (!SignatureResolver::MatchBytes(m_address, expectedBytes))
+				{
+					LogPatchIssue("refusing to patch because expected bytes do not match", m_address, m_length);
+					m_status = Status::INACTIVE;
+					return;
+				}
 			}
 
-			m_originalBytes.insert(m_originalBytes.end(), p_address, p_address + m_length);
-
-			VirtualProtect(p_address, m_length, m_oldProtect, &dummyProtect);
+			const auto* p_address = reinterpret_cast<const uint8_t*>(m_address);
+			m_originalBytes.assign(p_address, p_address + m_length);
 			m_initialized = true;
 			RegisterDeferredPatch(this);
 		}
 
-		BasicPatch(BasicPatch& p) = delete; // Patch should not be initialized twice
+		BasicPatch(const BasicPatch&) = delete; // Patch should not be initialized twice
+		BasicPatch& operator=(const BasicPatch&) = delete;
 
 		BasicPatch(BasicPatch&& p) noexcept
 		{
@@ -238,7 +262,6 @@ namespace ExtraUtilities
 			this->m_address = p.m_address;
 			this->m_length = p.m_length;
 			this->m_oldProtect = p.m_oldProtect;
-			this->dummyProtect = p.dummyProtect;
 			this->m_originalBytes = std::move(p.m_originalBytes);
 			ReplaceDeferredPatch(&p, this);
 
@@ -250,6 +273,8 @@ namespace ExtraUtilities
 			p.m_oldProtect = 0;
 		}
 
+		BasicPatch& operator=(BasicPatch&&) = delete;
+
 		virtual ~BasicPatch()
 		{
 			if (m_initialized && m_status == Status::ACTIVE)
@@ -260,17 +285,24 @@ namespace ExtraUtilities
 			UnregisterDeferredPatch(this);
 		}
 
-		bool IsActive()
+		bool IsActive() const noexcept
 		{
-			return m_status == Status::ACTIVE ? true : false;
+			return m_status == Status::ACTIVE;
 		}
 
 		void Reload()
 		{
-			if (m_initialized && m_status == Status::INACTIVE)
+			if (!patchActivationEnabled || !m_initialized || m_status != Status::INACTIVE)
 			{
-				DoPatch();
+				return;
 			}
+
+			if (!ValidatePreimage())
+			{
+				return;
+			}
+
+			DoPatch();
 		}
 
 		void Unload()
@@ -283,21 +315,53 @@ namespace ExtraUtilities
 
 		void SetStatus(Status s)
 		{
-			switch (s)
+			m_requestedStatus = s;
+			if (s == Status::ACTIVE)
 			{
-			case Status::ACTIVE:
-				Reload();
-				break;
-
-			case Status::INACTIVE:
-				Unload();
-				break;
+				if (patchActivationEnabled)
+				{
+					Reload();
+				}
+				return;
 			}
+
+			Unload();
 		}
 
 		void SetStatus(bool status)
 		{
-			SetStatus(static_cast<Status>(!status));
+			SetStatus(status ? Status::ACTIVE : Status::INACTIVE);
+		}
+	};
+
+	// Temporarily disables a patch and restores its prior active state on normal
+	// C++ scope exit. Do not span a Lua API call that can longjmp; use lua_pcall
+	// and restore the patch before propagating the Lua error instead.
+	class ScopedPatchDisable
+	{
+	private:
+		BasicPatch* m_patch = nullptr;
+		bool m_restore = false;
+
+	public:
+		explicit ScopedPatchDisable(BasicPatch& patch)
+			: m_patch(&patch), m_restore(patch.IsActive())
+		{
+			if (m_restore)
+			{
+				m_patch->Unload();
+			}
+		}
+
+		ScopedPatchDisable(const ScopedPatchDisable&) = delete;
+		ScopedPatchDisable& operator=(const ScopedPatchDisable&) = delete;
+
+		~ScopedPatchDisable()
+		{
+			if (m_restore && m_patch != nullptr)
+			{
+				m_patch->Reload();
+			}
 		}
 	};
 }
