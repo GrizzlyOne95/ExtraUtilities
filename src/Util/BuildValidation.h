@@ -76,28 +76,20 @@ namespace ExtraUtilities::BuildValidation
 			return matches;
 		}
 
-		inline size_t CountExecutableMatches(
+		inline size_t CountTextMatches(
 			HMODULE module,
 			const BzrBuildProfile::AnchorSpec& anchor,
 			size_t stopAfter) noexcept
 		{
-			size_t matches = 0;
-			for (const SignatureResolver::SectionView& section : SignatureResolver::GetExecutableSections(module))
+			const uint8_t* text = nullptr;
+			size_t textSize = 0;
+			uintptr_t textAddress = 0;
+			if (!SignatureResolver::TryGetModuleTextSection(module, text, textSize, textAddress))
 			{
-				const size_t remaining = stopAfter > matches ? stopAfter - matches : 0;
-				if (remaining == 0)
-				{
-					break;
-				}
-
-				matches += CountPatternMatches(
-					section.address,
-					section.size,
-					anchor.pattern,
-					anchor.patternSize,
-					remaining);
+				return 0;
 			}
-			return matches;
+
+			return CountPatternMatches(text, textSize, anchor.pattern, anchor.patternSize, stopAfter);
 		}
 
 		inline bool ValidatePeIdentity(HMODULE module) noexcept
@@ -161,9 +153,9 @@ namespace ExtraUtilities::BuildValidation
 				return PatternMatches(candidate, anchor.patternSize, anchor.pattern, anchor.patternSize);
 			}
 			case AnchorMatchMode::ExecutableContains:
-				return CountExecutableMatches(module, anchor, 1) >= 1;
+				return CountTextMatches(module, anchor, 1) >= 1;
 			case AnchorMatchMode::UniqueExecutable:
-				return CountExecutableMatches(module, anchor, 2) == 1;
+				return CountTextMatches(module, anchor, 2) == 1;
 			default:
 				return false;
 			}
