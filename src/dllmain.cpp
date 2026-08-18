@@ -18,18 +18,12 @@
 
 // dllmain.cpp : Defines the entry point for the DLL application.
 
-#include "Util/Logging.h"
 #include "BasicPatch.h"
-#include "UI/Overlay.h"
+#include "LuaState.h"
 
 #include <Windows.h>
 
-#include <cstdlib>
-#include <iostream>
-
 static_assert(_WIN32); // BZR is 32 bit
-
-HWND consoleWindow;
 
 BOOL WINAPI DllMain(
     HINSTANCE hModule,
@@ -39,31 +33,20 @@ BOOL WINAPI DllMain(
     switch (fdwReason)
     {
     case DLL_PROCESS_ATTACH:
+        // Keep loader-lock work intentionally minimal. Normal runtime setup is
+        // performed when luaopen_exu attaches EXU to the mission Lua state.
         DisableThreadLibraryCalls(hModule);
-        ExtraUtilities::Logging::ResetLogFileForCurrentProcess("exu.log");
-        ExtraUtilities::Logging::ResetLogFileForCurrentProcess("exu_native_save.log");
-        ExtraUtilities::Logging::ResetLogFileForCurrentProcess("exu_environment_debug.log");
-        ExtraUtilities::Logging::ResetLogFileForCurrentProcess("exu_material_debug.log");
-        ExtraUtilities::Logging::LogMessage("exu: DLL_PROCESS_ATTACH");
-#ifdef _DEBUG
-        AllocConsole();
-        freopen("CONOUT$", "w", stdout);
-        consoleWindow = GetConsoleWindow();
-        SetConsoleTitle("Extra Utilities Console");
-        
-#endif
         break;
+
     case DLL_PROCESS_DETACH:
-        ExtraUtilities::Logging::LogMessage("exu: DLL_PROCESS_DETACH");
-        if (lpReserved == nullptr)
+        // The Lua-state __gc sentinel normally unloads patches before we reach
+        // here. Keep only a narrow emergency fallback for explicit FreeLibrary
+        // so no native hook can remain pointed at an unloaded EXU DLL.
+        if (lpReserved == nullptr && ExtraUtilities::Lua::state.Get() != nullptr)
         {
             ExtraUtilities::BasicPatch::UnloadAllPatches();
-            ExtraUtilities::Lua::Overlay::ShutdownOverlaySupport();
         }
-#ifdef _DEBUG
-        FreeConsole();
-        PostMessage(consoleWindow, WM_CLOSE, 0, 0);
-#endif
+        ExtraUtilities::Lua::state.Clear();
         break;
     }
     return TRUE;

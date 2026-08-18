@@ -1,5 +1,5 @@
 --- @meta exu
---- This file provides the lua definitions for Extra Utilities version 1.0.0
+--- This file provides the lua definitions for Extra Utilities version 1.1.0
 --- These definitions also require the stock definitions found in `scriptutils.lua`
 --- for basic types like Handle and Vector
 
@@ -2050,5 +2050,145 @@ function exu.ScreenToWorld(screenX, screenY) end
 --- @param perspectiveMat Matrix
 --- @return Vector
 function exu.VectorUnrotate(v, perspectiveMat) end
+
+--- Runtime exports that predated their LuaLS declarations.
+--- These conservative declarations keep editor/runtime API parity exact.
+--- @param ... any
+function exu.ClearAiUnitTuning(...) end
+
+--- @param ... any
+function exu.ClearAllAiUnitTuning(...) end
+
+--- @param ... any
+function exu.ClearVisuals(...) end
+
+--- @param ... any
+function exu.DrawBox(...) end
+
+--- @param ... any
+function exu.DrawLine(...) end
+
+--- @param ... any
+function exu.GetAiTargetScoringEnabled(...) end
+
+--- @param ... any
+function exu.GetAiTargetSelectEnabled(...) end
+
+--- @param ... any
+function exu.GetAiUnitTuning(...) end
+
+--- @param ... any
+function exu.GetCullDistance(...) end
+
+--- @param ... any
+function exu.GetCullingEnabled(...) end
+
+--- @param ... any
+function exu.GetHudSpriteRect(...) end
+
+--- @param ... any
+function exu.GetInfiniteAmmo(...) end
+
+--- @param ... any
+function exu.GetInfiniteScrap(...) end
+
+--- @param ... any
+function exu.GetMusicTrack(...) end
+
+--- @param ... any
+function exu.GetOrdnanceVelocMode(...) end
+
+--- @param ... any
+function exu.GetViewportOverlaysEnabled(...) end
+
+--- @param ... any
+function exu.GetWeaponMask(...) end
+
+--- @param ... any
+function exu.GetWireframe(...) end
+
+--- @param ... any
+function exu.PauseMusic(...) end
+
+--- @param ... any
+function exu.ResetMissionHookOverrides(...) end
+
+--- @param ... any
+function exu.ResetOverlaySupport(...) end
+
+--- @param ... any
+function exu.RestoreAllHudSprites(...) end
+
+--- @param ... any
+function exu.RestoreHudSprite(...) end
+
+--- @param ... any
+function exu.ResumeMusic(...) end
+
+--- @param ... any
+function exu.SetAiOdfGameplayTuningEnabled(...) end
+
+--- @param ... any
+function exu.SetAiTargetScoringEnabled(...) end
+
+--- @param ... any
+function exu.SetAiTargetSelectEnabled(...) end
+
+--- @param ... any
+function exu.SetAiUnitTuning(...) end
+
+--- @param ... any
+function exu.SetAttackRevealEnabled(...) end
+
+--- @param ... any
+function exu.SetBomberAiRangeEnabled(...) end
+
+--- @param ... any
+function exu.SetCullDistance(...) end
+
+--- @param ... any
+function exu.SetCullingEnabled(...) end
+
+--- @param ... any
+function exu.SetHowitzerVolleyEnabled(...) end
+
+--- @param ... any
+function exu.SetHudSpriteRect(...) end
+
+--- @param ... any
+function exu.SetHudSpriteVisible(...) end
+
+--- @param ... any
+function exu.SetInfiniteAmmo(...) end
+
+--- @param ... any
+function exu.SetInfiniteScrap(...) end
+
+--- @param ... any
+function exu.SetJumpSnipeCrouch(...) end
+
+--- @param ... any
+function exu.SetMusicTrack(...) end
+
+--- @param ... any
+function exu.SetOrdnanceVelocMode(...) end
+
+--- @param ... any
+function exu.SetTurretAimPitchEnabled(...) end
+
+--- @param ... any
+function exu.SetUnderAttackAlertMode(...) end
+
+--- @param ... any
+function exu.SetViewportOverlaysEnabled(...) end
+
+--- @param ... any
+function exu.SetWeaponMaskCarrierBiasEnabled(...) end
+
+--- @param ... any
+function exu.SetWireframe(...) end
+
+--- @param ... any
+function exu.StopMusic(...) end
 
 return exu

@@ -25,10 +25,13 @@
 #pragma once
 
 #include "BasicScanner.h"
+#include "Util/SignatureResolver.h"
 
 #include <Windows.h>
 
-#include <vector>
+#include <cstdint>
+#include <initializer_list>
+#include <limits>
 
 #undef ABSOLUTE // win32 name collision
 
@@ -38,94 +41,121 @@ namespace ExtraUtilities
 	class Scanner : public BasicScanner
 	{
 	private:
-		// This needs to be initialized first so that the address of the
-		// desired value can be resolved properly
-		BaseAddress m_baseAddress; // what base address to use when accessing memory
+		BaseAddress m_baseAddress;
+		T* m_address = nullptr;
+		Restore m_restoreData;
+		T m_originalData{};
 
-		T* m_address;
-		Restore m_restoreData; // should you restore the data after leaving game? usually yes but sometimes no for things like game settings
-		T m_originalData;
+		DWORD m_oldProtect{};
+		bool m_protectionChanged = false;
+		static inline DWORD m_dummyProtect{};
 
-		DWORD m_oldProtect{}; // Original memory protection value
-		static inline DWORD m_dummyProtect; // dummy variable for VirtualProtect
-
-		// Finds the true address from addresses that require an offset from a module
-		T* ResolveBase(T* offset)
+		T* ResolveBase(T* offset) const noexcept
 		{
-			auto resolved = CalculateAddress(reinterpret_cast<uintptr_t>(offset), m_baseAddress);
+			const auto resolved = CalculateAddress(reinterpret_cast<uintptr_t>(offset), m_baseAddress);
 			return reinterpret_cast<T*>(resolved);
 		}
 
-	public:
-		Scanner(T* address, Restore restoreData = Restore::ENABLED, 
-			BaseAddress baseAddress = BaseAddress::ABSOLUTE)
-			: m_baseAddress(baseAddress), m_address(ResolveBase(address)), m_restoreData(restoreData)
+		bool PrepareFinalAddress(T* finalAddress) noexcept
 		{
-			if (m_address == nullptr)
+			m_address = finalAddress;
+			if (m_address == nullptr ||
+				!SignatureResolver::IsReadableRange(m_address, sizeof(T)))
 			{
-				m_originalData = {};
-				return;
+				m_address = nullptr;
+				return false;
 			}
 
-			VirtualProtect(m_address, sizeof(T), PAGE_EXECUTE_READWRITE, &m_oldProtect);
-			m_originalData = Read();
+			if (!VirtualProtect(m_address, sizeof(T), PAGE_EXECUTE_READWRITE, &m_oldProtect))
+			{
+				m_address = nullptr;
+				return false;
+			}
+
+			m_protectionChanged = true;
+			m_originalData = *m_address;
+			return true;
 		}
 
-		// Traverse multi-level pointer
-		Scanner(T* address, const std::initializer_list<uint8_t>& offsetsList, Restore restoreData = Restore::ENABLED, 
-			BaseAddress baseAddress = BaseAddress::ABSOLUTE)
-			: m_baseAddress(baseAddress), m_address(ResolveBase(address)), m_restoreData(restoreData)
+		void RestoreProtection() noexcept
 		{
-			if (m_address == nullptr)
+			if (!m_protectionChanged || m_address == nullptr)
 			{
-				m_originalData = {};
 				return;
 			}
 
-			VirtualProtect(m_address, sizeof(T), PAGE_EXECUTE_READWRITE, &m_oldProtect);
-			uintptr_t resolvedAddress = reinterpret_cast<uintptr_t>(m_address);
-			std::vector offsets = offsetsList;
-			for (size_t i = 0; i < offsets.size(); i++)
+			VirtualProtect(m_address, sizeof(T), m_oldProtect, &m_dummyProtect);
+			m_protectionChanged = false;
+		}
+
+	public:
+		Scanner(
+			T* address,
+			Restore restoreData = Restore::ENABLED,
+			BaseAddress baseAddress = BaseAddress::ABSOLUTE)
+			: m_baseAddress(baseAddress), m_restoreData(restoreData)
+		{
+			PrepareFinalAddress(ResolveBase(address));
+		}
+
+		// Traverse a multi-level pointer chain. Protection is changed only after
+		// the final pointee has been resolved, so m_oldProtect always belongs to
+		// the same page that the destructor later restores.
+		Scanner(
+			T* address,
+			const std::initializer_list<uint8_t>& offsetsList,
+			Restore restoreData = Restore::ENABLED,
+			BaseAddress baseAddress = BaseAddress::ABSOLUTE)
+			: m_baseAddress(baseAddress), m_restoreData(restoreData)
+		{
+			uintptr_t resolvedAddress = reinterpret_cast<uintptr_t>(ResolveBase(address));
+			for (const uint8_t offset : offsetsList)
 			{
-				if (resolvedAddress == 0)
+				if (resolvedAddress == 0 ||
+					!SignatureResolver::IsReadableRange(
+						reinterpret_cast<const void*>(resolvedAddress),
+						sizeof(uintptr_t)))
 				{
+					resolvedAddress = 0;
 					break;
 				}
-				resolvedAddress = *reinterpret_cast<uintptr_t*>(resolvedAddress);
-				resolvedAddress += offsets[i];
+
+				const uintptr_t next = *reinterpret_cast<const uintptr_t*>(resolvedAddress);
+				if (next == 0 || next > (std::numeric_limits<uintptr_t>::max)() - offset)
+				{
+					resolvedAddress = 0;
+					break;
+				}
+
+				resolvedAddress = next + offset;
 			}
-			m_address = reinterpret_cast<T*>(resolvedAddress);
-			m_originalData = Read();
+
+			PrepareFinalAddress(reinterpret_cast<T*>(resolvedAddress));
 		}
 
-		Scanner(Scanner& o) = delete;
-		Scanner(Scanner&& o) noexcept
-			: BasicScanner(std::move(o))
-		{
-			this->m_baseAddress = o.m_baseAddress;
-			this->m_address = o.m_address;
-			this->m_restoreData = o.m_restoreData;
-			this->m_originalData = o.m_originalData;
-			this->m_oldProtect = o.m_oldProtect;
-		}
+		Scanner(const Scanner&) = delete;
+		Scanner& operator=(const Scanner&) = delete;
+		Scanner(Scanner&&) = delete;
+		Scanner& operator=(Scanner&&) = delete;
 
 		~Scanner()
 		{
-			if (m_restoreData == Restore::ENABLED)
+			if (m_address != nullptr &&
+				m_restoreData == Restore::ENABLED &&
+				SignatureResolver::IsReadableRange(m_address, sizeof(T)))
 			{
-				Write(m_originalData);
+				*m_address = m_originalData;
 			}
-			if (m_address)
-			{
-				VirtualProtect(m_address, sizeof(T), m_oldProtect, &m_dummyProtect);
-			}
+
+			RestoreProtection();
 		}
 
 		T Read() const noexcept
 		{
-			if (m_address == nullptr)
+			if (m_address == nullptr ||
+				!SignatureResolver::IsReadableRange(m_address, sizeof(T)))
 			{
-				return{};
+				return {};
 			}
 
 			return *m_address;
@@ -133,7 +163,8 @@ namespace ExtraUtilities
 
 		void Write(T value) noexcept
 		{
-			if (m_address == nullptr)
+			if (m_address == nullptr ||
+				!SignatureResolver::IsReadableRange(m_address, sizeof(T)))
 			{
 				return;
 			}
@@ -141,14 +172,8 @@ namespace ExtraUtilities
 			*m_address = value;
 		}
 
-		// Get the underlying pointer of the data for direct access
 		T* Get() const noexcept
 		{
-			if (m_address == nullptr)
-			{
-				return nullptr;
-			}
-
 			return m_address;
 		}
 	};

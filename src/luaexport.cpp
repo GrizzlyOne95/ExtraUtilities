@@ -271,6 +271,18 @@ namespace ExtraUtilities::Lua
 		}
 	}
 
+	void ReleaseLuaStateBindings(lua_State* L) noexcept
+	{
+		if (L == nullptr)
+		{
+			return;
+		}
+
+		ResetSanitizedStockStringPatchState(L);
+		ResetObjectiveObjectPatchState(L);
+		Logging::LogMessage("exu: released Lua-owned stock function bindings");
+	}
+
 	void MakeEnums(lua_State* L, int exuIdx)
 	{
 		// Camera enum

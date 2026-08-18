@@ -20,7 +20,70 @@
 
 #include <lua.hpp>
 
+#include <cstdint>
+
 namespace ExtraUtilities::Lua
 {
-	inline lua_State* state;
+	// Implemented by PublicAPI.cpp. Assignment to a new mission VM installs the
+	// per-state lifecycle sentinel and performs runtime initialization outside
+	// DllMain/loader lock.
+	void HandleLuaStateAttached(lua_State* L);
+	void HandleLuaStateClosing(lua_State* L) noexcept;
+
+	// Implemented by luaexport.cpp so state-owned registry references can be
+	// released while the originating VM is still valid.
+	void ReleaseLuaStateBindings(lua_State* L) noexcept;
+
+	class LuaStateHandle
+	{
+	private:
+		lua_State* m_state = nullptr;
+		uint64_t m_generation = 0;
+
+	public:
+		LuaStateHandle() = default;
+		LuaStateHandle(const LuaStateHandle&) = delete;
+		LuaStateHandle& operator=(const LuaStateHandle&) = delete;
+
+		LuaStateHandle& operator=(lua_State* L)
+		{
+			if (m_state == L)
+			{
+				return *this;
+			}
+
+			m_state = L;
+			if (L != nullptr)
+			{
+				++m_generation;
+				HandleLuaStateAttached(L);
+			}
+			return *this;
+		}
+
+		operator lua_State*() const noexcept
+		{
+			return m_state;
+		}
+
+		lua_State* Get() const noexcept
+		{
+			return m_state;
+		}
+
+		uint64_t Generation() const noexcept
+		{
+			return m_generation;
+		}
+
+		void Clear(lua_State* expected = nullptr) noexcept
+		{
+			if (expected == nullptr || m_state == expected)
+			{
+				m_state = nullptr;
+			}
+		}
+	};
+
+	inline LuaStateHandle state;
 }
