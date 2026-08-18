@@ -10,50 +10,185 @@
 
 #pragma once
 
+#include "Util/BzrBuildProfile.generated.h"
 #include "Util/SignatureResolver.h"
 
 #include <Windows.h>
 
-#include <array>
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 
 namespace ExtraUtilities::BuildValidation
 {
-	// BZR 2.2.301 anchor from exu.json: Camera::Set_View at VA 0x0061D120.
-	// Resolve from the module base so this check remains valid even if the image
-	// is ever relocated. The E8 rel32 operand is intentionally wildcarded.
+	namespace Detail
+	{
+		inline bool PatternMatches(
+			const uint8_t* data,
+			size_t dataSize,
+			const int* pattern,
+			size_t patternSize) noexcept
+		{
+			if (data == nullptr || pattern == nullptr || patternSize == 0 || dataSize < patternSize)
+			{
+				return false;
+			}
+
+			for (size_t index = 0; index < patternSize; ++index)
+			{
+				const int expected = pattern[index];
+				if (expected >= 0 && data[index] != static_cast<uint8_t>(expected))
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		inline size_t CountPatternMatches(
+			const uint8_t* data,
+			size_t dataSize,
+			const int* pattern,
+			size_t patternSize,
+			size_t stopAfter = (std::numeric_limits<size_t>::max)()) noexcept
+		{
+			if (data == nullptr || pattern == nullptr || patternSize == 0 || dataSize < patternSize)
+			{
+				return 0;
+			}
+
+			size_t matches = 0;
+			for (size_t offset = 0; offset <= dataSize - patternSize; ++offset)
+			{
+				if (!PatternMatches(data + offset, dataSize - offset, pattern, patternSize))
+				{
+					continue;
+				}
+
+				++matches;
+				if (matches >= stopAfter)
+				{
+					return matches;
+				}
+			}
+
+			return matches;
+		}
+
+		inline size_t CountExecutableMatches(
+			HMODULE module,
+			const BzrBuildProfile::AnchorSpec& anchor,
+			size_t stopAfter) noexcept
+		{
+			size_t matches = 0;
+			for (const SignatureResolver::SectionView& section : SignatureResolver::GetExecutableSections(module))
+			{
+				const size_t remaining = stopAfter > matches ? stopAfter - matches : 0;
+				if (remaining == 0)
+				{
+					break;
+				}
+
+				matches += CountPatternMatches(
+					section.address,
+					section.size,
+					anchor.pattern,
+					anchor.patternSize,
+					remaining);
+			}
+			return matches;
+		}
+
+		inline bool ValidatePeIdentity(HMODULE module) noexcept
+		{
+			if (module == nullptr)
+			{
+				return false;
+			}
+
+			const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(module);
+			if (!SignatureResolver::IsReadableRange(dos, sizeof(*dos)) ||
+				dos->e_magic != IMAGE_DOS_SIGNATURE || dos->e_lfanew <= 0)
+			{
+				return false;
+			}
+
+			const uintptr_t base = reinterpret_cast<uintptr_t>(module);
+			const uintptr_t ntOffset = static_cast<uintptr_t>(dos->e_lfanew);
+			if (ntOffset > (std::numeric_limits<uintptr_t>::max)() - base)
+			{
+				return false;
+			}
+
+			const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + ntOffset);
+			if (!SignatureResolver::IsReadableRange(nt, sizeof(*nt)) || nt->Signature != IMAGE_NT_SIGNATURE)
+			{
+				return false;
+			}
+
+			return nt->FileHeader.Machine == IMAGE_FILE_MACHINE_I386 &&
+				nt->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC &&
+				static_cast<uintptr_t>(nt->OptionalHeader.ImageBase) == BzrBuildProfile::kImageBase;
+		}
+
+		inline bool MatchAnchor(HMODULE module, const BzrBuildProfile::AnchorSpec& anchor) noexcept
+		{
+			using BzrBuildProfile::AnchorMatchMode;
+
+			switch (anchor.mode)
+			{
+			case AnchorMatchMode::ExpectedVa:
+			{
+				if (anchor.expectedVa < BzrBuildProfile::kImageBase)
+				{
+					return false;
+				}
+
+				const uintptr_t rva = anchor.expectedVa - BzrBuildProfile::kImageBase;
+				const uintptr_t moduleBase = reinterpret_cast<uintptr_t>(module);
+				if (rva > (std::numeric_limits<uintptr_t>::max)() - moduleBase)
+				{
+					return false;
+				}
+
+				const auto* candidate = reinterpret_cast<const uint8_t*>(moduleBase + rva);
+				if (!SignatureResolver::IsReadableRange(candidate, anchor.patternSize))
+				{
+					return false;
+				}
+
+				return PatternMatches(candidate, anchor.patternSize, anchor.pattern, anchor.patternSize);
+			}
+			case AnchorMatchMode::ExecutableContains:
+				return CountExecutableMatches(module, anchor, 1) >= 1;
+			case AnchorMatchMode::UniqueExecutable:
+				return CountExecutableMatches(module, anchor, 2) == 1;
+			default:
+				return false;
+			}
+		}
+	}
+
+	// Fail closed unless all required runtime anchors for the supported 2.2.301
+	// build profile still match. The profile is generated from the same JSON used
+	// by the offline qualification tool so build identity cannot silently drift.
 	inline bool IsSupportedBzr2301() noexcept
 	{
 		HMODULE module = GetModuleHandleA(nullptr);
-		if (module == nullptr)
+		if (!Detail::ValidatePeIdentity(module))
 		{
 			return false;
 		}
 
-		constexpr uintptr_t kDefaultImageBase = 0x00400000u;
-		constexpr uintptr_t kSetViewAddress = 0x0061D120u;
-		constexpr uintptr_t kSetViewRva = kSetViewAddress - kDefaultImageBase;
-		constexpr std::array<int, 21> kSetViewSignature = {
-			0x55, 0x8B, 0xEC,
-			0x8B, 0x45, 0x08,
-			0x50,
-			0x8B, 0x4D, 0x0C,
-			0x51,
-			0xE8, -1, -1, -1, -1,
-			0x83, 0xC4, 0x08,
-			0x5D, 0xC3,
-		};
-
-		const auto* candidate = reinterpret_cast<const uint8_t*>(
-			reinterpret_cast<uintptr_t>(module) + kSetViewRva);
-		if (!SignatureResolver::IsReadableRange(candidate, kSetViewSignature.size()))
+		for (const BzrBuildProfile::AnchorSpec& anchor : BzrBuildProfile::kRuntimeAnchors)
 		{
-			return false;
+			if (anchor.required && !Detail::MatchAnchor(module, anchor))
+			{
+				return false;
+			}
 		}
 
-		return SignatureResolver::FindPattern(
-			candidate,
-			kSetViewSignature.size(),
-			kSetViewSignature) == candidate;
+		return true;
 	}
 }
