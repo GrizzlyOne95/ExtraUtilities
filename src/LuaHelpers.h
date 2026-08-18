@@ -313,45 +313,30 @@ namespace ExtraUtilities::Lua
 		if (!lua_isuserdata(L, idx))
 		{
 			luaL_typerror(L, idx, "matrix");
+			return mat;
 		}
-		else
+
+		const int valueIndex = AbsoluteStackIndex(L, idx);
+		auto readField = [L, valueIndex](const char* name)
 		{
-			lua_getfield(L, idx, "right_x");
-			mat.right_x = static_cast<float>(luaL_checknumber(L, -1));
+			lua_getfield(L, valueIndex, name);
+			const float value = static_cast<float>(luaL_checknumber(L, -1));
+			lua_pop(L, 1);
+			return value;
+		};
 
-			lua_getfield(L, idx, "right_y");
-			mat.right_y = static_cast<float>(luaL_checknumber(L, -1));
-
-			lua_getfield(L, idx, "right_z");
-			mat.right_z = static_cast<float>(luaL_checknumber(L, -1));
-
-			lua_getfield(L, idx, "up_x");
-			mat.up_x = static_cast<float>(luaL_checknumber(L, -1));
-
-			lua_getfield(L, idx, "up_y");
-			mat.up_y = static_cast<float>(luaL_checknumber(L, -1));
-
-			lua_getfield(L, idx, "up_z");
-			mat.up_z = static_cast<float>(luaL_checknumber(L, -1));
-
-			lua_getfield(L, idx, "front_x");
-			mat.front_x = static_cast<float>(luaL_checknumber(L, -1));
-
-			lua_getfield(L, idx, "front_y");
-			mat.front_y = static_cast<float>(luaL_checknumber(L, -1));
-
-			lua_getfield(L, idx, "front_z");
-			mat.front_z = static_cast<float>(luaL_checknumber(L, -1));
-
-			lua_getfield(L, idx, "posit_x");
-			mat.posit_x = static_cast<float>(luaL_checknumber(L, -1));
-
-			lua_getfield(L, idx, "posit_y");
-			mat.posit_y = static_cast<float>(luaL_checknumber(L, -1));
-
-			lua_getfield(L, idx, "posit_z");
-			mat.posit_z = static_cast<float>(luaL_checknumber(L, -1));
-		}
+		mat.right_x = readField("right_x");
+		mat.right_y = readField("right_y");
+		mat.right_z = readField("right_z");
+		mat.up_x = readField("up_x");
+		mat.up_y = readField("up_y");
+		mat.up_z = readField("up_z");
+		mat.front_x = readField("front_x");
+		mat.front_y = readField("front_y");
+		mat.front_z = readField("front_z");
+		mat.posit_x = readField("posit_x");
+		mat.posit_y = readField("posit_y");
+		mat.posit_z = readField("posit_z");
 		return mat;
 	}
 }
