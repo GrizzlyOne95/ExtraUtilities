@@ -25,6 +25,7 @@
 namespace ExtraUtilities::Lua::CommandReplacement
 {
 	void ResetState(lua_State* L);
+	void ReleaseState(lua_State* L);
 
 	bool DispatchRegisteredReplacement(BZR::handle handle, const char* stockCommandName, const char* origin);
 

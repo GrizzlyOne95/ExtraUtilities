@@ -18,34 +18,132 @@
 
 /*
  * PublicAPI.cpp — Implements the stable C-linkage exports declared in
- * include/ExtraUtils.h for use by C++ DLL consumers (e.g. Battlezone98Redux_Shim).
- *
- * These are separate from the Lua exports in LuaExport.cpp to keep the two
- * contracts distinct: the Lua API is everything in the luaL_Reg table, and
- * the C++ API is the narrow set of functions here.
+ * include/ExtraUtils.h and owns EXU's Lua-state lifecycle bridge.
  */
 
 #include "About.h"
+#include "BasicPatch.h"
+#include "Game/CommandReplacement.h"
 #include "LuaState.h"
+#include "UI/Overlay.h"
+#include "Util/Logging.h"
 
 #include <Windows.h>
 
+#include <cstdio>
+#include <cstdint>
+
+namespace ExtraUtilities::Lua
+{
+	namespace
+	{
+		constexpr const char* kLifecycleMetatable = "ExtraUtilities.LuaStateLifecycle";
+		constexpr const char* kLifecycleRegistryKey = "ExtraUtilities.LuaStateLifecycle.instance";
+
+		int LuaStateLifecycleGc(lua_State* L)
+		{
+			HandleLuaStateClosing(L);
+			return 0;
+		}
+
+		void InstallLifecycleSentinel(lua_State* L)
+		{
+			if (L == nullptr)
+			{
+				return;
+			}
+
+			lua_newuserdata(L, 1);
+			if (luaL_newmetatable(L, kLifecycleMetatable) != 0)
+			{
+				lua_pushcfunction(L, LuaStateLifecycleGc);
+				lua_setfield(L, -2, "__gc");
+			}
+			lua_setmetatable(L, -2);
+			lua_setfield(L, LUA_REGISTRYINDEX, kLifecycleRegistryKey);
+		}
+
+		void InitializeDebugConsole()
+		{
+#ifdef _DEBUG
+			static bool initialized = false;
+			if (initialized)
+			{
+				return;
+			}
+
+			if (AllocConsole() != FALSE)
+			{
+				FILE* stream = nullptr;
+				freopen_s(&stream, "CONOUT$", "w", stdout);
+				SetConsoleTitleA("Extra Utilities Console");
+			}
+			initialized = true;
+#endif
+		}
+	}
+
+	void HandleLuaStateAttached(lua_State* L)
+	{
+		if (L == nullptr)
+		{
+			return;
+		}
+
+		// File-system, CRT, mutex, and console work is deliberately performed here
+		// rather than from DllMain while the Windows loader lock is held.
+		Logging::ResetLogFileForCurrentProcess("exu.log");
+		Logging::ResetLogFileForCurrentProcess("exu_native_save.log");
+		Logging::ResetLogFileForCurrentProcess("exu_environment_debug.log");
+		Logging::ResetLogFileForCurrentProcess("exu_material_debug.log");
+		InitializeDebugConsole();
+		InstallLifecycleSentinel(L);
+		Logging::LogMessage(
+			"exu: attached Lua state %p generation=%llu",
+			static_cast<void*>(L),
+			static_cast<unsigned long long>(state.Generation()));
+	}
+
+	void HandleLuaStateClosing(lua_State* L) noexcept
+	{
+		if (L == nullptr || state.Get() != L)
+		{
+			return;
+		}
+
+		try
+		{
+			// Release all registry references while the originating VM is still
+			// valid, then disable native callbacks before invalidating the pointer.
+			ReleaseLuaStateBindings(L);
+			CommandReplacement::ReleaseState(L);
+			BasicPatch::UnloadAllPatches();
+			Overlay::ShutdownOverlaySupport();
+			state.Clear(L);
+			Logging::LogMessage("exu: Lua state closed; native state invalidated");
+		}
+		catch (...)
+		{
+			state.Clear(L);
+			OutputDebugStringA("ExtraUtilities: exception during Lua-state shutdown\n");
+		}
+	}
+}
+
 extern "C"
 {
-    // Returns the runtime EXU version string (e.g. "1.1.0").
-    // The pointer is valid for the lifetime of the process — the string lives
-    // in a static std::string inside About.h.
     __declspec(dllexport) const char* EXU_GetVersion()
     {
         return ExtraUtilities::version.c_str();
     }
 
-    // Returns the lua_State* registered during luaopen_exu, or nullptr if EXU
-    // has not yet been initialized from Lua. The returned pointer is valid only
-    // for the duration of the current mission — it becomes stale after the map
-    // unloads and the Lua runtime is torn down.
     __declspec(dllexport) lua_State* EXU_GetLuaState()
     {
-        return ExtraUtilities::Lua::state;
+        return ExtraUtilities::Lua::state.Get();
+    }
+
+    __declspec(dllexport) std::uint64_t EXU_GetLuaStateGeneration()
+    {
+        return ExtraUtilities::Lua::state.Generation();
     }
 }

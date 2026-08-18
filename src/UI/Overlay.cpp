@@ -21,6 +21,7 @@
 #include "Hook.h"
 #include "LuaHelpers.h"
 #include "Util/Logging.h"
+#include "Util/SignatureResolver.h"
 #include "Ogre/OgreNativeFontBridge.h"
 #include "Ogre/Ogre.h"
 #include "Ogre/OgreOverlayShim.h"
@@ -227,73 +228,13 @@ namespace ExtraUtilities::Lua::Overlay
 
 		bool IsReadableRange(const void* address, size_t length) noexcept
 		{
-			if (address == nullptr || length == 0)
-			{
-				return false;
-			}
-
-			MEMORY_BASIC_INFORMATION mbi{};
-			if (VirtualQuery(address, &mbi, sizeof(mbi)) == 0)
-			{
-				return false;
-			}
-
-			if (mbi.State != MEM_COMMIT || (mbi.Protect & PAGE_GUARD) != 0 || mbi.Protect == PAGE_NOACCESS)
-			{
-				return false;
-			}
-
-			const auto regionBase = reinterpret_cast<uintptr_t>(mbi.BaseAddress);
-			const auto rangeBase = reinterpret_cast<uintptr_t>(address);
-			if (rangeBase < regionBase)
-			{
-				return false;
-			}
-
-			const auto offset = rangeBase - regionBase;
-			return offset <= mbi.RegionSize && length <= (mbi.RegionSize - offset);
+			return SignatureResolver::IsReadableRange(address, length);
 		}
 
 		bool TryGetMainModuleTextSection(const uint8_t*& outData, size_t& outSize, uintptr_t& outAddress)
 		{
-			outData = nullptr;
-			outSize = 0;
-			outAddress = 0;
-
-			HMODULE module = GetModuleHandleA(nullptr);
-			if (module == nullptr)
-			{
-				return false;
-			}
-
-			const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(module);
-			if (!IsReadableRange(dos, sizeof(IMAGE_DOS_HEADER)) || dos->e_magic != IMAGE_DOS_SIGNATURE)
-			{
-				return false;
-			}
-
-			const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(
-				reinterpret_cast<const uint8_t*>(module) + dos->e_lfanew);
-			if (!IsReadableRange(nt, sizeof(IMAGE_NT_HEADERS)) || nt->Signature != IMAGE_NT_SIGNATURE)
-			{
-				return false;
-			}
-
-			const auto* section = IMAGE_FIRST_SECTION(nt);
-			for (unsigned int i = 0; i < nt->FileHeader.NumberOfSections; ++i, ++section)
-			{
-				if (std::strncmp(reinterpret_cast<const char*>(section->Name), ".text", IMAGE_SIZEOF_SHORT_NAME) != 0)
-				{
-					continue;
-				}
-
-				outData = reinterpret_cast<const uint8_t*>(module) + section->VirtualAddress;
-				outSize = static_cast<size_t>(section->Misc.VirtualSize);
-				outAddress = reinterpret_cast<uintptr_t>(outData);
-				return outSize != 0;
-			}
-
-			return false;
+			return SignatureResolver::TryGetModuleTextSection(
+				GetModuleHandleA(nullptr), outData, outSize, outAddress);
 		}
 
 		uintptr_t FindMaskedPattern(
@@ -304,48 +245,14 @@ namespace ExtraUtilities::Lua::Overlay
 			const uint8_t* mask,
 			size_t patternSize)
 		{
-			if (data == nullptr || pattern == nullptr || mask == nullptr || patternSize == 0 || dataSize < patternSize)
-			{
-				return 0;
-			}
-
-			for (size_t offset = 0; offset <= (dataSize - patternSize); ++offset)
-			{
-				bool matched = true;
-				for (size_t i = 0; i < patternSize; ++i)
-				{
-					if (mask[i] != 0 && data[offset + i] != pattern[i])
-					{
-						matched = false;
-						break;
-					}
-				}
-
-				if (matched)
-				{
-					return baseAddress + offset;
-				}
-			}
-
-			return 0;
+			return SignatureResolver::FindMaskedPattern(
+				data, dataSize, baseAddress, pattern, mask, patternSize);
 		}
 
 		template <size_t N>
 		bool MatchBytes(uintptr_t address, const std::array<uint8_t, N>& bytes) noexcept
 		{
-			if (!IsReadableRange(reinterpret_cast<const void*>(address), N))
-			{
-				return false;
-			}
-
-			__try
-			{
-				return std::memcmp(reinterpret_cast<const void*>(address), bytes.data(), N) == 0;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				return false;
-			}
+			return SignatureResolver::MatchBytes(address, bytes);
 		}
 
 		bool IsOverlaySuppressedByGameUi() noexcept
