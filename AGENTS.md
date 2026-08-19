@@ -2,8 +2,7 @@
 
 Script extender and native utility library for Battlezone 98 Redux. **EXU always means `GrizzlyOne95/ExtraUtilities`.** This repo should own reusable Lua/native runtime features rather than low-level engine patch policy or campaign-specific behavior.
 
-## Workspace
-- Primary workspace: `%USERPROFILE%\Documents\GIT\BZR-Workspace\Battlezone98.code-workspace`.
+## Local Environment
 - Sibling Battlezone repos normally live under `%USERPROFILE%\Documents\GIT`. Prefer local sibling source for reference when present; verify its `origin` before editing because historical folder names may differ.
 - Use the relevant sibling repo's `AGENTS.md` for authoritative source/deploy rules; do not infer them from installed runtime copies.
 
