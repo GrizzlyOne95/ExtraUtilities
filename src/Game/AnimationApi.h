@@ -56,7 +56,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 		struct Target
 		{
 			TargetKind kind = TargetKind::GameObject;
-			BZR::handle handle = nullptr;
+			BZR::handle handle{};
 		};
 
 		struct PlayOptions
@@ -75,7 +75,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 		{
 			// The first-person target deliberately remains fail-closed until the
 			// aspilo_fp ownership experiment identifies a stable resolver.
-			return target.kind == TargetKind::GameObject && target.handle != nullptr;
+			return target.kind == TargetKind::GameObject && target.handle != 0;
 		}
 
 		inline Target ReadTarget(lua_State* L, int index)
@@ -92,11 +92,11 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 			lua_getfield(L, absIndex, "kind");
 			const char* kind = luaL_checkstring(L, -1);
-			if (_stricmp(kind, "gameObject") == 0)
+			if (std::strcmp(kind, "gameObject") == 0)
 			{
 				target.kind = TargetKind::GameObject;
 			}
-			else if (_stricmp(kind, "localFirstPerson") == 0)
+			else if (std::strcmp(kind, "localFirstPerson") == 0)
 			{
 				target.kind = TargetKind::LocalFirstPerson;
 			}
