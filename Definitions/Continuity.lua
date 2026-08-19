@@ -20,11 +20,11 @@
 --- @field odf string
 --- @field team integer
 --- @field transform ExuContinuityMatrix
---- @field health number? Health ratio captured from GetHealth.
---- @field ammo number? Ammo ratio captured from GetAmmo.
+--- @field health number? Health ratio captured from BZR GetHealth.
+--- @field ammo number? Ammo ratio captured from BZR GetAmmo.
 --- @field classLabel string?
 --- @field classSig string?
---- @field isPlayer boolean?
+--- @field isPlayer boolean Player identity derived from documented GetPlayerHandle calls.
 --- @field isPerson boolean?
 
 --- @class ExuContinuityCaptureOptions
@@ -41,8 +41,8 @@
 --- @class ExuContinuitySnapshot
 --- @field formatVersion integer
 --- @field source string
---- @field enumerator string? Runtime object enumerator used by CaptureWorld.
---- @field durationSeconds number? Mission time reported by GetTime at capture.
+--- @field enumerator string? Runtime object enumerator used by CaptureWorld; currently AllObjects.
+--- @field durationSeconds number? Mission time reported by BZR GetTime at capture.
 --- @field team integer? Team filter used for the capture.
 --- @field objectCount integer
 --- @field objects ExuContinuityObject[]
@@ -84,7 +84,8 @@
 --- @class ExuContinuityApi
 local continuity = {}
 
---- Captures one live GameObject into a pointer-free, persistable descriptor.
+--- Captures one live GameObject into a pointer-free, persistable descriptor using
+--- documented Battlezone 98 Redux Lua calls.
 --- @param h Handle
 --- @return ExuContinuityObject|nil object
 --- @return string? error
@@ -97,16 +98,17 @@ function continuity.CaptureObject(h) end
 --- @return ExuContinuitySnapshot snapshot
 function continuity.CaptureObjects(handles, options) end
 
---- Enumerates the map through GetAllGameObjectHandles (or a compatible AllObjects
---- table-returning alias) and captures reconstruction-safe state. Use the team
---- filter for a player/base carry-over rather than blindly restoring every map object.
+--- Enumerates the map with BZR's documented AllObjects() iterator and captures
+--- reconstruction-safe state. Use the team filter for a player/base carry-over
+--- rather than blindly restoring every map object.
 --- @param options ExuContinuityCaptureOptions?
 --- @return ExuContinuitySnapshot|nil snapshot
 --- @return string? error
 function continuity.CaptureWorld(options) end
 
---- Rebuilds objects from a continuity snapshot using BuildObject. In multiplayer,
---- restoration fails closed unless the current machine can be verified as host.
+--- Rebuilds objects from a continuity snapshot with BZR BuildObject(odf, team,
+--- matrix). In multiplayer, restoration fails closed unless IsNetGame/IsHosting
+--- verify that the current machine has host authority.
 --- @param snapshot ExuContinuitySnapshot
 --- @param options ExuContinuityRestoreOptions?
 --- @return Handle[]|nil handles
