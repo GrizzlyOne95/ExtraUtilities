@@ -21,6 +21,8 @@
  * include/ExtraUtils.h and owns EXU's Lua-state lifecycle bridge.
  */
 
+#include <algorithm>
+
 #include "About.h"
 #include "BasicPatch.h"
 #include "Game/AnimationApi.h"
@@ -29,6 +31,7 @@
 #include "OpenShimBridge.h"
 #include "UI/Overlay.h"
 #include "Util/Logging.h"
+#include "Util/StorageApi.h"
 
 #include <Windows.h>
 
@@ -101,6 +104,7 @@ namespace ExtraUtilities::Lua
 		InitializeDebugConsole();
 		InstallLifecycleSentinel(L);
 		AnimationApi::Install(L);
+		StorageApi::Install(L);
 		Logging::LogMessage(
 			"exu: attached Lua state %p generation=%llu",
 			static_cast<void*>(L),
