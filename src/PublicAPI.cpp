@@ -21,6 +21,10 @@
  * include/ExtraUtils.h and owns EXU's Lua-state lifecycle bridge.
  */
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include <algorithm>
 #include <limits>
 
