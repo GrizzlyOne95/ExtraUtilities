@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include "OpenShimBridge.h"
 #include "Util/BzrBuildProfile.generated.h"
 #include "Util/SignatureResolver.h"
 
@@ -17,10 +18,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 
 namespace ExtraUtilities::BuildValidation
 {
+	using BzrDistribution = OpenShimBridge::BzrDistribution;
+
 	namespace Detail
 	{
 		inline bool PatternMatches(
@@ -124,6 +128,42 @@ namespace ExtraUtilities::BuildValidation
 				static_cast<uintptr_t>(nt->OptionalHeader.ImageBase) == BzrBuildProfile::kImageBase;
 		}
 
+		inline bool HasSteamStubBindSection(HMODULE module) noexcept
+		{
+			if (!ValidatePeIdentity(module))
+			{
+				return false;
+			}
+
+			const auto* base = reinterpret_cast<const uint8_t*>(module);
+			const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
+			const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+			const WORD sectionCount = nt->FileHeader.NumberOfSections;
+			if (sectionCount == 0 || sectionCount > 96)
+			{
+				return false;
+			}
+
+			const IMAGE_SECTION_HEADER* sections = IMAGE_FIRST_SECTION(nt);
+			const size_t sectionBytes = static_cast<size_t>(sectionCount) * sizeof(IMAGE_SECTION_HEADER);
+			if (!SignatureResolver::IsReadableRange(sections, sectionBytes))
+			{
+				return false;
+			}
+
+			static constexpr uint8_t kBindName[IMAGE_SIZEOF_SHORT_NAME] =
+				{ '.', 'b', 'i', 'n', 'd', 0, 0, 0 };
+			for (WORD index = 0; index < sectionCount; ++index)
+			{
+				if (std::memcmp(sections[index].Name, kBindName, IMAGE_SIZEOF_SHORT_NAME) == 0)
+				{
+					return true;
+				}
+			}
+
+			return false;
+		}
+
 		inline bool MatchAnchor(HMODULE module, const BzrBuildProfile::AnchorSpec& anchor) noexcept
 		{
 			using BzrBuildProfile::AnchorMatchMode;
@@ -182,5 +222,37 @@ namespace ExtraUtilities::BuildValidation
 		}
 
 		return true;
+	}
+
+	// Prefer OpenShim's qualified result when available. Older/no-OpenShim
+	// installations fall back to EXU's own full supported-build qualification
+	// before the SteamStub .bind section is considered. This prevents arbitrary
+	// non-Steam PE files from being mislabeled as GOG.
+	inline BzrDistribution GetBzrDistribution() noexcept
+	{
+		const BzrDistribution shimDistribution = OpenShimBridge::GetBzrDistribution();
+		if (shimDistribution != BzrDistribution::Unknown)
+		{
+			return shimDistribution;
+		}
+
+		if (!IsSupportedBzr2301())
+		{
+			return BzrDistribution::Unknown;
+		}
+
+		return Detail::HasSteamStubBindSection(GetModuleHandleA(nullptr))
+			? BzrDistribution::Steam
+			: BzrDistribution::GOG;
+	}
+
+	inline bool IsSteamBuild() noexcept
+	{
+		return GetBzrDistribution() == BzrDistribution::Steam;
+	}
+
+	inline bool IsGogBuild() noexcept
+	{
+		return GetBzrDistribution() == BzrDistribution::GOG;
 	}
 }
