@@ -7,6 +7,19 @@ EXU now provides two complementary APIs:
 
 The systems are deliberately separate. `exu.storage` knows nothing about Battlezone object pointers; `exu.continuity` produces ordinary Lua tables that can be saved by `exu.storage` or manipulated by the mission before saving.
 
+## BZR Lua API authority
+
+The continuity layer targets **Battlezone 98 Redux Lua semantics**, using UltraKen's Battlezone Lua Script Utility Functions reference at `battlezone.videoventure.org/lua_script_utilities.html` as the public API authority. It does not use the Battlezone II: Combat Commander Lua wiki as the contract for BZR calls.
+
+Important Redux details reflected in the implementation:
+
+- `AllObjects()` returns an **iterator** for Lua generic `for`, not a table.
+- `GetOdf`, `GetTeamNum`, `GetTransform`, `GetHealth`, `GetAmmo`, `GetClassLabel`, `GetClassSig`, `IsPerson`, `GetTime`, `GetPlayerHandle`, `IsNetGame`, and `IsHosting` are documented BZR calls.
+- `BuildObject(odf, team, matrix)` is a documented BZR overload.
+- `SetMatrix` takes components in **right, up, front, position** order.
+- BZR does not document an `IsPlayer(handle)` helper. EXU identifies player objects by comparing handles with the documented `GetPlayerHandle()` variants.
+- `GetHealth` and `GetAmmo` return fractional values from 0 to 1; restoration converts those ratios back through `GetMaxHealth`/`SetCurHealth` and `GetMaxAmmo`/`SetCurAmmo`.
+
 ## Persistent profiles and statistics
 
 ```lua
@@ -50,7 +63,7 @@ local function CommitMissionDuration(profile)
 end
 ```
 
-A continuity snapshot also records `durationSeconds = GetTime()` at capture time when the stock function is available.
+A continuity snapshot also records `durationSeconds = GetTime()` at capture time.
 
 ## Storage safety
 
@@ -108,7 +121,15 @@ local ok, saveErr = exu.storage.Save("my_campaign", profile, 2)
 assert(ok, saveErr)
 ```
 
-`CaptureWorld` obtains the live map object table through `GetAllGameObjectHandles()` (with a table-returning `AllObjects` alias accepted when present). It then describes objects through stock Lua getters rather than reading BZR object-list memory.
+`CaptureWorld` consumes BZR's documented `AllObjects()` iterator exactly like normal Lua code would:
+
+```lua
+for h in AllObjects() do
+    -- inspect h
+end
+```
+
+EXU then describes each selected object through the public Lua getters rather than reading BZR object-list memory.
 
 Each captured object currently contains reconstruction-safe state:
 
@@ -173,13 +194,13 @@ Use the exact ODF string stored by the snapshot as the mapping key.
 
 ## Explicit carry lists
 
-A full team snapshot is convenient, but many campaigns should decide exactly what survives. `CaptureObjects` accepts a table of handles so normal Lua can implement the campaign policy:
+A full team snapshot is convenient, but many campaigns should decide exactly what survives. `CaptureObjects` accepts a table of handles so ordinary BZR Lua can implement the campaign policy:
 
 ```lua
 local carry = {}
 
-for _, h in pairs(GetAllGameObjectHandles()) do
-    if GetTeamNum(h) == 1 and not IsPlayer(h) then
+for h in AllObjects() do
+    if GetTeamNum(h) == 1 then
         local classLabel = GetClassLabel(h)
 
         -- Example policy: structures and utility units carry forward,
@@ -201,9 +222,11 @@ This is also the recommended way to encode story consequences: the campaign deci
 
 ## Multiplayer
 
-Capture is read-only. Restore creates GameObjects and therefore has network authority implications. In a network game, `exu.continuity.Restore` refuses to proceed unless the runtime can verify that the caller is the host (`ImServer` / `IsHosting`).
+Capture is read-only. Restore creates GameObjects and therefore has network authority implications. In a network game, `exu.continuity.Restore` uses the documented `IsNetGame()` and `IsHosting()` calls and refuses to proceed unless the current machine is the host.
 
 The mission should restore once from host-owned mission logic, not independently on every client.
+
+Player-object classification uses the local `GetPlayerHandle()` plus the documented team-specific `GetPlayerHandle(team)` lookup. Because continuity is primarily intended for campaign/host state transfer, callers that need unusually strict multiplayer player filtering should prefer an explicit carry list rather than depending on automatic whole-world filtering.
 
 ## Deliberately not persisted in snapshot format 1
 
