@@ -18,16 +18,23 @@
 /*
  * ContinuityApi.h
  *
- * Portable mission-to-mission world snapshots assembled only from stock Lua
- * object APIs. This intentionally does not parse BZR's native .sav object
- * layout or retain engine pointers. A snapshot is an ordinary persistable Lua
- * table and can therefore be stored with exu.storage.
+ * Portable mission-to-mission world snapshots assembled only from the public
+ * Battlezone Lua object API documented by UltraKen for Battlezone 98 Redux.
+ * This intentionally does not parse BZR's native .sav object layout or retain
+ * engine pointers. A snapshot is an ordinary persistable Lua table and can
+ * therefore be stored with exu.storage.
  *
- * The first format captures reconstruction-safe state:
+ * Format 1 captures reconstruction-safe state:
  *   ODF, team, transform, health/ammo ratios, class metadata, and player/person
  *   classification. It deliberately does not claim to preserve AI task stacks,
  *   target pointers, native group internals, or other engine-owned transient
  *   state.
+ *
+ * Important BZR API details:
+ *   - AllObjects() returns a Lua iterator, not a table.
+ *   - SetMatrix() argument order is right, up, front, position.
+ *   - There is no public IsPlayer(); player identity is derived by comparing
+ *     against the documented GetPlayerHandle() variants.
  */
 
 #include "LuaHelpers.h"
@@ -36,6 +43,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <string>
 
 namespace ExtraUtilities::Lua::ContinuityApi
@@ -87,6 +95,16 @@ namespace ExtraUtilities::Lua::ContinuityApi
 		inline void PushHandle(lua_State* L, BZR::handle handle)
 		{
 			lua_pushlightuserdata(L, reinterpret_cast<void*>(handle));
+		}
+
+		inline bool IsHandleValue(lua_State* L, int index)
+		{
+			return lua_isuserdata(L, index) != 0;
+		}
+
+		inline BZR::handle ToHandle(lua_State* L, int index)
+		{
+			return reinterpret_cast<BZR::handle>(lua_touserdata(L, index));
 		}
 
 		inline bool GetGlobalFunction(lua_State* L, const char* name)
@@ -141,7 +159,8 @@ namespace ExtraUtilities::Lua::ContinuityApi
 		inline bool TryCallHandleInteger(lua_State* L, const char* name, BZR::handle handle, int& value)
 		{
 			double raw = 0.0;
-			if (!TryCallHandleNumber(L, name, handle, raw) || raw < static_cast<double>((std::numeric_limits<int>::min)()) ||
+			if (!TryCallHandleNumber(L, name, handle, raw) ||
+				raw < static_cast<double>((std::numeric_limits<int>::min)()) ||
 				raw > static_cast<double>((std::numeric_limits<int>::max)()))
 			{
 				return false;
@@ -185,15 +204,12 @@ namespace ExtraUtilities::Lua::ContinuityApi
 			return std::isfinite(value);
 		}
 
-		inline bool TryCallNoArgBoolean(lua_State* L, const char* primary, const char* fallback, bool& value)
+		inline bool TryCallNoArgBoolean(lua_State* L, const char* name, bool& value)
 		{
 			const int top = lua_gettop(L);
-			if (!GetGlobalFunction(L, primary))
+			if (!GetGlobalFunction(L, name))
 			{
-				if (fallback == nullptr || !GetGlobalFunction(L, fallback))
-				{
-					return false;
-				}
+				return false;
 			}
 			if (lua_pcall(L, 0, 1, 0) != 0)
 			{
@@ -203,6 +219,56 @@ namespace ExtraUtilities::Lua::ContinuityApi
 			value = lua_toboolean(L, -1) != 0;
 			lua_settop(L, top);
 			return true;
+		}
+
+		inline bool TryCallPlayerHandle(lua_State* L, bool useTeam, int team, BZR::handle& handle)
+		{
+			const int top = lua_gettop(L);
+			if (!GetGlobalFunction(L, "GetPlayerHandle"))
+			{
+				return false;
+			}
+			int args = 0;
+			if (useTeam)
+			{
+				lua_pushinteger(L, team);
+				args = 1;
+			}
+			if (lua_pcall(L, args, 1, 0) != 0)
+			{
+				lua_settop(L, top);
+				return false;
+			}
+			if (lua_isnil(L, -1))
+			{
+				handle = BZR::handle{};
+				lua_settop(L, top);
+				return true;
+			}
+			if (!IsHandleValue(L, -1))
+			{
+				lua_settop(L, top);
+				return false;
+			}
+			handle = ToHandle(L, -1);
+			lua_settop(L, top);
+			return true;
+		}
+
+		inline bool IsPlayerHandle(lua_State* L, BZR::handle handle, int team)
+		{
+			// The documented BZR API has no IsPlayer(handle). Compare against the
+			// local player first, then the documented team-specific player slot.
+			BZR::handle player{};
+			if (TryCallPlayerHandle(L, false, 0, player) && player != 0 && player == handle)
+			{
+				return true;
+			}
+			if (TryCallPlayerHandle(L, true, team, player) && player != 0 && player == handle)
+			{
+				return true;
+			}
+			return false;
 		}
 
 		inline bool TryReadNumberField(lua_State* L, int tableIndex, const char* field, double& value)
@@ -274,11 +340,6 @@ namespace ExtraUtilities::Lua::ContinuityApi
 #undef EXU_SET_MATRIX_FIELD
 		}
 
-		inline bool TryCallHandleMatrixResult(lua_State* L, const char* name, BZR::handle handle, MatrixData& matrix)
-		{
-			return TryCallHandleMatrix(L, name, handle, matrix);
-		}
-
 		inline bool PushNativeMatrix(lua_State* L, const MatrixData& matrix)
 		{
 			const int top = lua_gettop(L);
@@ -286,19 +347,22 @@ namespace ExtraUtilities::Lua::ContinuityApi
 			{
 				return false;
 			}
-			lua_pushnumber(L, matrix.up_x);
-			lua_pushnumber(L, matrix.up_y);
-			lua_pushnumber(L, matrix.up_z);
+
+			// UltraKen's BZR reference defines SetMatrix as:
+			// right(3), up(3), front(3), position(3).
 			lua_pushnumber(L, matrix.right_x);
 			lua_pushnumber(L, matrix.right_y);
 			lua_pushnumber(L, matrix.right_z);
+			lua_pushnumber(L, matrix.up_x);
+			lua_pushnumber(L, matrix.up_y);
+			lua_pushnumber(L, matrix.up_z);
 			lua_pushnumber(L, matrix.front_x);
 			lua_pushnumber(L, matrix.front_y);
 			lua_pushnumber(L, matrix.front_z);
 			lua_pushnumber(L, matrix.posit_x);
 			lua_pushnumber(L, matrix.posit_y);
 			lua_pushnumber(L, matrix.posit_z);
-			if (lua_pcall(L, 12, 1, 0) != 0)
+			if (lua_pcall(L, 12, 1, 0) != 0 || !lua_isuserdata(L, -1))
 			{
 				lua_settop(L, top);
 				return false;
@@ -320,12 +384,12 @@ namespace ExtraUtilities::Lua::ContinuityApi
 				lua_settop(L, top);
 				return false;
 			}
-			if (lua_pcall(L, 3, 1, 0) != 0 || !lua_isuserdata(L, -1))
+			if (lua_pcall(L, 3, 1, 0) != 0 || !IsHandleValue(L, -1))
 			{
 				lua_settop(L, top);
 				return false;
 			}
-			handle = reinterpret_cast<BZR::handle>(lua_touserdata(L, -1));
+			handle = ToHandle(L, -1);
 			lua_settop(L, top);
 			return handle != 0;
 		}
@@ -351,7 +415,7 @@ namespace ExtraUtilities::Lua::ContinuityApi
 			MatrixData matrix{};
 			if (!TryCallHandleString(L, "GetOdf", handle, odf) || odf.empty() ||
 				!TryCallHandleInteger(L, "GetTeamNum", handle, team) ||
-				!TryCallHandleMatrixResult(L, "GetTransform", handle, matrix))
+				!TryCallHandleMatrix(L, "GetTransform", handle, matrix))
 			{
 				return false;
 			}
@@ -388,24 +452,17 @@ namespace ExtraUtilities::Lua::ContinuityApi
 				lua_setfield(L, -2, "classSig");
 			}
 
-			bool flag = false;
-			if (TryCallHandleBoolean(L, "IsPlayer", handle, flag))
+			const bool isPlayer = IsPlayerHandle(L, handle, team);
+			lua_pushboolean(L, isPlayer ? 1 : 0);
+			lua_setfield(L, -2, "isPlayer");
+
+			bool isPerson = false;
+			if (TryCallHandleBoolean(L, "IsPerson", handle, isPerson))
 			{
-				lua_pushboolean(L, flag ? 1 : 0);
-				lua_setfield(L, -2, "isPlayer");
-			}
-			if (TryCallHandleBoolean(L, "IsPerson", handle, flag))
-			{
-				lua_pushboolean(L, flag ? 1 : 0);
+				lua_pushboolean(L, isPerson ? 1 : 0);
 				lua_setfield(L, -2, "isPerson");
 			}
 			return true;
-		}
-
-		inline bool IsPlayerHandle(lua_State* L, BZR::handle handle)
-		{
-			bool player = false;
-			return TryCallHandleBoolean(L, "IsPlayer", handle, player) && player;
 		}
 
 		inline CaptureOptions ReadCaptureOptions(lua_State* L, int index)
@@ -540,8 +597,8 @@ namespace ExtraUtilities::Lua::ContinuityApi
 		}
 
 		inline bool ReadDescriptor(lua_State* L, int index, const RestoreOptions& options,
-			std::string& odf, int& team, MatrixData& matrix, bool& isPlayer, double& health, bool& hasHealth,
-			double& ammo, bool& hasAmmo)
+			std::string& odf, int& team, MatrixData& matrix, bool& isPlayer,
+			double& health, bool& hasHealth, double& ammo, bool& hasAmmo)
 		{
 			if (!lua_istable(L, index))
 			{
@@ -605,13 +662,26 @@ namespace ExtraUtilities::Lua::ContinuityApi
 			return (!hasHealth || std::isfinite(health)) && (!hasAmmo || std::isfinite(ammo));
 		}
 
-		inline void PushReport(lua_State* L, int scanned, int captured, int skipped, bool truncated)
+		inline void PushReport(lua_State* L, int scanned, int completed, int skipped, bool truncated)
 		{
 			lua_createtable(L, 0, 4);
 			lua_pushinteger(L, scanned);
 			lua_setfield(L, -2, "scanned");
-			lua_pushinteger(L, captured);
+			lua_pushinteger(L, completed);
 			lua_setfield(L, -2, "captured");
+			lua_pushinteger(L, skipped);
+			lua_setfield(L, -2, "skipped");
+			lua_pushboolean(L, truncated ? 1 : 0);
+			lua_setfield(L, -2, "truncated");
+		}
+
+		inline void PushRestoreReport(lua_State* L, int scanned, int restored, int skipped, bool truncated)
+		{
+			lua_createtable(L, 0, 4);
+			lua_pushinteger(L, scanned);
+			lua_setfield(L, -2, "scanned");
+			lua_pushinteger(L, restored);
+			lua_setfield(L, -2, "restored");
 			lua_pushinteger(L, skipped);
 			lua_setfield(L, -2, "skipped");
 			lua_pushboolean(L, truncated ? 1 : 0);
@@ -620,7 +690,7 @@ namespace ExtraUtilities::Lua::ContinuityApi
 
 		inline void PushSnapshotHeader(lua_State* L)
 		{
-			lua_createtable(L, 0, 6);
+			lua_createtable(L, 0, 7);
 			lua_pushinteger(L, kSnapshotFormatVersion);
 			lua_setfield(L, -2, "formatVersion");
 			lua_pushstring(L, "runtime-object-api");
@@ -633,6 +703,42 @@ namespace ExtraUtilities::Lua::ContinuityApi
 			}
 			lua_newtable(L);
 			lua_setfield(L, -2, "objects");
+		}
+
+		inline bool ShouldCaptureHandle(lua_State* L, BZR::handle handle, const CaptureOptions& options)
+		{
+			int objectTeam = 0;
+			if (!TryCallHandleInteger(L, "GetTeamNum", handle, objectTeam))
+			{
+				return false;
+			}
+			if (options.hasTeam && objectTeam != options.team)
+			{
+				return false;
+			}
+			if (!options.includePlayers && IsPlayerHandle(L, handle, objectTeam))
+			{
+				return false;
+			}
+			return true;
+		}
+
+		inline bool CaptureOneHandle(lua_State* L, int objectsIndex, BZR::handle handle,
+			const CaptureOptions& options, int& captured, int& skipped)
+		{
+			if (!ShouldCaptureHandle(L, handle, options))
+			{
+				++skipped;
+				return true;
+			}
+			if (!PushObjectDescriptor(L, handle))
+			{
+				++skipped;
+				return true;
+			}
+			++captured;
+			lua_rawseti(L, objectsIndex, captured);
+			return true;
 		}
 
 		inline int CaptureFromHandleTable(lua_State* L, int handlesIndex, const CaptureOptions& options)
@@ -658,37 +764,14 @@ namespace ExtraUtilities::Lua::ContinuityApi
 				}
 				++scanned;
 
-				if (!lua_isuserdata(L, -1))
+				if (!IsHandleValue(L, -1))
 				{
 					++skipped;
 					lua_pop(L, 1);
 					continue;
 				}
-				const BZR::handle handle = reinterpret_cast<BZR::handle>(lua_touserdata(L, -1));
-
-				int objectTeam = 0;
-				if (options.hasTeam && (!TryCallHandleInteger(L, "GetTeamNum", handle, objectTeam) || objectTeam != options.team))
-				{
-					++skipped;
-					lua_pop(L, 1);
-					continue;
-				}
-				if (!options.includePlayers && IsPlayerHandle(L, handle))
-				{
-					++skipped;
-					lua_pop(L, 1);
-					continue;
-				}
-
-				if (PushObjectDescriptor(L, handle))
-				{
-					++captured;
-					lua_rawseti(L, objectsIndex, captured);
-				}
-				else
-				{
-					++skipped;
-				}
+				const BZR::handle handle = ToHandle(L, -1);
+				CaptureOneHandle(L, objectsIndex, handle, options, captured, skipped);
 				lua_pop(L, 1);
 			}
 
@@ -705,38 +788,124 @@ namespace ExtraUtilities::Lua::ContinuityApi
 			return 1;
 		}
 
-		inline bool PushAllObjectHandleTable(lua_State* L, std::string& source)
+		inline int CaptureFromAllObjects(lua_State* L, const CaptureOptions& options)
 		{
-			const int top = lua_gettop(L);
-			const char* candidates[] = { "GetAllGameObjectHandles", "AllObjects" };
-			for (const char* candidate : candidates)
+			const int base = lua_gettop(L);
+			if (!GetGlobalFunction(L, "AllObjects"))
 			{
-				if (!GetGlobalFunction(L, candidate))
+				lua_pushnil(L);
+				lua_pushstring(L, "Battlezone AllObjects() iterator is unavailable");
+				return 2;
+			}
+
+			// Generic-for expressions are normalized to iterator/state/control.
+			// Ask Lua for exactly three results so missing values become nil.
+			if (lua_pcall(L, 0, 3, 0) != 0)
+			{
+				const char* message = lua_tostring(L, -1);
+				const std::string error = message != nullptr ? message : "AllObjects() failed";
+				lua_settop(L, base);
+				lua_pushnil(L);
+				lua_pushlstring(L, error.data(), error.size());
+				return 2;
+			}
+
+			const int iteratorIndex = base + 1;
+			const int stateIndex = base + 2;
+			const int controlIndex = base + 3;
+			if (!lua_isfunction(L, iteratorIndex))
+			{
+				lua_settop(L, base);
+				lua_pushnil(L);
+				lua_pushstring(L, "Battlezone AllObjects() did not return an iterator function");
+				return 2;
+			}
+
+			PushSnapshotHeader(L);
+			const int snapshotIndex = AbsoluteStackIndex(L, -1);
+			lua_pushstring(L, "AllObjects");
+			lua_setfield(L, snapshotIndex, "enumerator");
+			lua_getfield(L, snapshotIndex, "objects");
+			const int objectsIndex = AbsoluteStackIndex(L, -1);
+
+			int scanned = 0;
+			int captured = 0;
+			int skipped = 0;
+			bool truncated = false;
+
+			while (true)
+			{
+				if (scanned >= options.maxObjects)
 				{
+					truncated = true;
+					break;
+				}
+
+				lua_pushvalue(L, iteratorIndex);
+				lua_pushvalue(L, stateIndex);
+				lua_pushvalue(L, controlIndex);
+				if (lua_pcall(L, 2, 1, 0) != 0)
+				{
+					const char* message = lua_tostring(L, -1);
+					const std::string error = message != nullptr ? message : "AllObjects iterator failed";
+					lua_settop(L, base);
+					lua_pushnil(L);
+					lua_pushlstring(L, error.data(), error.size());
+					return 2;
+				}
+				if (lua_isnil(L, -1))
+				{
+					lua_pop(L, 1);
+					break;
+				}
+
+				// Generic-for feeds the first return value back as the control value.
+				lua_replace(L, controlIndex);
+				++scanned;
+				if (!IsHandleValue(L, controlIndex))
+				{
+					++skipped;
 					continue;
 				}
-				if (lua_pcall(L, 0, 1, 0) == 0 && lua_istable(L, -1))
-				{
-					source = candidate;
-					return true;
-				}
-				lua_settop(L, top);
+				const BZR::handle handle = ToHandle(L, controlIndex);
+				CaptureOneHandle(L, objectsIndex, handle, options, captured, skipped);
 			}
-			return false;
+
+			lua_pop(L, 1); // objects
+			lua_pushinteger(L, captured);
+			lua_setfield(L, snapshotIndex, "objectCount");
+			if (options.hasTeam)
+			{
+				lua_pushinteger(L, options.team);
+				lua_setfield(L, snapshotIndex, "team");
+			}
+			PushReport(L, scanned, captured, skipped, truncated);
+			lua_setfield(L, snapshotIndex, "captureReport");
+
+			// Remove iterator/state/control, leaving only the snapshot as result.
+			lua_remove(L, iteratorIndex);
+			lua_remove(L, iteratorIndex);
+			lua_remove(L, iteratorIndex);
+			return 1;
 		}
 
 		inline bool CanRestoreWorld(lua_State* L, std::string& error)
 		{
 			bool networked = false;
-			if (!TryCallNoArgBoolean(L, "IsNetworkOn", "IsNetGame", networked) || !networked)
+			if (!TryCallNoArgBoolean(L, "IsNetGame", networked))
+			{
+				error = "could not query documented BZR IsNetGame() state";
+				return false;
+			}
+			if (!networked)
 			{
 				return true;
 			}
 
 			bool host = false;
-			if (!TryCallNoArgBoolean(L, "ImServer", "IsHosting", host))
+			if (!TryCallNoArgBoolean(L, "IsHosting", host))
 			{
-				error = "network game detected but EXU could not verify host authority";
+				error = "network game detected but BZR IsHosting() is unavailable";
 				return false;
 			}
 			if (!host)
@@ -754,7 +923,7 @@ namespace ExtraUtilities::Lua::ContinuityApi
 		if (!Detail::PushObjectDescriptor(L, handle))
 		{
 			lua_pushnil(L);
-			lua_pushstring(L, "object could not be described with the stock ODF/team/transform APIs");
+			lua_pushstring(L, "object could not be described with the documented BZR ODF/team/transform APIs");
 			return 2;
 		}
 		lua_pushnil(L);
@@ -771,22 +940,7 @@ namespace ExtraUtilities::Lua::ContinuityApi
 	inline int CaptureWorld(lua_State* L)
 	{
 		const Detail::CaptureOptions options = Detail::ReadCaptureOptions(L, 1);
-		std::string source;
-		if (!Detail::PushAllObjectHandleTable(L, source))
-		{
-			lua_pushnil(L);
-			lua_pushstring(L, "GetAllGameObjectHandles/AllObjects did not provide an object table");
-			return 2;
-		}
-		const int handlesIndex = AbsoluteStackIndex(L, -1);
-		const int resultCount = Detail::CaptureFromHandleTable(L, handlesIndex, options);
-		lua_remove(L, handlesIndex);
-		if (resultCount == 1 && lua_istable(L, -1))
-		{
-			lua_pushlstring(L, source.data(), source.size());
-			lua_setfield(L, -2, "enumerator");
-		}
-		return resultCount;
+		return Detail::CaptureFromAllObjects(L, options);
 	}
 
 	inline int Restore(lua_State* L)
@@ -846,8 +1000,8 @@ namespace ExtraUtilities::Lua::ContinuityApi
 			bool hasHealth = false;
 			double ammo = 0.0;
 			bool hasAmmo = false;
-			if (!Detail::ReadDescriptor(L, -1, options, odf, team, matrix, isPlayer, health, hasHealth, ammo, hasAmmo) ||
-				(options.skipPlayers && isPlayer))
+			if (!Detail::ReadDescriptor(L, -1, options, odf, team, matrix, isPlayer,
+				health, hasHealth, ammo, hasAmmo) || (options.skipPlayers && isPlayer))
 			{
 				++skipped;
 				lua_pop(L, 1);
@@ -888,9 +1042,7 @@ namespace ExtraUtilities::Lua::ContinuityApi
 		}
 
 		lua_remove(L, objectsIndex);
-		Detail::PushReport(L, scanned, restored, skipped, truncated);
-		lua_pushinteger(L, restored);
-		lua_setfield(L, -2, "restored");
+		Detail::PushRestoreReport(L, scanned, restored, skipped, truncated);
 		return 2;
 	}
 
