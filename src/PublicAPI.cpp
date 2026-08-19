@@ -23,6 +23,7 @@
 
 #include "About.h"
 #include "BasicPatch.h"
+#include "Game/AnimationApi.h"
 #include "Game/CommandReplacement.h"
 #include "LuaState.h"
 #include "OpenShimBridge.h"
@@ -99,6 +100,7 @@ namespace ExtraUtilities::Lua
 		Logging::ResetLogFileForCurrentProcess("exu_material_debug.log");
 		InitializeDebugConsole();
 		InstallLifecycleSentinel(L);
+		AnimationApi::Install(L);
 		Logging::LogMessage(
 			"exu: attached Lua state %p generation=%llu",
 			static_cast<void*>(L),
