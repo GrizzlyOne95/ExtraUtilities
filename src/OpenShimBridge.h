@@ -26,6 +26,38 @@ namespace ExtraUtilities::OpenShimBridge
 		return Resolve<FARPROC>(exportName) != nullptr;
 	}
 
+	// Mirrors OpenShim's stable storefront ABI without linking EXU against
+	// OpenShim headers. Unknown is fail-closed and also covers older OpenShim
+	// builds that do not expose the distribution query yet.
+	enum class BzrDistribution : std::uint32_t
+	{
+		Unknown = 0,
+		GOG = 1,
+		Steam = 2,
+	};
+
+	using GetBzrDistributionFn = std::uint32_t (__cdecl*)();
+
+	inline BzrDistribution GetBzrDistribution() noexcept
+	{
+		const GetBzrDistributionFn getter =
+			Resolve<GetBzrDistributionFn>("OpenShimGetBzrDistribution");
+		if (!getter)
+		{
+			return BzrDistribution::Unknown;
+		}
+
+		switch (getter())
+		{
+		case static_cast<std::uint32_t>(BzrDistribution::GOG):
+			return BzrDistribution::GOG;
+		case static_cast<std::uint32_t>(BzrDistribution::Steam):
+			return BzrDistribution::Steam;
+		default:
+			return BzrDistribution::Unknown;
+		}
+	}
+
 	// Mirrors OpenShim's stable status values without linking EXU against any
 	// OpenShim headers. The extra sentinel is EXU-only and means winmm.dll does
 	// not expose the optional high-level nickname bridge.

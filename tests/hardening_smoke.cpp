@@ -74,6 +74,11 @@ int main()
 	ok &= Check(
 		!BuildValidation::IsSupportedBzr2301(),
 		"synthetic test executable unexpectedly matched the BZR 2.2.301 runtime signature");
+	ok &= Check(
+		BuildValidation::GetBzrDistribution() == BuildValidation::BzrDistribution::Unknown,
+		"unsupported executable did not fail closed to unknown storefront");
+	ok &= Check(!BuildValidation::IsSteamBuild(), "unsupported executable was mislabeled as Steam");
+	ok &= Check(!BuildValidation::IsGogBuild(), "unsupported executable was mislabeled as GOG");
 
 	auto* patchPage = static_cast<uint8_t*>(VirtualAlloc(nullptr, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
 	if (!patchPage)
