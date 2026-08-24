@@ -96,6 +96,15 @@ namespace ExtraUtilities::Lua::Environment
 	int GetRetroLightingMode(lua_State* L);
 	int SetRetroLightingMode(lua_State* L);
 	int EnforceLightingMode(lua_State* L);
+	// Canonical OpenShim render-profile API. Requests forward over the
+	// optional winmm bridge; queries fail closed to "unknown"/false when the
+	// shim is absent or predates the render-profile ABI.
+	int RequestRenderProfile(lua_State* L);
+	int GetRequestedRenderProfile(lua_State* L);
+	int GetEffectiveRenderProfile(lua_State* L);
+	int GetUserRenderProfile(lua_State* L);
+	int SupportsRenderProfile(lua_State* L);
+	int GetRenderCapabilities(lua_State* L);
 	// Patches the exe's own Viewport::setMaterialScheme call sites so the
 	// game's periodic scheme reasserts apply the user's chosen lighting mode
 	// instead of fighting it. Install once after deferred patch activation.

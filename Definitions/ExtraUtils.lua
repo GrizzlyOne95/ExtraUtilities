@@ -782,6 +782,56 @@ function exu.SetRetroLightingMode(enabled) end
 --- lighting from flashing back to the default scheme.
 function exu.EnforceLightingMode() end
 
+--- Requests a render profile for this mission/session through OpenShim's
+--- canonical renderer ownership. Accepts `inherit` (follow the player's
+--- openshim.ini preference), `retro`, `redux`, or `enhanced`.
+--- Overrides are cleared automatically when the mission ends; they never leak
+--- into unrelated content. Requires OpenShim with the render-profile bridge;
+--- without it the request maps onto the legacy local lighting-mode path.
+--- @param profile string|integer  `inherit`|`retro`|`redux`|`enhanced` (or 0..3)
+--- @return boolean applied
+function exu.RequestRenderProfile(profile) end
+
+--- Returns the content render profile currently requested for this session:
+--- `inherit` when no content override is active, otherwise the override.
+--- Returns `unknown` when OpenShim lacks the render-profile bridge.
+--- @nodiscard
+--- @return string
+function exu.GetRequestedRenderProfile() end
+
+--- Returns OpenShim's effective render profile: `retro`, `redux`, or
+--- `enhanced`. This is what the renderer is actually honoring after resolving
+--- user preference, content overrides, and compatibility constraints.
+--- Returns `unknown` when OpenShim lacks the render-profile bridge.
+--- @nodiscard
+--- @return string
+function exu.GetEffectiveRenderProfile() end
+
+--- Returns the player's own render-profile preference from openshim.ini:
+--- `retro`, `redux`, or `enhanced`; `unknown` without the bridge.
+--- @nodiscard
+--- @return string
+function exu.GetUserRenderProfile() end
+
+--- Returns whether OpenShim reports the requested profile as supported on the
+--- active renderer backend. Enhanced and Retro are capability-gated; Redux is
+--- always available. Without the bridge this returns false.
+--- @nodiscard
+--- @param profile string|integer
+--- @return boolean
+function exu.SupportsRenderProfile(profile) end
+
+--- Returns a table of OpenShim Enhanced renderer capabilities, e.g.
+--- `{ schemeRewrite=true, normalSharpening=true, linearLighting=false,
+---    terrainEnhanced=false, objectEnhanced=false, modernPssm=false,
+---    lightSelection=false, iblResources=false, mask=3 }`.
+--- DX9 Enhanced intentionally reports its frozen legacy subset; absence of a
+--- DX11-only bit is expected, not an error. All false + mask=0 means the shim
+--- predates the render-profile bridge.
+--- @nodiscard
+--- @return table
+function exu.GetRenderCapabilities() end
+
 --- Returns the current scene visibility mask.
 --- @nodiscard
 --- @return integer | nil
