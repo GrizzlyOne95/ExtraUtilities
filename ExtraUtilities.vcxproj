@@ -209,6 +209,7 @@
     <ClInclude Include="src\LuaHelpers.h" />
     <ClInclude Include="src\LuaState.h" />
     <ClInclude Include="src\OpenShimBridge.h" />
+    <ClInclude Include="src\RenderProfileBridge.h" />
     <ClInclude Include="src\Game\Multiplayer.h" />
     <ClInclude Include="src\Ogre\OgreBuildSettings.h" />
     <ClInclude Include="src\Ogre\OgreNativeFontBridge.h" />
