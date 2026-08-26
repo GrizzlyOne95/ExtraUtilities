@@ -18,6 +18,7 @@
 
 #include "Environment.h"
 
+#include "../RenderProfileBridge.h"
 #include "InlinePatch.h"
 #include "Util/Logging.h"
 #include "LuaHelpers.h"
@@ -3050,6 +3051,19 @@ namespace ExtraUtilities::Lua::Environment
 	{
 		Patch::TryInitializeOgre();
 
+		// Canonical path: report OpenShim's effective profile so scripts see
+		// the same truth the renderer acts on, including user INI preferences
+		// this process never touched through Set* calls.
+		if (RenderProfileBridge::HasRenderProfileApi())
+		{
+			lua_pushboolean(
+				L,
+				RenderProfileBridge::GetEffective() == RenderProfileBridge::Profile::Retro
+					? 1
+					: 0);
+			return 1;
+		}
+
 		auto* viewport = GetCurrentViewport();
 		std::string scheme;
 		TryGetViewportMaterialScheme(viewport, scheme);
@@ -3060,6 +3074,24 @@ namespace ExtraUtilities::Lua::Environment
 	int GetLightingMode(lua_State* L)
 	{
 		Patch::TryInitializeOgre();
+
+		if (RenderProfileBridge::HasRenderProfileApi())
+		{
+			switch (RenderProfileBridge::GetEffective())
+			{
+			case RenderProfileBridge::Profile::Enhanced:
+				lua_pushstring(L, "enhanced");
+				return 1;
+			case RenderProfileBridge::Profile::Retro:
+				lua_pushstring(L, "retro");
+				return 1;
+			case RenderProfileBridge::Profile::Redux:
+				lua_pushstring(L, "default");
+				return 1;
+			default:
+				break; // fall through to the legacy scheme read
+			}
+		}
 
 		auto* viewport = GetCurrentViewport();
 		std::string scheme;
@@ -3265,6 +3297,15 @@ namespace ExtraUtilities::Lua::Environment
 	// frame. Default mode is the engine's own scheme, so nothing is enforced.
 	void EnforceDesiredLightingMode()
 	{
+		// With the render-profile bridge present, OpenShim owns scheme
+		// application and drift correction (its takeover rewrites every
+		// engine scheme call); enforcing here would fight the canonical
+		// owner.
+		if (RenderProfileBridge::HasRenderProfileApi())
+		{
+			return;
+		}
+
 		if (g_desiredLightingMode == ViewportLightingMode::Default)
 		{
 			return;
@@ -3320,6 +3361,24 @@ namespace ExtraUtilities::Lua::Environment
 		}
 	}
 
+	// Legacy ViewportLightingMode -> canonical content request. "default" was
+	// always the engine-native modern scheme, which the profile model names
+	// Redux; it is a real request (not Inherit) so legacy scripts keep their
+	// exact override semantics across the bridge.
+	RenderProfileBridge::Request ToContentRequest(ViewportLightingMode mode)
+	{
+		switch (mode)
+		{
+		case ViewportLightingMode::Enhanced:
+			return RenderProfileBridge::Request::Enhanced;
+		case ViewportLightingMode::Retro:
+			return RenderProfileBridge::Request::Retro;
+		case ViewportLightingMode::Default:
+		default:
+			return RenderProfileBridge::Request::Redux;
+		}
+	}
+
 	int SetLightingMode(lua_State* L)
 	{
 		Patch::TryInitializeOgre();
@@ -3328,6 +3387,21 @@ namespace ExtraUtilities::Lua::Environment
 		if (!TryParseLightingModeArg(L, 1, requestedMode))
 		{
 			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		// Canonical path: OpenShim owns renderer policy and scheme application
+		// once its render-profile bridge is present; EXU only forwards intent.
+		if (RenderProfileBridge::HasRenderProfileApi())
+		{
+			g_desiredLightingMode = requestedMode;
+			const bool forwarded =
+				RenderProfileBridge::Forward(ToContentRequest(requestedMode));
+			LogEnvironmentDebug(
+				"[EXU::Viewport] lighting mode=%s forwardedToShim=%d",
+				GetLightingModeName(requestedMode),
+				forwarded ? 1 : 0);
+			lua_pushboolean(L, forwarded ? 1 : 0);
 			return 1;
 		}
 
@@ -3376,6 +3450,19 @@ namespace ExtraUtilities::Lua::Environment
 			? ViewportLightingMode::Retro
 			: ViewportLightingMode::Default;
 
+		if (RenderProfileBridge::HasRenderProfileApi())
+		{
+			g_desiredLightingMode = requestedMode;
+			const bool forwarded =
+				RenderProfileBridge::Forward(ToContentRequest(requestedMode));
+			LogEnvironmentDebug(
+				"[EXU::Viewport] retro lighting=%d forwardedToShim=%d",
+				enabled ? 1 : 0,
+				forwarded ? 1 : 0);
+			lua_pushboolean(L, forwarded ? 1 : 0);
+			return 1;
+		}
+
 		// Remember the choice before touching viewports so a pre-viewport call
 		// still takes effect once EnforceDesiredLightingMode sees a viewport.
 		g_desiredLightingMode = requestedMode;
@@ -3419,6 +3506,193 @@ namespace ExtraUtilities::Lua::Environment
 		return 0;
 	}
 
+	// ---- OpenShim render-profile API (canonical renderer ownership) -------
+	//
+	// These exports let content speak in profile terms directly. Every query
+	// degrades gracefully when the shim is absent or too old to expose the
+	// render-profile ABI, so scripts can probe without risking failure.
+
+	bool TryParseRenderProfileArg(lua_State* L, int idx,
+								  RenderProfileBridge::Request& outRequest)
+	{
+		switch (lua_type(L, idx))
+		{
+		case LUA_TSTRING:
+		{
+			const std::string_view raw = luaL_checkstring(L, idx);
+			if (raw == "inherit")
+			{
+				outRequest = RenderProfileBridge::Request::Inherit;
+				return true;
+			}
+			if (raw == "retro" || raw == "og")
+			{
+				outRequest = RenderProfileBridge::Request::Retro;
+				return true;
+			}
+			if (raw == "redux" || raw == "default" || raw == "modern")
+			{
+				outRequest = RenderProfileBridge::Request::Redux;
+				return true;
+			}
+			if (raw == "enhanced" || raw == "en")
+			{
+				outRequest = RenderProfileBridge::Request::Enhanced;
+				return true;
+			}
+			luaL_error(L, "render profile must be inherit, retro, redux, or enhanced");
+			return false;
+		}
+		case LUA_TNUMBER:
+		{
+			switch (luaL_checkinteger(L, idx))
+			{
+			case 0:
+				outRequest = RenderProfileBridge::Request::Inherit;
+				return true;
+			case 1:
+				outRequest = RenderProfileBridge::Request::Retro;
+				return true;
+			case 2:
+				outRequest = RenderProfileBridge::Request::Redux;
+				return true;
+			case 3:
+				outRequest = RenderProfileBridge::Request::Enhanced;
+				return true;
+			default:
+				luaL_error(L, "render profile integer must be 0..3");
+				return false;
+			}
+		}
+		default:
+			luaL_error(L, "render profile must be a string or integer");
+			return false;
+		}
+	}
+
+	const char* ProfileToLegacyName(RenderProfileBridge::Profile profile)
+	{
+		switch (profile)
+		{
+		case RenderProfileBridge::Profile::Retro:
+			return "retro";
+		case RenderProfileBridge::Profile::Redux:
+			return "redux";
+		case RenderProfileBridge::Profile::Enhanced:
+			return "enhanced";
+		default:
+			return "inherit";
+		}
+	}
+
+	int RequestRenderProfile(lua_State* L)
+	{
+		RenderProfileBridge::Request request;
+		if (!TryParseRenderProfileArg(L, 1, request))
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+		if (!RenderProfileBridge::HasRenderProfileApi())
+		{
+			// Old/absent shim: map onto the legacy lighting-mode path so
+			// content written against this API still works everywhere.
+			switch (request)
+			{
+			case RenderProfileBridge::Request::Retro:
+				g_desiredLightingMode = ViewportLightingMode::Retro;
+				break;
+			case RenderProfileBridge::Request::Enhanced:
+				g_desiredLightingMode = ViewportLightingMode::Enhanced;
+				break;
+			case RenderProfileBridge::Request::Redux:
+				g_desiredLightingMode = ViewportLightingMode::Default;
+				break;
+			case RenderProfileBridge::Request::Inherit:
+			default:
+				g_desiredLightingMode = ViewportLightingMode::Default;
+				break;
+			}
+			EnforceDesiredLightingMode();
+			lua_pushboolean(L, 1);
+			return 1;
+		}
+		const bool ok = RenderProfileBridge::Forward(request);
+		lua_pushboolean(L, ok ? 1 : 0);
+		return 1;
+	}
+
+	int GetRequestedRenderProfile(lua_State* L)
+	{
+		if (!RenderProfileBridge::HasRenderProfileApi())
+		{
+			lua_pushstring(L, ProfileToLegacyName(RenderProfileBridge::Profile::Unknown));
+			return 1;
+		}
+		lua_pushstring(
+			L,
+			ProfileToLegacyName(RenderProfileBridge::GetRequestedContentOverride()));
+		return 1;
+	}
+
+	int GetEffectiveRenderProfile(lua_State* L)
+	{
+		if (!RenderProfileBridge::HasRenderProfileApi())
+		{
+			lua_pushstring(L, ProfileToLegacyName(RenderProfileBridge::Profile::Unknown));
+			return 1;
+		}
+		lua_pushstring(L, ProfileToLegacyName(RenderProfileBridge::GetEffective()));
+		return 1;
+	}
+
+	int GetUserRenderProfile(lua_State* L)
+	{
+		if (!RenderProfileBridge::HasRenderProfileApi())
+		{
+			lua_pushstring(L, ProfileToLegacyName(RenderProfileBridge::Profile::Unknown));
+			return 1;
+		}
+		lua_pushstring(L, ProfileToLegacyName(RenderProfileBridge::GetUserPreference()));
+		return 1;
+	}
+
+	int SupportsRenderProfile(lua_State* L)
+	{
+		RenderProfileBridge::Request request;
+		if (!TryParseRenderProfileArg(L, 1, request) ||
+			request == RenderProfileBridge::Request::Inherit)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+		const auto profile = static_cast<RenderProfileBridge::Profile>(request);
+		lua_pushboolean(L, RenderProfileBridge::Supports(profile) ? 1 : 0);
+		return 1;
+	}
+
+	int GetRenderCapabilities(lua_State* L)
+	{
+		const std::uint32_t mask = RenderProfileBridge::Capabilities();
+		lua_newtable(L);
+		const auto setField = [L](const char* name, bool value)
+		{
+			lua_pushboolean(L, value ? 1 : 0);
+			lua_setfield(L, -2, name);
+		};
+		setField("schemeRewrite", mask & RenderProfileBridge::CapSchemeRewrite);
+		setField("normalSharpening", mask & RenderProfileBridge::CapNormalSharpening);
+		setField("linearLighting", mask & RenderProfileBridge::CapLinearLighting);
+		setField("terrainEnhanced", mask & RenderProfileBridge::CapTerrainEnhanced);
+		setField("objectEnhanced", mask & RenderProfileBridge::CapObjectEnhanced);
+		setField("modernPssm", mask & RenderProfileBridge::CapModernPssm);
+		setField("lightSelection", mask & RenderProfileBridge::CapLightSelection);
+		setField("iblResources", mask & RenderProfileBridge::CapIblResources);
+		lua_pushinteger(L, static_cast<lua_Integer>(mask));
+		lua_setfield(L, -2, "mask");
+		return 1;
+	}
+
 	void InstallGameViewportSchemeHooks()
 	{
 		static bool attempted = false;
@@ -3427,6 +3701,16 @@ namespace ExtraUtilities::Lua::Environment
 			return;
 		}
 		attempted = true;
+
+		// OpenShim with the render-profile ABI owns the scheme call-site
+		// takeover; patching the same sites here would fight the canonical
+		// owner. Legacy shims (or no shim) keep the proven local hook below.
+		if (RenderProfileBridge::HasRenderProfileApi())
+		{
+			LogEnvironmentDebug(
+				"[EXU::Viewport] OpenShim render-profile bridge present; local viewport scheme hooks skipped");
+			return;
+		}
 
 		for (uintptr_t site : kViewportSchemeCallSites)
 		{
