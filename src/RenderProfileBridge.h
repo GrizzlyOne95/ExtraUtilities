@@ -44,6 +44,9 @@ namespace ExtraUtilities::RenderProfileBridge
 		CapModernPssm = 1u << 5,
 		CapLightSelection = 1u << 6,
 		CapIblResources = 1u << 7,
+		// Keep the mirror append-only with OpenShim. Bit 8 is the mandatory
+		// renderer-resource gate added by the finalized render-profile ABI.
+		CapEnhancedResources = 1u << 8,
 	};
 
 	using GetApiVersionFn = std::uint32_t(__cdecl*)();
