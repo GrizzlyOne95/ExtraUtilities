@@ -751,6 +751,7 @@ namespace ExtraUtilities::Lua
 
 			// IO
 			{ "GetGameKey", &IO::GetGameKey },
+			{ "IsGameUiOpen", &IO::IsGameUiOpen },
 			{ "IsPauseMenuOpen", &IO::IsPauseMenuOpen },
 			{ "GetPauseMenuDebugState", &IO::GetPauseMenuDebugState },
 

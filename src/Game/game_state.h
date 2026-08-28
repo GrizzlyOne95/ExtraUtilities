@@ -10,6 +10,7 @@ namespace ExtraUtilities
 		struct PauseMenuDebugState
 		{
 			bool cursorVisible = false;
+			bool gameUiOpen = false;
 			bool pauseMenuOpen = false;
 			bool singleplayerPauseOpen = false;
 			bool multiplayerPauseOpen = false;
@@ -17,11 +18,13 @@ namespace ExtraUtilities
 			uintptr_t singleplayerPauseRoot = 0;
 			uintptr_t multiplayerPauseRoot = 0;
 			uintptr_t uiCurrentScreen = 0;
+			uint32_t escapeUiWrapperActive = 0;
 			uint32_t uiWrapperActive = 0;
 			uint32_t uiCurrentScreenType = 0;
 			uint32_t multiplayerPauseFlag = 0;
 		};
 
+		bool IsGameUiOpen() noexcept;
 		bool IsPauseMenuOpen() noexcept;
 		bool IsSingleplayerPauseMenuOpen() noexcept;
 		bool IsMultiplayerPauseMenuOpen() noexcept;

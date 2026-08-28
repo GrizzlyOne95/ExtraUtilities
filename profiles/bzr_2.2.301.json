@@ -15,27 +15,27 @@
       "catalog_path": "Camera.Set_View",
       "match": "expected_va",
       "expected_va": "0x0061D120",
-      "required": true,
-      "runtime_gate": true,
-      "reason": "Known 2.2.301 camera function entry and existing hardening anchor."
+      "required": false,
+      "runtime_gate": false,
+      "reason": "Legacy catalog diagnostic retained for camera-address repair; the shipped 2.2.301 executable does not match this stale preimage, so it must not disable unrelated native hooks."
     },
     {
       "name": "Camera.View_Record_MainCam reference",
       "source": "catalog",
       "catalog_path": "Camera.View_Record_MainCam",
       "match": "executable_contains",
-      "required": true,
-      "runtime_gate": true,
-      "reason": "Confirms executable code still references the known 2.2.301 main-camera global."
+      "required": false,
+      "runtime_gate": false,
+      "reason": "Legacy catalog diagnostic retained for camera-address repair; the shipped 2.2.301 executable does not contain this stale reference pattern."
     },
     {
       "name": "Camera.zoomFactorFPP reference",
       "source": "catalog",
       "catalog_path": "Camera.zoomFactorFPP",
       "match": "executable_contains",
-      "required": true,
-      "runtime_gate": true,
-      "reason": "Independent camera data reference; catches data-layout relocation even if Set_View itself is unchanged."
+      "required": false,
+      "runtime_gate": false,
+      "reason": "Legacy catalog diagnostic retained for camera-address repair; the shipped 2.2.301 executable does not contain this stale reference pattern."
     },
     {
       "name": "Overlay pause wrapper",
@@ -49,14 +49,24 @@
       "reason": "Existing overlay hook preimage from a separate BZR subsystem; used here to avoid a single-anchor build identity."
     },
     {
+      "name": "Overlay game shell wrapper",
+      "source": "catalog",
+      "catalog_path": "GameUI.MainShellWrapper",
+      "match": "expected_va",
+      "expected_va": "0x005D42E0",
+      "required": true,
+      "runtime_gate": true,
+      "reason": "Validates the long-lived shell boundary that suppresses custom overlays on mission-success, mission-failure, and all other stock shell pages."
+    },
+    {
       "name": "Wingman Hunt activation",
       "source": "inline",
       "pattern": "83 7D 08 0D 75 10 6A 14 8B 4D FC E8 ? ? ? ? B0 01 EB ? EB ? 83 7D 08 10 75 ? A1 ? ? ? ? 50 6A 06 8B 4D FC E8 ? ? ? ?",
       "match": "unique_executable",
-      "required": false,
-      "runtime_gate": false,
+      "required": true,
+      "runtime_gate": true,
       "source_file": "src/Game/CommandReplacement.cpp",
-      "reason": "Useful diagnostic signature for the command-replacement subsystem; not a global startup requirement."
+      "reason": "Unique, independently validated 2.2.301 gameplay anchor outside the UI subsystem; prevents the overlay wrappers alone from becoming the entire global native-patch gate."
     }
   ]
 }
