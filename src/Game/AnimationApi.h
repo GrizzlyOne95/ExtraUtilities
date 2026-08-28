@@ -35,6 +35,7 @@
 
 #include "Game/GameObject.h"
 #include "LuaHelpers.h"
+#include "OpenShimBridge.h"
 #include "Util/Logging.h"
 
 #include <lua.hpp>
@@ -73,9 +74,25 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 		inline bool IsTargetSupported(const Target& target)
 		{
-			// The first-person target deliberately remains fail-closed until the
-			// aspilo_fp ownership experiment identifies a stable resolver.
-			return target.kind == TargetKind::GameObject && target.handle != 0;
+			if (target.kind == TargetKind::GameObject)
+				return target.handle != 0;
+			return OpenShimBridge::HasLocalFirstPersonEntityBridge();
+		}
+
+		inline void* ResolveTargetEntity(const Target& target, std::uint64_t* generation = nullptr)
+		{
+			if (generation)
+				*generation = 0;
+			if (target.kind == TargetKind::GameObject)
+				return target.handle ? GameObject::ResolveAnimationEntity(target.handle) : nullptr;
+
+			void* entity = nullptr;
+			std::uint64_t resolvedGeneration = 0;
+			if (!OpenShimBridge::ResolveLocalFirstPersonEntity(entity, resolvedGeneration))
+				return nullptr;
+			if (generation)
+				*generation = resolvedGeneration;
+			return entity;
 		}
 
 		inline Target ReadTarget(lua_State* L, int index)
@@ -162,59 +179,52 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_pushlightuserdata(L, reinterpret_cast<void*>(handle));
 		}
 
-		inline bool RawHas(lua_State* L, BZR::handle handle, const std::string& name)
+		inline bool RawHas(void* entity, const std::string& name)
 		{
-			lua_settop(L, 0);
-			PushHandle(L, handle);
-			lua_pushlstring(L, name.data(), name.size());
-			GameObject::HasEntityAnimation(L);
-			const bool result = lua_toboolean(L, -1) != 0;
-			lua_settop(L, 0);
-			return result;
+			return GameObject::HasAnimation(entity, name);
 		}
 
-		inline int RawGetInfo(lua_State* L, BZR::handle handle, const std::string& name)
+		inline int RawGetInfo(lua_State* L, void* entity, const std::string& name)
 		{
 			lua_settop(L, 0);
-			PushHandle(L, handle);
-			lua_pushlstring(L, name.data(), name.size());
-			return GameObject::GetEntityAnimationInfo(L);
+			GameObject::EntityAnimationInfo info{};
+			if (!GameObject::GetAnimationInfo(entity, name, info))
+			{
+				lua_pushnil(L);
+				return 1;
+			}
+			lua_createtable(L, 0, 5);
+			lua_pushboolean(L, info.enabled ? 1 : 0);
+			lua_setfield(L, -2, "enabled");
+			lua_pushboolean(L, info.loop ? 1 : 0);
+			lua_setfield(L, -2, "loop");
+			lua_pushnumber(L, info.weight);
+			lua_setfield(L, -2, "weight");
+			lua_pushnumber(L, info.timePosition);
+			lua_setfield(L, -2, "timePosition");
+			lua_pushnumber(L, info.length);
+			lua_setfield(L, -2, "length");
+			return 1;
 		}
 
-		inline void RawSetEnabled(lua_State* L, BZR::handle handle, const std::string& name, bool enabled)
+		inline bool RawSetEnabled(void* entity, const std::string& name, bool enabled)
 		{
-			lua_settop(L, 0);
-			PushHandle(L, handle);
-			lua_pushlstring(L, name.data(), name.size());
-			lua_pushboolean(L, enabled ? 1 : 0);
-			GameObject::SetEntityAnimationEnabled(L);
+			return GameObject::SetAnimationEnabled(entity, name, enabled);
 		}
 
-		inline void RawSetLoop(lua_State* L, BZR::handle handle, const std::string& name, bool loop)
+		inline bool RawSetLoop(void* entity, const std::string& name, bool loop)
 		{
-			lua_settop(L, 0);
-			PushHandle(L, handle);
-			lua_pushlstring(L, name.data(), name.size());
-			lua_pushboolean(L, loop ? 1 : 0);
-			GameObject::SetEntityAnimationLoop(L);
+			return GameObject::SetAnimationLoop(entity, name, loop);
 		}
 
-		inline void RawSetWeight(lua_State* L, BZR::handle handle, const std::string& name, float weight)
+		inline bool RawSetWeight(void* entity, const std::string& name, float weight)
 		{
-			lua_settop(L, 0);
-			PushHandle(L, handle);
-			lua_pushlstring(L, name.data(), name.size());
-			lua_pushnumber(L, weight);
-			GameObject::SetEntityAnimationWeight(L);
+			return GameObject::SetAnimationWeight(entity, name, weight);
 		}
 
-		inline void RawSetTime(lua_State* L, BZR::handle handle, const std::string& name, float timePosition)
+		inline bool RawSetTime(void* entity, const std::string& name, float timePosition)
 		{
-			lua_settop(L, 0);
-			PushHandle(L, handle);
-			lua_pushlstring(L, name.data(), name.size());
-			lua_pushnumber(L, timePosition);
-			GameObject::SetEntityAnimationTime(L);
+			return GameObject::SetAnimationTime(entity, name, timePosition);
 		}
 
 		inline void AddDerivedInfo(lua_State* L, const Target& target, const std::string& name)
@@ -261,18 +271,27 @@ namespace ExtraUtilities::Lua::AnimationApi
 		return 1;
 	}
 
+	inline int TargetLocalFirstPerson(lua_State* L)
+	{
+		lua_createtable(L, 0, 1);
+		lua_pushstring(L, "localFirstPerson");
+		lua_setfield(L, -2, "kind");
+		return 1;
+	}
+
 	inline int GetCapabilities(lua_State* L)
 	{
 		lua_createtable(L, 0, 5);
 		lua_pushboolean(L, 1);
 		lua_setfield(L, -2, "gameObjectTarget");
-		lua_pushboolean(L, 0);
+		const bool hasFpBridge = OpenShimBridge::HasLocalFirstPersonEntityBridge();
+		lua_pushboolean(L, hasFpBridge ? 1 : 0);
 		lua_setfield(L, -2, "localFirstPersonTarget");
 		lua_pushboolean(L, 0);
 		lua_setfield(L, -2, "managedClock");
 		lua_pushstring(L, "unvalidated");
 		lua_setfield(L, -2, "nativeAdvancement");
-		lua_pushstring(L, "aspilo_fp resolver requires live ownership validation");
+		lua_pushstring(L, hasFpBridge ? "stock control proven-runtime via OpenShim resolver" : "OpenShim resolver unavailable");
 		lua_setfield(L, -2, "firstPersonStatus");
 		return 1;
 	}
@@ -281,14 +300,15 @@ namespace ExtraUtilities::Lua::AnimationApi
 	{
 		const Detail::Target target = Detail::ReadTarget(L, 1);
 		const std::string name = luaL_checkstring(L, 2);
-		if (!Detail::IsTargetSupported(target))
+		void* entity = Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
+		if (!entity)
 		{
 			lua_settop(L, 0);
 			lua_pushboolean(L, 0);
 			return 1;
 		}
 
-		const bool result = Detail::RawHas(L, target.handle, name);
+		const bool result = Detail::RawHas(entity, name);
 		lua_pushboolean(L, result ? 1 : 0);
 		return 1;
 	}
@@ -297,14 +317,15 @@ namespace ExtraUtilities::Lua::AnimationApi
 	{
 		const Detail::Target target = Detail::ReadTarget(L, 1);
 		const std::string name = luaL_checkstring(L, 2);
-		if (!Detail::IsTargetSupported(target))
+		void* entity = Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
+		if (!entity)
 		{
 			lua_settop(L, 0);
 			lua_pushnil(L);
 			return 1;
 		}
 
-		Detail::RawGetInfo(L, target.handle, name);
+		Detail::RawGetInfo(L, entity, name);
 		if (!lua_istable(L, -1))
 		{
 			return 1;
@@ -318,7 +339,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 		const Detail::Target target = Detail::ReadTarget(L, 1);
 		const std::string name = luaL_checkstring(L, 2);
 		const Detail::PlayOptions options = Detail::ReadPlayOptions(L, 3);
-		if (!Detail::IsTargetSupported(target) || !Detail::RawHas(L, target.handle, name))
+		void* entity = Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
+		if (!entity || !Detail::RawHas(entity, name))
 		{
 			lua_pushboolean(L, 0);
 			return 1;
@@ -326,13 +348,17 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 		if (options.restart)
 		{
-			Detail::RawSetTime(L, target.handle, name, 0.0f);
+			if (!Detail::RawSetTime(entity, name, 0.0f))
+			{
+				lua_pushboolean(L, 0);
+				return 1;
+			}
 		}
-		Detail::RawSetLoop(L, target.handle, name, options.loop);
-		Detail::RawSetWeight(L, target.handle, name, options.weight);
-		Detail::RawSetEnabled(L, target.handle, name, true);
+		const bool applied = Detail::RawSetLoop(entity, name, options.loop) &&
+			Detail::RawSetWeight(entity, name, options.weight) &&
+			Detail::RawSetEnabled(entity, name, true);
 		lua_settop(L, 0);
-		lua_pushboolean(L, 1);
+		lua_pushboolean(L, applied ? 1 : 0);
 		return 1;
 	}
 
@@ -341,19 +367,20 @@ namespace ExtraUtilities::Lua::AnimationApi
 		const Detail::Target target = Detail::ReadTarget(L, 1);
 		const std::string name = luaL_checkstring(L, 2);
 		const bool reset = lua_isnoneornil(L, 3) ? false : CheckBool(L, 3);
-		if (!Detail::IsTargetSupported(target) || !Detail::RawHas(L, target.handle, name))
+		void* entity = Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
+		if (!entity || !Detail::RawHas(entity, name))
 		{
 			lua_pushboolean(L, 0);
 			return 1;
 		}
 
-		Detail::RawSetEnabled(L, target.handle, name, false);
+		bool applied = Detail::RawSetEnabled(entity, name, false);
 		if (reset)
 		{
-			Detail::RawSetTime(L, target.handle, name, 0.0f);
+			applied = Detail::RawSetTime(entity, name, 0.0f) && applied;
 		}
 		lua_settop(L, 0);
-		lua_pushboolean(L, 1);
+		lua_pushboolean(L, applied ? 1 : 0);
 		return 1;
 	}
 
@@ -361,16 +388,17 @@ namespace ExtraUtilities::Lua::AnimationApi
 	{
 		const Detail::Target target = Detail::ReadTarget(L, 1);
 		const std::string name = luaL_checkstring(L, 2);
-		if (!Detail::IsTargetSupported(target) || !Detail::RawHas(L, target.handle, name))
+		void* entity = Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
+		if (!entity || !Detail::RawHas(entity, name))
 		{
 			lua_pushboolean(L, 0);
 			return 1;
 		}
 
-		Detail::RawSetTime(L, target.handle, name, 0.0f);
-		Detail::RawSetEnabled(L, target.handle, name, true);
+		const bool applied = Detail::RawSetTime(entity, name, 0.0f) &&
+			Detail::RawSetEnabled(entity, name, true);
 		lua_settop(L, 0);
-		lua_pushboolean(L, 1);
+		lua_pushboolean(L, applied ? 1 : 0);
 		return 1;
 	}
 
@@ -379,14 +407,15 @@ namespace ExtraUtilities::Lua::AnimationApi
 		const Detail::Target target = Detail::ReadTarget(L, 1);
 		const std::string name = luaL_checkstring(L, 2);
 		const bool enabled = CheckBool(L, 3);
-		if (!Detail::IsTargetSupported(target) || !Detail::RawHas(L, target.handle, name))
+		void* entity = Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
+		if (!entity || !Detail::RawHas(entity, name))
 		{
 			lua_pushboolean(L, 0);
 			return 1;
 		}
-		Detail::RawSetEnabled(L, target.handle, name, enabled);
+		const bool applied = Detail::RawSetEnabled(entity, name, enabled);
 		lua_settop(L, 0);
-		lua_pushboolean(L, 1);
+		lua_pushboolean(L, applied ? 1 : 0);
 		return 1;
 	}
 
@@ -395,14 +424,15 @@ namespace ExtraUtilities::Lua::AnimationApi
 		const Detail::Target target = Detail::ReadTarget(L, 1);
 		const std::string name = luaL_checkstring(L, 2);
 		const bool loop = CheckBool(L, 3);
-		if (!Detail::IsTargetSupported(target) || !Detail::RawHas(L, target.handle, name))
+		void* entity = Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
+		if (!entity || !Detail::RawHas(entity, name))
 		{
 			lua_pushboolean(L, 0);
 			return 1;
 		}
-		Detail::RawSetLoop(L, target.handle, name, loop);
+		const bool applied = Detail::RawSetLoop(entity, name, loop);
 		lua_settop(L, 0);
-		lua_pushboolean(L, 1);
+		lua_pushboolean(L, applied ? 1 : 0);
 		return 1;
 	}
 
@@ -415,14 +445,15 @@ namespace ExtraUtilities::Lua::AnimationApi
 		{
 			return luaL_argerror(L, 3, "animation weight must be a finite value in [0, 1]");
 		}
-		if (!Detail::IsTargetSupported(target) || !Detail::RawHas(L, target.handle, name))
+		void* entity = Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
+		if (!entity || !Detail::RawHas(entity, name))
 		{
 			lua_pushboolean(L, 0);
 			return 1;
 		}
-		Detail::RawSetWeight(L, target.handle, name, weight);
+		const bool applied = Detail::RawSetWeight(entity, name, weight);
 		lua_settop(L, 0);
-		lua_pushboolean(L, 1);
+		lua_pushboolean(L, applied ? 1 : 0);
 		return 1;
 	}
 
@@ -435,14 +466,15 @@ namespace ExtraUtilities::Lua::AnimationApi
 		{
 			return luaL_argerror(L, 3, "animation time must be a finite non-negative value");
 		}
-		if (!Detail::IsTargetSupported(target) || !Detail::RawHas(L, target.handle, name))
+		void* entity = Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
+		if (!entity || !Detail::RawHas(entity, name))
 		{
 			lua_pushboolean(L, 0);
 			return 1;
 		}
-		Detail::RawSetTime(L, target.handle, name, timePosition);
+		const bool applied = Detail::RawSetTime(entity, name, timePosition);
 		lua_settop(L, 0);
-		lua_pushboolean(L, 1);
+		lua_pushboolean(L, applied ? 1 : 0);
 		return 1;
 	}
 
@@ -464,6 +496,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 		static const luaL_Reg functions[] = {
 			{ "Target", &Target },
+			{ "TargetLocalFirstPerson", &TargetLocalFirstPerson },
 			{ "GetCapabilities", &GetCapabilities },
 			{ "Has", &Has },
 			{ "GetInfo", &GetInfo },
@@ -482,6 +515,6 @@ namespace ExtraUtilities::Lua::AnimationApi
 		lua_setfield(L, -2, "animation");
 		lua_settop(L, originalTop);
 
-		Logging::LogMessage("exu: installed high-level animation API (gameObject target; first-person resolver pending validation)");
+		Logging::LogMessage("exu: installed high-level animation API (gameObject + OpenShim local-first-person targets)");
 	}
 }
