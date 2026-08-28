@@ -101,8 +101,14 @@ def check_address_catalog() -> None:
     if len(runtime_anchors) < 3:
         fail("runtime BZR build profile must contain at least three required anchors")
 
-    if not any(anchor.get("name") == "Camera.Set_View" for anchor in runtime_anchors):
-        fail("runtime BZR build profile is missing its Set_View anchor")
+    required_anchor_names = {anchor.get("name") for anchor in runtime_anchors}
+    for required_name in (
+        "Overlay pause wrapper",
+        "Overlay game shell wrapper",
+        "Wingman Hunt activation",
+    ):
+        if required_name not in required_anchor_names:
+            fail(f"runtime BZR build profile is missing required anchor: {required_name}")
 
     for anchor in anchors:
         if anchor.get("source") == "catalog":
@@ -120,7 +126,9 @@ def check_address_catalog() -> None:
     required_generated_markers = [
         'kProfileId = "bzr-2.2.301"',
         'kGameVersion = "2.2.301"',
-        '"Camera.Set_View"',
+        '"Overlay pause wrapper"',
+        '"Overlay game shell wrapper"',
+        '"Wingman Hunt activation"',
         "kRuntimeAnchors",
     ]
     for marker in required_generated_markers:
