@@ -3392,6 +3392,52 @@ namespace ExtraUtilities::Lua::GameObject
 		}
 	}
 
+	void* ResolveAnimationEntity(BZR::handle handle)
+	{
+		return GetRenderableEntity(handle);
+	}
+
+	bool HasAnimation(void* entity, const std::string& name)
+	{
+		return entity != nullptr && GetNamedAnimationState(entity, name) != nullptr;
+	}
+
+	bool GetAnimationInfo(void* entity, const std::string& name, EntityAnimationInfo& outInfo)
+	{
+		void* animationState = entity ? GetNamedAnimationState(entity, name) : nullptr;
+		if (!animationState)
+			return false;
+		return TryGetAnimationEnabled(animationState, outInfo.enabled) &&
+			TryGetAnimationLoop(animationState, outInfo.loop) &&
+			TryGetAnimationWeight(animationState, outInfo.weight) &&
+			TryGetAnimationTimePosition(animationState, outInfo.timePosition) &&
+			TryGetAnimationLength(animationState, outInfo.length);
+	}
+
+	bool SetAnimationEnabled(void* entity, const std::string& name, bool enabled)
+	{
+		void* animationState = entity ? GetNamedAnimationState(entity, name) : nullptr;
+		return animationState && TrySetAnimationEnabled(animationState, enabled);
+	}
+
+	bool SetAnimationLoop(void* entity, const std::string& name, bool loop)
+	{
+		void* animationState = entity ? GetNamedAnimationState(entity, name) : nullptr;
+		return animationState && TrySetAnimationLoop(animationState, loop);
+	}
+
+	bool SetAnimationWeight(void* entity, const std::string& name, float weight)
+	{
+		void* animationState = entity ? GetNamedAnimationState(entity, name) : nullptr;
+		return animationState && TrySetAnimationWeight(animationState, weight);
+	}
+
+	bool SetAnimationTime(void* entity, const std::string& name, float timePosition)
+	{
+		void* animationState = entity ? GetNamedAnimationState(entity, name) : nullptr;
+		return animationState && TrySetAnimationTimePosition(animationState, timePosition);
+	}
+
 	int SetAsUser(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
