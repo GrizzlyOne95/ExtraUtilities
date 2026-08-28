@@ -66,6 +66,8 @@ namespace ExtraUtilities::Lua::Overlay
 		void* overlaySystemInstance = nullptr;
 		std::unique_ptr<Hook> overlayPauseEnterHook;
 		std::unique_ptr<Hook> overlayPauseExitHook;
+		std::unique_ptr<Hook> overlayGameShellEnterHook;
+		std::unique_ptr<Hook> overlayGameShellExitHook;
 		constexpr size_t kOverlaySystemAllocSize = 256;
 		constexpr const char* kOverlayRuntimeResourceGroup = "EXUOverlayRuntime";
 		constexpr const char* kOverlayRuntimeFontResourceGroup = "EXUOverlayFontRuntime";
@@ -86,8 +88,11 @@ namespace ExtraUtilities::Lua::Overlay
 		std::string overlayRuntimeFontScriptPath;
 		bool overlayPauseHooksAttempted = false;
 		bool overlayPauseHooksReady = false;
+		bool overlayGameShellHooksAttempted = false;
+		bool overlayGameShellHooksReady = false;
 		bool overlaySuppressionActive = false;
 		volatile long overlayPauseWrapperDepth = 0;
+		volatile long overlayGameShellWrapperDepth = 0;
 		constexpr uintptr_t kPauseWrapperFunctionAddr = 0x005D4690;
 		constexpr uintptr_t kPauseWrapperEntryHookOffset = 0x26;
 		constexpr uintptr_t kPauseWrapperExitHookOffset = 0x1CA;
@@ -106,6 +111,23 @@ namespace ExtraUtilities::Lua::Overlay
 		};
 		constexpr std::array<uint8_t, 7> kPauseWrapperExitHookBytes = {
 			0xC6, 0x05, 0x2B, 0x81, 0x91, 0x00, 0x00
+		};
+		constexpr uintptr_t kGameShellWrapperFunctionAddr = 0x005D42E0;
+		constexpr uintptr_t kGameShellWrapperEntryHookOffset = 0x32;
+		constexpr uintptr_t kGameShellWrapperExitHookOffset = 0x332;
+		constexpr std::array<uint8_t, 21> kGameShellWrapperFunctionPattern = {
+			0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x34, 0xA1, 0x00, 0x70, 0x8E, 0x00,
+			0x33, 0xC5, 0x89, 0x45, 0xFC, 0x68, 0x28, 0x79, 0x88, 0x00
+		};
+		constexpr std::array<uint8_t, 21> kGameShellWrapperFunctionMask = {
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+			1, 1, 1, 1, 1, 1, 1, 1, 1, 1
+		};
+		constexpr std::array<uint8_t, 10> kGameShellWrapperEntryHookBytes = {
+			0xC7, 0x05, 0x24, 0x83, 0x91, 0x00, 0x01, 0x00, 0x00, 0x00
+		};
+		constexpr std::array<uint8_t, 10> kGameShellWrapperExitHookBytes = {
+			0xC7, 0x05, 0x24, 0x83, 0x91, 0x00, 0x00, 0x00, 0x00, 0x00
 		};
 
 		void EnsureOverlayPauseHooksInstalled();
@@ -257,7 +279,9 @@ namespace ExtraUtilities::Lua::Overlay
 
 		bool IsOverlaySuppressedByGameUi() noexcept
 		{
-			return overlayPauseWrapperDepth > 0 || ExtraUtilities::GameState::IsPauseMenuOpen();
+			return overlayPauseWrapperDepth > 0
+				|| overlayGameShellWrapperDepth > 0
+				|| ExtraUtilities::GameState::IsGameUiOpen();
 		}
 
 		using GetViewportOverlaysEnabledFn = bool(__thiscall*)(void*);
@@ -1274,22 +1298,23 @@ namespace ExtraUtilities::Lua::Overlay
 				overlaySuppressionActive ? 1 : 0);
 		}
 
-		void RefreshOverlaySuppressionState(const char* reason)
+		void RefreshOverlaySuppressionState(const char* reason, bool synchronizeVisibility = true)
 		{
 			const bool shouldSuppress = IsOverlaySuppressedByGameUi();
 			if (overlaySuppressionActive != shouldSuppress)
 			{
 				Logging::LogMessage(
-					"[EXU::Overlay] Suppression state changed reason=%s suppressed=%d depth=%ld pauseProbe=%d tracked=%u",
+					"[EXU::Overlay] Suppression state changed reason=%s suppressed=%d pauseDepth=%ld shellDepth=%ld gameUiProbe=%d tracked=%u",
 					reason != nullptr ? reason : "unknown",
 					shouldSuppress ? 1 : 0,
 					overlayPauseWrapperDepth,
-					ExtraUtilities::GameState::IsPauseMenuOpen() ? 1 : 0,
+					overlayGameShellWrapperDepth,
+					ExtraUtilities::GameState::IsGameUiOpen() ? 1 : 0,
 					static_cast<unsigned>(overlayVisibilityStates.size()));
 			}
 
 			overlaySuppressionActive = shouldSuppress;
-			if (overlayVisibilityStates.empty())
+			if (!synchronizeVisibility || overlayVisibilityStates.empty())
 			{
 				return;
 			}
@@ -1318,6 +1343,28 @@ namespace ExtraUtilities::Lua::Overlay
 
 			Logging::LogMessage("[EXU::Overlay] pause wrapper exit depth=%ld", depth);
 			RefreshOverlaySuppressionState("pause-wrapper-exit");
+		}
+
+		void OnOverlayGameShellWrapperEnter()
+		{
+			const long depth = InterlockedIncrement(&overlayGameShellWrapperDepth);
+			Logging::LogMessage("[EXU::Overlay] game shell wrapper enter depth=%ld", depth);
+			RefreshOverlaySuppressionState("game-shell-wrapper-enter");
+		}
+
+		void OnOverlayGameShellWrapperExit()
+		{
+			long depth = InterlockedDecrement(&overlayGameShellWrapperDepth);
+			if (depth < 0)
+			{
+				overlayGameShellWrapperDepth = 0;
+				depth = 0;
+			}
+
+			Logging::LogMessage("[EXU::Overlay] game shell wrapper exit depth=%ld", depth);
+			// Do not resurrect overlays requested by the mission that just ended.
+			// A new mission's first ShowOverlay call will synchronize them normally.
+			RefreshOverlaySuppressionState("game-shell-wrapper-exit", false);
 		}
 
 		static void __declspec(naked) OverlayPauseWrapperEnterHook()
@@ -1360,12 +1407,51 @@ namespace ExtraUtilities::Lua::Overlay
 			}
 		}
 
+		static void __declspec(naked) OverlayGameShellWrapperEnterHook()
+		{
+			__asm
+			{
+				mov dword ptr ds:[0x00918324], 1
+
+				pushad
+				pushfd
+
+				call OnOverlayGameShellWrapperEnter
+
+				popfd
+				popad
+				ret
+			}
+		}
+
+		static void __declspec(naked) OverlayGameShellWrapperExitHook()
+		{
+			__asm
+			{
+				mov dword ptr ds:[0x00918324], 0
+
+				pushad
+				pushfd
+
+				call OnOverlayGameShellWrapperExit
+
+				popfd
+				popad
+				ret
+			}
+		}
+
 		void DestroyOverlayPauseHooks()
 		{
+			overlayGameShellExitHook.reset();
+			overlayGameShellEnterHook.reset();
 			overlayPauseExitHook.reset();
 			overlayPauseEnterHook.reset();
+			overlayGameShellHooksReady = false;
+			overlayGameShellHooksAttempted = false;
 			overlayPauseHooksReady = false;
 			overlayPauseHooksAttempted = false;
+			overlayGameShellWrapperDepth = 0;
 			overlayPauseWrapperDepth = 0;
 			overlaySuppressionActive = false;
 		}
@@ -1394,8 +1480,84 @@ namespace ExtraUtilities::Lua::Overlay
 				kPauseWrapperFunctionPattern.size());
 		}
 
+		uintptr_t ResolveGameShellWrapperFunctionAddress()
+		{
+			if (MatchBytes(kGameShellWrapperFunctionAddr, kGameShellWrapperFunctionPattern))
+			{
+				return kGameShellWrapperFunctionAddr;
+			}
+
+			const uint8_t* textData = nullptr;
+			size_t textSize = 0;
+			uintptr_t textAddress = 0;
+			if (!TryGetMainModuleTextSection(textData, textSize, textAddress))
+			{
+				return 0;
+			}
+
+			return FindMaskedPattern(
+				textData,
+				textSize,
+				textAddress,
+				kGameShellWrapperFunctionPattern.data(),
+				kGameShellWrapperFunctionMask.data(),
+				kGameShellWrapperFunctionPattern.size());
+		}
+
+		void EnsureOverlayGameShellHooksInstalled()
+		{
+			if (overlayGameShellHooksAttempted)
+			{
+				return;
+			}
+
+			overlayGameShellHooksAttempted = true;
+			const uintptr_t functionAddress = ResolveGameShellWrapperFunctionAddress();
+			if (functionAddress == 0)
+			{
+				Logging::LogMessage("[EXU::Overlay] game shell wrapper hook install failed reason=function-not-found");
+				return;
+			}
+
+			const uintptr_t entryHookAddress = functionAddress + kGameShellWrapperEntryHookOffset;
+			const uintptr_t exitHookAddress = functionAddress + kGameShellWrapperExitHookOffset;
+			if (!MatchBytes(entryHookAddress, kGameShellWrapperEntryHookBytes)
+				|| !MatchBytes(exitHookAddress, kGameShellWrapperExitHookBytes))
+			{
+				Logging::LogMessage(
+					"[EXU::Overlay] game shell wrapper hook install failed reason=byte-mismatch function=%p entry=%p exit=%p",
+					reinterpret_cast<void*>(functionAddress),
+					reinterpret_cast<void*>(entryHookAddress),
+					reinterpret_cast<void*>(exitHookAddress));
+				return;
+			}
+
+			overlayGameShellEnterHook = std::make_unique<Hook>(
+				entryHookAddress,
+				&OverlayGameShellWrapperEnterHook,
+				kGameShellWrapperEntryHookBytes.size(),
+				BasicPatch::Status::ACTIVE);
+			overlayGameShellExitHook = std::make_unique<Hook>(
+				exitHookAddress,
+				&OverlayGameShellWrapperExitHook,
+				kGameShellWrapperExitHookBytes.size(),
+				BasicPatch::Status::ACTIVE);
+
+			overlayGameShellHooksReady = overlayGameShellEnterHook != nullptr
+				&& overlayGameShellEnterHook->IsActive()
+				&& overlayGameShellExitHook != nullptr
+				&& overlayGameShellExitHook->IsActive();
+			Logging::LogMessage(
+				"[EXU::Overlay] game shell wrapper hooks %s function=%p entry=%p exit=%p",
+				overlayGameShellHooksReady ? "ready" : "inactive",
+				reinterpret_cast<void*>(functionAddress),
+				reinterpret_cast<void*>(entryHookAddress),
+				reinterpret_cast<void*>(exitHookAddress));
+		}
+
 		void EnsureOverlayPauseHooksInstalled()
 		{
+			EnsureOverlayGameShellHooksInstalled();
 			if (overlayPauseHooksAttempted)
 			{
 				return;

@@ -52,6 +52,12 @@ namespace ExtraUtilities::Lua::IO
 		return 1;
 	}
 
+	int IsGameUiOpen(lua_State* L)
+	{
+		lua_pushboolean(L, ExtraUtilities::GameState::IsGameUiOpen());
+		return 1;
+	}
+
 	int GetPauseMenuDebugState(lua_State* L)
 	{
 		ExtraUtilities::GameState::PauseMenuDebugState state{};
@@ -61,6 +67,9 @@ namespace ExtraUtilities::Lua::IO
 
 		lua_pushboolean(L, ok);
 		lua_setfield(L, -2, "ok");
+
+		lua_pushboolean(L, state.gameUiOpen);
+		lua_setfield(L, -2, "gameUiOpen");
 
 		lua_pushboolean(L, state.pauseMenuOpen);
 		lua_setfield(L, -2, "pauseOpen");
@@ -85,6 +94,9 @@ namespace ExtraUtilities::Lua::IO
 
 		lua_pushinteger(L, static_cast<lua_Integer>(state.uiCurrentScreen));
 		lua_setfield(L, -2, "uiCurrentScreen");
+
+		lua_pushinteger(L, static_cast<lua_Integer>(state.escapeUiWrapperActive));
+		lua_setfield(L, -2, "escapeUiWrapperActive");
 
 		lua_pushinteger(L, static_cast<lua_Integer>(state.uiWrapperActive));
 		lua_setfield(L, -2, "uiWrapperActive");

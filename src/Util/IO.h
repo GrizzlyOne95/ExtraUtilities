@@ -67,6 +67,7 @@ namespace ExtraUtilities::Lua::IO
 	}
 
 	int GetGameKey(lua_State* L);
+	int IsGameUiOpen(lua_State* L);
 	int IsPauseMenuOpen(lua_State* L);
 	int GetPauseMenuDebugState(lua_State* L);
 }

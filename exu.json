@@ -14,6 +14,20 @@
     "note": "BZR is a 32-bit process. All absolute addresses are virtual addresses in the default load image."
   },
   "addresses": {
+    "GameUI": {
+      "EscapeWrapperActive": {
+        "address": "0x00918310",
+        "type": "uint32_t*",
+        "description": "Nonzero for the full blocking lifetime of the Escape/in-game UI wrapper, including nested pause, options, save, load, and restart pages. The signature is the unique helper that reads this global.",
+        "pattern": "55 8B EC 83 3D 10 83 91 00 00 74 07 C6 05 DF 55 94 00 01 5D C3"
+      },
+      "MainShellWrapper": {
+        "address": "0x005D42E0",
+        "type": "function: void __cdecl()",
+        "description": "Long-lived stock shell wrapper used by the title shell and by mission-success/failure screens. Overlay suppression hooks its active-flag writes so mission HUD overlays cannot leak into any shell page.",
+        "pattern": "55 8B EC 83 EC 34 A1 00 70 8E 00 33 C5 89 45 FC 68 28 79 88 00"
+      }
+    },
     "Camera": {
       "View_Record_MainCam": {
         "address": "0x008EAAE0",
