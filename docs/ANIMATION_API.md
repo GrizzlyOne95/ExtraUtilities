@@ -10,8 +10,8 @@ It deliberately sits above the existing low-level functions (`HasEntityAnimation
 - Every operation reuses the existing SEH-guarded GameObject/Ogre resolver.
 - No new executable patch or frame hook is installed by this API.
 - Redux/Ogre remains responsible for animation evaluation and time advancement.
-- Unsupported target kinds fail closed.
-- The public target abstraction is intentionally broader than the first implementation so a validated first-person `aspilo_fp` resolver can be added later without changing `Play`, `Stop`, `Seek`, etc.
+- Unsupported or temporarily unavailable targets fail closed.
+- `TargetLocalFirstPerson()` resolves the qualified OpenShim `aspilo_fp` target afresh for every operation; neither EXU nor Lua caches its Ogre pointer.
 
 ## Basic use
 
@@ -61,7 +61,20 @@ The descriptor currently has this shape:
 }
 ```
 
-The internal target system also reserves `localFirstPerson`, but that target is intentionally unavailable until the `aspilo_fp` ownership path is confirmed in a live Redux run.
+The dedicated local first-person target is selected without a BZR handle:
+
+```lua
+local fp = exu.animation.TargetLocalFirstPerson()
+if exu.animation.Has(fp, "stand2Kneel") then
+    exu.animation.Play(fp, "stand2Kneel", {
+        restart = true,
+        loop = false,
+        weight = 1.0,
+    })
+end
+```
+
+OpenShim revalidates the local world `Person`, SceneManager membership, the strict `_fp` pilot mesh family, skeleton, and stock pilot animation vocabulary before returning the entity. Entering a vehicle, destruction, respawn, mission changes, and entity recreation advance the tracker generation. If no qualified FP entity exists, operations return `false` (`GetInfo` returns `nil`) without falling back to the world entity.
 
 ## Capability probe
 
@@ -73,12 +86,26 @@ Current expected values:
 
 ```lua
 caps.gameObjectTarget == true
-caps.localFirstPersonTarget == false
+caps.localFirstPersonTarget == true -- when the required OpenShim export is installed
 caps.managedClock == false
 caps.nativeAdvancement == "unvalidated"
 ```
 
-`nativeAdvancement` remains `unvalidated` until a direct animation activation test establishes whether Redux advances an externally enabled first-person state without changing `Person::curAnim` / weapon state.
+`nativeAdvancement` remains `unvalidated` until the stock `Play`/`Stop`/`Seek` runtime matrix is captured. Target qualification proves that the FP entity is independently controllable, but does not by itself prove every public operation's playback semantics.
+
+## Stock first-person runtime qualification (2026-08-28)
+
+The public path is now qualified on GOG Redux 2.2.301 with matching isolated Release builds of OpenShim and EXU. A Lua-only `lcbench` capture proved:
+
+- Before `HopOut`, `Has` and `Play` return `false` and `GetInfo` returns `nil` without a crash or WORLD fallback.
+- `TargetLocalFirstPerson()` exposes the stock `idle`, `stand2Kneel`, `kneel2stand`, `fireRecoilSniper`, `jump`, `runForward`, and `landParachute` states on the promoted `aspilo_fp.mesh` entity.
+- FP-only `Play` plus `Seek` changed FP while the WORLD state remained disabled at time zero; FP-only `Stop(reset=true)` reset FP without changing WORLD.
+- The reciprocal WORLD-only test changed WORLD while FP remained disabled at time zero.
+- Stock gameplay reclaimed both entities after the test rather than leaving an override behind.
+- Same-process mission replay released generation 1, reacquired a different entity at generation 3, released it at generation 4, and reacquired another at generation 5. No stale pointer was retained or manipulated.
+- A synchronized first-person capture showed the FP half-kneel pose; Shift+F3 during the same FP-only hold showed the external WORLD pilot still standing.
+
+This proves stock `Play`, `Stop`, and `Seek` through the complete Lua → EXU → OpenShim tracker → Ogre `AnimationState` path. It does not prove autonomous native advancement of an externally selected clip, so `managedClock` remains `false` and `nativeAdvancement` remains `"unvalidated"`.
 
 ## Why there is no speed control yet
 

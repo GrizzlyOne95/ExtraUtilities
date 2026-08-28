@@ -26,6 +26,26 @@ namespace ExtraUtilities::OpenShimBridge
 		return Resolve<FARPROC>(exportName) != nullptr;
 	}
 
+	using ResolveLocalFirstPersonEntityFn = std::int32_t (__cdecl*)(
+		void** outEntity, std::uint64_t* outGeneration);
+
+	inline bool HasLocalFirstPersonEntityBridge() noexcept
+	{
+		return HasExport("OpenShimResolveLocalFirstPersonEntity");
+	}
+
+	// Returns a one-operation snapshot. Callers intentionally resolve again for
+	// every public animation operation and never retain the Ogre pointer.
+	inline bool ResolveLocalFirstPersonEntity(
+		void*& outEntity, std::uint64_t& outGeneration) noexcept
+	{
+		outEntity = nullptr;
+		outGeneration = 0;
+		const auto resolve = Resolve<ResolveLocalFirstPersonEntityFn>(
+			"OpenShimResolveLocalFirstPersonEntity");
+		return resolve && resolve(&outEntity, &outGeneration) == 1 && outEntity;
+	}
+
 	// Mirrors OpenShim's stable storefront ABI without linking EXU against
 	// OpenShim headers. Unknown is fail-closed and also covers older OpenShim
 	// builds that do not expose the distribution query yet.
