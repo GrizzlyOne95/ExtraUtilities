@@ -74,8 +74,50 @@ error("This is a definition file, use require(\"exu\")")
 --- @field emissive string? Terrain emissive map.
 --- @field emissiveMap string? Alias for `emissive`.
 
+--- @class AnimationTarget
+--- @field kind "gameObject"|"localFirstPerson"
+--- @field handle Handle? Present only for a game-object target.
+
+--- @class AnimationPlayOptions
+--- @field restart boolean? Reset to time zero before enabling. Defaults to true.
+--- @field loop boolean? Defaults to false.
+--- @field weight number? Blend weight in [0, 1]. Defaults to 1.
+
+--- @class AnimationInfo
+--- @field name string
+--- @field targetKind "gameObject"|"localFirstPerson"
+--- @field enabled boolean
+--- @field loop boolean
+--- @field weight number
+--- @field timePosition number
+--- @field length number
+--- @field normalizedTime number
+--- @field atEnd boolean
+
+--- @class AnimationCapabilities
+--- @field gameObjectTarget boolean
+--- @field localFirstPersonTarget boolean
+--- @field managedClock boolean
+--- @field nativeAdvancement string
+--- @field firstPersonStatus string
+
+--- @class AnimationApi
+--- @field Target fun(handle: Handle): AnimationTarget
+--- @field TargetLocalFirstPerson fun(): AnimationTarget
+--- @field GetCapabilities fun(): AnimationCapabilities
+--- @field Has fun(target: Handle|AnimationTarget, animationName: string): boolean
+--- @field GetInfo fun(target: Handle|AnimationTarget, animationName: string): AnimationInfo?
+--- @field Play fun(target: Handle|AnimationTarget, animationName: string, options?: AnimationPlayOptions): boolean
+--- @field Stop fun(target: Handle|AnimationTarget, animationName: string, reset?: boolean): boolean
+--- @field Restart fun(target: Handle|AnimationTarget, animationName: string): boolean
+--- @field SetEnabled fun(target: Handle|AnimationTarget, animationName: string, enabled: boolean): boolean
+--- @field SetLoop fun(target: Handle|AnimationTarget, animationName: string, loop: boolean): boolean
+--- @field SetWeight fun(target: Handle|AnimationTarget, animationName: string, weight: number): boolean
+--- @field Seek fun(target: Handle|AnimationTarget, animationName: string, timePosition: number): boolean
+
 --- @class exu
 --- @field Origins CameraOrigins
+--- @field animation AnimationApi
 local exu = {}
 
 --- Enums
