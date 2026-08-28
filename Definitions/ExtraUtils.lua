@@ -1576,6 +1576,13 @@ function exu.GetUIScaling() end
 --- @return boolean
 function exu.GetGameKey(key) end
 
+--- Returns whether any stock game or shell UI is currently covering gameplay.
+--- This includes the Escape/pause hierarchy, save/load/options pages, and
+--- mission-success or mission-failure screens. Use it to suppress custom HUD.
+--- @nodiscard
+--- @return boolean
+function exu.IsGameUiOpen() end
+
 --- Returns whether the in-game pause or Escape menu is currently open.
 --- This is intended for suppressing custom HUD/UI during paused gameplay.
 --- @nodiscard
@@ -1585,9 +1592,9 @@ function exu.IsPauseMenuOpen() end
 --- Returns a debug snapshot of the native game-side pause/UI state probe.
 --- Useful for reverse-engineering stock UI ownership without relying on Ogre or Lua timing.
 --- Fields include:
---- `ok`, `pauseOpen`, `singleplayerPauseOpen`, `multiplayerPauseOpen`,
+--- `ok`, `gameUiOpen`, `pauseOpen`, `singleplayerPauseOpen`, `multiplayerPauseOpen`,
 --- `cursorVisible`, `currentScreenMatchesPauseRoot`, `singleplayerPauseRoot`,
---- `multiplayerPauseRoot`, `uiCurrentScreen`, `uiWrapperActive`,
+--- `multiplayerPauseRoot`, `uiCurrentScreen`, `escapeUiWrapperActive`, `uiWrapperActive`,
 --- `uiCurrentScreenType`, `uiCurrentScreenTypeName`, `multiplayerPauseFlag`.
 --- @nodiscard
 --- @return table
