@@ -72,8 +72,9 @@ struct lua_State;
 // ---------------------------------------------------------------------------
 // Compile-time version constant
 // Match against EXU_GetVersion() at runtime to detect stale DLL deployments.
+// 1.2.0 denotes the expanded post-1.1.0 public API now shipped by current main.
 // ---------------------------------------------------------------------------
-#define EXU_VERSION_EXPECTED "1.1.0"
+#define EXU_VERSION_EXPECTED "1.2.0"
 
 // Result codes returned by EXU_SetMultiplayerNickname. Values 0-5 mirror the
 // stable OpenShim bridge ABI; 0xFFFFFFFF is EXU's graceful "bridge unavailable"
@@ -101,7 +102,7 @@ extern "C"
     // can call this directly after obtaining a lua_State* from the game.
     EXU_API int luaopen_exu(lua_State* L);
 
-    // Returns the runtime EXU version string (e.g. "1.1.0").
+    // Returns the runtime EXU version string (e.g. "1.2.0").
     // Compare against EXU_VERSION_EXPECTED to detect DLL/header mismatches.
     EXU_API const char* EXU_GetVersion();
 
