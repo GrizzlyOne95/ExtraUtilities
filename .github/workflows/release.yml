@@ -2,15 +2,15 @@ name: Build and Release
 
 on:
   push:
-    branches: [main]       # Build on every push to main (no release)
+    branches: [main]
     tags:
-      - 'v*'               # Build + publish a GitHub Release on version tags
+      - 'v*'
   pull_request:
-    branches: [main]       # Validate every proposed main-branch change
-  workflow_dispatch:       # Manual trigger (artifact upload only, no release)
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -30,6 +30,20 @@ jobs:
       - name: Test BZR build qualification tooling
         run: python tools/test_bzr_qualification.py
 
+      - name: Verify version tag matches EXU source version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $about = Get-Content -LiteralPath "src\About.h" -Raw
+          if ($about -notmatch 'version\s*=\s*"([^"]+)"') {
+            throw "Could not resolve ExtraUtilities::version from src/About.h."
+          }
+          $sourceVersion = $matches[1]
+          $tagVersion = "${{ github.ref_name }}" -replace '^v', ''
+          if ($tagVersion -ne $sourceVersion) {
+            throw "Release tag '${{ github.ref_name }}' does not match EXU source version '$sourceVersion'."
+          }
+
       # Cache the sparse Ogre header checkout so only the first run per commit
       # pays the clone cost. Key is pinned to the exact Ogre commit used by the
       # vcxproj (f1f1937 = tag v1.10.0). Bump this if Ogre headers ever change.
@@ -40,10 +54,6 @@ jobs:
           path: third_party/ogre-1.10.0-bzr/_work
           key: ogre-headers-f1f1937fd6cbad05a4b9170b9882da91f42f53a5
 
-      # Sparse-clone just OgreMain/include and Components/Overlay/include into
-      # third_party/ogre-1.10.0-bzr/_work (gitignored via _work/ in that dir).
-      # The vcxproj now references this repo-local path instead of a sibling
-      # directory, so this step is both the CI fix and the documented dev setup.
       - name: Checkout Ogre 1.10.0 headers
         if: steps.cache-ogre.outputs.cache-hit != 'true'
         shell: pwsh
@@ -70,28 +80,52 @@ jobs:
       - name: Verify DLL Output
         shell: pwsh
         run: |
-          if (!(Test-Path "Release/exu.dll")) {
-            throw "exu.dll was not built!"
+          foreach ($path in @("Release\exu.dll", "Release\exu.pdb")) {
+            if (!(Test-Path -LiteralPath $path)) {
+              throw "Expected EXU output was not built: $path"
+            }
           }
 
-      # Upload exu.dll as a workflow artifact on non-tag builds (main pushes,
-      # pull requests, and manual triggers). Retained for 7 days.
-      - name: Upload development artifact
-        if: "!startsWith(github.ref, 'refs/tags/')"
+      # Every successful build produces one immutable workflow artifact. A tag
+      # release consumes this exact artifact instead of rebuilding the DLL.
+      - name: Upload verified EXU artifact
         uses: actions/upload-artifact@v4
         with:
-          name: exu-dev-${{ github.sha }}
+          name: exu-${{ github.sha }}
           path: |
             Release/exu.dll
             Release/exu.pdb
-          retention-days: 7
+          if-no-files-found: error
+          retention-days: 14
 
-      # On version tags only: create a GitHub Release with the built DLL and PDB.
-      - name: Release DLL
+  release:
+    name: Publish EXU release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download exact tested artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: exu-${{ github.sha }}
+          path: release
+
+      - name: Generate SHA-256 checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f release/exu.dll
+          test -f release/exu.pdb
+          (cd release && sha256sum exu.dll exu.pdb > SHA256SUMS.txt)
+
+      - name: Release DLL and symbols
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            Release/exu.dll
-            Release/exu.pdb
+            release/exu.dll
+            release/exu.pdb
+            release/SHA256SUMS.txt
           generate_release_notes: true
