@@ -24,5 +24,7 @@
 
 namespace ExtraUtilities
 {
-	inline std::string version = "1.1.0";
+	// 1.2.0 identifies the post-1.1.0 API set now present on main, including
+	// OpenShim bridge/render-profile and local first-person animation support.
+	inline std::string version = "1.2.0";
 }
