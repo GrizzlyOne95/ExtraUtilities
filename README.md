@@ -2,7 +2,7 @@
 
 Extra Utilities (EXU) is a native Lua extension for Battlezone 98 Redux. It adds engine, renderer, UI, object, multiplayer, and gameplay controls that are not exposed by the stock mission API.
 
-EXU currently targets the 32-bit Windows build of Battlezone 98 Redux 2.2.301. It does not support macOS, Linux, or Battlezone 1.5. Native addresses and hooks are build-specific and must be revalidated when the game updates.
+EXU currently targets the 32-bit Windows build of Battlezone 98 Redux 2.2.301, including that same Win32 `exu.dll` under Steam Proton. It does not support a native Linux or macOS game binary, or Battlezone 1.5. Native addresses and hooks are build-specific and must be revalidated when the game updates.
 
 ## Features
 
@@ -24,6 +24,8 @@ Detailed Lua API descriptions and editor annotations are kept in [`Definitions/E
 
 ## Using EXU
 
+### Windows
+
 Install `exu.dll` through the EXU Steam Workshop item or download it from the [latest release](../../releases/latest), then load it from a mission script:
 
 ```lua
@@ -34,19 +36,52 @@ Depending on the shared Workshop installation is preferred to bundling a private
 
 See [`examples/`](examples) for focused demonstrations. C++ consumers can include [`include/ExtraUtils.h`](include/ExtraUtils.h) and link against the import library produced by the build.
 
+### Linux (Proton)
+
+The shipped `exu.dll` is a **Win32** Lua C module. Linux hosts deploy that same DLL into a Proton game folder; there is no native Linux `.so`.
+
+Native Steam or Flatpak — paste in a terminal:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/GrizzlyOne95/ExtraUtilities/main/scripts/install_linux.sh | bash -s -- --native
+```
+
+Snap Steam — paste in a terminal:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/GrizzlyOne95/ExtraUtilities/main/scripts/install_linux.sh | bash -s -- --snap
+```
+
+Both commands download the `exu.dll` from the [latest release](../../releases/latest) and verify it against the
+`SHA256SUMS.txt` published with that release; a mismatched or unverifiable download installs nothing.
+
+No Steam launch options are required. Proton loads `exu.dll` as a Windows DLL (this is not an OpenShim `winmm.dll` proxy).
+
+To copy a local Windows build instead of a GitHub release:
+
+```bash
+./scripts/deploy_linux_proton.sh
+```
+
 ## Building
 
 Requirements:
 
-- Visual Studio 2022 with **Desktop development with C++**
+- Visual Studio 2022 with **Desktop development with C++** (Win32 `exu.dll`)
 - MSVC v143 14.43 or newer
-- PowerShell for dependency setup
+- PowerShell (`setup-dev.ps1`) or bash (`setup-dev.sh`) for Ogre header setup
+- Python 3 for `tools/` validation and Linux host checks
 
-Run `setup-dev.ps1` once after cloning to fetch the required Ogre 1.10 headers. Then build `ExtraUtilities.sln` as **Release|x86**; the project-level target is **Release|Win32** and writes `Release/exu.dll`.
+Run `setup-dev.ps1` (Windows) or `setup-dev.sh` (Linux) once after cloning to fetch the required Ogre 1.10 headers. Then build `ExtraUtilities.sln` as **Release|x86** on Windows; the project-level target is **Release|Win32** and writes `Release/exu.dll`. Linux can run `bash tests/linux/run.sh` after setup; it does not produce `exu.dll`.
 
 ```powershell
 .\setup-dev.ps1
 msbuild ExtraUtilities.sln /p:Configuration=Release /p:Platform=x86
+```
+
+```bash
+./setup-dev.sh
+bash tests/linux/run.sh
 ```
 
 Lua 5.1, OgreMain, and OgreOverlay build dependencies are included in the repository. If several MSVC toolsets are installed, pass `/p:VCToolsVersion=<version>` to select a recent one explicitly.
