@@ -28,6 +28,10 @@ Reference/tooling repos under `%USERPROFILE%\Documents\GIT` (reference, not defa
 - PR merges, releases/tags, Workshop publication, and other external release/deployment actions require explicit user instruction.
 - Do not commit secrets, machine credentials, transient build/runtime output, crash dumps, or scratch artifacts the repo does not intentionally track.
 
+## Linux / Proton
+- `exu.dll` remains a Win32 Lua C module built with MSVC. Linux hosts run `setup-dev.sh` (Ogre header sparse checkout), `tests/linux/run.sh` (Python validation + script checks), and may deploy into a Proton game folder with `scripts/install_linux.sh` / `scripts/deploy_linux_proton.sh`.
+- Do not add a MinGW DLL target or claim a native Linux `.so`. Document Proton as a Win32-in-Wine layout, same as OpenShim.
+
 ## Architecture / Task Routing
 - For dependency direction, runtime ownership, patch placement, lifetimes, or supported-build work, read `ARCHITECTURE.md` before changing architecture.
 - Keep version-specific BZR addresses/signatures in `exu.json` / `profiles/` and build-validation tooling rather than scattering raw addresses through features.
