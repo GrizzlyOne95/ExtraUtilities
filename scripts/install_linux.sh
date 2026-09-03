@@ -27,6 +27,7 @@ Usage:
 
 Environment:
   EXU_REPO / EXU_REF / EXU_DLL / BZR_GAME_PATH
+  EXU_ALLOW_UNVERIFIED=1   Skip SHA-256 verification of a downloaded release
 EOF
 }
 
@@ -64,7 +65,13 @@ filter_flavor() {
     local flavor="$1"
     local kept=()
     local path
-    for path in "${BZR_GAME_PATHS[@]:-}"; do
+    # "${arr[@]:-}" yields one empty element for an empty array, which would
+    # survive the filter and deploy to /exu.dll. Bail out before the loop.
+    if [[ ${#BZR_GAME_PATHS[@]} -eq 0 ]]; then
+        return 0
+    fi
+    for path in "${BZR_GAME_PATHS[@]}"; do
+        [[ -n "$path" ]] || continue
         case "$flavor" in
             all) kept+=("$path") ;;
             snap) is_snap_game "$path" && kept+=("$path") ;;
@@ -83,13 +90,56 @@ is_exu_dll() {
     [[ -f "$path" ]] && grep -a -q "exu.dll loaded" "$path"
 }
 
+# Verify a downloaded exu.dll against the SHA256SUMS.txt published with every
+# EXU release. This installer is pasted from a README and drops a native DLL
+# into a game folder, so an unverifiable download fails closed.
+verify_release_checksum() {
+    local dir="$1"
+    local base="$2"
+
+    if ! command -v sha256sum >/dev/null 2>&1; then
+        echo "error: sha256sum is required to verify the release download." >&2
+        echo "Install coreutils, or set EXU_ALLOW_UNVERIFIED=1 to skip verification." >&2
+        return 1
+    fi
+
+    if ! download_to "$base/SHA256SUMS.txt" "$dir/SHA256SUMS.txt"; then
+        echo "error: could not download SHA256SUMS.txt from $REPO_SLUG." >&2
+        echo "Refusing to install an unverified exu.dll." >&2
+        echo "Set EXU_ALLOW_UNVERIFIED=1 to override." >&2
+        return 1
+    fi
+
+    if ! grep -q '[[:space:]]exu\.dll$' "$dir/SHA256SUMS.txt"; then
+        echo "error: SHA256SUMS.txt has no exu.dll entry." >&2
+        return 1
+    fi
+
+    if ! (cd "$dir" && grep '[[:space:]]exu\.dll$' SHA256SUMS.txt | sha256sum --check --status -); then
+        echo "error: exu.dll does not match the published SHA-256 checksum." >&2
+        echo "The download was corrupted or tampered with; nothing was installed." >&2
+        return 1
+    fi
+
+    echo "  SHA-256 verified against the published release checksum"
+    return 0
+}
+
 download_matched_release() {
     local dest="$1"
     mkdir -p "$dest"
     local base="https://github.com/${REPO_SLUG}/releases/latest/download"
     echo "Downloading matched release DLL from $REPO_SLUG ..."
     if download_to "$base/exu.dll" "$dest/exu.dll" && [[ -s "$dest/exu.dll" ]]; then
-        return 0
+        if [[ "${EXU_ALLOW_UNVERIFIED:-0}" == "1" ]]; then
+            echo "  warning: EXU_ALLOW_UNVERIFIED=1, skipping checksum verification" >&2
+            return 0
+        fi
+        if verify_release_checksum "$dest" "$base"; then
+            return 0
+        fi
+        rm -f "$dest/exu.dll"
+        return 1
     fi
     rm -f "$dest/exu.dll"
     return 1
@@ -166,6 +216,10 @@ fi
 source "$src/steam_game_paths.sh"
 
 if [[ -n "$GAME_PATH" ]]; then
+    if [[ ! -d "$GAME_PATH" ]]; then
+        echo "error: --game-path is not a directory: $GAME_PATH" >&2
+        exit 1
+    fi
     BZR_GAME_PATH="$GAME_PATH"
 fi
 detect_bzr_game_paths

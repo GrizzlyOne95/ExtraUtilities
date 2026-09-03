@@ -59,9 +59,43 @@ test_help_exits_clean() {
     pass "installer --help"
 }
 
+# Regression: an empty BZR_GAME_PATHS must report "no install found" rather
+# than surviving the flavour filter as an empty path and deploying to /exu.dll.
+test_no_install_found() {
+    local sandbox installer out rc
+    sandbox="$(mktemp -d)"
+    installer="$ROOT/scripts/install_linux.sh"
+    rc=0
+    out="$(env -u STEAM_ROOT -u BZR_GAME_PATH -u EXU_DLL HOME="$sandbox" "$installer" --native 2>&1)" || rc=$?
+    rm -rf "$sandbox"
+    [[ "$rc" -eq 1 ]] || fail "expected exit 1 with no game installed, got $rc: $out"
+    if ! grep -q "no Battlezone 98 Redux install found" <<<"$out"; then
+        fail "expected the no-install message, got: $out"
+    fi
+    if grep -qi "exu.dll" <<<"$out"; then
+        fail "installer touched a DLL with no game installed: $out"
+    fi
+    pass "no-install path reports cleanly"
+}
+
+test_bad_game_path_rejected() {
+    local sandbox out rc
+    sandbox="$(mktemp -d)"
+    rc=0
+    out="$("$ROOT/scripts/install_linux.sh" --game-path "$sandbox/missing" 2>&1)" || rc=$?
+    rm -rf "$sandbox"
+    [[ "$rc" -eq 1 ]] || fail "expected exit 1 for a missing --game-path, got $rc: $out"
+    if ! grep -q "not a directory" <<<"$out"; then
+        fail "expected a directory error, got: $out"
+    fi
+    pass "--game-path validation"
+}
+
 test_python_tools
 test_script_syntax
 test_steam_path_override
 test_help_exits_clean
+test_no_install_found
+test_bad_game_path_rejected
 
 echo "All Linux host checks passed."

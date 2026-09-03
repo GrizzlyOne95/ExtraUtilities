@@ -52,6 +52,9 @@ Snap Steam — paste in a terminal:
 curl -fsSL https://raw.githubusercontent.com/GrizzlyOne95/ExtraUtilities/main/scripts/install_linux.sh | bash -s -- --snap
 ```
 
+Both commands download the `exu.dll` from the [latest release](../../releases/latest) and verify it against the
+`SHA256SUMS.txt` published with that release; a mismatched or unverifiable download installs nothing.
+
 No Steam launch options are required. Proton loads `exu.dll` as a Windows DLL (this is not an OpenShim `winmm.dll` proxy).
 
 To copy a local Windows build instead of a GitHub release:
