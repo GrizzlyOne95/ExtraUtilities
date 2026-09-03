@@ -463,4 +463,5 @@ FodyWeavers.xsd
 /ExtraUtilities/Debug/vc143.idb
 /Build
 .env
+.venv/
 workshop.vdf
