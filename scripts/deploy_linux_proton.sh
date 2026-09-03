@@ -39,6 +39,10 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 fi
 
 if [[ -n "$GAME_DIR" ]]; then
+    if [[ ! -d "$GAME_DIR" ]]; then
+        echo "error: GAME_DIR is not a directory: $GAME_DIR" >&2
+        exit 1
+    fi
     BZR_GAME_PATH="$GAME_DIR"
 fi
 
