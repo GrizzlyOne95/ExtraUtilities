@@ -4,6 +4,10 @@ Extra Utilities (EXU) is a native Lua extension for Battlezone 98 Redux. It adds
 
 EXU currently targets the 32-bit Windows build of Battlezone 98 Redux 2.2.301, including that same Win32 `exu.dll` under Steam Proton. It does not support a native Linux or macOS game binary, or Battlezone 1.5. Native addresses and hooks are build-specific and must be revalidated when the game updates.
 
+Windows/GOG, Windows/Steam, Linux/Steam via Proton, and Linux/GOG through a
+compatible Wine/Proton prefix are maintained together. See the shared
+[`BZR platform and distribution compatibility policy`](Docs/BZR_PLATFORM_COMPATIBILITY.md).
+
 ## Features
 
 - **Camera and display** — camera modes, matrices, origins, field of view, zoom limits, clip distances, aspect ratio, projection mode, polygon mode, game resolution, UI scaling, and fullscreen state.
