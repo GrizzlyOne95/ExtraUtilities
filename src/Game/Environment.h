@@ -83,6 +83,26 @@ namespace ExtraUtilities::Lua::Environment
 	int SetParticleSystemRenderQueueGroup(lua_State* L);
 	int SetParticleSystemParticleQuota(lua_State* L);
 	int SetParticleSystemDefaultDimensions(lua_State* L);
+	int SetParticleSystemNonVisibleUpdateTimeout(lua_State* L);
+	// Attachment: the Ogre scene graph carries the transform so Lua does not
+	// have to chase it per frame. Camera attachment degrades to a native
+	// follower list when the engine's camera has no scene node of its own;
+	// UpdateParticleFollowers is the one call per frame that drives those.
+	int AttachParticleSystemToCamera(lua_State* L);
+	int AttachParticleSystemToObject(lua_State* L);
+	int AttachParticleSystemToBone(lua_State* L);
+	int DetachParticleSystem(lua_State* L);
+	int UpdateParticleFollowers(lua_State* L);
+	int GetParticleSystemEmitterCount(lua_State* L);
+	int GetParticleEmitterEmissionRate(lua_State* L);
+	int SetParticleEmitterEnabled(lua_State* L);
+	int SetParticleEmitterEmissionRate(lua_State* L);
+	int SetParticleEmitterDirection(lua_State* L);
+	int SetParticleEmitterPosition(lua_State* L);
+	int SetParticleEmitterVelocity(lua_State* L);
+	int SetParticleEmitterAngle(lua_State* L);
+	int SetParticleEmitterTimeToLive(lua_State* L);
+	int SetParticleEmitterColor(lua_State* L);
 	int GetShowBoundingBoxes(lua_State* L);
 	int SetShowBoundingBoxes(lua_State* L);
 	int GetShowDebugShadows(lua_State* L);

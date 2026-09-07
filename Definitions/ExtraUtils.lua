@@ -770,6 +770,130 @@ function exu.SetParticleSystemParticleQuota(name, quota) end
 --- @return boolean
 function exu.SetParticleSystemDefaultDimensions(name, width, height) end
 
+--- Sets how long a named particle system keeps simulating after it leaves view.
+--- Weather volumes should set a small timeout so an off-screen storm stops costing CPU.
+--- @param name string
+--- @param seconds number
+--- @return boolean
+function exu.SetParticleSystemNonVisibleUpdateTimeout(name, seconds) end
+
+--- Parents a named particle system's EXU-owned scene node to the active camera so the
+--- emitter travels with the view without any per-frame Lua positioning.
+--- The node does not inherit the camera's orientation, so a precipitation volume stays
+--- world-aligned while the player looks around.
+--- If the engine drives its Ogre camera without a scene node, the system is registered as a
+--- native follower instead and `exu.UpdateParticleFollowers` must be called once per frame.
+--- The offset is in camera-local units and defaults to `SetVector(0, 0, 0)`.
+--- @param name string
+--- @param offset Vector? optional
+--- @return boolean
+function exu.AttachParticleSystemToCamera(name, offset) end
+
+--- Parents a named particle system's EXU-owned scene node to a game object's scene node.
+--- The node inherits the object's orientation, so the offset is body-relative.
+--- @param name string
+--- @param h Handle
+--- @param offset Vector? optional
+--- @return boolean
+function exu.AttachParticleSystemToObject(name, h, offset) end
+
+--- Attaches a named particle system to a bone on a game object's skeleton.
+--- Returns false when the object's mesh has no skeleton or no bone by that name.
+--- @param name string
+--- @param h Handle
+--- @param boneName string
+--- @param offset Vector? optional
+--- @return boolean
+function exu.AttachParticleSystemToBone(name, h, boneName, offset) end
+
+--- Undoes any camera, object, or bone attachment and returns the particle system to its
+--- own EXU-owned scene node under the scene root.
+--- @param name string
+--- @return boolean
+function exu.DetachParticleSystem(name) end
+
+--- Moves every camera-following particle system to the current camera position.
+--- Call once per frame. Returns the number of systems moved, which is zero when every
+--- camera attachment resolved to a real scene-graph parent and nothing needs chasing.
+--- @return integer
+function exu.UpdateParticleFollowers() end
+
+--- Returns the number of emitters on a named particle system, or nil if it does not exist.
+--- @nodiscard
+--- @param name string
+--- @return integer?
+function exu.GetParticleSystemEmitterCount(name) end
+
+--- Returns the current emission rate of one emitter, or nil if it does not exist.
+--- Emitter indices are zero based.
+--- @nodiscard
+--- @param name string
+--- @param emitterIndex integer
+--- @return number?
+function exu.GetParticleEmitterEmissionRate(name, emitterIndex) end
+
+--- Enables or disables one emitter on a named particle system.
+--- @param name string
+--- @param emitterIndex integer
+--- @param enabled boolean
+--- @return boolean
+function exu.SetParticleEmitterEnabled(name, emitterIndex, enabled) end
+
+--- Sets the emission rate of one emitter, in particles per second.
+--- This is how a single authored system varies storm intensity smoothly instead of
+--- swapping between several near-identical templates.
+--- @param name string
+--- @param emitterIndex integer
+--- @param rate number
+--- @return boolean
+function exu.SetParticleEmitterEmissionRate(name, emitterIndex, rate) end
+
+--- Sets the emission direction of one emitter. Used to drive precipitation from a wind vector.
+--- @param name string
+--- @param emitterIndex integer
+--- @param direction Vector
+--- @return boolean
+function exu.SetParticleEmitterDirection(name, emitterIndex, direction) end
+
+--- Sets the emitter's position relative to the particle system's node.
+--- @param name string
+--- @param emitterIndex integer
+--- @param position Vector
+--- @return boolean
+function exu.SetParticleEmitterPosition(name, emitterIndex, position) end
+
+--- Sets the emitter's particle velocity range. Omit the maximum for a fixed velocity.
+--- @param name string
+--- @param emitterIndex integer
+--- @param minVelocity number
+--- @param maxVelocity number? optional
+--- @return boolean
+function exu.SetParticleEmitterVelocity(name, emitterIndex, minVelocity, maxVelocity) end
+
+--- Sets the emitter's spread angle, in degrees, matching .particle script units.
+--- @param name string
+--- @param emitterIndex integer
+--- @param degrees number
+--- @return boolean
+function exu.SetParticleEmitterAngle(name, emitterIndex, degrees) end
+
+--- Sets the emitter's particle lifetime range in seconds. Omit the maximum for a fixed lifetime.
+--- @param name string
+--- @param emitterIndex integer
+--- @param minTimeToLive number
+--- @param maxTimeToLive number? optional
+--- @return boolean
+function exu.SetParticleEmitterTimeToLive(name, emitterIndex, minTimeToLive, maxTimeToLive) end
+
+--- Sets the emitter's particle colour range. Pass one colour table for a flat colour, or two
+--- for a random range. Also accepts r, g, b[, a] numbers for a flat colour.
+--- @param name string
+--- @param emitterIndex integer
+--- @param startColor Color
+--- @param endColor Color? optional
+--- @return boolean
+function exu.SetParticleEmitterColor(name, emitterIndex, startColor, endColor) end
+
 --- Returns whether scene bounding boxes are currently shown.
 --- @nodiscard
 --- @return boolean
