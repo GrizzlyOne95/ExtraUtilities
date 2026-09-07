@@ -829,6 +829,16 @@ namespace ExtraUtilities::Lua::ControlPanel
 			}
 		}
 
+		BasicPatch::Status ScrapPilotColorHookInitialStatus()
+		{
+			// OpenShim owns the persistent stock/legacy HUD policy. Its legacy
+			// implementation patches these same color-load instructions directly;
+			// installing EXU's white-default hooks afterward masks those colors.
+			return OpenShimBridge::HasExport("OpenShimRestoreScrapPilotHudStock")
+				? BasicPatch::Status::INACTIVE
+				: BasicPatch::Status::ACTIVE;
+		}
+
 		inline Hook g_scrapPilotHudDrawHook(
 			kScrapPilotHudDrawHookAddress,
 			&ScrapPilotHudDrawHook,
@@ -838,22 +848,22 @@ namespace ExtraUtilities::Lua::ControlPanel
 			kScrapLabelColorHookAddress,
 			&ScrapLabelColorHook,
 			kScrapHudTextColorHookLength,
-			BasicPatch::Status::ACTIVE);
+			ScrapPilotColorHookInitialStatus());
 		inline Hook g_scrapValueColorHook(
 			kScrapValueColorHookAddress,
 			&ScrapValueColorHook,
 			kPilotHudTextColorHookLength,
-			BasicPatch::Status::ACTIVE);
+			ScrapPilotColorHookInitialStatus());
 		inline Hook g_pilotLabelColorHook(
 			kPilotLabelColorHookAddress,
 			&PilotLabelColorHook,
 			kPilotHudTextColorHookLength,
-			BasicPatch::Status::ACTIVE);
+			ScrapPilotColorHookInitialStatus());
 		inline Hook g_pilotValueColorHook(
 			kPilotValueColorHookAddress,
 			&PilotValueColorHook,
 			kPilotHudTextColorHookLength,
-			BasicPatch::Status::ACTIVE);
+			ScrapPilotColorHookInitialStatus());
 	}
 
 	bool TryGetScrapPilotHudTopLefts(int& scrapLeft, int& scrapTop, int& pilotLeft, int& pilotTop) noexcept
