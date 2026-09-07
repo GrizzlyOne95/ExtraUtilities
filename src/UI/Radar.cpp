@@ -245,6 +245,13 @@ namespace ExtraUtilities::Lua::Radar
 			// running both leaves whichever correction executes last misaligned.
 			if (ResolveRadarScaleSetBridge())
 			{
+				static bool deferralLogged = false;
+				if (!deferralLogged)
+				{
+					deferralLogged = true;
+					Logging::LogMessage(
+						"[EXU::Radar] layout wrapper stood down; OpenShim owns the radar projection");
+				}
 				return;
 			}
 			static bool attempted = false;
