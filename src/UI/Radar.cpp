@@ -20,6 +20,7 @@
 #include "ControlPanel.h"
 #include "InlinePatch.h"
 #include "LuaHelpers.h"
+#include "OpenShimBridge.h"
 #include "Util/Logging.h"
 
 #include <cmath>
@@ -30,6 +31,20 @@ namespace ExtraUtilities::Lua::Radar
 {
 	namespace
 	{
+		using OpenShimGetRadarSizeScaleFn = float(WINAPI*)();
+		using OpenShimSetRadarSizeScaleFn = BOOL(WINAPI*)(float);
+
+		OpenShimGetRadarSizeScaleFn ResolveRadarScaleGetBridge()
+		{
+			return OpenShimBridge::Resolve<OpenShimGetRadarSizeScaleFn>(
+				"OpenShimGetRadarSizeScale");
+		}
+
+		OpenShimSetRadarSizeScaleFn ResolveRadarScaleSetBridge()
+		{
+			return OpenShimBridge::Resolve<OpenShimSetRadarSizeScaleFn>(
+				"OpenShimSetRadarSizeScale");
+		}
 		struct CockpitWireframeScaleBaselines
 		{
 			float projectionBase = 1.0f;
@@ -225,6 +240,13 @@ namespace ExtraUtilities::Lua::Radar
 
 		void InstallRefreshLayoutCallSiteHooks()
 		{
+			// OpenShim owns the native radar layout when this bridge exists. Its
+			// entry detour and EXU's call-site wrapper both correct the same globals;
+			// running both leaves whichever correction executes last misaligned.
+			if (ResolveRadarScaleSetBridge())
+			{
+				return;
+			}
 			static bool attempted = false;
 			if (attempted)
 			{
@@ -334,6 +356,11 @@ namespace ExtraUtilities::Lua::Radar
 
 	int GetSizeScale(lua_State* L)
 	{
+		if (const auto fn = ResolveRadarScaleGetBridge())
+		{
+			lua_pushnumber(L, fn());
+			return 1;
+		}
 		lua_pushnumber(L, sizeScale.Read());
 		return 1;
 	}
@@ -344,6 +371,15 @@ namespace ExtraUtilities::Lua::Radar
 		if (newScale <= 0.f)
 		{
 			luaL_error(L, "Invalid input: radar size scale must be greater than 0");
+		}
+
+		if (const auto fn = ResolveRadarScaleSetBridge())
+		{
+			if (!fn(newScale))
+			{
+				return luaL_error(L, "OpenShim rejected the radar size scale");
+			}
+			return 0;
 		}
 
 		// Order matters: the stock base is derived from
