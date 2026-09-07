@@ -26,6 +26,7 @@
 #include "Util/Logging.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
+#include "OpenShimBridge.h"
 #include "Patches.h"
 #include "UI/Renderer.h"
 
@@ -481,6 +482,14 @@ namespace ExtraUtilities::Lua
 		Patches::ApplyJumpSnipeCrouchDefault();
 		BasicPatch::EnableDeferredPatchActivation();
 		Logging::LogMessage("exu: deferred patches activated");
+		// Which module owns the scrap/pilot HUD text colour. The colour hooks
+		// stand themselves down at construction when OpenShim is present, and
+		// that is otherwise completely silent -- which is how "the legacy HUD
+		// text went white" became a debugging session rather than one grep.
+		Logging::LogMessage(
+			OpenShimBridge::HasExport("OpenShimRestoreScrapPilotHudStock")
+				? "exu: scrap/pilot colour hooks stood down; OpenShim owns HUD text colour"
+				: "exu: scrap/pilot colour hooks active; no OpenShim HUD text bridge present");
 
 		// Register all this stuff inside the library table
 		lua_getglobal(L, "exu");

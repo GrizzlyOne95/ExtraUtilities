@@ -23,6 +23,9 @@
 namespace ExtraUtilities::Lua::Overlay
 {
 	void ShutdownOverlaySupport() noexcept;
+	// Called by OpenShim's proven SetRunning lifecycle seam. Leaving simulation
+	// must hide mission-owned overlays before the debrief/end screen renders.
+	void NotifyMissionSimulationState(bool active) noexcept;
 	int ResetOverlaySupport(lua_State* L);
 
 	int CreateOverlay(lua_State* L);
