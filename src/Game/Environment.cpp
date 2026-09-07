@@ -21,6 +21,7 @@
 #include "../RenderProfileBridge.h"
 #include "InlinePatch.h"
 #include "Util/Logging.h"
+#include "GameObject.h"
 #include "LuaHelpers.h"
 
 #include <Windows.h>
@@ -35,6 +36,7 @@
 #include <mutex>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace ExtraUtilities::Lua::Environment
 {
@@ -1280,6 +1282,9 @@ namespace ExtraUtilities::Lua::Environment
 			return fn;
 		}
 
+		bool TryReturnManagedParticleToOwnNode(void* sceneManager, const std::string& name);
+		void ForgetParticleCameraFollower(const std::string& name);
+
 		std::string BuildManagedParticleNodeName(std::string_view particleName)
 		{
 			std::string result(kManagedParticleNodePrefix);
@@ -1456,6 +1461,11 @@ namespace ExtraUtilities::Lua::Environment
 			{
 				return false;
 			}
+
+			// A bone attachment leaves the system parented to a TagPoint rather
+			// than to its own node. Break whatever link exists before the
+			// destroy so nothing is left holding a freed movable object.
+			TryReturnManagedParticleToOwnNode(sceneManager, name);
 
 			bool removedAny = false;
 			removedAny = TryDestroyParticleSystemByName(sceneManager, name) || removedAny;
@@ -1765,6 +1775,830 @@ namespace ExtraUtilities::Lua::Environment
 				return false;
 			}
 		}
+
+		// ---------------------------------------------------------------------
+		// Particle attachment and emitter parameter control
+		//
+		// Weather and object VFX both need an emitter that travels with
+		// something -- the camera for a camera-centred precipitation volume, a
+		// craft's scene node for damage smoke, a bone for a weapon muzzle. Doing
+		// that from Lua means a per-frame SetParticleSystemPosition for every
+		// live system; doing it here means the Ogre scene graph carries the
+		// transform for free.
+		//
+		// The camera is the one case that can fail: the engine is free to drive
+		// its Ogre camera directly instead of through a scene node, and then
+		// there is no node to parent to. That case degrades to a registered
+		// follower that UpdateParticleFollowers snaps to the camera's derived
+		// position -- still one native call per frame instead of one per system,
+		// and still no Lua-side transform maths.
+		// ---------------------------------------------------------------------
+
+		struct ParticleCameraFollower
+		{
+			std::string particleName;
+			BZR::VECTOR_3D offset{};
+		};
+
+		std::vector<ParticleCameraFollower> g_particleCameraFollowers;
+
+		using GetParentSceneNodeFn = void*(__thiscall*)(void*);
+		using NodeGetParentFn = void*(__thiscall*)(void*);
+		using NodeAddChildFn = void(__thiscall*)(void*, void*);
+		using NodeRemoveChildPtrFn = void*(__thiscall*)(void*, void*);
+		using NodeSetInheritOrientationFn = void(__thiscall*)(void*, bool);
+		using NodeSetInheritScaleFn = void(__thiscall*)(void*, bool);
+		using CameraGetDerivedPositionFn = const BZR::VECTOR_3D*(__thiscall*)(void*);
+		using MovableObjectDetachFromParentFn = void(__thiscall*)(void*);
+		using EntityHasSkeletonFn = bool(__thiscall*)(void*);
+		using EntityAttachObjectToBoneFn = void*(__thiscall*)(void*, const std::string&, void*, const OgreQuaternionValue&, const BZR::VECTOR_3D&);
+		using EntityDetachObjectFromBoneFn = void(__thiscall*)(void*, void*);
+		using GetNumEmittersFn = uint16_t(__thiscall*)(void*);
+		using GetEmitterFn = void*(__thiscall*)(void*, uint16_t);
+		using EmitterSetEnabledFn = void(__thiscall*)(void*, bool);
+		using EmitterSetEmissionRateFn = void(__thiscall*)(void*, float);
+		using EmitterGetEmissionRateFn = float(__thiscall*)(void*);
+		using EmitterSetDirectionFn = void(__thiscall*)(void*, const BZR::VECTOR_3D&);
+		using EmitterSetPositionFn = void(__thiscall*)(void*, const BZR::VECTOR_3D&);
+		using EmitterSetVelocityRangeFn = void(__thiscall*)(void*, float, float);
+		using EmitterSetAngleFn = void(__thiscall*)(void*, const float&);
+		using EmitterSetTimeToLiveRangeFn = void(__thiscall*)(void*, float, float);
+		using EmitterSetColourRangeFn = void(__thiscall*)(void*, const Ogre::Color&, const Ogre::Color&);
+		using SetNonVisibleUpdateTimeoutFn = void(__thiscall*)(void*, float);
+
+		GetParentSceneNodeFn ResolveGetParentSceneNode()
+		{
+			static GetParentSceneNodeFn fn = ResolveOgreProc<GetParentSceneNodeFn>("?getParentSceneNode@MovableObject@Ogre@@UBEPAVSceneNode@2@XZ");
+			return fn;
+		}
+
+		NodeGetParentFn ResolveNodeGetParent()
+		{
+			static NodeGetParentFn fn = ResolveOgreProc<NodeGetParentFn>("?getParent@Node@Ogre@@UBEPAV12@XZ");
+			return fn;
+		}
+
+		NodeAddChildFn ResolveNodeAddChild()
+		{
+			static NodeAddChildFn fn = ResolveOgreProc<NodeAddChildFn>("?addChild@Node@Ogre@@UAEXPAV12@@Z");
+			return fn;
+		}
+
+		NodeRemoveChildPtrFn ResolveNodeRemoveChildPtr()
+		{
+			static NodeRemoveChildPtrFn fn = ResolveOgreProc<NodeRemoveChildPtrFn>("?removeChild@Node@Ogre@@UAEPAV12@PAV12@@Z");
+			return fn;
+		}
+
+		NodeSetInheritOrientationFn ResolveNodeSetInheritOrientation()
+		{
+			static NodeSetInheritOrientationFn fn = ResolveOgreProc<NodeSetInheritOrientationFn>("?setInheritOrientation@Node@Ogre@@UAEX_N@Z");
+			return fn;
+		}
+
+		NodeSetInheritScaleFn ResolveNodeSetInheritScale()
+		{
+			static NodeSetInheritScaleFn fn = ResolveOgreProc<NodeSetInheritScaleFn>("?setInheritScale@Node@Ogre@@UAEX_N@Z");
+			return fn;
+		}
+
+		CameraGetDerivedPositionFn ResolveCameraGetDerivedPosition()
+		{
+			static CameraGetDerivedPositionFn fn = ResolveOgreProc<CameraGetDerivedPositionFn>("?getDerivedPosition@Camera@Ogre@@QBEABVVector3@2@XZ");
+			return fn;
+		}
+
+		MovableObjectDetachFromParentFn ResolveMovableObjectDetachFromParent()
+		{
+			static MovableObjectDetachFromParentFn fn = ResolveOgreProc<MovableObjectDetachFromParentFn>("?detachFromParent@MovableObject@Ogre@@UAEXXZ");
+			return fn;
+		}
+
+		EntityHasSkeletonFn ResolveEntityHasSkeleton()
+		{
+			static EntityHasSkeletonFn fn = ResolveOgreProc<EntityHasSkeletonFn>("?hasSkeleton@Entity@Ogre@@QBE_NXZ");
+			return fn;
+		}
+
+		EntityAttachObjectToBoneFn ResolveEntityAttachObjectToBone()
+		{
+			static EntityAttachObjectToBoneFn fn = ResolveOgreProc<EntityAttachObjectToBoneFn>("?attachObjectToBone@Entity@Ogre@@QAEPAVTagPoint@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@PAVMovableObject@2@ABVQuaternion@2@ABVVector3@2@@Z");
+			return fn;
+		}
+
+		EntityDetachObjectFromBoneFn ResolveEntityDetachObjectFromBone()
+		{
+			static EntityDetachObjectFromBoneFn fn = ResolveOgreProc<EntityDetachObjectFromBoneFn>("?detachObjectFromBone@Entity@Ogre@@QAEXPAVMovableObject@2@@Z");
+			return fn;
+		}
+
+		GetNumEmittersFn ResolveGetNumEmitters()
+		{
+			static GetNumEmittersFn fn = ResolveOgreProc<GetNumEmittersFn>("?getNumEmitters@ParticleSystem@Ogre@@QBEGXZ");
+			return fn;
+		}
+
+		GetEmitterFn ResolveGetEmitter()
+		{
+			static GetEmitterFn fn = ResolveOgreProc<GetEmitterFn>("?getEmitter@ParticleSystem@Ogre@@QBEPAVParticleEmitter@2@G@Z");
+			return fn;
+		}
+
+		EmitterSetEnabledFn ResolveEmitterSetEnabled()
+		{
+			static EmitterSetEnabledFn fn = ResolveOgreProc<EmitterSetEnabledFn>("?setEnabled@ParticleEmitter@Ogre@@UAEX_N@Z");
+			return fn;
+		}
+
+		EmitterSetEmissionRateFn ResolveEmitterSetEmissionRate()
+		{
+			static EmitterSetEmissionRateFn fn = ResolveOgreProc<EmitterSetEmissionRateFn>("?setEmissionRate@ParticleEmitter@Ogre@@UAEXM@Z");
+			return fn;
+		}
+
+		EmitterGetEmissionRateFn ResolveEmitterGetEmissionRate()
+		{
+			static EmitterGetEmissionRateFn fn = ResolveOgreProc<EmitterGetEmissionRateFn>("?getEmissionRate@ParticleEmitter@Ogre@@UBEMXZ");
+			return fn;
+		}
+
+		EmitterSetDirectionFn ResolveEmitterSetDirection()
+		{
+			static EmitterSetDirectionFn fn = ResolveOgreProc<EmitterSetDirectionFn>("?setDirection@ParticleEmitter@Ogre@@UAEXABVVector3@2@@Z");
+			return fn;
+		}
+
+		EmitterSetPositionFn ResolveEmitterSetPosition()
+		{
+			static EmitterSetPositionFn fn = ResolveOgreProc<EmitterSetPositionFn>("?setPosition@ParticleEmitter@Ogre@@UAEXABVVector3@2@@Z");
+			return fn;
+		}
+
+		EmitterSetVelocityRangeFn ResolveEmitterSetVelocityRange()
+		{
+			static EmitterSetVelocityRangeFn fn = ResolveOgreProc<EmitterSetVelocityRangeFn>("?setParticleVelocity@ParticleEmitter@Ogre@@UAEXMM@Z");
+			return fn;
+		}
+
+		EmitterSetAngleFn ResolveEmitterSetAngle()
+		{
+			static EmitterSetAngleFn fn = ResolveOgreProc<EmitterSetAngleFn>("?setAngle@ParticleEmitter@Ogre@@UAEXABVRadian@2@@Z");
+			return fn;
+		}
+
+		EmitterSetTimeToLiveRangeFn ResolveEmitterSetTimeToLiveRange()
+		{
+			static EmitterSetTimeToLiveRangeFn fn = ResolveOgreProc<EmitterSetTimeToLiveRangeFn>("?setTimeToLive@ParticleEmitter@Ogre@@UAEXMM@Z");
+			return fn;
+		}
+
+		EmitterSetColourRangeFn ResolveEmitterSetColourRange()
+		{
+			static EmitterSetColourRangeFn fn = ResolveOgreProc<EmitterSetColourRangeFn>("?setColour@ParticleEmitter@Ogre@@UAEXABVColourValue@2@0@Z");
+			return fn;
+		}
+
+		SetNonVisibleUpdateTimeoutFn ResolveSetNonVisibleUpdateTimeout()
+		{
+			static SetNonVisibleUpdateTimeoutFn fn = ResolveOgreProc<SetNonVisibleUpdateTimeoutFn>("?setNonVisibleUpdateTimeout@ParticleSystem@Ogre@@QAEXM@Z");
+			return fn;
+		}
+
+		void ForgetParticleCameraFollower(const std::string& name)
+		{
+			for (auto it = g_particleCameraFollowers.begin(); it != g_particleCameraFollowers.end(); ++it)
+			{
+				if (it->particleName == name)
+				{
+					g_particleCameraFollowers.erase(it);
+					return;
+				}
+			}
+		}
+
+		void RememberParticleCameraFollower(const std::string& name, const BZR::VECTOR_3D& offset)
+		{
+			for (auto& follower : g_particleCameraFollowers)
+			{
+				if (follower.particleName == name)
+				{
+					follower.offset = offset;
+					return;
+				}
+			}
+
+			g_particleCameraFollowers.push_back(ParticleCameraFollower{ name, offset });
+		}
+
+		// The active viewport's Ogre camera, or null when no viewport is live.
+		void* GetActiveOgreCamera()
+		{
+			const ActiveViewportSet activeViewports = GetActiveViewports();
+			if (activeViewports.count == 0 || activeViewports.viewports[0] == nullptr)
+			{
+				return nullptr;
+			}
+
+			__try
+			{
+				return Ogre::GetViewportCamera(activeViewports.viewports[0]);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] Viewport::getCamera crashed code=0x%08X", GetExceptionCode());
+				return nullptr;
+			}
+		}
+
+		bool TryGetCameraDerivedPosition(void* camera, BZR::VECTOR_3D& outPosition)
+		{
+			const auto fn = ResolveCameraGetDerivedPosition();
+			if (camera == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				const BZR::VECTOR_3D* position = fn(camera);
+				if (position == nullptr)
+				{
+					return false;
+				}
+
+				outPosition = *position;
+				return IsFiniteVector(outPosition);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] Camera::getDerivedPosition crashed camera=%p code=0x%08X", camera, GetExceptionCode());
+				return false;
+			}
+		}
+
+		void* GetMovableObjectParentSceneNode(void* movableObject)
+		{
+			const auto fn = ResolveGetParentSceneNode();
+			if (movableObject == nullptr || fn == nullptr)
+			{
+				return nullptr;
+			}
+
+			__try
+			{
+				return fn(movableObject);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] getParentSceneNode crashed movableObject=%p code=0x%08X", movableObject, GetExceptionCode());
+				return nullptr;
+			}
+		}
+
+		// Moves an EXU-owned particle node under a new parent. Ogre asserts if a
+		// node is added to a second parent while it still has one, so the
+		// current parent link is always broken first.
+		bool TryReparentNode(void* node, void* newParent)
+		{
+			const auto getParentFn = ResolveNodeGetParent();
+			const auto removeChildFn = ResolveNodeRemoveChildPtr();
+			const auto addChildFn = ResolveNodeAddChild();
+			if (node == nullptr || newParent == nullptr || getParentFn == nullptr ||
+				removeChildFn == nullptr || addChildFn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				void* currentParent = getParentFn(node);
+				if (currentParent == newParent)
+				{
+					return true;
+				}
+
+				if (currentParent != nullptr)
+				{
+					removeChildFn(currentParent, node);
+				}
+
+				addChildFn(newParent, node);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] reparent crashed node=%p newParent=%p code=0x%08X", node, newParent, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetNodeInheritOrientation(void* node, bool inherit)
+		{
+			const auto fn = ResolveNodeSetInheritOrientation();
+			if (node == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(node, inherit);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] setInheritOrientation crashed node=%p code=0x%08X", node, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetNodeInheritScale(void* node, bool inherit)
+		{
+			const auto fn = ResolveNodeSetInheritScale();
+			if (node == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(node, inherit);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] setInheritScale crashed node=%p code=0x%08X", node, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetNodePositionDirect(void* node, const BZR::VECTOR_3D& position)
+		{
+			const auto fn = ResolveSetNodePosition();
+			if (node == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(node, position);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] setPosition crashed node=%p code=0x%08X", node, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryAttachManagedParticleToRoot(void* sceneManager, const std::string& name)
+		{
+			const auto getRootFn = ResolveGetRootSceneNode();
+			void* node = nullptr;
+			if (sceneManager == nullptr || getRootFn == nullptr || !TryGetManagedParticleSceneNode(sceneManager, name, node))
+			{
+				return false;
+			}
+
+			void* rootSceneNode = nullptr;
+			__try
+			{
+				rootSceneNode = getRootFn(sceneManager);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] getRootSceneNode crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+				return false;
+			}
+
+			if (!TryReparentNode(node, rootSceneNode))
+			{
+				return false;
+			}
+
+			TrySetNodeInheritOrientation(node, true);
+			TrySetNodeInheritScale(node, true);
+			return true;
+		}
+
+		// Returns true when the particle system's node now hangs off the
+		// camera's own scene node. Returns false when the engine drives its
+		// camera without a node -- the caller falls back to follower mode.
+		bool TryAttachManagedParticleToCameraNode(void* sceneManager, const std::string& name, const BZR::VECTOR_3D& offset)
+		{
+			void* camera = GetActiveOgreCamera();
+			if (camera == nullptr)
+			{
+				return false;
+			}
+
+			void* cameraNode = GetMovableObjectParentSceneNode(camera);
+			if (cameraNode == nullptr)
+			{
+				LogEnvironmentDebug("[EXU::Particle] camera attach unavailable name=%s reason=camera_has_no_scene_node", name.c_str());
+				return false;
+			}
+
+			void* node = nullptr;
+			if (!TryGetManagedParticleSceneNode(sceneManager, name, node))
+			{
+				return false;
+			}
+
+			if (!TryReparentNode(node, cameraNode))
+			{
+				return false;
+			}
+
+			// A precipitation volume must not roll or yaw with the view; only
+			// its position should track the camera.
+			TrySetNodeInheritOrientation(node, false);
+			TrySetNodeInheritScale(node, false);
+			TrySetNodePositionDirect(node, offset);
+			return true;
+		}
+
+		bool TryUpdateParticleCameraFollower(void* sceneManager, const ParticleCameraFollower& follower, const BZR::VECTOR_3D& cameraPosition)
+		{
+			void* node = nullptr;
+			if (!TryGetManagedParticleSceneNode(sceneManager, follower.particleName, node))
+			{
+				return false;
+			}
+
+			const BZR::VECTOR_3D position{
+				cameraPosition.x + follower.offset.x,
+				cameraPosition.y + follower.offset.y,
+				cameraPosition.z + follower.offset.z,
+			};
+			return TrySetNodePositionDirect(node, position);
+		}
+
+		bool TryAttachManagedParticleToObjectNode(void* sceneManager, const std::string& name, void* entity, const BZR::VECTOR_3D& offset)
+		{
+			void* objectNode = GetMovableObjectParentSceneNode(entity);
+			if (objectNode == nullptr)
+			{
+				LogEnvironmentDebug("[EXU::Particle] object attach failed name=%s reason=entity_has_no_scene_node", name.c_str());
+				return false;
+			}
+
+			void* node = nullptr;
+			if (!TryGetManagedParticleSceneNode(sceneManager, name, node))
+			{
+				return false;
+			}
+
+			if (!TryReparentNode(node, objectNode))
+			{
+				return false;
+			}
+
+			// Damage smoke and engine glow are body-relative, so orientation is
+			// inherited here even though the camera volume does not inherit it.
+			TrySetNodeInheritOrientation(node, true);
+			TrySetNodeInheritScale(node, false);
+			TrySetNodePositionDirect(node, offset);
+			return true;
+		}
+
+		bool TryAttachManagedParticleToBone(void* sceneManager, const std::string& name, void* entity, const std::string& boneName, const BZR::VECTOR_3D& offset)
+		{
+			const auto hasSkeletonFn = ResolveEntityHasSkeleton();
+			const auto attachFn = ResolveEntityAttachObjectToBone();
+			const auto detachFromParentFn = ResolveMovableObjectDetachFromParent();
+			if (entity == nullptr || hasSkeletonFn == nullptr || attachFn == nullptr || detachFromParentFn == nullptr)
+			{
+				return false;
+			}
+
+			void* particleSystem = nullptr;
+			if (!TryGetParticleSystem(sceneManager, name, particleSystem))
+			{
+				return false;
+			}
+
+			const OgreQuaternionValue identity{};
+			__try
+			{
+				if (!hasSkeletonFn(entity))
+				{
+					LogEnvironmentDebug("[EXU::Particle] bone attach failed name=%s bone=%s reason=entity_has_no_skeleton", name.c_str(), boneName.c_str());
+					return false;
+				}
+
+				// A movable object can only live on one attachment point, and
+				// the managed system starts life on its own scene node.
+				detachFromParentFn(particleSystem);
+				return attachFn(entity, boneName, particleSystem, identity, offset) != nullptr;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug(
+					"[EXU::Particle] bone attach crashed name=%s bone=%s entity=%p code=0x%08X",
+					name.c_str(),
+					boneName.c_str(),
+					entity,
+					GetExceptionCode());
+				return false;
+			}
+		}
+
+		void* GetParticleEmitter(void* sceneManager, const std::string& name, int emitterIndex)
+		{
+			const auto getNumFn = ResolveGetNumEmitters();
+			const auto getEmitterFn = ResolveGetEmitter();
+			void* particleSystem = nullptr;
+			if (emitterIndex < 0 || getNumFn == nullptr || getEmitterFn == nullptr ||
+				!TryGetParticleSystem(sceneManager, name, particleSystem))
+			{
+				return nullptr;
+			}
+
+			__try
+			{
+				const uint16_t count = getNumFn(particleSystem);
+				if (emitterIndex >= static_cast<int>(count))
+				{
+					return nullptr;
+				}
+
+				return getEmitterFn(particleSystem, static_cast<uint16_t>(emitterIndex));
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] getEmitter crashed name=%s index=%d code=0x%08X", name.c_str(), emitterIndex, GetExceptionCode());
+				return nullptr;
+			}
+		}
+
+		bool TryGetParticleEmitterCount(void* sceneManager, const std::string& name, int& outCount)
+		{
+			outCount = 0;
+			const auto fn = ResolveGetNumEmitters();
+			void* particleSystem = nullptr;
+			if (fn == nullptr || !TryGetParticleSystem(sceneManager, name, particleSystem))
+			{
+				return false;
+			}
+
+			__try
+			{
+				outCount = static_cast<int>(fn(particleSystem));
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] getNumEmitters crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetEmitterEnabled(void* emitter, bool enabled)
+		{
+			const auto fn = ResolveEmitterSetEnabled();
+			if (emitter == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(emitter, enabled);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] emitter setEnabled crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetEmitterEmissionRate(void* emitter, float rate)
+		{
+			const auto fn = ResolveEmitterSetEmissionRate();
+			if (emitter == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(emitter, rate);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] emitter setEmissionRate crashed emitter=%p rate=%g code=0x%08X", emitter, rate, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryGetEmitterEmissionRate(void* emitter, float& outRate)
+		{
+			outRate = 0.0f;
+			const auto fn = ResolveEmitterGetEmissionRate();
+			if (emitter == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				outRate = fn(emitter);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] emitter getEmissionRate crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetEmitterDirection(void* emitter, const BZR::VECTOR_3D& direction)
+		{
+			const auto fn = ResolveEmitterSetDirection();
+			if (emitter == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(emitter, direction);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] emitter setDirection crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetEmitterPosition(void* emitter, const BZR::VECTOR_3D& position)
+		{
+			const auto fn = ResolveEmitterSetPosition();
+			if (emitter == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(emitter, position);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] emitter setPosition crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetEmitterVelocityRange(void* emitter, float minVelocity, float maxVelocity)
+		{
+			const auto fn = ResolveEmitterSetVelocityRange();
+			if (emitter == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(emitter, minVelocity, maxVelocity);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] emitter setParticleVelocity crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetEmitterAngle(void* emitter, float radians)
+		{
+			const auto fn = ResolveEmitterSetAngle();
+			if (emitter == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(emitter, radians);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] emitter setAngle crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetEmitterTimeToLiveRange(void* emitter, float minTimeToLive, float maxTimeToLive)
+		{
+			const auto fn = ResolveEmitterSetTimeToLiveRange();
+			if (emitter == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(emitter, minTimeToLive, maxTimeToLive);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] emitter setTimeToLive crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetEmitterColourRange(void* emitter, const Ogre::Color& startColor, const Ogre::Color& endColor)
+		{
+			const auto fn = ResolveEmitterSetColourRange();
+			if (emitter == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(emitter, startColor, endColor);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] emitter setColour crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
+				return false;
+			}
+		}
+
+		// Undoes any of the three attachments: the system goes back onto its own
+		// EXU-owned node, and that node goes back under the scene root.
+		bool TryReturnManagedParticleToOwnNode(void* sceneManager, const std::string& name)
+		{
+			const auto detachFromParentFn = ResolveMovableObjectDetachFromParent();
+			const auto attachObjectFn = ResolveAttachObject();
+			void* particleSystem = nullptr;
+			void* node = nullptr;
+			if (detachFromParentFn == nullptr || attachObjectFn == nullptr ||
+				!TryGetParticleSystem(sceneManager, name, particleSystem) ||
+				!TryGetManagedParticleSceneNode(sceneManager, name, node))
+			{
+				return false;
+			}
+
+			if (!TryAttachManagedParticleToRoot(sceneManager, name))
+			{
+				return false;
+			}
+
+			__try
+			{
+				// A bone attachment moved the system off its own node; a camera or
+				// object attachment only moved the node, so this is a no-op there.
+				detachFromParentFn(particleSystem);
+				attachObjectFn(node, particleSystem);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] detach crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetParticleSystemNonVisibleUpdateTimeout(void* sceneManager, const std::string& name, float timeout)
+		{
+			void* particleSystem = nullptr;
+			const auto fn = ResolveSetNonVisibleUpdateTimeout();
+			if (!TryGetParticleSystem(sceneManager, name, particleSystem) || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				fn(particleSystem, timeout);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] setNonVisibleUpdateTimeout crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
+				return false;
+			}
+		}
+
+		// Mission teardown: the scene these followers point into is gone, so the
+		// list must not survive into the next mission's scene manager.
+		void ForgetAllParticleCameraFollowers()
+		{
+			g_particleCameraFollowers.clear();
+		}
+
 
 		using GetViewportOverlaysEnabledFn = bool(__thiscall*)(void*);
 		using SetViewportOverlaysEnabledFn = void(__thiscall*)(void*, bool);
@@ -2659,6 +3493,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		const std::string name = luaL_checkstring(L, 1);
+		ForgetParticleCameraFollower(name);
 		lua_pushboolean(L, TryDestroyManagedParticleSystem(sceneManager, name) ? 1 : 0);
 		return 1;
 	}
@@ -2866,6 +3701,437 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		lua_pushboolean(L, TrySetParticleSystemDefaultDimensions(sceneManager, name, width, height) ? 1 : 0);
+		return 1;
+	}
+
+
+	int AttachParticleSystemToCamera(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		BZR::VECTOR_3D offset{ 0.0f, 0.0f, 0.0f };
+		if (!lua_isnoneornil(L, 2))
+		{
+			offset = CheckVectorOrSingles(L, 2);
+			if (!IsFiniteVector(offset))
+			{
+				return luaL_argerror(L, 2, "AttachParticleSystemToCamera requires a finite offset vector");
+			}
+		}
+
+		if (TryAttachManagedParticleToCameraNode(sceneManager, name, offset))
+		{
+			// A real scene-graph attachment needs no per-frame help.
+			ForgetParticleCameraFollower(name);
+			lua_pushboolean(L, 1);
+			return 1;
+		}
+
+		// No camera scene node in this build: fall back to a native follower
+		// that UpdateParticleFollowers drives, and place it once now so the
+		// first frame is already correct.
+		BZR::VECTOR_3D cameraPosition{ 0.0f, 0.0f, 0.0f };
+		if (!TryGetCameraDerivedPosition(GetActiveOgreCamera(), cameraPosition))
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		RememberParticleCameraFollower(name, offset);
+		const ParticleCameraFollower follower{ name, offset };
+		lua_pushboolean(L, TryUpdateParticleCameraFollower(sceneManager, follower, cameraPosition) ? 1 : 0);
+		return 1;
+	}
+
+	int AttachParticleSystemToObject(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const BZR::handle h = CheckHandle(L, 2);
+		BZR::VECTOR_3D offset{ 0.0f, 0.0f, 0.0f };
+		if (!lua_isnoneornil(L, 3))
+		{
+			offset = CheckVectorOrSingles(L, 3);
+			if (!IsFiniteVector(offset))
+			{
+				return luaL_argerror(L, 3, "AttachParticleSystemToObject requires a finite offset vector");
+			}
+		}
+
+		void* entity = GameObject::ResolveAnimationEntity(h);
+		if (entity == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		ForgetParticleCameraFollower(name);
+		lua_pushboolean(L, TryAttachManagedParticleToObjectNode(sceneManager, name, entity, offset) ? 1 : 0);
+		return 1;
+	}
+
+	int AttachParticleSystemToBone(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const BZR::handle h = CheckHandle(L, 2);
+		const std::string boneName = luaL_checkstring(L, 3);
+		BZR::VECTOR_3D offset{ 0.0f, 0.0f, 0.0f };
+		if (!lua_isnoneornil(L, 4))
+		{
+			offset = CheckVectorOrSingles(L, 4);
+			if (!IsFiniteVector(offset))
+			{
+				return luaL_argerror(L, 4, "AttachParticleSystemToBone requires a finite offset vector");
+			}
+		}
+
+		void* entity = GameObject::ResolveAnimationEntity(h);
+		if (entity == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		ForgetParticleCameraFollower(name);
+		lua_pushboolean(L, TryAttachManagedParticleToBone(sceneManager, name, entity, boneName, offset) ? 1 : 0);
+		return 1;
+	}
+
+	int DetachParticleSystem(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		ForgetParticleCameraFollower(name);
+		lua_pushboolean(L, TryReturnManagedParticleToOwnNode(sceneManager, name) ? 1 : 0);
+		return 1;
+	}
+
+	int UpdateParticleFollowers(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr || g_particleCameraFollowers.empty())
+		{
+			lua_pushinteger(L, 0);
+			return 1;
+		}
+
+		BZR::VECTOR_3D cameraPosition{ 0.0f, 0.0f, 0.0f };
+		if (!TryGetCameraDerivedPosition(GetActiveOgreCamera(), cameraPosition))
+		{
+			lua_pushinteger(L, 0);
+			return 1;
+		}
+
+		int updated = 0;
+		for (const auto& follower : g_particleCameraFollowers)
+		{
+			if (TryUpdateParticleCameraFollower(sceneManager, follower, cameraPosition))
+			{
+				++updated;
+			}
+		}
+
+		lua_pushinteger(L, updated);
+		return 1;
+	}
+
+	int GetParticleSystemEmitterCount(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		int count = 0;
+		if (!TryGetParticleEmitterCount(sceneManager, name, count))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		lua_pushinteger(L, count);
+		return 1;
+	}
+
+	int GetParticleEmitterEmissionRate(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const int emitterIndex = static_cast<int>(luaL_checkinteger(L, 2));
+		float rate = 0.0f;
+		if (!TryGetEmitterEmissionRate(GetParticleEmitter(sceneManager, name, emitterIndex), rate))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		lua_pushnumber(L, rate);
+		return 1;
+	}
+
+	int SetParticleEmitterEnabled(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const int emitterIndex = static_cast<int>(luaL_checkinteger(L, 2));
+		const bool enabled = CheckBool(L, 3);
+		lua_pushboolean(L, TrySetEmitterEnabled(GetParticleEmitter(sceneManager, name, emitterIndex), enabled) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleEmitterEmissionRate(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const int emitterIndex = static_cast<int>(luaL_checkinteger(L, 2));
+		const float rate = static_cast<float>(luaL_checknumber(L, 3));
+		if (!IsFiniteScalar(rate) || rate < 0.0f)
+		{
+			return luaL_argerror(L, 3, "SetParticleEmitterEmissionRate requires a finite non-negative rate");
+		}
+
+		lua_pushboolean(L, TrySetEmitterEmissionRate(GetParticleEmitter(sceneManager, name, emitterIndex), rate) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleEmitterDirection(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const int emitterIndex = static_cast<int>(luaL_checkinteger(L, 2));
+		const BZR::VECTOR_3D direction = CheckVectorOrSingles(L, 3);
+		if (!IsFiniteVector(direction))
+		{
+			return luaL_argerror(L, 3, "SetParticleEmitterDirection requires a finite direction vector");
+		}
+
+		lua_pushboolean(L, TrySetEmitterDirection(GetParticleEmitter(sceneManager, name, emitterIndex), direction) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleEmitterPosition(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const int emitterIndex = static_cast<int>(luaL_checkinteger(L, 2));
+		const BZR::VECTOR_3D position = CheckVectorOrSingles(L, 3);
+		if (!IsFiniteVector(position))
+		{
+			return luaL_argerror(L, 3, "SetParticleEmitterPosition requires a finite position vector");
+		}
+
+		lua_pushboolean(L, TrySetEmitterPosition(GetParticleEmitter(sceneManager, name, emitterIndex), position) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleEmitterVelocity(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const int emitterIndex = static_cast<int>(luaL_checkinteger(L, 2));
+		const float minVelocity = static_cast<float>(luaL_checknumber(L, 3));
+		const float maxVelocity = lua_isnoneornil(L, 4) ? minVelocity : static_cast<float>(luaL_checknumber(L, 4));
+		if (!IsFiniteScalar(minVelocity))
+		{
+			return luaL_argerror(L, 3, "SetParticleEmitterVelocity requires a finite minimum velocity");
+		}
+		if (!IsFiniteScalar(maxVelocity) || maxVelocity < minVelocity)
+		{
+			return luaL_argerror(L, 4, "SetParticleEmitterVelocity requires a finite maximum velocity that is not below the minimum");
+		}
+
+		lua_pushboolean(L, TrySetEmitterVelocityRange(GetParticleEmitter(sceneManager, name, emitterIndex), minVelocity, maxVelocity) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleEmitterAngle(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const int emitterIndex = static_cast<int>(luaL_checkinteger(L, 2));
+		const float degrees = static_cast<float>(luaL_checknumber(L, 3));
+		if (!IsFiniteScalar(degrees))
+		{
+			return luaL_argerror(L, 3, "SetParticleEmitterAngle requires a finite angle in degrees");
+		}
+
+		// .particle scripts spell this in degrees, so the Lua surface does too.
+		const float radians = degrees * 0.0174532925f;
+		lua_pushboolean(L, TrySetEmitterAngle(GetParticleEmitter(sceneManager, name, emitterIndex), radians) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleEmitterTimeToLive(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const int emitterIndex = static_cast<int>(luaL_checkinteger(L, 2));
+		const float minTimeToLive = static_cast<float>(luaL_checknumber(L, 3));
+		const float maxTimeToLive = lua_isnoneornil(L, 4) ? minTimeToLive : static_cast<float>(luaL_checknumber(L, 4));
+		if (!IsFiniteScalar(minTimeToLive) || minTimeToLive < 0.0f)
+		{
+			return luaL_argerror(L, 3, "SetParticleEmitterTimeToLive requires a finite non-negative minimum");
+		}
+		if (!IsFiniteScalar(maxTimeToLive) || maxTimeToLive < minTimeToLive)
+		{
+			return luaL_argerror(L, 4, "SetParticleEmitterTimeToLive requires a finite maximum that is not below the minimum");
+		}
+
+		lua_pushboolean(L, TrySetEmitterTimeToLiveRange(GetParticleEmitter(sceneManager, name, emitterIndex), minTimeToLive, maxTimeToLive) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleEmitterColor(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const int emitterIndex = static_cast<int>(luaL_checkinteger(L, 2));
+		const Ogre::Color startColor = CheckColorOrSingles(L, 3);
+		const Ogre::Color endColor = (lua_istable(L, 3) && !lua_isnoneornil(L, 4)) ? CheckColorOrSingles(L, 4) : startColor;
+		if (!IsFiniteColor(startColor))
+		{
+			return luaL_argerror(L, 3, "SetParticleEmitterColor requires a finite start color");
+		}
+		if (!IsFiniteColor(endColor))
+		{
+			return luaL_argerror(L, 4, "SetParticleEmitterColor requires a finite end color");
+		}
+
+		lua_pushboolean(L, TrySetEmitterColourRange(GetParticleEmitter(sceneManager, name, emitterIndex), startColor, endColor) ? 1 : 0);
+		return 1;
+	}
+
+	int SetParticleSystemNonVisibleUpdateTimeout(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		const float timeout = static_cast<float>(luaL_checknumber(L, 2));
+		if (!IsFiniteScalar(timeout) || timeout < 0.0f)
+		{
+			return luaL_argerror(L, 2, "SetParticleSystemNonVisibleUpdateTimeout requires a finite non-negative timeout");
+		}
+
+		lua_pushboolean(L, TrySetParticleSystemNonVisibleUpdateTimeout(sceneManager, name, timeout) ? 1 : 0);
 		return 1;
 	}
 
@@ -3869,6 +5135,7 @@ namespace ExtraUtilities::Patch
 				g_initializedSceneManager,
 				g_initializedTerrainMasterLight);
 		}
+		Lua::Environment::ForgetAllParticleCameraFollowers();
 		g_initializedSceneManager = nullptr;
 		g_initializedTerrainMasterLight = nullptr;
 		g_ogreInitialized = false;

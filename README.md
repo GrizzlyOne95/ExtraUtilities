@@ -12,7 +12,7 @@ compatible Wine/Proton prefix are maintained together. See the shared
 
 - **Camera and display** — camera modes, matrices, origins, field of view, zoom limits, clip distances, aspect ratio, projection mode, polygon mode, game resolution, UI scaling, and fullscreen state.
 - **Environment and lighting** — fog, gravity, ambient and sun lighting, time of day, shadow distance, skybox/skydome/skyplane controls, visibility masks, retro-lighting schemes, and viewport shadow or overlay toggles.
-- **Particles and debug rendering** — create and control Ogre particle systems, draw lines and boxes, toggle wireframe, show bounding boxes, and clear temporary visuals.
+- **Particles and debug rendering** — create and control Ogre particle systems, attach them to the camera, a game object, or a skeleton bone, tune live emitter rate/direction/velocity/lifetime/spread/colour, draw lines and boxes, toggle wireframe, show bounding boxes, and clear temporary visuals.
 - **Materials, terrain, and entities** — inspect and replace entity or sub-entity materials, clone materials, modify textures and pass colors, control visibility and render queues, manipulate lights and animations, and re-theme the live terrain material without reloading the map.
 - **Overlays and HUD layout** — create Ogre overlays and text elements, position and style them, move or recolor stock scrap and pilot readouts, manipulate HUD sprite rectangles, and inspect the command-menu bounds.
 - **Radar, reticle, and satellite** — radar mode and scale, edge-path layout, reticle position/range/object data, satellite positions, pan speed, zoom, and state.
