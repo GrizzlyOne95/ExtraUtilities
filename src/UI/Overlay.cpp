@@ -93,6 +93,9 @@ namespace ExtraUtilities::Lua::Overlay
 		bool overlaySuppressionActive = false;
 		volatile long overlayPauseWrapperDepth = 0;
 		volatile long overlayGameShellWrapperDepth = 0;
+		// -1 means an older/missing OpenShim has not supplied a mission state.
+		// Once known, overlays are allowed only while Redux is RUN_STARTED.
+		volatile long overlayMissionSimulationState = -1;
 		constexpr uintptr_t kPauseWrapperFunctionAddr = 0x005D4690;
 		constexpr uintptr_t kPauseWrapperEntryHookOffset = 0x26;
 		constexpr uintptr_t kPauseWrapperExitHookOffset = 0x1CA;
@@ -281,6 +284,7 @@ namespace ExtraUtilities::Lua::Overlay
 		{
 			return overlayPauseWrapperDepth > 0
 				|| overlayGameShellWrapperDepth > 0
+				|| overlayMissionSimulationState == 0
 				|| ExtraUtilities::GameState::IsGameUiOpen();
 		}
 
@@ -2610,6 +2614,24 @@ namespace ExtraUtilities::Lua::Overlay
 		overlayVisibilityStates.clear();
 	}
 
+	void NotifyMissionSimulationState(bool active) noexcept
+	{
+		const long previous = InterlockedExchange(
+			&overlayMissionSimulationState, active ? 1L : 0L);
+		Logging::LogMessage(
+			"[EXU::Overlay] mission simulation state active=%d previous=%ld tracked=%u",
+			active ? 1 : 0,
+			previous,
+			static_cast<unsigned>(overlayVisibilityStates.size()));
+
+		// Hiding on exit is mandatory. Entering a new mission must not resurrect
+		// requested-visible overlays owned by the previous mission; the new Lua
+		// state will explicitly show the overlays it creates.
+		RefreshOverlaySuppressionState(
+			active ? "mission-simulation-enter" : "mission-simulation-exit",
+			!active);
+	}
+
 	int ResetOverlaySupport(lua_State* L)
 	{
 		const char* reason = luaL_optstring(L, 1, "lua-reset");
@@ -2654,8 +2676,24 @@ namespace ExtraUtilities::Lua::Overlay
 		}
 
 		bool destroyed = false;
-		TryDestroyOverlayByName(manager, name, destroyed);
-		overlayVisibilityStates.erase(name);
+		const bool destroyCompleted = TryDestroyOverlayByName(manager, name, destroyed);
+		if (destroyCompleted)
+		{
+			overlayVisibilityStates.erase(name);
+		}
+		else
+		{
+			// A failed Ogre destroy can leave the overlay alive. Keep it tracked so
+			// mission/shell suppression can hide it again instead of turning the
+			// surviving object into an invisible-to-EXU end-screen leak.
+			OverlayVisibilityState& visibilityState = overlayVisibilityStates[name];
+			visibilityState.requestedVisible = false;
+			SyncOverlayVisibilityState(name, visibilityState, "destroy-overlay-failed");
+			Logging::LogMessage(
+				"[EXU::Overlay] DestroyOverlay retained failed destruction name=%s effective=%d",
+				name.c_str(),
+				visibilityState.effectiveVisible ? 1 : 0);
+		}
 
 		return 0;
 	}
@@ -3167,4 +3205,11 @@ namespace ExtraUtilities::Lua::Overlay
 		}
 		return 0;
 	}
+}
+
+// Optional process-local bridge used by OpenShim. Keeping the C ABI tiny lets
+// either DLL run without the other and avoids coupling their C++ interfaces.
+extern "C" __declspec(dllexport) void __cdecl ExuNotifyMissionSimulationState(int active)
+{
+	ExtraUtilities::Lua::Overlay::NotifyMissionSimulationState(active != 0);
 }
