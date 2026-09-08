@@ -150,6 +150,7 @@
     <ClCompile Include="src\dllmain.cpp" />
     <ClCompile Include="src\Patches\EngineFlameColor.cpp" />
     <ClCompile Include="src\Game\Environment.cpp" />
+    <ClCompile Include="src\Game\FogWake.cpp" />
     <ClCompile Include="src\Game\GameObject.cpp" />
     <ClCompile Include="src\Game\game_state.cpp" />
     <ClCompile Include="src\Patches\GlobalTurbo.cpp" />
@@ -209,6 +210,9 @@
     <ClInclude Include="src\LuaHelpers.h" />
     <ClInclude Include="src\LuaState.h" />
     <ClInclude Include="src\OpenShimBridge.h" />
+    <ClInclude Include="src\FogWakeApi.h" />
+    <ClInclude Include="src\FogWakeBridge.h" />
+    <ClInclude Include="src\Game\FogWake.h" />
     <ClInclude Include="src\RenderProfileBridge.h" />
     <ClInclude Include="src\Game\Multiplayer.h" />
     <ClInclude Include="src\Ogre\OgreBuildSettings.h" />

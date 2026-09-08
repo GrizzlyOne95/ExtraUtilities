@@ -27,6 +27,8 @@
 #include "LuaHelpers.h"
 #include "LuaState.h"
 #include "OpenShimBridge.h"
+#include "FogWakeBridge.h"
+#include "Game/FogWake.h"
 #include "Patches.h"
 #include "UI/Renderer.h"
 
@@ -476,6 +478,7 @@ namespace ExtraUtilities::Lua
 		CommandReplacement::ResetState(L);
 		Logging::LogMessage("exu: Init starting");
 		Patches::ResetOpenShimMissionOverrides();
+		FogWakeBridge::Reset();
 		// Scripted content gets the legacy jump-snipe crouch fix on by default.
 		// OpenShim keeps it off for stock/MP; a mission can opt out with
 		// exu.SetJumpSnipeCrouch(false).
@@ -632,6 +635,12 @@ namespace ExtraUtilities::Lua
 			{ "GetRetroLightingMode", &Environment::GetRetroLightingMode },
 			{ "SetRetroLightingMode", &Environment::SetRetroLightingMode },
 			{ "EnforceLightingMode", &Environment::EnforceLightingMode },
+			{ "ConfigureFogWake", &FogWake::Configure },
+			{ "UpdateFogWake", &FogWake::Update },
+			{ "ObserveFogWake", &FogWake::Observe },
+			{ "RemoveFogWakeEmitter", &FogWake::Remove },
+			{ "ResetFogWake", &FogWake::Reset },
+			{ "GetFogWakeStatus", &FogWake::Status },
 			{ "RequestRenderProfile", &Environment::RequestRenderProfile },
 			{ "GetRequestedRenderProfile", &Environment::GetRequestedRenderProfile },
 			{ "GetEffectiveRenderProfile", &Environment::GetEffectiveRenderProfile },
