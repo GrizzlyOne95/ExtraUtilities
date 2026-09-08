@@ -4,9 +4,7 @@ Extra Utilities (EXU) is a native Lua extension for Battlezone 98 Redux. It adds
 
 EXU currently targets the 32-bit Windows build of Battlezone 98 Redux 2.2.301, including that same Win32 `exu.dll` under Steam Proton. It does not support a native Linux or macOS game binary, or Battlezone 1.5. Native addresses and hooks are build-specific and must be revalidated when the game updates.
 
-Windows/GOG, Windows/Steam, Linux/Steam via Proton, and Linux/GOG through a
-compatible Wine/Proton prefix are maintained together. See the shared
-[`BZR platform and distribution compatibility policy`](Docs/BZR_PLATFORM_COMPATIBILITY.md).
+Windows/GOG, Windows/Steam, Linux/Steam via Proton, and Linux/GOG through a compatible Wine/Proton prefix are maintained together. See the shared [`BZR platform and distribution compatibility policy`](Docs/BZR_PLATFORM_COMPATIBILITY.md).
 
 ## Features
 
@@ -21,10 +19,12 @@ compatible Wine/Proton prefix are maintained together. See the shared
 - **Ordnance and physics** — build ordnance, inspect ordnance attributes, adjust the ballistic coefficient, and use matrix/vector helpers including screen-to-world conversion.
 - **Multiplayer** — synchronized or asynchronous object creation, lives, scoreboard visibility, network player ID, custom kill messages, and starting-recycler control.
 - **Input, preferences, and system utilities** — game-key state, pause-menu detection, play and sound settings, native save requests, screen resolution, Steam ID, and diagnostic message boxes.
-- **OpenShim integration** — optional runtime bridges for shared turbo, HUD, convergence, reticle-range, and music ownership. EXU retains standalone fallbacks where supported and fails closed when an optional bridge is unavailable.
+- **OpenShim integration** — optional runtime bridges for shared turbo, HUD, convergence, reticle-range, music, radar, and related ownership. EXU retains standalone fallbacks where supported and fails closed when an optional bridge is unavailable.
 - **Native consumers** — a small exported C API for version checks, access to the registered Lua state, and selected integration callbacks.
 
 Detailed Lua API descriptions and editor annotations are kept in [`Definitions/ExtraUtils.lua`](Definitions/ExtraUtils.lua). That file is for editor tooling only and must not be loaded at runtime; the runtime export table in `src/luaexport.cpp` remains the definitive list of registered functions.
+
+Additional focused documentation lives in [`Docs/`](Docs/), including the [animation API](Docs/ANIMATION_API.md) and [persistent storage/continuity API](Docs/PERSISTENCE_AND_CONTINUITY.md).
 
 ## Using EXU
 
@@ -56,8 +56,7 @@ Snap Steam — paste in a terminal:
 curl -fsSL https://raw.githubusercontent.com/GrizzlyOne95/ExtraUtilities/main/scripts/install_linux.sh | bash -s -- --snap
 ```
 
-Both commands download the `exu.dll` from the [latest release](../../releases/latest) and verify it against the
-`SHA256SUMS.txt` published with that release; a mismatched or unverifiable download installs nothing.
+Both commands download `exu.dll` from the [latest release](../../releases/latest) and verify it against the `SHA256SUMS.txt` published with that release; a mismatched or unverifiable download installs nothing.
 
 No Steam launch options are required. Proton loads `exu.dll` as a Windows DLL (this is not an OpenShim `winmm.dll` proxy).
 
@@ -71,31 +70,40 @@ To copy a local Windows build instead of a GitHub release:
 
 Requirements:
 
-- Visual Studio 2022 with **Desktop development with C++** (Win32 `exu.dll`)
+- Visual Studio 2022 with **Desktop development with C++** for the Win32 `exu.dll`
 - MSVC v143 14.43 or newer
-- PowerShell (`setup-dev.ps1`) or bash (`setup-dev.sh`) for Ogre header setup
-- Python 3 for `tools/` validation and Linux host checks
+- Python 3 for validation tooling and Linux host checks
 
-Run `setup-dev.ps1` (Windows) or `setup-dev.sh` (Linux) once after cloning to fetch the required Ogre 1.10 headers. Then build `ExtraUtilities.sln` as **Release|x86** on Windows; the project-level target is **Release|Win32** and writes `Release/exu.dll`. Linux can run `bash tests/linux/run.sh` after setup; it does not produce `exu.dll`.
+The Ogre headers required to compile EXU are committed under `third_party/ogre-1.10.0-bzr/include/`; a normal build does **not** require downloading or cloning Ogre first.
+
+Build `ExtraUtilities.sln` as **Release|x86** on Windows. The project-level target is **Release|Win32** and writes `Release/exu.dll`.
 
 ```powershell
-.\setup-dev.ps1
 msbuild ExtraUtilities.sln /p:Configuration=Release /p:Platform=x86
 ```
 
+Linux can run the host-side validation lane directly:
+
 ```bash
-./setup-dev.sh
 bash tests/linux/run.sh
 ```
 
-Lua 5.1, OgreMain, and OgreOverlay build dependencies are included in the repository. If several MSVC toolsets are installed, pass `/p:VCToolsVersion=<version>` to select a recent one explicitly.
+Lua 5.1, OgreMain, and OgreOverlay build dependencies required by EXU are included in the repository. If several MSVC toolsets are installed, pass `/p:VCToolsVersion=<version>` to select a recent one explicitly.
+
+The optional `third_party/ogre-1.10.0-bzr/Build-Ogre-BZR.ps1` workflow is only for rebuilding/comparing Battlezone-compatible Ogre binaries; it is not part of a normal EXU build.
 
 ## Updating for a game patch
 
 - Revalidate the addresses and signatures documented in `exu.json` against the new executable.
-- Update the corresponding declarations in `src/bzr.h` and record the verified game version.
-- Build **Release|x86** and smoke-test Lua loading plus the affected feature groups in game.
-- Update the EXU version in `src/About.h` before tagging a release.
+- Update the corresponding declarations in `src/BZR.h` and record the verified game version.
+- Run `python tools/qualify_bzr_build.py <path-to-bzr.exe> --write-report` and review missing/ambiguous targets.
+- Regenerate/check the build profile with `python tools/generate_bzr_build_profile.py --check`.
+- Build **Release|x86**, run the validation suites, and smoke-test Lua loading plus the affected feature groups in game.
+- Update the EXU version in `src/About.h`, `include/ExtraUtils.h`, and `Definitions/ExtraUtils.lua` together before tagging a release.
+
+## Workshop publication
+
+Workshop-source metadata is kept in `Workshop/`, `workshop_description.txt`, and `workshop_changenote.txt`. Maintainer notes for publishing are in [`Docs/WORKSHOP_RELEASE.md`](Docs/WORKSHOP_RELEASE.md).
 
 ## Credits
 
