@@ -2290,4 +2290,59 @@ function exu.SetWireframe(...) end
 --- @param ... any
 function exu.StopMusic(...) end
 
+--- Optional OpenShim fog bank. Distances are world metres; colors/density are 0..1.
+--- Config replaces and enables the bank. Missing/older OpenShim returns false.
+--- @class FogWakeConfig
+--- @field centerX number
+--- @field baseY number World-space base plane; sample terrain/floor in the mission.
+--- @field centerZ number
+--- @field width? number Default 384.
+--- @field cellSize? number Default 4.
+--- @field height? number Default 8.
+--- @field wakeRadius? number Default 9.
+--- @field recoverySeconds? number Default 12.
+--- @field windX? number Default 0, metres per second.
+--- @field windZ? number Default 0, metres per second.
+--- @field density? number Default 0.35.
+--- @field colorR? number Default 0.7.
+--- @field colorG? number Default 0.75.
+--- @field colorB? number Default 0.8.
+--- @param config FogWakeConfig
+--- @return boolean accepted
+function exu.ConfigureFogWake(config) end
+
+--- Advance once per tick BEFORE observing emitters. Use GetTime(), never wall time.
+--- @param now number Mission simulation seconds.
+--- @return boolean accepted
+function exu.UpdateFogWake(now) end
+
+--- Use a positive integer token assigned by the mission, never a stock handle.
+--- @param id integer
+--- @param x number
+--- @param y number
+--- @param z number
+--- @return boolean accepted
+function exu.ObserveFogWake(id, x, y, z) end
+
+--- Forget an emitter after deletion or leaving the observation range.
+--- @param id integer
+--- @return boolean accepted
+function exu.RemoveFogWakeEmitter(id) end
+
+--- Disable and clear the bank. EXU initialization also resets mission fog.
+--- @return boolean accepted
+function exu.ResetFogWake() end
+
+--- @class FogWakeStatus
+--- @field supported boolean
+--- @field configured boolean
+--- @field renderReady boolean True only when renderer resources exist.
+--- @field apiVersion integer Zero when the optional bridge is absent.
+--- @field emitterCount integer
+--- @field activeCells integer
+--- @field maxClearance number
+--- @field renderedBillboards integer
+--- @return FogWakeStatus
+function exu.GetFogWakeStatus() end
+
 return exu
