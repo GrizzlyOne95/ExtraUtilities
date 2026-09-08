@@ -26,7 +26,6 @@ test_python_tools() {
 test_script_syntax() {
     local script
     for script in \
-        "$ROOT/setup-dev.sh" \
         "$ROOT/install_requirements.sh" \
         "$ROOT/scripts/steam_game_paths.sh" \
         "$ROOT/scripts/deploy_linux_proton.sh" \
@@ -35,7 +34,7 @@ test_script_syntax() {
     do
         bash -n "$script" || fail "bash -n failed: $script"
     done
-    pass "installer and setup scripts parse"
+    pass "installer and host scripts parse"
 }
 
 test_steam_path_override() {

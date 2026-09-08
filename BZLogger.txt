@@ -1,3 +1,0 @@
-2026-03-22 18:21:21.202398 Starting BattleZone 98 Redux, Version 2.2.301, PC Steam
-2026-03-22 18:21:21.203395 Battlezone98 Command-Line: 
-2026-03-22 18:21:21.293124 BZRNet P2P Socket Opened With 1048576 received buffer, 32768 send buffer, port 61900
