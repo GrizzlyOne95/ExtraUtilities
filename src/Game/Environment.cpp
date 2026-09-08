@@ -1151,6 +1151,8 @@ namespace ExtraUtilities::Lua::Environment
 		using HasSceneNodeFn = bool(__thiscall*)(void*, const std::string&);
 		using DestroySceneNodeFn = void(__thiscall*)(void*, const std::string&);
 		using AttachObjectFn = void(__thiscall*)(void*, void*);
+		using GetMovableObjectFn = void*(__thiscall*)(void*, const std::string&, const std::string&);
+		using HasMovableObjectFn = bool(__thiscall*)(void*, const std::string&, const std::string&);
 		using SetNodePositionFn = void(__thiscall*)(void*, const BZR::VECTOR_3D&);
 		using SetSceneNodeDirectionFn = void(__thiscall*)(void*, const BZR::VECTOR_3D&, int, const BZR::VECTOR_3D&);
 		using SetParticleSystemEmittingFn = void(__thiscall*)(void*, bool);
@@ -1220,6 +1222,26 @@ namespace ExtraUtilities::Lua::Environment
 		{
 			static AttachObjectFn fn = ResolveOgreProc<AttachObjectFn>("?attachObject@SceneNode@Ogre@@UAEXPAVMovableObject@2@@Z");
 			return fn;
+		}
+
+		GetMovableObjectFn ResolveGetMovableObject()
+		{
+			static GetMovableObjectFn fn = ResolveOgreProc<GetMovableObjectFn>("?getMovableObject@SceneManager@Ogre@@UBEPAVMovableObject@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0@Z");
+			return fn;
+		}
+
+		HasMovableObjectFn ResolveHasMovableObject()
+		{
+			static HasMovableObjectFn fn = ResolveOgreProc<HasMovableObjectFn>("?hasMovableObject@SceneManager@Ogre@@UBE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0@Z");
+			return fn;
+		}
+
+		// The factory type name is an exported Ogre::String living in OgreMain,
+		// so we read the engine's own copy rather than spelling it out here.
+		const std::string* ResolveParticleSystemFactoryTypeName()
+		{
+			static const std::string* name = ResolveOgreProc<const std::string*>("?FACTORY_TYPE_NAME@ParticleSystemFactory@Ogre@@2V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@A");
+			return name;
 		}
 
 		SetNodePositionFn ResolveSetNodePosition()
@@ -1403,6 +1425,49 @@ namespace ExtraUtilities::Lua::Environment
 			return TryGetSceneNode(sceneManager, BuildManagedParticleNodeName(particleName), outSceneNode);
 		}
 
+		// Ogre declares "class ParticleSystem : public StringInterface, public
+		// MovableObject", so the MovableObject subobject does not start at the
+		// top of the ParticleSystem and a ParticleSystem* is NOT a usable
+		// MovableObject*. Handing the raw pointer to a MovableObject-typed entry
+		// point (SceneNode::attachObject, MovableObject::detachFromParent,
+		// MovableObject::setVisible, Entity::attachObjectToBone) makes the
+		// callee read its vptr out of the StringInterface subobject and index
+		// past the end of that much shorter vtable -- an access violation on
+		// every call.
+		//
+		// Rather than hardcode the base offset, which is a property of whatever
+		// OgreMain the game shipped, ask the scene manager for the movable
+		// object by name: Ogre performs the downcast on its own side and hands
+		// back the correctly re-based pointer.
+		bool TryGetParticleMovableObject(void* sceneManager, const std::string& name, void*& outMovableObject)
+		{
+			outMovableObject = nullptr;
+			const auto hasFn = ResolveHasMovableObject();
+			const auto getFn = ResolveGetMovableObject();
+			const std::string* typeName = ResolveParticleSystemFactoryTypeName();
+			if (sceneManager == nullptr || hasFn == nullptr || getFn == nullptr || typeName == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				if (!hasFn(sceneManager, name, *typeName))
+				{
+					return false;
+				}
+
+				outMovableObject = getFn(sceneManager, name, *typeName);
+				return outMovableObject != nullptr;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] getMovableObject crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
+				outMovableObject = nullptr;
+				return false;
+			}
+		}
+
 		bool TryDestroyParticleSystemByName(void* sceneManager, const std::string& name)
 		{
 			const auto fn = ResolveDestroyParticleSystem();
@@ -1487,6 +1552,7 @@ namespace ExtraUtilities::Lua::Environment
 
 			void* rootSceneNode = nullptr;
 			void* particleSystem = nullptr;
+			void* movableObject = nullptr;
 			void* childSceneNode = nullptr;
 			const OgreQuaternionValue identity{};
 			__try
@@ -1505,6 +1571,14 @@ namespace ExtraUtilities::Lua::Environment
 					return false;
 				}
 
+				// attachObject takes a MovableObject*, which is not where the
+				// ParticleSystem* points. See TryGetParticleMovableObject.
+				if (!TryGetParticleMovableObject(sceneManager, name, movableObject))
+				{
+					LogEnvironmentDebug("[EXU::Particle] create failed sceneManager=%p name=%s template=%s reason=no_movable_object", sceneManager, name.c_str(), templateName.c_str());
+					return false;
+				}
+
 				childSceneNode = createChildSceneNodeFn(rootSceneNode, nodeName, position, identity);
 				if (childSceneNode == nullptr)
 				{
@@ -1512,7 +1586,15 @@ namespace ExtraUtilities::Lua::Environment
 					return false;
 				}
 
-				attachObjectFn(childSceneNode, particleSystem);
+				attachObjectFn(childSceneNode, movableObject);
+				LogEnvironmentDebug(
+					"[EXU::Particle] created sceneManager=%p name=%s template=%s particle=%p movable=%p baseOffset=%d",
+					sceneManager,
+					name.c_str(),
+					templateName.c_str(),
+					particleSystem,
+					movableObject,
+					static_cast<int>(reinterpret_cast<char*>(movableObject) - reinterpret_cast<char*>(particleSystem)));
 				return true;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
@@ -1625,21 +1707,23 @@ namespace ExtraUtilities::Lua::Environment
 
 		bool TrySetParticleSystemVisible(void* sceneManager, const std::string& name, bool enabled)
 		{
-			void* particleSystem = nullptr;
+			// setVisible is MovableObject's own body, so it needs the re-based
+			// pointer rather than the ParticleSystem*.
+			void* movableObject = nullptr;
 			const auto fn = ResolveSetMovableObjectVisible();
-			if (!TryGetParticleSystem(sceneManager, name, particleSystem) || fn == nullptr)
+			if (!TryGetParticleMovableObject(sceneManager, name, movableObject) || fn == nullptr)
 			{
 				return false;
 			}
 
 			__try
 			{
-				fn(particleSystem, enabled);
+				fn(movableObject, enabled);
 				return true;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] setVisible crashed particleSystem=%p name=%s enabled=%d code=0x%08X", particleSystem, name.c_str(), enabled ? 1 : 0, GetExceptionCode());
+				LogEnvironmentDebug("[EXU::Particle] setVisible crashed movableObject=%p name=%s enabled=%d code=0x%08X", movableObject, name.c_str(), enabled ? 1 : 0, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2273,8 +2357,8 @@ namespace ExtraUtilities::Lua::Environment
 				return false;
 			}
 
-			void* particleSystem = nullptr;
-			if (!TryGetParticleSystem(sceneManager, name, particleSystem))
+			void* movableObject = nullptr;
+			if (!TryGetParticleMovableObject(sceneManager, name, movableObject))
 			{
 				return false;
 			}
@@ -2289,9 +2373,11 @@ namespace ExtraUtilities::Lua::Environment
 				}
 
 				// A movable object can only live on one attachment point, and
-				// the managed system starts life on its own scene node.
-				detachFromParentFn(particleSystem);
-				return attachFn(entity, boneName, particleSystem, identity, offset) != nullptr;
+				// the managed system starts life on its own scene node. Both
+				// calls are MovableObject-typed, so they take the re-based
+				// pointer, not the ParticleSystem*.
+				detachFromParentFn(movableObject);
+				return attachFn(entity, boneName, movableObject, identity, offset) != nullptr;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
@@ -2542,10 +2628,10 @@ namespace ExtraUtilities::Lua::Environment
 		{
 			const auto detachFromParentFn = ResolveMovableObjectDetachFromParent();
 			const auto attachObjectFn = ResolveAttachObject();
-			void* particleSystem = nullptr;
+			void* movableObject = nullptr;
 			void* node = nullptr;
 			if (detachFromParentFn == nullptr || attachObjectFn == nullptr ||
-				!TryGetParticleSystem(sceneManager, name, particleSystem) ||
+				!TryGetParticleMovableObject(sceneManager, name, movableObject) ||
 				!TryGetManagedParticleSceneNode(sceneManager, name, node))
 			{
 				return false;
@@ -2560,8 +2646,10 @@ namespace ExtraUtilities::Lua::Environment
 			{
 				// A bone attachment moved the system off its own node; a camera or
 				// object attachment only moved the node, so this is a no-op there.
-				detachFromParentFn(particleSystem);
-				attachObjectFn(node, particleSystem);
+				// Both entry points are MovableObject's, so they take the re-based
+				// pointer, not the ParticleSystem*.
+				detachFromParentFn(movableObject);
+				attachObjectFn(node, movableObject);
 				return true;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
