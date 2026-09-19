@@ -19,6 +19,10 @@
 -- 1. Using the shipped controller
 -- ---------------------------------------------------------------------------
 
+-- `exu` is NOT a global in mission scope. Several older examples in this folder
+-- omit this line and rely on something else having required it first; verified
+-- in-game, a mission that does so sees `exu` as nil and every call below fails.
+local exu = require("exu")
 local Weather = require("exu_weather")
 
 function Start()

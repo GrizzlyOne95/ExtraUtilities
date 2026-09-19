@@ -254,6 +254,9 @@
     <ClInclude Include="src\Ogre\Ogre.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Ogre\OgreRenderSpace.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\Patches\AddScrapCallback.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
