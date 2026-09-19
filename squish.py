@@ -67,6 +67,12 @@ def post_build() -> None:
     shutil.move(os.path.join(BUILD_FOLDER, "exu.pdb"), os.path.join(BUILD_FOLDER, "Bin", "exu.pdb"))
     shutil.move(os.path.join(BUILD_FOLDER, "RequireFix.lua"), os.path.join(BUILD_FOLDER, "Scripts", "RequireFix.lua"))
     shutil.move(os.path.join(BUILD_FOLDER, "ExtraUtils.lua"), os.path.join(BUILD_FOLDER, "Scripts", "ExtraUtils.lua"))
+    # exu_weather.lua is a real runtime module, not a @meta definition stub, so it
+    # has to sit where a bare require() can find it. Scripts/ is already on the
+    # default Lua path - RequireFix.lua lives there and is required by bare name
+    # before any path setup runs. At the Build root it would only resolve after an
+    # explicit RequireFix.Initialize(), which examples/Weather.lua does not call.
+    shutil.move(os.path.join(BUILD_FOLDER, "exu_weather.lua"), os.path.join(BUILD_FOLDER, "Scripts", "exu_weather.lua"))
     shutil.move(os.path.join(BUILD_FOLDER, "monkey.jpg"), os.path.join(BUILD_FOLDER, "Assets", "monkey.jpg"))
 
 
