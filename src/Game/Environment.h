@@ -103,6 +103,20 @@ namespace ExtraUtilities::Lua::Environment
 	int SetParticleEmitterAngle(lua_State* L);
 	int SetParticleEmitterTimeToLive(lua_State* L);
 	int SetParticleEmitterColor(lua_State* L);
+
+	// Generic Ogre::StringInterface bridge. The typed setters above cover the
+	// properties every emitter shares; these reach the type-specific ones
+	// (Box "width", Ring "inner_width", Scaler "rate") that only exist in the
+	// concrete emitter's or affector's own parameter dictionary.
+	int GetParticleEmitterType(lua_State* L);
+	int GetParticleEmitterParameterNames(lua_State* L);
+	int GetParticleEmitterParameter(lua_State* L);
+	int SetParticleEmitterParameter(lua_State* L);
+	int GetParticleSystemAffectorCount(lua_State* L);
+	int GetParticleAffectorType(lua_State* L);
+	int GetParticleAffectorParameterNames(lua_State* L);
+	int GetParticleAffectorParameter(lua_State* L);
+	int SetParticleAffectorParameter(lua_State* L);
 	int GetShowBoundingBoxes(lua_State* L);
 	int SetShowBoundingBoxes(lua_State* L);
 	int GetShowDebugShadows(lua_State* L);

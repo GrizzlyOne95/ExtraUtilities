@@ -698,7 +698,7 @@ function exu.HasParticleSystem(name) end
 --- Returns false if the particle system already exists or if its reserved EXU node name is already in use.
 --- @param name string
 --- @param templateName string
---- @param position Vector? optional
+--- @param position Vector? optional Battlezone simulation-space position; defaults to the world origin
 --- @return boolean
 function exu.CreateParticleSystem(name, templateName, position) end
 
@@ -707,13 +707,13 @@ function exu.CreateParticleSystem(name, templateName, position) end
 --- @return boolean
 function exu.DestroyParticleSystem(name) end
 
---- Moves the EXU-owned scene node for a named particle system.
+--- Moves the EXU-owned scene node for a named particle system to a Battlezone simulation-space position.
 --- @param name string
 --- @param position Vector
 --- @return boolean
 function exu.SetParticleSystemPosition(name, position) end
 
---- Rotates the EXU-owned scene node for a named particle system to face the given direction.
+--- Rotates the EXU-owned scene node for a named particle system to face the given Battlezone simulation-space direction.
 --- @param name string
 --- @param direction Vector
 --- @return boolean
@@ -893,6 +893,88 @@ function exu.SetParticleEmitterTimeToLive(name, emitterIndex, minTimeToLive, max
 --- @param endColor Color? optional
 --- @return boolean
 function exu.SetParticleEmitterColor(name, emitterIndex, startColor, endColor) end
+
+--- Returns the Ogre type name of one emitter ("Box", "Point", "Ring", "HollowEllipsoid", ...),
+--- or nil if it does not exist. The type determines which parameter names
+--- `exu.SetParticleEmitterParameter` will accept.
+--- @nodiscard
+--- @param name string
+--- @param emitterIndex integer
+--- @return string?
+function exu.GetParticleEmitterType(name, emitterIndex) end
+
+--- Returns the list of parameter names one emitter publishes, or nil if it does not exist.
+--- Use this to discover the exact spelling a given Ogre build registers rather than
+--- assuming a name from documentation.
+--- @nodiscard
+--- @param name string
+--- @param emitterIndex integer
+--- @return string[]?
+function exu.GetParticleEmitterParameterNames(name, emitterIndex) end
+
+--- Reads one type-specific emitter parameter as the text Ogre stores it in.
+--- Returns nil if the system, emitter, or Ogre entry point is unavailable; returns an
+--- empty string for a parameter the emitter type does not publish.
+--- @nodiscard
+--- @param name string
+--- @param emitterIndex integer
+--- @param parameter string
+--- @return string?
+function exu.GetParticleEmitterParameter(name, emitterIndex, parameter) end
+
+--- Sets one type-specific emitter parameter, for properties the typed setters above do not
+--- cover: Box `width`/`height`/`depth`, Ring `inner_width`/`inner_height`, and so on.
+--- Numbers and booleans are converted to the text Ogre expects; strings pass through, so
+--- vectors and colours are written as space-separated text ("20 0 -5").
+--- Returns false for an unknown parameter or a value the emitter type refuses to parse.
+--- @param name string
+--- @param emitterIndex integer
+--- @param parameter string
+--- @param value string|number|boolean
+--- @return boolean
+function exu.SetParticleEmitterParameter(name, emitterIndex, parameter, value) end
+
+--- Returns the number of affectors on a named particle system, or nil if it does not exist.
+--- Affectors are the `LinearForce`, `ColourInterpolator`, `Scaler`, `Rotator` and
+--- `DirectionRandomiser` blocks authored into the .particle template.
+--- @nodiscard
+--- @param name string
+--- @return integer?
+function exu.GetParticleSystemAffectorCount(name) end
+
+--- Returns the Ogre type name of one affector ("LinearForce", "ColourInterpolator",
+--- "Scaler", ...), or nil if it does not exist. Affector indices are zero based.
+--- @nodiscard
+--- @param name string
+--- @param affectorIndex integer
+--- @return string?
+function exu.GetParticleAffectorType(name, affectorIndex) end
+
+--- Returns the list of parameter names one affector publishes, or nil if it does not exist.
+--- @nodiscard
+--- @param name string
+--- @param affectorIndex integer
+--- @return string[]?
+function exu.GetParticleAffectorParameterNames(name, affectorIndex) end
+
+--- Reads one affector parameter as the text Ogre stores it in.
+--- @nodiscard
+--- @param name string
+--- @param affectorIndex integer
+--- @param parameter string
+--- @return string?
+function exu.GetParticleAffectorParameter(name, affectorIndex, parameter) end
+
+--- Sets one affector parameter. This is how wind, colour-over-life and scale-over-life are
+--- driven at runtime: `force_vector` on a LinearForce, `colour0`/`time0` on a
+--- ColourInterpolator, `rate` on a Scaler.
+--- Returns false for an unknown parameter or a value the affector type refuses to parse.
+--- @param name string
+--- @param affectorIndex integer
+--- @param parameter string
+--- @param value string|number|boolean
+--- @return boolean
+function exu.SetParticleAffectorParameter(name, affectorIndex, parameter, value) end
 
 --- Returns whether scene bounding boxes are currently shown.
 --- @nodiscard
