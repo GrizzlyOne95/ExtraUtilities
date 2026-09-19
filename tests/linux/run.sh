@@ -23,6 +23,28 @@ test_python_tools() {
     pass "Python validation tools"
 }
 
+# The Lua -> Ogre parameter conversion used by the generic particle bridge has
+# no Windows, Ogre or Lua dependency on purpose, so it can be compiled and
+# exercised here rather than only on a machine with the game installed.
+test_host_cpp() {
+    local cxx build src
+    cxx="${CXX:-g++}"
+    if ! command -v "$cxx" >/dev/null 2>&1; then
+        fail "no C++ compiler found (set CXX)"
+    fi
+
+    build="$(mktemp -d)"
+    for src in "$ROOT"/tests/host/*.cpp; do
+        local name
+        name="$(basename "$src" .cpp)"
+        "$cxx" -std=c++17 -Wall -Wextra -Werror -I "$ROOT/src" -o "$build/$name" "$src" \
+            || { rm -rf "$build"; fail "compile failed: $src"; }
+        "$build/$name" || { rm -rf "$build"; fail "test failed: $name"; }
+    done
+    rm -rf "$build"
+    pass "host C++ checks"
+}
+
 test_script_syntax() {
     local script
     for script in \
@@ -91,6 +113,7 @@ test_bad_game_path_rejected() {
 }
 
 test_python_tools
+test_host_cpp
 test_script_syntax
 test_steam_path_override
 test_help_exits_clean
