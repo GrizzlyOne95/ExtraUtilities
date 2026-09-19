@@ -998,6 +998,62 @@ function exu.SupportsRenderProfile(profile) end
 --- @return table
 function exu.GetRenderCapabilities() end
 
+--- Asks OpenShim to turn a renderer effect on or off for this mission.
+---
+--- These are requests, not commands. EXU owns no rendering: it forwards the intent and
+--- OpenShim decides whether the effect is possible on the current renderer and build.
+--- Returns true when the request was *recorded*, which is not the same as the effect
+--- running - use `exu.GetRenderEffectStatus` for that.
+---
+--- With no OpenShim present, or one that predates the render-effect ABI, this is a clean
+--- no-op returning false and the mission carries on.
+---
+--- Effects: `"ssao"`, `"depth_haze"`, `"soft_particles"`. An unknown name is an error.
+--- @param effect string
+--- @param enabled boolean
+--- @return boolean
+function exu.SetRenderEffectEnabled(effect, enabled) end
+
+--- Sets a tuning value on a renderer effect. OpenShim owns the valid range and clamps to
+--- it, so an out-of-range value is corrected rather than refused.
+---
+--- Parameters are semantic: `"strength"`, `"radius"`, `"fade_start"`, `"fade_end"`,
+--- `"quality"`. There is deliberately no way to name a shader constant, sampler or
+--- compositor pass from Lua. An unknown name is an error.
+--- @param effect string
+--- @param parameter string
+--- @param value number
+--- @return boolean
+function exu.SetRenderEffectFloat(effect, parameter, value) end
+
+--- Returns `requested, supported, effective, reason` for one renderer effect.
+---
+--- Three flags, not one, because they answer three different questions: whether this
+--- mission asked for the effect, whether this machine can do it, and whether it is
+--- actually running. A single boolean cannot tell a DX9 machine from a machine where
+--- nobody enabled the effect.
+---
+--- `reason` is one of `"effective"`, `"not-requested"`, `"unsupported-renderer"`,
+--- `"scene-depth-unavailable"`, `"unsupported-build"`, `"not-implemented"`,
+--- `"unknown-effect"`, `"pending"`, `"openshim-unavailable"`, or `"unknown"` for a code
+--- this build does not recognise.
+---
+--- NOTE: no renderer effect is implemented yet, so today every effect answers
+--- `supported = false` with `"not-implemented"` (or `"openshim-unavailable"`). Missions
+--- should be written to carry on regardless; they will start working unchanged once a
+--- renderer feature ships.
+--- @nodiscard
+--- @param effect string
+--- @return boolean requested, boolean supported, boolean effective, string reason
+function exu.GetRenderEffectStatus(effect) end
+
+--- Drops every renderer-effect request this mission made.
+---
+--- OpenShim also clears these from its own mission lifecycle, so this is belt and braces
+--- rather than the only defence against one mission's requests leaking into the next.
+--- @return boolean
+function exu.ResetRenderEffects() end
+
 --- Returns the current scene visibility mask.
 --- @nodiscard
 --- @return integer | nil
