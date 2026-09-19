@@ -150,6 +150,7 @@
     <ClCompile Include="src\dllmain.cpp" />
     <ClCompile Include="src\Patches\EngineFlameColor.cpp" />
     <ClCompile Include="src\Game\Environment.cpp" />
+    <ClCompile Include="src\Game\RenderEffects.cpp" />
     <ClCompile Include="src\Game\GameObject.cpp" />
     <ClCompile Include="src\Game\game_state.cpp" />
     <ClCompile Include="src\Patches\GlobalTurbo.cpp" />
@@ -182,6 +183,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resource\resource.h" />
+    <ClInclude Include="src\Game\RenderEffects.h" />
+    <ClInclude Include="src\Game\RenderEffectNames.h" />
+    <ClInclude Include="src\RenderEffectBridge.h" />
     <ClInclude Include="src\About.h" />
     <ClInclude Include="src\Patches\AddScrapCallback.h" />
     <ClInclude Include="src\Patches\AiTargetSelect.h" />
