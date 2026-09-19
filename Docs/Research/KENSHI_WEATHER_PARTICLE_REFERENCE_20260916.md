@@ -467,6 +467,16 @@ because PNG encoding is not stable across Pillow and zlib versions.
 
 **No PSO or Kenshi asset is committed.**
 
+The first in-game Haboob probe exposed a native placement bug in the older
+particle layer: `CreateParticleSystem` and `SetParticleSystemPosition` handed
+Battlezone simulation coordinates directly to Ogre nodes. Redux recentres its
+render world around a per-map origin and mirrors Z, so a system placed near the
+normal simulation-space map centre (`2560, *, 2560`) landed outside the rendered
+scene. EXU now applies the same conversion as Redux's own camera, terrain and
+object paths. `SetParticleSystemDirection` mirrors Z for the same reason. The
+pure conversion contract lives in `src/Ogre/OgreRenderSpace.h` and is pinned by
+`tests/host/render_space_tests.cpp`.
+
 ### Phase D: shipped as a module, not a director
 
 `Workshop/exu_weather.lua` is a reusable controller: profiles, intensity
@@ -502,8 +512,11 @@ Two consequences:
 
 ### Still outstanding
 
-- In-game visual validation. Everything below in the validation plan that
-  requires the game running is unverified; only the host-side checks have run.
+- Full in-game visual validation. The GOG/DX11 `lcbench` smoke now confirms the
+  Haboob template loads, camera attachment renders, and world placement works at
+  the player and 120 simulation units ahead after the render-space fix. The
+  complete rain/dust/mist matrix and every generic emitter/affector mutation
+  remain to be exercised live.
 - Performance telemetry. No frame-time measurement has been taken.
 - Soft particles remain an optional OpenShim renderer feature and are not a
   dependency of anything here.

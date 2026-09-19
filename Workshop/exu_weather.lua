@@ -103,7 +103,14 @@ Weather.Profiles = {
                 key = "rain",
                 template = "EXU/WeatherRainLight",
                 follow = "camera",
-                offset = { 0, 55, 0 },
+                -- Attach height is load-bearing, and not for the reason it
+                -- looks. A drop lives 1.2-1.9s at 40-54/s, so it falls 48-102
+                -- units and then dies. Spawn the volume much above that and
+                -- most of the rain expires overhead, out of frame: measured
+                -- in-game, offset 70 gave ~2 visible streaks where offset 20
+                -- gave ~8-10 at an identical emission rate. Keep this within
+                -- roughly one drop-lifetime of eye level.
+                offset = { 0, 18, 0 },
                 nonVisibleTimeout = 2.0,
                 -- affector 0 is the LinearForce the template reserves for wind
                 windAffector = 0,
@@ -123,7 +130,10 @@ Weather.Profiles = {
                 key = "rain",
                 template = "EXU/WeatherRainHeavy",
                 follow = "camera",
-                offset = { 0, 70, 0 },
+                -- See the note on rain_light: heavy rain is shorter lived
+                -- (0.7-1.2s at 62-88/s, so 43-105 units of fall), so it needs
+                -- to start lower still, not higher.
+                offset = { 0, 22, 0 },
                 nonVisibleTimeout = 2.0,
                 windAffector = 0,
                 windScale = 0.8,

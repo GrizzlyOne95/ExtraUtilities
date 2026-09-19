@@ -211,6 +211,15 @@ namespace BZR
 		inline _RefreshTerrainMasterLight RefreshTerrainMasterLight = (_RefreshTerrainMasterLight)0x0067E0E0;
 	}
 
+	namespace Ogre
+	{
+		// Per-map Ogre render origin. Redux converts simulation/Lua positions as
+		// (x - origin.x, y - origin.y, -z - origin.z) before rendering them.
+		// Confirmed independently in OpenShim's chunk and multiplayer-flag render
+		// paths for the supported Redux executable.
+		inline constexpr uintptr_t worldRenderOriginAddress = 0x025F8E4C;
+	}
+
 	struct EULER {
 		float mass;
 		float mass_inv;
