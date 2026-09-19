@@ -6,12 +6,29 @@ This file records repository-side publication details for the Extra Utilities St
 
 The Workshop uploader consumes:
 
-- `Workshop/ExtraUtilities.ini`
-- `Workshop/RequireFix.lua`
-- `Workshop/monkey.jpg`
+- everything under `Workshop/` - `squish.py` walks that folder recursively, so a file
+  added there ships without any change here. It currently holds `ExtraUtilities.ini`,
+  `RequireFix.lua`, `monkey.jpg`, and the weather set (`exu_weather.lua`,
+  `exu_weather.particle`, `exu_weather.material`, and the four `exu_*.png` textures).
+- everything under `Definitions/` and `Release/`
 - `workshop_description.txt`
 - `workshop_changenote.txt`
 - the packaged `Build/` directory produced for publication
+
+### Packaged layout
+
+`squish.py` flattens those sources into `Build/`, then `post_build()` sorts a few by
+role: `exu.dll`/`exu.pdb` to `Bin/`, `monkey.jpg` to `Assets/`, and the runtime Lua
+modules to `Scripts/`. Anything it does not name stays at the `Build/` root.
+
+Runtime Lua must end up in `Scripts/`. That folder is already on the default Lua path -
+`RequireFix.lua` lives there and missions require it by bare name before any path setup
+runs. A module left at the `Build/` root resolves only after an explicit
+`RequireFix.Initialize(<workshop id>)`, which adds `<mod>\?.lua`.
+
+`Definitions/*.lua` are editor metadata (`--- @meta exu`) rather than runtime modules;
+`ExtraUtils.lua` raises an error if it is ever required. They are shipped for tooling
+only and their position is not a precedent for a real module.
 
 `upload_workshop.py` generates the local `workshop.vdf` manifest and invokes SteamCMD using credentials/path settings from `.env`. The generated manifest and `.env` are intentionally ignored by Git.
 
