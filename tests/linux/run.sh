@@ -45,9 +45,9 @@ test_weather_controller() {
     fail "no Lua interpreter found for tests/host/weather_controller_test.lua"
 }
 
-# The Lua -> Ogre parameter conversion used by the generic particle bridge has
-# no Windows, Ogre or Lua dependency on purpose, so it can be compiled and
-# exercised here rather than only on a machine with the game installed.
+# Pure logic that has no Windows, Ogre, OpenShim or Lua dependency lives in its
+# own headers precisely so it can be compiled and exercised here rather than
+# only on a machine with the game installed.
 test_host_cpp() {
     local cxx build src
     cxx="${CXX:-g++}"
