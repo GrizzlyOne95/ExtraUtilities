@@ -48,3 +48,18 @@
 src/BZR.h linguist-vendored
 include/** linguist-vendored
 Lua5.1-BZR/** linguist-vendored
+
+###############################################################################
+# Shell scripts must stay LF, on every platform.
+#
+# `* text=auto` normalises .sh to CRLF in a Windows working tree, and those
+# CRLFs were being committed. A CRLF shell script fails open rather than
+# loudly: a stray carriage return rides along on the last token of every line,
+# so a guard that means to `exit 1` can end up reporting success instead.
+#
+# These are the Linux/Proton install and test entry points, and install_linux.sh
+# is piped straight into bash from the README, so they have to be correct on a
+# host that has never seen a CR.
+###############################################################################
+*.sh   text eol=lf
+*.bash text eol=lf
