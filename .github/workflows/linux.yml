@@ -27,5 +27,14 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # lua5.1 matches what Redux runs; Pillow and numpy back the generated
+      # weather billboard textures. The runner has none of them by default.
+      # These come from apt rather than pip because the runner's Python is
+      # externally managed and refuses a bare pip install.
+      - name: Install host check dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends lua5.1 python3-pil python3-numpy
+
       - name: Run host-side Linux checks
         run: bash tests/linux/run.sh

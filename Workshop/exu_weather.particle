@@ -1,0 +1,352 @@
+// exu_weather.particle
+//
+// Baseline Ogre ParticleFX weather templates shipped with Extra Utilities.
+//
+// These are a reusable starting point, not campaign art. A mission that wants
+// weather can create one of these by name and drive it entirely through the
+// exu particle API; a campaign that wants its own look should author its own
+// templates rather than re-tuning these, because anything shipped here is
+// shared by every mod that has EXU installed.
+//
+// EVERYTHING HERE IS MEANT TO BE OVERRIDDEN AT RUNTIME. Rate, velocity,
+// lifetime, direction, colour, emitter volume and affector strength are all
+// reachable from Lua, so treat the numbers below as the shape of the effect
+// rather than its final tuning.
+//
+// EMITTER AND AFFECTOR ORDER MATTERS. exu addresses both by zero-based index,
+// so the controller's indices are positional. Inserting an emitter or affector
+// above an existing one silently retargets every call that referenced it.
+// Append, never insert. The index map is written out above each block.
+//
+// Scale note: distances are BZR world units. Precipitation is a camera-local
+// volume a few hundred units across, not a map-wide simulation - short particle
+// lifetimes are what make a high emission rate affordable.
+//
+// Materials are in exu_weather.material and use placeholder textures generated
+// by tools/generate_weather_textures.py.
+
+// =============================================================================
+// Rain
+// =============================================================================
+
+// Light rain. Camera-attached: the emitter box travels with the player while
+// the drops it has already produced stay in world space, so the rain does not
+// slide with the view.
+//
+//   emitter 0   Box      the precipitation volume
+//   affector 0  LinearForce   wind; set force_vector to steer the rain
+particle_system EXU/WeatherRainLight
+{
+    material            EXU_FX/Rain
+    particle_width      0.22
+    particle_height     2.4
+    quota               1800
+    cull_each           true
+    sorted              false
+    local_space         false
+    // Oriented along the fall direction, so a drop reads as a streak rather
+    // than as a vertical stick when the player looks up or down.
+    billboard_type      oriented_common
+    common_direction    0 -1 0
+
+    emitter Box
+    {
+        angle               7
+        emission_rate       260
+        time_to_live_min    1.2
+        time_to_live_max    1.9
+        direction           0.12 -0.98 0
+        velocity_min        40
+        velocity_max        54
+        colour_range_start  0.68 0.76 0.82 0.40
+        colour_range_end    0.55 0.64 0.72 0.22
+        width               170
+        height              60
+        depth               170
+    }
+
+    // Wind lives in an affector rather than in the emitter direction so the
+    // controller can change where rain is *pushed* without also re-aiming
+    // where it is born.
+    affector LinearForce
+    {
+        force_vector        0 0 0
+        force_application   add
+    }
+}
+
+// Heavy rain. Same construction, more of it, shorter lived. The reference
+// systems this was modelled on get their density from lifetime rather than
+// from quota: a drop that lives 0.9s at 4000 quota is far cheaper than one
+// that lives 3s, for the same apparent downpour.
+//
+//   emitter 0   Box
+//   affector 0  LinearForce
+particle_system EXU/WeatherRainHeavy
+{
+    material            EXU_FX/Rain
+    particle_width      0.3
+    particle_height     3.6
+    quota               4200
+    cull_each           true
+    sorted              false
+    local_space         false
+    billboard_type      oriented_common
+    common_direction    0 -1 0
+
+    emitter Box
+    {
+        angle               10
+        emission_rate       900
+        time_to_live_min    0.7
+        time_to_live_max    1.2
+        direction           0.26 -0.95 -0.1
+        velocity_min        62
+        velocity_max        88
+        colour_range_start  0.70 0.78 0.84 0.58
+        colour_range_end    0.56 0.66 0.74 0.32
+        width               190
+        height              85
+        depth               190
+    }
+
+    affector LinearForce
+    {
+        force_vector        0 0 0
+        force_application   add
+    }
+}
+
+// =============================================================================
+// Dust
+// =============================================================================
+
+// Camera-local dust. The important lesson from the reference material is that
+// convincing dust is FEW LARGE PARTICLES THAT GROW, not thousands of grains:
+// the quota here is under 400 and the visual bulk comes from the scaler and the
+// colour ramp, which is an order of magnitude cheaper than brute force.
+//
+//   emitter 0   Box
+//   affector 0  LinearForce         wind
+//   affector 1  ColourInterpolator  fade in, hold, fade out
+//   affector 2  Scaler              growth over life
+//   affector 3  Rotator             per-particle texture rotation
+particle_system EXU/WeatherDustLocal
+{
+    material            EXU_FX/Dust
+    particle_width      14.0
+    particle_height     14.0
+    quota               380
+    cull_each           true
+    sorted              false
+    local_space         false
+    billboard_type      point
+
+    emitter Box
+    {
+        angle               45
+        emission_rate       46
+        time_to_live_min    3.0
+        time_to_live_max    5.0
+        direction           -1 0.05 0
+        velocity_min        2
+        velocity_max        7
+        colour_range_start  0.74 0.56 0.36 1.0
+        colour_range_end    0.62 0.44 0.28 1.0
+        width               320
+        height              110
+        depth               320
+    }
+
+    affector LinearForce
+    {
+        force_vector        0 1.5 0
+        force_application   add
+    }
+
+    // Transparent -> visible -> transparent. Dust that pops into existence at
+    // full alpha is the single most obvious tell that a scene is using
+    // particles, and this is what removes it.
+    affector ColourInterpolator
+    {
+        time0   0
+        colour0 1 1 1 0.00
+        time1   0.30
+        colour1 1 1 1 0.30
+        time2   0.70
+        colour2 1 1 1 0.24
+        time3   1
+        colour3 1 1 1 0.00
+    }
+
+    affector Scaler
+    {
+        rate 9
+    }
+
+    affector Rotator
+    {
+        rotation_speed_range_start  -12
+        rotation_speed_range_end     12
+        rotation_range_start           0
+        rotation_range_end           360
+    }
+}
+
+// =============================================================================
+// Haboob storm wall
+// =============================================================================
+
+// A visible wall of dust, placed and moved in WORLD space rather than attached
+// to the camera: the whole point is that the player can see it approach, drive
+// into it, and come out the other side. Pair it with a camera-local dust layer
+// whose intensity is driven by distance to the wall.
+//
+// local_space is true so the two emitter shells travel with the system node
+// intact as the controller moves the wall downwind.
+//
+//   emitter 0   Ring             the dense base of the wall
+//   emitter 1   HollowEllipsoid  the ragged upper shell
+//   affector 0  ColourInterpolator
+//   affector 1  Scaler
+//   affector 2  Rotator
+particle_system EXU/WeatherHaboobWall
+{
+    material            EXU_FX/Haboob
+    particle_width      260
+    particle_height     150
+    quota               520
+    cull_each           true
+    sorted              false
+    local_space         true
+    billboard_type      point
+
+    // The reference uses a circle emitter; ParticleFX has no such type, so a
+    // Ring with high inner factors concentrates emission near the rim, which
+    // is the behaviour that actually mattered.
+    emitter Ring
+    {
+        angle               25
+        emission_rate       90
+        time_to_live_min    9
+        time_to_live_max    15
+        direction           0 1 0
+        velocity_min        6
+        velocity_max        18
+        colour_range_start  0.72 0.52 0.33 1.0
+        colour_range_end    0.58 0.40 0.26 1.0
+        width               700
+        height              60
+        depth               700
+        inner_width         0.86
+        inner_height        0.86
+    }
+
+    // Likewise the reference's sphere-surface layer becomes a HollowEllipsoid
+    // with inner factors near 1, which emits from a shell rather than a volume.
+    emitter HollowEllipsoid
+    {
+        angle               35
+        emission_rate       26
+        time_to_live_min    11
+        time_to_live_max    18
+        direction           0 1 0
+        velocity_min        4
+        velocity_max        12
+        colour_range_start  0.68 0.48 0.31 1.0
+        colour_range_end    0.54 0.37 0.24 1.0
+        width               340
+        height              260
+        depth               340
+        inner_width         0.90
+        inner_height        0.90
+        inner_depth         0.90
+    }
+
+    affector ColourInterpolator
+    {
+        time0   0
+        colour0 1 1 1 0.00
+        time1   0.22
+        colour1 1 1 1 0.34
+        time2   0.72
+        colour2 1 1 1 0.28
+        time3   1
+        colour3 1 1 1 0.00
+    }
+
+    affector Scaler
+    {
+        rate 26
+    }
+
+    affector Rotator
+    {
+        rotation_speed_range_start   -5
+        rotation_speed_range_end      5
+        rotation_range_start          0
+        rotation_range_end          360
+    }
+}
+
+// =============================================================================
+// Mist
+// =============================================================================
+
+// Low quota, long lived, very large and very transparent. This is the layer
+// most obviously improved by depth-aware soft particles, and it is deliberately
+// authored to look acceptable WITHOUT them: nothing here samples scene depth,
+// so it renders identically on DX9 and DX11 and needs no OpenShim feature.
+//
+// The visible cost of that is hard intersection lines where a card crosses
+// terrain or a building. Keep the cards away from the ground rather than
+// reaching for a renderer feature to hide it.
+//
+//   emitter 0   Box
+//   affector 0  ColourInterpolator
+//   affector 1  Scaler
+particle_system EXU/WeatherMist
+{
+    material            EXU_FX/Mist
+    particle_width      50
+    particle_height     26
+    quota               110
+    cull_each           true
+    sorted              true
+    local_space         false
+    billboard_type      point
+
+    emitter Box
+    {
+        angle               60
+        emission_rate       12
+        time_to_live_min    5
+        time_to_live_max    10
+        direction           -1 0.02 0
+        velocity_min        1
+        velocity_max        4
+        colour_range_start  0.80 0.84 0.88 1.0
+        colour_range_end    0.70 0.75 0.82 1.0
+        width               400
+        height              40
+        depth               400
+        position            0 12 0
+    }
+
+    affector ColourInterpolator
+    {
+        time0   0
+        colour0 1 1 1 0.00
+        time1   0.35
+        colour1 1 1 1 0.22
+        time2   0.75
+        colour2 1 1 1 0.18
+        time3   1
+        colour3 1 1 1 0.00
+    }
+
+    affector Scaler
+    {
+        rate 5
+    }
+}
