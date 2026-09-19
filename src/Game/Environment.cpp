@@ -21,6 +21,7 @@
 #include "../RenderProfileBridge.h"
 #include "InlinePatch.h"
 #include "Ogre/OgreParameterValue.h"
+#include "Ogre/OgreRenderSpace.h"
 #include "Ogre/OgreStringInterfaceShim.h"
 #include "Util/Logging.h"
 #include "GameObject.h"
@@ -2172,6 +2173,37 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 
+		bool TryConvertSimPositionToRenderSpace(
+			const BZR::VECTOR_3D& simPosition,
+			BZR::VECTOR_3D& outRenderPosition)
+		{
+			BZR::VECTOR_3D origin{};
+			__try
+			{
+				origin = *reinterpret_cast<const BZR::VECTOR_3D*>(BZR::Ogre::worldRenderOriginAddress);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug(
+					"[EXU::Particle] render-position conversion failed reason=origin_read_crashed code=0x%08X",
+					GetExceptionCode());
+				return false;
+			}
+
+			if (!IsFiniteVector(origin))
+			{
+				LogEnvironmentDebug(
+					"[EXU::Particle] render-position conversion failed reason=invalid_origin origin=(%.3f,%.3f,%.3f)",
+					static_cast<double>(origin.x),
+					static_cast<double>(origin.y),
+					static_cast<double>(origin.z));
+				return false;
+			}
+
+			outRenderPosition = OgreRenderSpace::SimPositionToRender(simPosition, origin);
+			return IsFiniteVector(outRenderPosition);
+		}
+
 		void* GetMovableObjectParentSceneNode(void* movableObject)
 		{
 			const auto fn = ResolveGetParentSceneNode();
@@ -3848,7 +3880,14 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 
-		lua_pushboolean(L, TryCreateManagedParticleSystem(sceneManager, name, templateName, position) ? 1 : 0);
+		BZR::VECTOR_3D renderPosition{};
+		if (!TryConvertSimPositionToRenderSpace(position, renderPosition))
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, TryCreateManagedParticleSystem(sceneManager, name, templateName, renderPosition) ? 1 : 0);
 		return 1;
 	}
 
@@ -3887,7 +3926,14 @@ namespace ExtraUtilities::Lua::Environment
 			return luaL_argerror(L, 2, "SetParticleSystemPosition requires a finite position vector");
 		}
 
-		lua_pushboolean(L, TrySetManagedParticleSceneNodePosition(sceneManager, name, position) ? 1 : 0);
+		BZR::VECTOR_3D renderPosition{};
+		if (!TryConvertSimPositionToRenderSpace(position, renderPosition))
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, TrySetManagedParticleSceneNodePosition(sceneManager, name, renderPosition) ? 1 : 0);
 		return 1;
 	}
 
@@ -3909,7 +3955,8 @@ namespace ExtraUtilities::Lua::Environment
 			return luaL_argerror(L, 2, "SetParticleSystemDirection requires a finite direction vector");
 		}
 
-		lua_pushboolean(L, TrySetManagedParticleSceneNodeDirection(sceneManager, name, direction) ? 1 : 0);
+		const BZR::VECTOR_3D renderDirection = OgreRenderSpace::SimDirectionToRender(direction);
+		lua_pushboolean(L, TrySetManagedParticleSceneNodeDirection(sceneManager, name, renderDirection) ? 1 : 0);
 		return 1;
 	}
 

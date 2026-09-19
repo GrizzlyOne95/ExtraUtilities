@@ -215,6 +215,7 @@
     <ClInclude Include="src\Ogre\OgreNativeFontBridge.h" />
     <ClInclude Include="src\Ogre\OgreOverlayShim.h" />
     <ClInclude Include="src\Ogre\OgreParameterValue.h" />
+    <ClInclude Include="src\Ogre\OgreRenderSpace.h" />
     <ClInclude Include="src\Ogre\OgreStringInterfaceShim.h" />
     <ClInclude Include="src\Ogre\Ogre.h" />
     <ClInclude Include="src\UI\Overlay.h" />
