@@ -20,6 +20,9 @@
 
 #include "../RenderProfileBridge.h"
 #include "InlinePatch.h"
+#include "Ogre/OgreParameterValue.h"
+#include "Ogre/OgreRenderSpace.h"
+#include "Ogre/OgreStringInterfaceShim.h"
 #include "Util/Logging.h"
 #include "GameObject.h"
 #include "LuaHelpers.h"
@@ -1988,6 +1991,56 @@ namespace ExtraUtilities::Lua::Environment
 			return fn;
 		}
 
+		OgreAbi::ParticleSystemGetNumAffectorsFn ResolveGetNumAffectors()
+		{
+			static auto fn = ResolveOgreProc<OgreAbi::ParticleSystemGetNumAffectorsFn>(
+				OgreAbi::kParticleSystemGetNumAffectors);
+			return fn;
+		}
+
+		OgreAbi::ParticleSystemGetAffectorFn ResolveGetAffector()
+		{
+			static auto fn = ResolveOgreProc<OgreAbi::ParticleSystemGetAffectorFn>(
+				OgreAbi::kParticleSystemGetAffector);
+			return fn;
+		}
+
+		// Emitters and affectors both inherit Ogre::StringInterface, so one
+		// resolved setParameter/getParameter pair drives every type-specific
+		// ParticleFX property for both.
+		OgreAbi::StringInterfaceSetParameterFn ResolveStringInterfaceSetParameter()
+		{
+			static auto fn = ResolveOgreProc<OgreAbi::StringInterfaceSetParameterFn>(
+				OgreAbi::kStringInterfaceSetParameter);
+			return fn;
+		}
+
+		OgreAbi::StringInterfaceGetParameterFn ResolveStringInterfaceGetParameter()
+		{
+			static auto fn = ResolveOgreProc<OgreAbi::StringInterfaceGetParameterFn>(
+				OgreAbi::kStringInterfaceGetParameter);
+			return fn;
+		}
+
+		OgreAbi::StringInterfaceGetParametersFn ResolveStringInterfaceGetParameters()
+		{
+			static auto fn = ResolveOgreProc<OgreAbi::StringInterfaceGetParametersFn>(
+				OgreAbi::kStringInterfaceGetParameters);
+			return fn;
+		}
+
+		OgreAbi::GetTypeNameFn ResolveEmitterGetType()
+		{
+			static auto fn = ResolveOgreProc<OgreAbi::GetTypeNameFn>(OgreAbi::kParticleEmitterGetType);
+			return fn;
+		}
+
+		OgreAbi::GetTypeNameFn ResolveAffectorGetType()
+		{
+			static auto fn = ResolveOgreProc<OgreAbi::GetTypeNameFn>(OgreAbi::kParticleAffectorGetType);
+			return fn;
+		}
+
 		EmitterSetEnabledFn ResolveEmitterSetEnabled()
 		{
 			static EmitterSetEnabledFn fn = ResolveOgreProc<EmitterSetEnabledFn>("?setEnabled@ParticleEmitter@Ogre@@UAEX_N@Z");
@@ -2118,6 +2171,37 @@ namespace ExtraUtilities::Lua::Environment
 				LogEnvironmentDebug("[EXU::Particle] Camera::getDerivedPosition crashed camera=%p code=0x%08X", camera, GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TryConvertSimPositionToRenderSpace(
+			const BZR::VECTOR_3D& simPosition,
+			BZR::VECTOR_3D& outRenderPosition)
+		{
+			BZR::VECTOR_3D origin{};
+			__try
+			{
+				origin = *reinterpret_cast<const BZR::VECTOR_3D*>(BZR::Ogre::worldRenderOriginAddress);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug(
+					"[EXU::Particle] render-position conversion failed reason=origin_read_crashed code=0x%08X",
+					GetExceptionCode());
+				return false;
+			}
+
+			if (!IsFiniteVector(origin))
+			{
+				LogEnvironmentDebug(
+					"[EXU::Particle] render-position conversion failed reason=invalid_origin origin=(%.3f,%.3f,%.3f)",
+					static_cast<double>(origin.x),
+					static_cast<double>(origin.y),
+					static_cast<double>(origin.z));
+				return false;
+			}
+
+			outRenderPosition = OgreRenderSpace::SimPositionToRender(simPosition, origin);
+			return IsFiniteVector(outRenderPosition);
 		}
 
 		void* GetMovableObjectParentSceneNode(void* movableObject)
@@ -2437,6 +2521,237 @@ namespace ExtraUtilities::Lua::Environment
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
 				LogEnvironmentDebug("[EXU::Particle] getNumEmitters crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
+				return false;
+			}
+		}
+
+		void* GetParticleAffector(void* sceneManager, const std::string& name, int affectorIndex)
+		{
+			const auto getNumFn = ResolveGetNumAffectors();
+			const auto getAffectorFn = ResolveGetAffector();
+			void* particleSystem = nullptr;
+			if (affectorIndex < 0 || getNumFn == nullptr || getAffectorFn == nullptr ||
+				!TryGetParticleSystem(sceneManager, name, particleSystem))
+			{
+				return nullptr;
+			}
+
+			__try
+			{
+				const uint16_t count = getNumFn(particleSystem);
+				if (affectorIndex >= static_cast<int>(count))
+				{
+					return nullptr;
+				}
+
+				return getAffectorFn(particleSystem, static_cast<uint16_t>(affectorIndex));
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] getAffector crashed name=%s index=%d code=0x%08X", name.c_str(), affectorIndex, GetExceptionCode());
+				return nullptr;
+			}
+		}
+
+		bool TryGetParticleAffectorCount(void* sceneManager, const std::string& name, int& outCount)
+		{
+			outCount = 0;
+			const auto fn = ResolveGetNumAffectors();
+			void* particleSystem = nullptr;
+			if (fn == nullptr || !TryGetParticleSystem(sceneManager, name, particleSystem))
+			{
+				return false;
+			}
+
+			__try
+			{
+				outCount = static_cast<int>(fn(particleSystem));
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] getNumAffectors crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
+				return false;
+			}
+		}
+
+		// ---------------------------------------------------------------
+		// Generic Ogre::StringInterface bridge
+		//
+		// ParticleEmitter and ParticleAffector both publish their
+		// type-specific properties ("width" on a Box emitter, "force_vector"
+		// on a LinearForce affector) only through StringInterface, so the
+		// typed EXU wrappers cannot reach them. These helpers are the escape
+		// hatch; the typed wrappers stay the preferred API for everything
+		// they already cover.
+		//
+		// The three Invoke* helpers below exist because MSVC refuses __try in
+		// any function holding an object that needs unwinding (C2712). Keeping
+		// the std::string and std::vector locals in their own frames lets the
+		// SEH guard live in the caller, where the body is just a call.
+		// ---------------------------------------------------------------
+
+		__declspec(noinline) void InvokeGetStringInterfaceParameter(
+			OgreAbi::StringInterfaceGetParameterFn fn,
+			void* stringInterface,
+			const std::string& parameter,
+			std::string& outValue)
+		{
+			// Ogre constructs its return value into this empty string. An
+			// empty MSVC std::string owns no heap block, so there is nothing
+			// to leak by being constructed over.
+			std::string returned;
+			fn(stringInterface, &returned, parameter);
+			outValue = returned;
+		}
+
+		__declspec(noinline) bool InvokeGetStringInterfaceParameterNames(
+			OgreAbi::StringInterfaceGetParametersFn fn,
+			void* stringInterface,
+			std::vector<std::string>& outNames)
+		{
+			const auto* list = static_cast<const OgreAbi::ParameterListLayout*>(fn(stringInterface));
+			if (list == nullptr || list->first == nullptr || list->last == nullptr)
+			{
+				return false;
+			}
+
+			// An empty ParamDictionary is legitimate; anything that is not a
+			// well-formed, plausibly sized array means these three words are
+			// not really a ParameterList and must not be dereferenced.
+			if (list->last < list->first)
+			{
+				return false;
+			}
+
+			const std::ptrdiff_t count = list->last - list->first;
+			if (count > static_cast<std::ptrdiff_t>(OgreAbi::kMaxParameterDefs))
+			{
+				return false;
+			}
+
+			outNames.reserve(static_cast<size_t>(count));
+			for (std::ptrdiff_t i = 0; i < count; ++i)
+			{
+				outNames.push_back(list->first[i].name);
+			}
+
+			return true;
+		}
+
+		bool TryGetStringInterfaceTypeName(void* stringInterface, OgreAbi::GetTypeNameFn fn, std::string& outType)
+		{
+			outType.clear();
+			if (stringInterface == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				const std::string* type = fn(stringInterface);
+				if (type == nullptr)
+				{
+					return false;
+				}
+
+				// getType returns a reference to an Ogre-owned string, so this
+				// only reads it; ownership never crosses the boundary.
+				outType = *type;
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug("[EXU::Particle] getType crashed object=%p code=0x%08X", stringInterface, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetStringInterfaceParameter(
+			void* stringInterface,
+			const std::string& parameter,
+			const std::string& value,
+			const char* what)
+		{
+			const auto fn = ResolveStringInterfaceSetParameter();
+			if (stringInterface == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				// Ogre returns false for a parameter the concrete emitter or
+				// affector type never published, which is exactly the
+				// "unknown parameter" answer Lua needs.
+				return fn(stringInterface, parameter, value);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug(
+					"[EXU::Particle] %s setParameter crashed object=%p parameter=%s value=%s code=0x%08X",
+					what,
+					stringInterface,
+					parameter.c_str(),
+					value.c_str(),
+					GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryGetStringInterfaceParameter(
+			void* stringInterface,
+			const std::string& parameter,
+			std::string& outValue,
+			const char* what)
+		{
+			outValue.clear();
+			const auto fn = ResolveStringInterfaceGetParameter();
+			if (stringInterface == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				InvokeGetStringInterfaceParameter(fn, stringInterface, parameter, outValue);
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug(
+					"[EXU::Particle] %s getParameter crashed object=%p parameter=%s code=0x%08X",
+					what,
+					stringInterface,
+					parameter.c_str(),
+					GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryGetStringInterfaceParameterNames(
+			void* stringInterface,
+			std::vector<std::string>& outNames,
+			const char* what)
+		{
+			outNames.clear();
+			const auto fn = ResolveStringInterfaceGetParameters();
+			if (stringInterface == nullptr || fn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				return InvokeGetStringInterfaceParameterNames(fn, stringInterface, outNames);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				LogEnvironmentDebug(
+					"[EXU::Particle] %s getParameters crashed object=%p code=0x%08X",
+					what,
+					stringInterface,
+					GetExceptionCode());
 				return false;
 			}
 		}
@@ -3565,7 +3880,14 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 
-		lua_pushboolean(L, TryCreateManagedParticleSystem(sceneManager, name, templateName, position) ? 1 : 0);
+		BZR::VECTOR_3D renderPosition{};
+		if (!TryConvertSimPositionToRenderSpace(position, renderPosition))
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, TryCreateManagedParticleSystem(sceneManager, name, templateName, renderPosition) ? 1 : 0);
 		return 1;
 	}
 
@@ -3604,7 +3926,14 @@ namespace ExtraUtilities::Lua::Environment
 			return luaL_argerror(L, 2, "SetParticleSystemPosition requires a finite position vector");
 		}
 
-		lua_pushboolean(L, TrySetManagedParticleSceneNodePosition(sceneManager, name, position) ? 1 : 0);
+		BZR::VECTOR_3D renderPosition{};
+		if (!TryConvertSimPositionToRenderSpace(position, renderPosition))
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, TrySetManagedParticleSceneNodePosition(sceneManager, name, renderPosition) ? 1 : 0);
 		return 1;
 	}
 
@@ -3626,7 +3955,8 @@ namespace ExtraUtilities::Lua::Environment
 			return luaL_argerror(L, 2, "SetParticleSystemDirection requires a finite direction vector");
 		}
 
-		lua_pushboolean(L, TrySetManagedParticleSceneNodeDirection(sceneManager, name, direction) ? 1 : 0);
+		const BZR::VECTOR_3D renderDirection = OgreRenderSpace::SimDirectionToRender(direction);
+		lua_pushboolean(L, TrySetManagedParticleSceneNodeDirection(sceneManager, name, renderDirection) ? 1 : 0);
 		return 1;
 	}
 
@@ -4199,6 +4529,233 @@ namespace ExtraUtilities::Lua::Environment
 
 		lua_pushboolean(L, TrySetEmitterColourRange(GetParticleEmitter(sceneManager, name, emitterIndex), startColor, endColor) ? 1 : 0);
 		return 1;
+	}
+
+	namespace
+	{
+		// Ogre parses every StringInterface property out of text, so a Lua
+		// number or boolean has to be rendered the way Ogre::StringConverter
+		// reads it back. Strings pass through untouched: vectors and colours
+		// are already space-separated text ("1 1 1 0.75") and re-parsing them
+		// here would only lose precision.
+		std::string CheckParameterValue(lua_State* L, int index, const char* function)
+		{
+			switch (lua_type(L, index))
+			{
+			case LUA_TSTRING:
+				return lua_tostring(L, index);
+			case LUA_TNUMBER:
+			{
+				const double number = lua_tonumber(L, index);
+				std::string text = OgreParams::NumberToParameterValue(number);
+				if (text.empty())
+				{
+					luaL_argerror(L, index, "parameter value must be a finite number");
+				}
+				return text;
+			}
+			case LUA_TBOOLEAN:
+				return OgreParams::BoolToParameterValue(lua_toboolean(L, index) != 0);
+			default:
+				break;
+			}
+
+			luaL_error(L, "%s requires a string, number, or boolean parameter value", function);
+			return std::string();
+		}
+
+		// Shared body for the four generic accessors. `resolve` turns the Lua
+		// system name plus index into the emitter or affector to talk to, so
+		// emitters and affectors differ only in that one lambda and the log
+		// label.
+		template<typename Resolver>
+		int GenericSetParameter(lua_State* L, Resolver resolve, const char* function, const char* what)
+		{
+			Patch::TryInitializeOgre();
+
+			auto* sceneManager = GetSceneManager();
+			if (sceneManager == nullptr)
+			{
+				lua_pushboolean(L, 0);
+				return 1;
+			}
+
+			const std::string name = luaL_checkstring(L, 1);
+			const int index = static_cast<int>(luaL_checkinteger(L, 2));
+			const std::string parameter = luaL_checkstring(L, 3);
+			if (!OgreParams::IsValidParameterName(parameter))
+			{
+				return luaL_argerror(L, 3, "parameter name must be a short identifier");
+			}
+
+			const std::string value = CheckParameterValue(L, 4, function);
+			if (!OgreParams::IsValidParameterValue(value))
+			{
+				return luaL_argerror(L, 4, "parameter value must be printable and within the length limit");
+			}
+
+			lua_pushboolean(L, TrySetStringInterfaceParameter(resolve(sceneManager, name, index), parameter, value, what) ? 1 : 0);
+			return 1;
+		}
+
+		template<typename Resolver>
+		int GenericGetParameter(lua_State* L, Resolver resolve, const char* what)
+		{
+			Patch::TryInitializeOgre();
+
+			auto* sceneManager = GetSceneManager();
+			if (sceneManager == nullptr)
+			{
+				lua_pushnil(L);
+				return 1;
+			}
+
+			const std::string name = luaL_checkstring(L, 1);
+			const int index = static_cast<int>(luaL_checkinteger(L, 2));
+			const std::string parameter = luaL_checkstring(L, 3);
+			if (!OgreParams::IsValidParameterName(parameter))
+			{
+				return luaL_argerror(L, 3, "parameter name must be a short identifier");
+			}
+
+			std::string value;
+			if (!TryGetStringInterfaceParameter(resolve(sceneManager, name, index), parameter, value, what))
+			{
+				lua_pushnil(L);
+				return 1;
+			}
+
+			lua_pushlstring(L, value.data(), value.size());
+			return 1;
+		}
+
+		template<typename Resolver>
+		int GenericGetType(lua_State* L, Resolver resolve, OgreAbi::GetTypeNameFn (*resolveGetType)())
+		{
+			Patch::TryInitializeOgre();
+
+			auto* sceneManager = GetSceneManager();
+			if (sceneManager == nullptr)
+			{
+				lua_pushnil(L);
+				return 1;
+			}
+
+			const std::string name = luaL_checkstring(L, 1);
+			const int index = static_cast<int>(luaL_checkinteger(L, 2));
+			std::string type;
+			if (!TryGetStringInterfaceTypeName(resolve(sceneManager, name, index), resolveGetType(), type))
+			{
+				lua_pushnil(L);
+				return 1;
+			}
+
+			lua_pushlstring(L, type.data(), type.size());
+			return 1;
+		}
+
+		template<typename Resolver>
+		int GenericGetParameterNames(lua_State* L, Resolver resolve, const char* what)
+		{
+			Patch::TryInitializeOgre();
+
+			auto* sceneManager = GetSceneManager();
+			if (sceneManager == nullptr)
+			{
+				lua_pushnil(L);
+				return 1;
+			}
+
+			const std::string name = luaL_checkstring(L, 1);
+			const int index = static_cast<int>(luaL_checkinteger(L, 2));
+			std::vector<std::string> names;
+			if (!TryGetStringInterfaceParameterNames(resolve(sceneManager, name, index), names, what))
+			{
+				lua_pushnil(L);
+				return 1;
+			}
+
+			lua_createtable(L, static_cast<int>(names.size()), 0);
+			for (size_t i = 0; i < names.size(); ++i)
+			{
+				lua_pushlstring(L, names[i].data(), names[i].size());
+				lua_rawseti(L, -2, static_cast<int>(i) + 1);
+			}
+			return 1;
+		}
+
+		void* ResolveEmitterTarget(void* sceneManager, const std::string& name, int index)
+		{
+			return GetParticleEmitter(sceneManager, name, index);
+		}
+
+		void* ResolveAffectorTarget(void* sceneManager, const std::string& name, int index)
+		{
+			return GetParticleAffector(sceneManager, name, index);
+		}
+	}
+
+	int GetParticleEmitterType(lua_State* L)
+	{
+		return GenericGetType(L, &ResolveEmitterTarget, &ResolveEmitterGetType);
+	}
+
+	int GetParticleEmitterParameterNames(lua_State* L)
+	{
+		return GenericGetParameterNames(L, &ResolveEmitterTarget, "emitter");
+	}
+
+	int GetParticleEmitterParameter(lua_State* L)
+	{
+		return GenericGetParameter(L, &ResolveEmitterTarget, "emitter");
+	}
+
+	int SetParticleEmitterParameter(lua_State* L)
+	{
+		return GenericSetParameter(L, &ResolveEmitterTarget, "SetParticleEmitterParameter", "emitter");
+	}
+
+	int GetParticleSystemAffectorCount(lua_State* L)
+	{
+		Patch::TryInitializeOgre();
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		const std::string name = luaL_checkstring(L, 1);
+		int count = 0;
+		if (!TryGetParticleAffectorCount(sceneManager, name, count))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		lua_pushinteger(L, count);
+		return 1;
+	}
+
+	int GetParticleAffectorType(lua_State* L)
+	{
+		return GenericGetType(L, &ResolveAffectorTarget, &ResolveAffectorGetType);
+	}
+
+	int GetParticleAffectorParameterNames(lua_State* L)
+	{
+		return GenericGetParameterNames(L, &ResolveAffectorTarget, "affector");
+	}
+
+	int GetParticleAffectorParameter(lua_State* L)
+	{
+		return GenericGetParameter(L, &ResolveAffectorTarget, "affector");
+	}
+
+	int SetParticleAffectorParameter(lua_State* L)
+	{
+		return GenericSetParameter(L, &ResolveAffectorTarget, "SetParticleAffectorParameter", "affector");
 	}
 
 	int SetParticleSystemNonVisibleUpdateTimeout(lua_State* L)
