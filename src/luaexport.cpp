@@ -22,6 +22,7 @@
 
 #include "About.h"
 #include "Game/Culling.h"
+#include "Game/RenderEffects.h"
 #include "Exports.h"
 #include "Util/Logging.h"
 #include "LuaHelpers.h"
@@ -663,6 +664,12 @@ namespace ExtraUtilities::Lua
 			{ "GetUserRenderProfile", &Environment::GetUserRenderProfile },
 			{ "SupportsRenderProfile", &Environment::SupportsRenderProfile },
 			{ "GetRenderCapabilities", &Environment::GetRenderCapabilities },
+			// Optional renderer-effect intent. Fails closed when OpenShim is
+			// absent or predates the render-effect ABI.
+			{ "SetRenderEffectEnabled", &Render::SetRenderEffectEnabled },
+			{ "SetRenderEffectFloat", &Render::SetRenderEffectFloat },
+			{ "GetRenderEffectStatus", &Render::GetRenderEffectStatus },
+			{ "ResetRenderEffects", &Render::ResetRenderEffects },
 			{ "GetSceneVisibilityMask", &Environment::GetSceneVisibilityMask },
 			{ "SetSceneVisibilityMask", &Environment::SetSceneVisibilityMask },
 			{ "HasSkyBoxNode", &Environment::HasSkyBoxNode },
