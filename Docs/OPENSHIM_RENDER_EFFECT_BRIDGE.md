@@ -7,6 +7,96 @@ Related work:
 - OpenShim PR #191: https://github.com/GrizzlyOne95/Battlezone98Redux_Shim/pull/191
 - EXU PR #24 (Kenshi-inspired Ogre weather): https://github.com/GrizzlyOne95/ExtraUtilities/pull/24
 
+## Implementation status (2026-09-19)
+
+Both halves are implemented. This section records what shipped and where the
+plan changed.
+
+### The blocker is gone
+
+This document was written against an OpenShim ABI that did not exist. It does
+now: OpenShim exports a versioned render-effect intent ABI
+(`BZROpenShim include/render_effect_intent.h`, branch
+`agent/render-effect-abi`):
+
+```text
+OpenShimGetRenderEffectApiVersion
+OpenShimSetRenderEffectEnabled     (effectId, enabled)
+OpenShimSetRenderEffectFloat       (effectId, paramId, value)
+OpenShimGetRenderEffectStatus      (effectId, StatusV1*, size)
+OpenShimResetRenderEffects
+```
+
+`StatusV1` is exactly the shape proposed below - a 24-byte POD carrying `size`,
+`version`, the three flags and a reason code. C ABI, no STL, no Ogre types, no
+COM/D3D11 pointers, no shader or material names, no renderer-owned memory.
+
+### EXU side: shipped
+
+| File | Role |
+|---|---|
+| `src/Game/RenderEffectNames.h` | friendly name to fixed ABI id, reason code to stable string |
+| `src/RenderEffectBridge.h` | optional `GetProcAddress` resolution against `winmm.dll` |
+| `src/Game/RenderEffects.cpp` / `.h` | the four Lua entry points |
+| `Definitions/ExtraUtils.lua` | editor definitions |
+| `tests/host/render_effect_names_tests.cpp` | host-side coverage, no game required |
+
+The Lua surface is what this document proposed, with `ResetRenderEffects`
+added for the mission-scoped teardown described under "Mission lifecycle":
+
+```lua
+exu.SetRenderEffectEnabled("ssao", true)
+exu.SetRenderEffectFloat("ssao", "strength", 0.65)
+
+local requested, supported, effective, reason = exu.GetRenderEffectStatus("ssao")
+
+exu.ResetRenderEffects()
+```
+
+Effect names are a closed set (`ssao`, `depth_haze`, `soft_particles`) mapped
+to fixed integers, as required. An unknown effect or parameter name raises a
+Lua argument error rather than returning false: the set is small and
+documented, so a bad name is a script bug, and returning false would be
+indistinguishable from OpenShim refusing.
+
+Export resolution is cached and keyed on the `winmm.dll` module handle. Caching
+outright would risk latching "absent" before the module is where EXU expects
+it; keying on the handle gives one resolve per module plus an automatic
+re-resolve if it appears late.
+
+### What it actually does today
+
+**Nothing renders.** No effect has a renderer implementation - scene depth is
+still being qualified - so every status query answers:
+
+```text
+requested = <whatever the mission asked for>
+supported = false
+effective = false
+reason    = "not-implemented"      -- or "openshim-unavailable" with no shim
+```
+
+That is the designed steady state for an optional feature, and it is worth
+shipping ahead of the renderer work: a mission written against this today
+behaves correctly, and starts working unchanged the moment a provider
+registers on the OpenShim side. Neither side needs to change for that to
+happen.
+
+### Mission scoping is enforced on the OpenShim side too
+
+`exu.ResetRenderEffects()` exists, but OpenShim also clears intent from its own
+mission lifecycle seam, alongside the content render-profile override. A
+mission script that crashes or forgets to tear down therefore still cannot
+leak a renderer request into the shell.
+
+### Still outstanding
+
+- Every renderer effect itself. This is a boundary, not a feature.
+- Anything in the validation matrix below that needs the game running; only
+  the host-side checks have been run.
+- The DX9-versus-DX11 distinction is untestable until something is supported:
+  with no provider registered, both report `not-implemented`.
+
 ## Purpose
 
 Define the **EXU side** of future renderer-level effects without making ExtraUtilities responsible for renderer internals.
