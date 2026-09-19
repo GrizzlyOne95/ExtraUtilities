@@ -23,6 +23,28 @@ test_python_tools() {
     pass "Python validation tools"
 }
 
+# The weather billboard textures are generated, not authored, so an edit to the
+# generator that was never re-run would otherwise ship stale art silently.
+test_weather_textures() {
+    python3 "$ROOT/tools/generate_weather_textures.py" --check
+    pass "weather textures are current"
+}
+
+# The weather controller talks to the game only through the global exu table,
+# so a fake one exercises every decision it makes with no game present.
+test_weather_controller() {
+    local lua
+    for lua in lua5.1 lua5.4 lua luajit; do
+        if command -v "$lua" >/dev/null 2>&1; then
+            (cd "$ROOT" && "$lua" tests/host/weather_controller_test.lua) \
+                || fail "weather controller checks failed"
+            pass "weather controller ($lua)"
+            return
+        fi
+    done
+    fail "no Lua interpreter found for tests/host/weather_controller_test.lua"
+}
+
 # The Lua -> Ogre parameter conversion used by the generic particle bridge has
 # no Windows, Ogre or Lua dependency on purpose, so it can be compiled and
 # exercised here rather than only on a machine with the game installed.
@@ -113,7 +135,9 @@ test_bad_game_path_rejected() {
 }
 
 test_python_tools
+test_weather_textures
 test_host_cpp
+test_weather_controller
 test_script_syntax
 test_steam_path_override
 test_help_exits_clean
