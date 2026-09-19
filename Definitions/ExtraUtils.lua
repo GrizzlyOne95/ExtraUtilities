@@ -698,7 +698,7 @@ function exu.HasParticleSystem(name) end
 --- Returns false if the particle system already exists or if its reserved EXU node name is already in use.
 --- @param name string
 --- @param templateName string
---- @param position Vector? optional
+--- @param position Vector? optional Battlezone simulation-space position; defaults to the world origin
 --- @return boolean
 function exu.CreateParticleSystem(name, templateName, position) end
 
@@ -707,13 +707,13 @@ function exu.CreateParticleSystem(name, templateName, position) end
 --- @return boolean
 function exu.DestroyParticleSystem(name) end
 
---- Moves the EXU-owned scene node for a named particle system.
+--- Moves the EXU-owned scene node for a named particle system to a Battlezone simulation-space position.
 --- @param name string
 --- @param position Vector
 --- @return boolean
 function exu.SetParticleSystemPosition(name, position) end
 
---- Rotates the EXU-owned scene node for a named particle system to face the given direction.
+--- Rotates the EXU-owned scene node for a named particle system to face the given Battlezone simulation-space direction.
 --- @param name string
 --- @param direction Vector
 --- @return boolean
