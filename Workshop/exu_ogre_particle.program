@@ -1,0 +1,32 @@
+// Correct colour convention for Ogre ParticleFX billboard vertices.
+//
+// DX9's stock Effect vertex program already consumes the converted colour in
+// the right order. Redux's stock SM4 program adds a BGRA swizzle intended for
+// native BZR sprite data, which swaps red and blue on Ogre-generated vertices.
+
+vertex_program EXU_OgreParticle_vertexHLSL4 hlsl
+{
+    source exu_ogre_particle-sm4.hlsl
+    target vs_4_0
+    entry_point exu_ogre_particle_vertex
+}
+
+vertex_program EXU_OgreParticle_vertexGLSL glsl
+{
+    source exu_ogre_particle-vertex.glsl
+    syntax glsl120
+    entry_point vs_main
+}
+
+vertex_program EXU_OgreParticle_vertex unified
+{
+    delegate EXU_OgreParticle_vertexGLSL
+    delegate EXU_OgreParticle_vertexHLSL4
+    delegate Effect_vertexHLSL
+
+    default_params
+    {
+        param_named_auto wvpMat worldviewproj_matrix
+        param_named_auto diffuseColor surface_diffuse_colour
+    }
+}

@@ -45,6 +45,26 @@ test_weather_controller() {
     fail "no Lua interpreter found for tests/host/weather_controller_test.lua"
 }
 
+# Ogre ParticleFX colours have already been converted to the render system's
+# vertex format. Reusing Redux's native-sprite SM4 BGRA swizzle turns orange
+# dust blue, so keep the weather materials on the dedicated no-swizzle path.
+test_weather_particle_color_contract() {
+    local shader="$ROOT/Workshop/exu_ogre_particle-sm4.hlsl"
+    local program="$ROOT/Workshop/exu_ogre_particle.program"
+    local material="$ROOT/Workshop/exu_weather.material"
+
+    grep -Fq 'vColor = iColor * diffuseColor;' "$shader" \
+        || fail "Ogre particle shader no longer preserves RGBA vertex colour"
+    if grep -Eq 'iColor\s*\.\s*bgra' "$shader"; then
+        fail "Ogre particle shader reintroduced the native-sprite BGRA swizzle"
+    fi
+    grep -Fq 'source exu_ogre_particle-sm4.hlsl' "$program" \
+        || fail "Ogre particle program no longer references its SM4 source"
+    grep -Fq 'material EXU_FX/Dust : EXU_FX/OgreParticleAlphaBlend' "$material" \
+        || fail "weather dust no longer uses the Ogre particle colour path"
+    pass "weather particle RGBA contract"
+}
+
 # Pure logic that has no Windows, Ogre, OpenShim or Lua dependency lives in its
 # own headers precisely so it can be compiled and exercised here rather than
 # only on a machine with the game installed.
@@ -138,6 +158,7 @@ test_python_tools
 test_weather_textures
 test_host_cpp
 test_weather_controller
+test_weather_particle_color_contract
 test_script_syntax
 test_steam_path_override
 test_help_exits_clean
