@@ -173,6 +173,7 @@
     <ClCompile Include="src\UI\Renderer.cpp" />
     <ClCompile Include="src\UI\Reticle.cpp" />
     <ClCompile Include="src\Game\Satellite.cpp" />
+    <ClCompile Include="src\Game\StaticGeometry.cpp" />
     <ClCompile Include="src\Patches\ShotConvergence.cpp" />
     <ClCompile Include="src\Util\SoundOptions.cpp" />
     <ClCompile Include="src\Game\Steam.cpp" />
@@ -232,6 +233,7 @@
     <ClInclude Include="src\UI\Renderer.h" />
     <ClInclude Include="src\UI\Reticle.h" />
     <ClInclude Include="src\Game\Satellite.h" />
+    <ClInclude Include="src\Game\StaticGeometry.h" />
     <ClInclude Include="src\BasicScanner.h" />
     <ClInclude Include="src\Patches\ShotConvergence.h" />
     <ClInclude Include="src\Util\SoundOptions.h" />
