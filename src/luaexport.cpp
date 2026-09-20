@@ -23,6 +23,7 @@
 #include "About.h"
 #include "Game/Culling.h"
 #include "Game/RenderEffects.h"
+#include "Game/StaticGeometry.h"
 #include "Exports.h"
 #include "Util/Logging.h"
 #include "LuaHelpers.h"
@@ -675,6 +676,14 @@ namespace ExtraUtilities::Lua
 			{ "HasSkyBoxNode", &Environment::HasSkyBoxNode },
 			{ "HasSkyDomeNode", &Environment::HasSkyDomeNode },
 			{ "HasSkyPlaneNode", &Environment::HasSkyPlaneNode },
+
+			// Mission-scoped Ogre StaticGeometry. Create performs a bulk build so
+			// Lua never needs one native call per instance per frame.
+			{ "CreateStaticGeometry", &StaticGeometry::Create },
+			{ "DestroyStaticGeometry", &StaticGeometry::Destroy },
+			{ "DestroyAllStaticGeometry", &StaticGeometry::DestroyAll },
+			{ "GetStaticGeometryInfo", &StaticGeometry::GetInfo },
+			{ "SetStaticGeometryVisible", &StaticGeometry::SetVisible },
 
 			// Culling
 			{ "GetCullDistance", &Culling::GetCullDistance },

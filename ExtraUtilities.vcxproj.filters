@@ -48,6 +48,9 @@
     <ClCompile Include="src\Game\Satellite.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Game\StaticGeometry.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Util\OS.h">
       <Filter>Header Files\Exports</Filter>
     </ClCompile>
@@ -168,6 +171,9 @@
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\Satellite.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\StaticGeometry.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Exports.h">
