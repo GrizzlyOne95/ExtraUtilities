@@ -33,6 +33,7 @@
 #include "Game/AnimationApi.h"
 #include "Game/CommandReplacement.h"
 #include "Game/ContinuityApi.h"
+#include "Game/StaticGeometry.h"
 #include "LuaState.h"
 #include "OpenShimBridge.h"
 #include "UI/Overlay.h"
@@ -133,6 +134,7 @@ namespace ExtraUtilities::Lua
 			CommandReplacement::ReleaseState(L);
 			BasicPatch::UnloadAllPatches();
 			Overlay::ShutdownOverlaySupport();
+			StaticGeometry::Shutdown();
 			state.Clear(L);
 			Logging::LogMessage("exu: Lua state closed; native state invalidated");
 		}
