@@ -1450,6 +1450,43 @@ function exu.GetMaterialName(h, subEntityIndex) end
 --- @param resourceGroup string? optional
 function exu.SetEntityMaterial(h, materialName, resourceGroup) end
 
+--- Builds one mission-scoped Ogre StaticGeometry object from a mesh/material
+--- template and a bulk list of transforms. Each instance accepts `position`
+--- (`{x,y,z}`), `yaw` in radians or `orientation` (`{w,x,y,z}`), and `scale`
+--- as either one number or `{x,y,z}`. Options accept `regionDimensions`,
+--- `origin`, `renderingDistance`, `castShadows`, and `visible`.
+--- Reusing an EXU-owned name replaces its previous geometry. On success the
+--- returned table includes `instanceCount`, estimated `regionCount`, and
+--- `buildMilliseconds`. Mission Lua teardown destroys all tracked geometry.
+--- @param name string
+--- @param mesh string
+--- @param material string|nil
+--- @param instances table[]
+--- @param options? table
+--- @return table|nil info
+--- @return string? error
+function exu.CreateStaticGeometry(name, mesh, material, instances, options) end
+
+--- Destroys one EXU-owned StaticGeometry object.
+--- @param name string
+--- @return boolean destroyed
+function exu.DestroyStaticGeometry(name) end
+
+--- Destroys all StaticGeometry objects owned by the current mission Lua state.
+--- @return integer trackedCount
+function exu.DestroyAllStaticGeometry() end
+
+--- Returns build and lifecycle information for an EXU-owned StaticGeometry object.
+--- @param name string
+--- @return table|nil info
+function exu.GetStaticGeometryInfo(name) end
+
+--- Shows or hides all regions in an EXU-owned StaticGeometry object.
+--- @param name string
+--- @param visible boolean
+--- @return boolean changed
+function exu.SetStaticGeometryVisible(name, visible) end
+
 --- Sets the material name used by a specific sub-entity.
 --- The resource group defaults to "General".
 --- @param h Handle
