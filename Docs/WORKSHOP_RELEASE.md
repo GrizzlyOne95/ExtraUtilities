@@ -9,7 +9,8 @@ The Workshop uploader consumes:
 - everything under `Workshop/` - `squish.py` walks that folder recursively, so a file
   added there ships without any change here. It currently holds `ExtraUtilities.ini`,
   `RequireFix.lua`, `monkey.jpg`, and the weather set (`exu_weather.lua`,
-  `exu_weather.particle`, `exu_weather.material`, and the four `exu_*.png` textures).
+  `exu_weather.particle`, `exu_weather.material`, the Ogre-particle shaders/program,
+  and the four `exu_*.png` textures).
 - everything under `Definitions/` and `Release/`
 - `workshop_description.txt`
 - `workshop_changenote.txt`

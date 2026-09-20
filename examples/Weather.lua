@@ -45,9 +45,10 @@ function Update(dt)
     -- Weather.SetIntensity(0.4)
 end
 
-function DeleteObject()
-    -- Not required for the particles - they do not survive a mission change -
-    -- but Shutdown also puts back the fog and light Init captured.
+-- Call this from a mission-owned teardown/reload path if that mission has one.
+-- Do not wire it to DeleteObject(handle): Redux invokes that callback whenever
+-- any game object is deleted, which would turn the weather off mid-mission.
+local function ShutdownWeather()
     Weather.Shutdown()
 end
 
