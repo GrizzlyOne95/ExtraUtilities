@@ -19,6 +19,7 @@
 #include "OS.h"
 
 #include "Logging.h"
+#include "NativeSaveFlag.h"
 
 #include <algorithm>
 #include <array>
@@ -494,29 +495,22 @@ namespace ExtraUtilities::Lua::OS
 				return nullptr;
 			}
 
-			// SaveGame's stable signature contains:
-			//     movzx eax, byte ptr [missionSave]
-			// at entry +37, with the four-byte absolute global immediately
-			// following the 0F B6 05 opcode. Deriving the address from the
-			// already-qualified function avoids a second build-specific address
-			// table and fails closed if the target build drifts.
+			// Deriving the address from the already-qualified function avoids a
+			// second build-specific address table and fails closed if the target
+			// build drifts. The decode itself lives in NativeSaveFlag.h so
+			// tests/host can exercise the drift cases without the game.
 			const auto* entry = reinterpret_cast<const uint8_t*>(saveGame);
 			uint32_t flagAddress = 0;
 			__try
 			{
-				if (entry[37] != 0x0F || entry[38] != 0xB6 || entry[39] != 0x05)
-				{
-					return nullptr;
-				}
-				std::memcpy(&flagAddress, entry + 40, sizeof(flagAddress));
+				flagAddress = ExtraUtilities::NativeSave::ReadMissionSaveFlagAddress(entry);
 				if (flagAddress == 0)
 				{
 					return nullptr;
 				}
 
 				auto* flag = reinterpret_cast<MissionSaveFlag>(static_cast<uintptr_t>(flagAddress));
-				const uint8_t current = *flag;
-				if (current > 1)
+				if (!ExtraUtilities::NativeSave::IsPlausibleMissionSaveValue(*flag))
 				{
 					return nullptr;
 				}
@@ -683,22 +677,31 @@ namespace ExtraUtilities::Lua::OS
 				return false;
 			}
 
+			// FUN_004fdc80, the stock normal-save wrapper, establishes
+			// missionSave=0 before calling SaveGame. Direct Lua callers must do
+			// the same because FUN_004fbe90 (mission save) leaves this global
+			// set after it returns.
+			//
+			// The prior value is restored rather than forced to 0, because
+			// FUN_004fbe90 sets the flag and only then opens a modal dialog
+			// (FUN_0056ad10 -> FUN_005d4690, which runs its own event loop).
+			// Anything that saves from inside that window would otherwise clear
+			// a flag the engine is still relying on and silently downgrade the
+			// user's mission save to a normal one.
+			uint8_t previous = 0;
 			__try
 			{
-				// FUN_004fdc80, the stock normal-save wrapper, establishes
-				// missionSave=0 before calling SaveGame. Direct Lua callers must
-				// do the same because FUN_004fbe90 (mission save) leaves this
-				// global set after it returns.
+				previous = *missionSaveFlag;
 				*missionSaveFlag = 0;
 				const bool saved = saveGame(filename, saveType);
-				*missionSaveFlag = 0;
+				*missionSaveFlag = previous;
 				return saved;
 			}
 			__except (exceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
 			{
 				__try
 				{
-					*missionSaveFlag = 0;
+					*missionSaveFlag = previous;
 				}
 				__except (EXCEPTION_EXECUTE_HANDLER)
 				{
