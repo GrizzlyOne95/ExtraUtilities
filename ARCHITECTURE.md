@@ -36,6 +36,8 @@ Do not add new raw BZR addresses or signatures inside feature code when they can
 
 Ogre-specific ABI and runtime assumptions belong under `src/Ogre/` or a future dedicated runtime layer. Feature code should consume those helpers rather than duplicating Ogre offsets or signatures.
 
+**Any feature that hands Ogre a position, direction, or orientation must convert it through `src/Ogre/OgreRenderSpace.h` first.** Redux keeps simulation/Lua coordinates in one space but recentres the actual render world around a per-map origin and mirrors Z; every renderable the exe draws goes through that conversion before Ogre sees it. A feature that skips it builds without error, logs success, and is placed thousands of units outside the render world — invisible on every backend, with nothing in the log to say why. This shipped bug-for-bug in `StaticGeometry.cpp` for the feature's entire life (fixed in PR #29); `Environment.cpp`'s particle path had the conversion from the start. When adding a new Ogre-facing feature, call `OgreRenderSpace::SimPositionToRender`/`SimOrientationToRender` rather than re-deriving the transform, and add a host test in `tests/host/render_space_tests.cpp` alongside it if the new call site has its own edge cases.
+
 ### Features
 
 Feature code implements EXU behavior. New feature logic should be written so it can be called independently of Lua when practical.
