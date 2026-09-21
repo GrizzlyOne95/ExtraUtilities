@@ -47,4 +47,22 @@ namespace ExtraUtilities::OgreRenderSpace
 			-direction.z,
 		};
 	}
+
+	// Mirroring Z is a reflection, not a rotation, so a rotation carried
+	// through it becomes its conjugate M R M with M = diag(1, 1, -1). That
+	// mirrors the axis AND negates the angle, which for a quaternion
+	// (w, x, y, z) leaves w alone and comes out as (w, -x, -y, z).
+	//
+	// A yaw-only quaternion therefore arrives in render space with its yaw
+	// reversed, which is what the engine's own object render path does.
+	template <typename Quaternion>
+	Quaternion SimOrientationToRender(const Quaternion& orientation)
+	{
+		return Quaternion{
+			orientation.w,
+			-orientation.x,
+			-orientation.y,
+			orientation.z,
+		};
+	}
 }
