@@ -3,16 +3,19 @@
 // Billboard materials for the EXU baseline weather templates in
 // exu_weather.particle.
 //
-// These inherit BZSprite/AlphaBlend from stock Redux sprites.material, which is
-// the pipeline the game already uses for in-world sprite quads. Inheriting the
-// stock parent rather than declaring our own passes means:
+// These inherit the stock BZSprite/AlphaBlend render state, but replace its
+// vertex program for Ogre-generated billboards. Redux's stock SM4 sprite
+// program applies a red/blue swizzle for native BZR sprite vertices; Ogre
+// ParticleFX has already converted ColourValue into the D3D11 vertex format,
+// so applying that correction again makes orange dust blue. The dedicated EXU
+// vertex program keeps Ogre's RGBA order while retaining the stock fragment
+// program and blend/depth state.
 //
 //   - the settings the reference material calls for (lighting off,
 //     scene_blend alpha_blend, depth_write off) come from the stock parent
 //     rather than being restated here;
-//   - whatever material schemes Redux and OpenShim register on the stock sprite
-//     path apply to these too, so there is no scheme for a renderer to miss and
-//     fall back to black on;
+//   - OpenShim's Enhanced scheme fallback can select this valid base technique;
+//     no duplicate global scheme policy is needed here;
 //   - EXU has no dependency on Campaign Reimagined or any other mod.
 //
 // The stock sprite shader multiplies the texture by the incoming vertex colour,
@@ -27,16 +30,29 @@
 
 import * from "sprites.material"
 
+material EXU_FX/OgreParticleAlphaBlend : BZSprite/AlphaBlend
+{
+	technique 0
+	{
+		pass 0
+		{
+			vertex_program_ref EXU_OgreParticle_vertex
+			{
+			}
+		}
+	}
+}
+
 // A soft vertical streak. Drawn as an oriented_common billboard aligned to the
 // fall direction, so the texture's long axis becomes the direction of travel.
-material EXU_FX/Rain : BZSprite/AlphaBlend
+material EXU_FX/Rain : EXU_FX/OgreParticleAlphaBlend
 {
 	set_texture_alias DiffuseMap exu_rain_streak.png
 }
 
 // An irregular soft mote with heavy falloff. Used large and grown further by
 // the template's Scaler.
-material EXU_FX/Dust : BZSprite/AlphaBlend
+material EXU_FX/Dust : EXU_FX/OgreParticleAlphaBlend
 {
 	set_texture_alias DiffuseMap exu_dust_mote.png
 }
@@ -44,7 +60,7 @@ material EXU_FX/Dust : BZSprite/AlphaBlend
 // A wide, very soft veil. Peak alpha is deliberately low because haboob cards
 // are enormous and heavily overlapped: density comes from stacking, so an
 // opaque card would blow the whole wall out.
-material EXU_FX/Haboob : BZSprite/AlphaBlend
+material EXU_FX/Haboob : EXU_FX/OgreParticleAlphaBlend
 {
 	set_texture_alias DiffuseMap exu_haboob_cloud.png
 }
@@ -52,7 +68,7 @@ material EXU_FX/Haboob : BZSprite/AlphaBlend
 // The softest texture in the set. Mist has to read as depth rather than as
 // particles, and any edge the eye can resolve turns the layer back into a pile
 // of quads.
-material EXU_FX/Mist : BZSprite/AlphaBlend
+material EXU_FX/Mist : EXU_FX/OgreParticleAlphaBlend
 {
 	set_texture_alias DiffuseMap exu_mist_card.png
 }
