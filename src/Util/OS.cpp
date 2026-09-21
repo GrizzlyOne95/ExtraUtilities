@@ -19,6 +19,7 @@
 #include "OS.h"
 
 #include "Logging.h"
+#include "NativeSaveFlag.h"
 
 #include <algorithm>
 #include <array>
@@ -43,6 +44,7 @@ namespace ExtraUtilities::Lua::OS
 	{
 		using NativeSaveGameFn = bool(__cdecl*)(char*, int);
 		using NativeSaveShellGameFn = bool(__cdecl*)(int, const char*);
+		using MissionSaveFlag = volatile uint8_t*;
 
 		struct ExecutableSection
 		{
@@ -480,6 +482,49 @@ namespace ExtraUtilities::Lua::OS
 			return nullptr;
 		}
 
+		MissionSaveFlag ResolveMissionSaveFlag(NativeSaveGameFn saveGame) noexcept
+		{
+			static MissionSaveFlag cached = nullptr;
+			if (cached != nullptr)
+			{
+				return cached;
+			}
+
+			if (saveGame == nullptr)
+			{
+				return nullptr;
+			}
+
+			// Deriving the address from the already-qualified function avoids a
+			// second build-specific address table and fails closed if the target
+			// build drifts. The decode itself lives in NativeSaveFlag.h so
+			// tests/host can exercise the drift cases without the game.
+			const auto* entry = reinterpret_cast<const uint8_t*>(saveGame);
+			uint32_t flagAddress = 0;
+			__try
+			{
+				flagAddress = ExtraUtilities::NativeSave::ReadMissionSaveFlagAddress(entry);
+				if (flagAddress == 0)
+				{
+					return nullptr;
+				}
+
+				auto* flag = reinterpret_cast<MissionSaveFlag>(static_cast<uintptr_t>(flagAddress));
+				if (!ExtraUtilities::NativeSave::IsPlausibleMissionSaveValue(*flag))
+				{
+					return nullptr;
+				}
+
+				cached = flag;
+				LogNativeSave("[EXU::SaveGame] resolved missionSave flag at 0x{:08X}", flagAddress);
+				return cached;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				return nullptr;
+			}
+		}
+
 		const uint8_t* BacktrackFunctionProlog(const ExecutableSection& section, const uint8_t* address, size_t maxBack = 0x400)
 		{
 			if (section.address == nullptr || address == nullptr || address < section.address || address >= section.address + section.size)
@@ -619,16 +664,48 @@ namespace ExtraUtilities::Lua::OS
 			return nullptr;
 		}
 
-		bool InvokeNativeSaveGame(NativeSaveGameFn saveGame, char* filename, int saveType, DWORD& exceptionCode) noexcept
+		bool InvokeNativeNormalSaveGame(
+			NativeSaveGameFn saveGame,
+			MissionSaveFlag missionSaveFlag,
+			char* filename,
+			int saveType,
+			DWORD& exceptionCode) noexcept
 		{
 			exceptionCode = 0;
+			if (saveGame == nullptr || missionSaveFlag == nullptr)
+			{
+				return false;
+			}
 
+			// FUN_004fdc80, the stock normal-save wrapper, establishes
+			// missionSave=0 before calling SaveGame. Direct Lua callers must do
+			// the same because FUN_004fbe90 (mission save) leaves this global
+			// set after it returns.
+			//
+			// The prior value is restored rather than forced to 0, because
+			// FUN_004fbe90 sets the flag and only then opens a modal dialog
+			// (FUN_0056ad10 -> FUN_005d4690, which runs its own event loop).
+			// Anything that saves from inside that window would otherwise clear
+			// a flag the engine is still relying on and silently downgrade the
+			// user's mission save to a normal one.
+			uint8_t previous = 0;
 			__try
 			{
-				return saveGame(filename, saveType);
+				previous = *missionSaveFlag;
+				*missionSaveFlag = 0;
+				const bool saved = saveGame(filename, saveType);
+				*missionSaveFlag = previous;
+				return saved;
 			}
 			__except (exceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
 			{
+				__try
+				{
+					*missionSaveFlag = previous;
+				}
+				__except (EXCEPTION_EXECUTE_HANDLER)
+				{
+				}
 				return false;
 			}
 		}
@@ -804,6 +881,14 @@ namespace ExtraUtilities::Lua::OS
 			return 2;
 		}
 
+		const auto missionSaveFlag = ResolveMissionSaveFlag(saveGame);
+		if (missionSaveFlag == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			lua_pushstring(L, "native missionSave state could not be resolved");
+			return 2;
+		}
+
 		if (!EnsureSaveParentDirectory(filename))
 		{
 			LogNativeSave("[EXU::SaveGame] failed to create parent directory for {}", filename);
@@ -815,7 +900,12 @@ namespace ExtraUtilities::Lua::OS
 		LogNativeSave("[EXU::SaveGame] calling native save path={} type={}", filename, saveType);
 
 		DWORD exceptionCode = 0;
-		const bool saved = InvokeNativeSaveGame(saveGame, filename.data(), saveType, exceptionCode);
+		const bool saved = InvokeNativeNormalSaveGame(
+			saveGame,
+			missionSaveFlag,
+			filename.data(),
+			saveType,
+			exceptionCode);
 		if (exceptionCode != 0)
 		{
 			LogNativeSave(
