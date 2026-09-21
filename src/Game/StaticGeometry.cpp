@@ -16,7 +16,9 @@
 
 #include "LuaHelpers.h"
 #include "Ogre/Ogre.h"
+#include "Ogre/OgreRenderSpace.h"
 #include "Util/Logging.h"
+#include "bzr.h"
 
 #include <Windows.h>
 
@@ -201,6 +203,31 @@ namespace ExtraUtilities::Lua::StaticGeometry
 		bool IsFinite(float value)
 		{
 			return std::isfinite(value);
+		}
+
+		// Redux recentres the Ogre render world around a per-map origin and
+		// mirrors Z, so Lua's simulation coordinates are NOT render coordinates.
+		// Everything the exe draws goes through this conversion; geometry built
+		// from raw sim positions lands far outside the render world and is never
+		// drawn, identically on every backend.
+		//
+		// Its own SEH frame because Create() holds objects that require
+		// unwinding, which __try may not share a function with.
+		bool TryReadWorldRenderOrigin(OgreVector3Value& outOrigin) noexcept
+		{
+			__try
+			{
+				const float* origin =
+					reinterpret_cast<const float*>(BZR::Ogre::worldRenderOriginAddress);
+				outOrigin.x = origin[0];
+				outOrigin.y = origin[1];
+				outOrigin.z = origin[2];
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				return false;
+			}
 		}
 
 		float ReadNumberField(lua_State* L, int tableIndex, const char* name, float fallback)
@@ -494,6 +521,29 @@ namespace ExtraUtilities::Lua::StaticGeometry
 			return PushFailure(L, "Ogre SceneManager is unavailable");
 		}
 
+		// Lua hands us simulation coordinates -- the ones GetPosition and
+		// GetTerrainHeightAndNormal return -- so convert every transform into
+		// render space before Ogre sees it, exactly as Environment.cpp does for
+		// particles. Fail the call rather than silently building geometry that
+		// cannot be drawn.
+		OgreVector3Value renderOrigin{};
+		if (!TryReadWorldRenderOrigin(renderOrigin) ||
+			!IsFinite(renderOrigin.x) || !IsFinite(renderOrigin.y) || !IsFinite(renderOrigin.z))
+		{
+			return PushFailure(L, "Redux render origin is unavailable");
+		}
+
+		Options renderOptions = options;
+		renderOptions.origin =
+			OgreRenderSpace::SimPositionToRender(options.origin, renderOrigin);
+		for (auto& instance : instances)
+		{
+			instance.position =
+				OgreRenderSpace::SimPositionToRender(instance.position, renderOrigin);
+			instance.orientation =
+				OgreRenderSpace::SimOrientationToRender(instance.orientation);
+		}
+
 		auto existing = g_records.find(name);
 		if (existing != g_records.end())
 		{
@@ -535,11 +585,11 @@ namespace ExtraUtilities::Lua::StaticGeometry
 			}
 
 			geometry = createGeometry(sceneManager, name);
-			setRegionDimensions(geometry, options.regionDimensions);
-			setOrigin(geometry, options.origin);
-			setRenderingDistance(geometry, options.renderingDistance);
-			setCastShadows(geometry, options.castShadows);
-			setVisible(geometry, options.visible);
+			setRegionDimensions(geometry, renderOptions.regionDimensions);
+			setOrigin(geometry, renderOptions.origin);
+			setRenderingDistance(geometry, renderOptions.renderingDistance);
+			setCastShadows(geometry, renderOptions.castShadows);
+			setVisible(geometry, renderOptions.visible);
 
 			entity = createEntity(sceneManager, mesh);
 			if (!material.empty())
@@ -569,21 +619,31 @@ namespace ExtraUtilities::Lua::StaticGeometry
 			record.mesh = mesh;
 			record.material = material;
 			record.instanceCount = instances.size();
-			record.regionCount = CountRegions(instances, options);
+			record.regionCount = CountRegions(instances, renderOptions);
 			record.buildMilliseconds = buildMilliseconds;
 			record.renderingDistance = options.renderingDistance;
 			record.castShadows = options.castShadows;
 			record.visible = options.visible;
 
 			const auto inserted = g_records.emplace(name, std::move(record));
+			// The render origin is logged because a zero or stale one is the
+			// difference between geometry that draws and geometry that is built
+			// perfectly and sits outside the render world.
 			Logging::LogMessage(
-				"[EXU::StaticGeometry] built name=%s mesh=%s material=%s instances=%u regions=%u buildMs=%llu",
+				"[EXU::StaticGeometry] built name=%s mesh=%s material=%s instances=%u regions=%u "
+				"buildMs=%llu renderOrigin=(%.2f,%.2f,%.2f) firstRenderPos=(%.2f,%.2f,%.2f)",
 				name.c_str(),
 				mesh.c_str(),
 				material.empty() ? "<mesh-default>" : material.c_str(),
 				static_cast<unsigned int>(instances.size()),
 				static_cast<unsigned int>(inserted.first->second.regionCount),
-				static_cast<unsigned long long>(buildMilliseconds));
+				static_cast<unsigned long long>(buildMilliseconds),
+				static_cast<double>(renderOrigin.x),
+				static_cast<double>(renderOrigin.y),
+				static_cast<double>(renderOrigin.z),
+				static_cast<double>(instances.front().position.x),
+				static_cast<double>(instances.front().position.y),
+				static_cast<double>(instances.front().position.z));
 			PushInfo(L, name, inserted.first->second);
 			return 1;
 		}
