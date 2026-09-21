@@ -1455,6 +1455,8 @@ function exu.SetEntityMaterial(h, materialName, resourceGroup) end
 --- (`{x,y,z}`), `yaw` in radians or `orientation` (`{w,x,y,z}`), and `scale`
 --- as either one number or `{x,y,z}`. Options accept `regionDimensions`,
 --- `origin`, `renderingDistance`, `castShadows`, and `visible`.
+--- Positions and `origin` are ordinary simulation coordinates, the same ones
+--- `GetPosition` returns; EXU converts them into Redux's render space.
 --- Reusing an EXU-owned name replaces its previous geometry. On success the
 --- returned table includes `instanceCount`, estimated `regionCount`, and
 --- `buildMilliseconds`. Mission Lua teardown destroys all tracked geometry.
