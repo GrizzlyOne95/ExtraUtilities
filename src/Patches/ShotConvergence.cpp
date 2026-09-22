@@ -17,13 +17,14 @@
 */
 
 #include "ShotConvergence.h"
+#include "ShotConvergenceMath.h"
 
 #include "BZR.h"
 #include "InlinePatch.h"
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
 
-#include <cmath>
+#include <cstddef>
 
 namespace ExtraUtilities::Patch
 {
@@ -32,8 +33,8 @@ namespace ExtraUtilities::Patch
 
 namespace
 {
-    using OpenShimGetBoolFn = BOOL(WINAPI*)();
-    using OpenShimSetBoolFn = BOOL(WINAPI*)(BOOL);
+	using OpenShimGetBoolFn = BOOL(WINAPI*)();
+	using OpenShimSetBoolFn = BOOL(WINAPI*)(BOOL);
 
 #pragma pack(push, 1)
 	struct WeaponLayout
@@ -41,8 +42,13 @@ namespace
 		uint8_t padding[0x10];
 		BZR::OBJ76* obj;
 		BZR::OBJ76* hard;
+		uint8_t paddingToMountWorld[0x10];
+		BZR::MAT_3D mountWorld;
 	};
 #pragma pack(pop)
+
+	static_assert(offsetof(WeaponLayout, mountWorld) == 0x28,
+		"Weapon mount-world matrix offset no longer matches the supported BZR layout");
 
 	using HoverCraftUpdateWeaponAimFn = void(__thiscall*)(BZR::GameObject*, float);
 	using CarrierGetWeaponFn = WeaponLayout*(__thiscall*)(void*, int);
@@ -50,7 +56,6 @@ namespace
 
 	constexpr size_t kCarrierOffset = 0x1A0;
 	constexpr int kWeaponSlots = 5;
-	constexpr float kDirectionEpsilon = 0.001f;
 
 	inline auto HoverCraftUpdateWeaponAim =
 		reinterpret_cast<HoverCraftUpdateWeaponAimFn>(ExtraUtilities::Patch::hovercraftUpdateWeaponAim);
@@ -59,38 +64,24 @@ namespace
 	inline auto RefreshWeaponTransform =
 		reinterpret_cast<RefreshWeaponTransformFn>(ExtraUtilities::Patch::refreshWeaponTransform);
 
-	BZR::VECTOR_3D CrossProduct(const BZR::VECTOR_3D& lhs, const BZR::VECTOR_3D& rhs)
+	ExtraUtilities::ShotConvergenceMath::Matrix ToMathMatrix(const BZR::MAT_3D& value)
 	{
 		return {
-			lhs.y * rhs.z - lhs.z * rhs.y,
-			lhs.z * rhs.x - lhs.x * rhs.z,
-			lhs.x * rhs.y - lhs.y * rhs.x
+			value.right_x, value.right_y, value.right_z,
+			value.up_x, value.up_y, value.up_z,
+			value.front_x, value.front_y, value.front_z,
+			value.posit_x, value.posit_y, value.posit_z,
 		};
 	}
 
-	BZR::MAT_3D BuildDirectionalMatrix(const BZR::VECTOR_3D& origin, BZR::VECTOR_3D direction)
+	BZR::MAT_3D ToBzrMatrix(const ExtraUtilities::ShotConvergenceMath::Matrix& value)
 	{
-		direction.Normalize();
-
-		BZR::VECTOR_3D right;
-		if ((direction.x * direction.x) + (direction.z * direction.z) >= 0.02f)
-		{
-			right = CrossProduct({ 0.0f, 1.0f, 0.0f }, direction);
-			right.Normalize();
-		}
-		else
-		{
-			right = { 1.0f, 0.0f, 0.0f };
-		}
-
-		const BZR::VECTOR_3D up = CrossProduct(direction, right);
-
 		return {
-			right.x, right.y, right.z,
-			up.x, up.y, up.z,
-			direction.x, direction.y, direction.z,
+			value.rightX, value.rightY, value.rightZ,
+			value.upX, value.upY, value.upZ,
+			value.frontX, value.frontY, value.frontZ,
 			{},
-			origin.x, origin.y, origin.z
+			value.positionX, value.positionY, value.positionZ,
 		};
 	}
 
@@ -119,6 +110,11 @@ namespace
 		}
 
 		const BZR::VECTOR_3D target = *BZR::Reticle::position;
+		const ExtraUtilities::ShotConvergenceMath::Vec3 mathTarget{
+			target.x,
+			target.y,
+			target.z,
+		};
 
 		for (int slot = 0; slot < kWeaponSlots; ++slot)
 		{
@@ -129,17 +125,25 @@ namespace
 			}
 
 			BZR::OBJ76* const weaponObject = weapon->obj;
-			const BZR::VECTOR_3D origin(
-				weaponObject->transform.posit_x,
-				weaponObject->transform.posit_y,
-				weaponObject->transform.posit_z);
-			BZR::VECTOR_3D direction = target - origin;
-			if (direction.Length() <= kDirectionEpsilon)
+			const auto mountLocal = ToMathMatrix(weaponObject->transform);
+			const auto mountWorld = ToMathMatrix(weapon->mountWorld);
+
+			ExtraUtilities::ShotConvergenceMath::Matrix solvedLocal = {};
+			if (!ExtraUtilities::ShotConvergenceMath::SolveReticleConvergence(
+					mountLocal,
+					mountWorld,
+					mathTarget,
+					solvedLocal))
 			{
 				continue;
 			}
 
-			weaponObject->transform = BuildDirectionalMatrix(origin, direction);
+			// weaponObject->transform is mount-local in BZR. Build the aim in
+			// world space from the actual composed muzzle position, then convert
+			// it back to mount-local before writing it. Treating this translation
+			// as a world origin is the old EXU bug and produces large angular
+			// errors when the craft is rotated or far from the map origin.
+			weaponObject->transform = ToBzrMatrix(solvedLocal);
 			RefreshWeaponTransform(weaponObject, &weaponObject->transform);
 		}
 	}
