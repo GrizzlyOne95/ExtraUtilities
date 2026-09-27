@@ -1338,10 +1338,11 @@ function exu.SetAsUser(h) end
 --- @return boolean
 function exu.IsCommTowerPowered(h) end
 
---- Converts a GameObject* into a handle that can be used in lua.
+--- Converts a GameObject* (as returned by exu.GetObj) into a handle that can be used in lua.
+--- Returns nil when obj is not a live GameObject.
 --- @nodiscard
 --- @param obj GameObject*
---- @return integer
+--- @return Handle?
 function exu.GetHandle(obj) end
 
 --- Gets whether the object's Ogre entity is currently visible.
@@ -1750,19 +1751,24 @@ function exu.SetLightDirection(h, direction) end
 function exu.SetLightAttenuation(h, range, constant, linear, quadratic) end
 
 --- Gets the mass of the given object (most ships default to 1750 KG afaik).
+--- Returns nil when the handle no longer refers to a live object.
 --- @nodiscard
 --- @param h Handle
---- @return number
+--- @return number?
 function exu.GetMass(h) end
 
 --- Sets the mass of the given object. This affects collisions and knockback.
+--- Does nothing when the handle no longer refers to a live object.
 --- @param h Handle
-function exu.SetMass(h) end
+--- @param mass number finite and greater than 0
+function exu.SetMass(h, mass) end
 
 --- Converts a handle into a GameObject* that can be used in patching and debugging.
+--- Returns nil when the handle no longer refers to a live object (the unit died
+--- or its slot was reused).
 --- @nodiscard
 --- @param h Handle
---- @return GameObject*
+--- @return GameObject*?
 function exu.GetObj(h) end
 
 --- Gets live construction-menu selection state for a construction rig.

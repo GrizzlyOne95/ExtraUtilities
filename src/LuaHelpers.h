@@ -192,10 +192,13 @@ namespace ExtraUtilities::Lua
 		return lua_toboolean(L, idx);
 	}
 
-	// Type checked lua handle
+	// Type checked lua handle. BZR handles are light userdata; a full userdata
+	// (a vector or matrix passed by mistake) would otherwise turn a heap
+	// address into a handle. This checks the type only: whether the object is
+	// still alive is BZR::GameObject::GetObj's job.
 	inline BZR::handle CheckHandle(lua_State* L, int idx)
 	{
-		if (!lua_isuserdata(L, idx))
+		if (!lua_islightuserdata(L, idx))
 		{
 			luaL_typerror(L, idx, "handle");
 		}

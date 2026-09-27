@@ -50,6 +50,10 @@ namespace ExtraUtilities::Lua::Ordnance
 		BZR::Mat3 matrix = CheckMatrix(L, 2);
 		BZR::handle ownerHandle = CheckHandle(L, 3);
 		BZR::GameObject* ownerObj = BZR::GameObject::GetObj(ownerHandle);
+		if (ownerObj == nullptr)
+		{
+			return luaL_argerror(L, 3, "owner handle does not refer to a live object");
+		}
 
 		BZR::OrdnanceClass* classToBuild = ordnanceMap.at(requestedOrd);
 		BZR::Ordnance* ord = BZR::OrdnanceClass::Build(classToBuild, &matrix, ownerObj->obj);
