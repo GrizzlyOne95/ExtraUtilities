@@ -182,6 +182,12 @@ def encode(image: Image.Image) -> bytes:
     return buffer.getvalue()
 
 
+# Largest per-channel difference --check accepts. The noise upscale goes through
+# Pillow's BICUBIC resize, whose rounding can move by one step between Pillow
+# releases; a real edit to the generator changes pixels by far more.
+PIXEL_TOLERANCE = 1
+
+
 def pixels_match(path: str, expected: Image.Image) -> bool:
     """Compare decoded RGBA pixels rather than encoded bytes.
 
@@ -193,7 +199,9 @@ def pixels_match(path: str, expected: Image.Image) -> bool:
         stored = stored.convert("RGBA")
         if stored.size != expected.size:
             return False
-        return np.array_equal(np.asarray(stored), np.asarray(expected.convert("RGBA")))
+        difference = np.abs(
+            np.asarray(stored, dtype=np.int16) - np.asarray(expected.convert("RGBA"), dtype=np.int16))
+        return int(difference.max(initial=0)) <= PIXEL_TOLERANCE
 
 
 def main() -> int:
