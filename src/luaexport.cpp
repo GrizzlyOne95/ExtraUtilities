@@ -66,6 +66,31 @@ namespace ExtraUtilities::Lua
 		int g_originalSetObjectiveOffRef = LUA_NOREF;
 		std::vector<BZR::handle> g_activeObjectiveHandles;
 
+		// The Lua state whose registry holds the refs above. Refs are only
+		// meaningful in that state: they are never unref'd in another one, and
+		// the wrappers are installed once per state (a second luaopen_exu on the
+		// same state used to wrap the wrappers, which then called themselves).
+		lua_State* g_stockBindingOwner = nullptr;
+
+		// Drops refs that belong to a state other than L without touching L's
+		// registry.
+		void ForgetForeignStockBindings(lua_State* L)
+		{
+			if (g_stockBindingOwner == nullptr || g_stockBindingOwner == L)
+			{
+				return;
+			}
+
+			for (auto& patch : g_sanitizedStockStringFunctions)
+			{
+				patch.originalRef = LUA_NOREF;
+			}
+			g_originalSetObjectiveOnRef = LUA_NOREF;
+			g_originalSetObjectiveOffRef = LUA_NOREF;
+			g_activeObjectiveHandles.clear();
+			g_stockBindingOwner = nullptr;
+		}
+
 		void ResetSanitizedStockStringPatchState(lua_State* L)
 		{
 			for (auto& patch : g_sanitizedStockStringFunctions)
@@ -278,13 +303,14 @@ namespace ExtraUtilities::Lua
 
 	void ReleaseLuaStateBindings(lua_State* L) noexcept
 	{
-		if (L == nullptr)
+		if (L == nullptr || g_stockBindingOwner != L)
 		{
 			return;
 		}
 
 		ResetSanitizedStockStringPatchState(L);
 		ResetObjectiveObjectPatchState(L);
+		g_stockBindingOwner = nullptr;
 		Logging::LogMessage("exu: released Lua-owned stock function bindings");
 	}
 
@@ -529,8 +555,13 @@ namespace ExtraUtilities::Lua
 
 		MakeEnums(L, exuIdx);
 		DoEventHooks(L);
-		InstallSanitizedStockStringPatches(L);
-		InstallObjectiveObjectsPatch(L);
+		ForgetForeignStockBindings(L);
+		if (g_stockBindingOwner != L)
+		{
+			InstallSanitizedStockStringPatches(L);
+			InstallObjectiveObjectsPatch(L);
+			g_stockBindingOwner = L;
+		}
 		Radar::InstallRefreshLayoutHooks();
 		Environment::InstallGameViewportSchemeHooks();
 		// This runs once per Lua state, i.e. once per mission load. The scene
