@@ -2231,6 +2231,7 @@ function exu.GetDifficulty() end
 --- Sets the local player's difficulty setting. See the difficulty enum for options.
 --- Note that it won't change what it says in the menu, but it will in fact change in-game.
 --- It also won't work in multiplayer where the difficulty is locked to very hard.
+--- Values outside 0-4 raise an error. The previous value is restored when the mission ends.
 --- @param difficulty number
 function exu.SetDifficulty(difficulty) end
 

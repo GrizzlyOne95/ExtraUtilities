@@ -158,6 +158,17 @@ int main()
 	*middle = reinterpret_cast<uintptr_t>(finalValue);
 	*finalValue = 7;
 
+	// A scanner that was never written leaves the value alone at destruction,
+	// even when the game changed it in the meantime.
+	*root = reinterpret_cast<uintptr_t>(middle);
+	*middle = reinterpret_cast<uintptr_t>(finalValue);
+	*finalValue = 7;
+	{
+		Scanner<int> readOnly(reinterpret_cast<int*>(root), { 0, 0 }, BasicScanner::Restore::ENABLED);
+		*finalValue = 11;
+	}
+	ok &= Check(*finalValue == 11, "an unwritten scanner restored its load-time value");
+
 	// Scanner::Write is a no-op while the runtime build gate is closed.
 	*finalValue = 7;
 	{
