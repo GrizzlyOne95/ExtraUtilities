@@ -840,14 +840,13 @@ namespace ExtraUtilities::Lua::ControlPanel
 			}
 		}
 
-		BasicPatch::Status ScrapPilotColorHookInitialStatus()
+		// The colour hooks start off; ApplyHudColorOwnership turns them on
+		// from Init when OpenShim does not own HUD text colour. Deciding in the
+		// static initializer called into winmm.dll under the loader lock and
+		// froze the answer for the life of the DLL.
+		constexpr BasicPatch::Status ScrapPilotColorHookInitialStatus()
 		{
-			// OpenShim owns the persistent stock/legacy HUD policy. Its legacy
-			// implementation patches these same color-load instructions directly;
-			// installing EXU's white-default hooks afterward masks those colors.
-			return OpenShimBridge::HasExport("OpenShimRestoreScrapPilotHudStock")
-				? BasicPatch::Status::INACTIVE
-				: BasicPatch::Status::ACTIVE;
+			return BasicPatch::Status::INACTIVE;
 		}
 
 		inline Hook g_scrapPilotHudDrawHook(
@@ -880,6 +879,19 @@ namespace ExtraUtilities::Lua::ControlPanel
 			kPilotHudTextColorHookLength,
 			ScrapPilotColorHookInitialStatus(),
 			{ 0x8B, 0x0D, 0x5C, 0x75, 0x91, 0x00, 0x51 });
+	}
+
+	bool ApplyHudColorOwnership()
+	{
+		// OpenShim owns the persistent stock/legacy HUD policy. Its legacy
+		// implementation patches these same color-load instructions directly;
+		// installing EXU's white-default hooks afterward masks those colors.
+		const bool openShimOwns = OpenShimBridge::HasExport("OpenShimRestoreScrapPilotHudStock");
+		for (Hook* hook : { &g_scrapLabelColorHook, &g_scrapValueColorHook, &g_pilotLabelColorHook, &g_pilotValueColorHook })
+		{
+			hook->SetStatus(!openShimOwns);
+		}
+		return openShimOwns;
 	}
 
 	void ResetMissionState() noexcept
