@@ -1,0 +1,215 @@
+# EXU repository code audit (2026-09-27)
+
+Repository-wide review of Extra Utilities for stability, correctness,
+performance and maintainability, taken at `origin/main` aec8c0a. This document
+is the consolidated, prioritized view. The eight reviewer worksheets, with code
+quotes, section maps and full sweep tables, are in `Docs/audit_20260927/`
+(A core runtime and Lua bindings, B environment and rendering, C game objects /
+AI / multiplayer, D UI overlays and font bridge, E native patches, F storage /
+continuity / OS, G build / CI / tooling, H cross-cutting sweeps). Worksheet line
+numbers refer to aec8c0a.
+
+## 1. Scope and method
+
+- Every file under `src/`, `include/`, `tests/`, `tools/`, `scripts/`,
+  `Definitions/`, `Workshop/*.lua`, `examples/`, the CI workflows, project files,
+  `exu.json`, `profiles/` and the repository hygiene surface was read end to end
+  (about 37k lines of first-party C++ at the base commit).
+- Engine claims were checked read-only against the installed GOG 2.2.301
+  executable (pefile + capstone); the Steam executable's `.text` is
+  SteamStub-encrypted on disk, so Steam-specific bytes could not be checked
+  offline. Ogre ABI claims were checked against the committed 1.10 headers and
+  the shipped `OgreMain.dll` export table. Claims about the built DLL were
+  checked against `Release/exu.dll` and its PDB.
+- Mechanical sweeps (worksheet H): unreferenced symbols, raw-address census,
+  longjmp safety, `lua_call` vs `lua_pcall`, exception safety at the Lua
+  boundary, static lifetimes, hot-path syscalls, duplication, markers,
+  threading.
+- A finding was kept only when the reviewer re-read the surrounding code and
+  grepped the callers; the High items were re-verified independently before
+  being acted on.
+- Before and after the changes in this PR: Release|x86 build with zero warnings,
+  `HardeningSmoke.exe`, the five `tests/host/*.cpp` under MSVC `/W4 /WX`, the
+  weather controller Lua test, `validate_hardening.py`,
+  `generate_bzr_build_profile.py --check`, `test_bzr_qualification.py`. None of
+  the fixes has been run in the game yet (section 3, last paragraph).
+
+## 2. Executive summary
+
+EXU's infrastructure is better than its feature code. The patch engine
+(deferred, build-gated activation; preimage re-check at activation; non-movable
+`Hook`/`Scanner`), the Lua-state lifecycle sentinel with a generation counter,
+the storage file format (magic, version, CRC, atomic replace, strict decoder)
+and the OgreNativeFontBridge exception layering are all sound, and the newer
+code follows them. No thread is ever started, so the Ogre/Lua single-thread
+assumption holds.
+
+The risks cluster in six places:
+
+1. **Real memory-corruption and crash bugs reachable from ordinary Lua.** A
+   vtable slot patched with four code bytes instead of an address
+   (`SetPlayerReticleShotConvergence` without OpenShim), a particle function
+   called with the wrong `this` subobject, TextArea setters applied to any
+   overlay element, uncaught Ogre exceptions crossing the Lua C boundary, an
+   unbounded copy into the engine's 256-byte save-description global, native
+   hooks that can raise Lua errors from engine frames (panic, then `exit()`),
+   and a temporary multiplayer patch left installed after a script error. All
+   of these are fixed in this PR.
+2. **Always-on per-call file logging on per-frame paths.** The shipped weather
+   controller calls environment setters every frame; each wrote 3-6 lines and
+   each line opened and closed a log file (~480 opens/s at 60 fps, 150-200 MB/h).
+   The radar layout wrapper logged from `CockpitRadar::Render` every frame, and
+   overlay caption/colour setters logged every success. Fixed here: verbose
+   tracing is now opt-in (`EXU_DEBUG_LOG=1`), fault lines still reach `exu.log`.
+3. **Fail-open where the architecture says fail-closed.** Since OpenShim's
+   bootstrap/plugin split, every OpenShim export EXU probes exists in `winmm.dll`
+   even without the plugin, so "export present" no longer meant "feature
+   present" and EXU stood its own fallbacks down for nothing (fixed here). The
+   build gate protects only `BasicPatch` activation: about 20 direct engine
+   calls, every `Scanner` write and two raw `VirtualProtect` writers run on any
+   executable (P0-3). No patch in the repository supplies `expectedBytes`
+   (P0-2).
+4. **Handle and pointer trust.** `CheckHandle` accepts any userdata and
+   `GetObj` is pure arithmetic with no serial check, so stale handles act on the
+   wrong unit or follow freed pointers (P0-1). `SetAiTaskState` writes a
+   `UnitTask` layout into whichever task scored highest (P0-4).
+5. **Lifetime assumptions that are true only by accident.** `exu.dll` is freed
+   and reloaded with every mission Lua state, and a lot of per-mission reset
+   works only because of that (Scanner restore-on-unload, cheat/turbo requested
+   state, caches). Static initializers do signature scans and file I/O inside
+   `DllMain` on every mission load. `ARCHITECTURE.md` now states both facts;
+   the explicit resets are P1-3/P1-4.
+6. **Build-specific knowledge outside the catalog.** 149 raw engine-address
+   literals in `src/`, 71 not in `exu.json` (47 of the 48 written ones); 71 raw
+   OgreMain RVAs called with no module identity check; EXU's statically linked
+   Lua core hard-codes the executable's `dummynode` (`0x86EEF0`) outside every
+   gate (P1-1, P1-2).
+
+## 3. Fixed in this pull request
+
+| # | Fix | Worksheet IDs | Files | Verified |
+|---|-----|---------------|-------|----------|
+| F1 | `playerReticleShotConvergence` wrote the first four **code bytes** of its hook into vtable slot `0x00889418` (the function-pointer argument selected the buffer-copy overload). Both convergence slots now write the address through the value overload and carry the stock slot values as `expectedBytes`. `InlinePatch` now has a deleted overload for function-pointer payloads, pinned by `static_assert`s in `hardening_smoke.cpp`, so this class of bug no longer compiles. | A-1, E-1 | `ShotConvergence.cpp`, `InlinePatch.h`, `tests/hardening_smoke.cpp` | Bug confirmed in the built DLL's initializer by two reviewers; build + smoke |
+| F2 | `OpenShimBridge::GetModule()` returns null unless the OpenShim provider is live (`OpenShimGetApi(0) != nullptr`; builds that predate the export count as live). Every `Resolve`/`HasExport` caller, including `RenderEffectBridge` and `SoundOptions`, now fails closed on a bootstrap-only `winmm.dll` instead of reading the thunks' fixed "unavailable" value (0) as success. | A-2 | `OpenShimBridge.h` | OpenShim `openshim_sdk_thunks.cpp` / `openshim_sdk_exports.inc` re-read; build |
+| F3 | Verbose logging is opt-in. `LogEnvironmentDebug`, `LogMaterialDebug`, overlay and font-bridge success lines only write when `EXU_DEBUG_LOG=1`; all ~160 SEH "crashed" lines were routed to new `LogEnvironmentFault`/`LogMaterialFault`, which always reach `exu.log`. The per-frame radar passthrough line was removed. `BasicPatch` refusals and the build-gate refusal now go to `exu.log` instead of only `OutputDebugStringA`, and `Init` no longer logs "activated" when activation was refused. Documented in `README.md`. | B-1, D-3, D-4, A-12, H-6, A-3 (log part) | `Logging.h`, `Environment.cpp`, `GameObject.cpp`, `Overlay.cpp`, `OgreNativeFontBridge.cpp`, `Radar.cpp`, `BasicPatch.h`, `luaexport.cpp` | Build; call-site census |
+| F4 | `SetParticleSystemRenderQueueGroup` passed the complete `ParticleSystem*` to an override of a `MovableObject` virtual; MSVC compiles overrides against the introducing base's `this`, so every call wrote two bytes into the wrong fields and made a virtual call through an unrelated field. It now passes the re-based pointer from `TryGetParticleMovableObject`. | B-2 | `Environment.cpp` | Disassembly of the shipped export (worksheet B); local 32-bit MSVC probe of the same inheritance shape (MO* correct, complete-object pointer wrong) |
+| F5 | `BuildAsyncObject`/`BuildSyncObject` ran stock `BuildObject` with an unprotected `lua_call` between enabling and disabling a temporary NOP patch; any error left every later `BuildObject` in the mission forced async or sync (a multiplayer desync). Now `lua_pcall`, unload, then re-raise. | C-3 | `Multiplayer.cpp` | Build |
+| F6 | `SetOverlayTextFont/Color/CharHeight` applied TextArea-only native setters to any element found by name (Panel, BorderPanel, foreign). They now require a TextArea. | D-1 | `Overlay.cpp` | Build; `static_cast` in the bridge re-read |
+| F7 | Four Ogre calls that throw on ordinary bad input (`createOverlayElement` unknown type, `addChild` duplicate, `removeChild` missing, `setMaterialName` missing material) ran unguarded in `lua_CFunction`s, so a C++ exception could cross the Lua C frame and terminate the game. Each is now in `try/catch`. | D-2, H-2 | `Overlay.cpp` | Build |
+| F8 | `exu.SaveGame(slot, description)` passed an unbounded description to native SaveShellGame, which copies it byte-by-byte into the 256-byte `saveGameDesc` global (`0x008E86D8`); a long string overwrote neighbouring engine globals. Clamped to 255 bytes. | F-1 | `OS.cpp` | Native side disassembled by the reviewer; binding re-read |
+| F9 | The BulletHit, BulletInit and AddScrap hook callbacks indexed global `exu` and (bullets) called `PushMatrix`'s unprotected `lua_call(SetMatrix)` outside any protected call, from engine frames; a script that shadows `exu` or `SetMatrix` made Lua panic and `exit()`. All Lua work now runs under `lua_cpcall`, errors go through the game's `LuaCheckStatus` as before, and the bullet hooks got the null-state check AddScrap already had. | H-1, E-5, A-8 | `BulletHitCallback.cpp`, `BulletInitCallback.cpp`, `AddScrapCallback.cpp` | Build; validator |
+| F10 | Bullet hooks copied the ODF name with `strncpy(buf16, odf, strlen(odf) - 4)`; a name shorter than 4 characters underflowed into a stack smash. Now `strnlen(odf, 16)` and the `.odf` suffix is stripped only when present. | E-10 | same | Build |
+| F11 | Input validation: `SetRadarSizeScale` accepted NaN/inf, `SetRadarState(256)` truncated to 0 before the range check, `SetReticleRange` accepted NaN/negative. | D-9 | `Radar.cpp`, `Reticle.cpp` | Build |
+| F12 | API-parity check counted commented-out registrations (reported 377 functions; 373 are live), so four documented functions (`Get/SetEffectsVolume`, `Get/SetVoiceVolume`) were nil at runtime. The validator strips comments, checks `exu.animation`/`storage`/`continuity` against their Definitions files, and checks `Resource/Resource.rc` in version parity. The four stale definitions, their commented-out C++ and the dead sound constants were removed; `animation.TargetLocalFirstPerson` was documented. | A-4, G-2, G-17 | `tools/validate_hardening.py`, `Definitions/*.lua`, `SoundOptions.*`, `luaexport.cpp`, `bzr.h` | Validator: 373 + 23 sub-API functions |
+| F13 | DLL version resource said 1.1.0.0 while the source says 1.2.0. | G-4 | `Resource/Resource.rc` (UTF-16LE preserved) | Validator |
+| F14 | `upload_workshop.py` pasted the description raw into a quoted VDF value; the current description contains `require("exu")`, which ended the string early. Values are escaped, files are read/written as UTF-8, and a failed steamcmd run is reported. | G-5 | `upload_workshop.py` | Read |
+| F15 | Release lane: a `host-tests` job (the Linux host checks) now gates `release`; the Windows build has a timeout and the workflow a concurrency group. | G-3, G-16 (part) | `.github/workflows/release.yml` | Read |
+| F16 | Project hygiene: `OS.h`/`Vec3.h` were compiled as C++20 header units (8.5 MB of IFC, extra objects linked into the DLL); stale `minhook`/`discord`/`bin`/`lib` include paths, `/NODEFAULTLIB:library`, `GC_PATCH`, vcpkg groups removed; Debug gets the same external-header warning settings as Release; `/DYNAMICBASE`, `/NXCOMPAT`, `/SAFESEH` pinned explicitly; case drift `LuaExport.cpp`/`BZR.h` fixed in the project, filters, 27 `#include`s and README; 12 missing headers and 15 missing filter entries added. | G-7, G-8 (part), G-9, G-10, G-11 | `ExtraUtilities.vcxproj(.filters)`, sources | Build |
+| F17 | Repository hygiene: dead `WeaponConvergenceMath.h` (487 lines, included by nothing, cites a test that does not exist) deleted; root `unit_vo_notes.md` moved to `Docs/Research/UNIT_VO_QUEUE_HOOK_20260316.md`; `.gitattributes` stops marking first-party `bzr.h`/`ExtraUtils.h` vendored and pins `*.patch -text`, `*.bat eol=crlf`; `.gitignore` covers `Build/` and qualification reports; README's patch-update steps name the right executable and the SteamStub caveat. | G-10, G-12, G-18 (part), E (notes) | as listed | Read |
+| F18 | `ARCHITECTURE.md` §Lifetimes now states that `exu.dll` is reloaded per mission Lua state (and what breaks if a consumer pins it) and describes the two-Lua-cores model and its `dummynode` dependency. | A (lifetime note), B-5, G-1 (doc part) | `ARCHITECTURE.md` | Read |
+
+Everything above compiles and passes the offline checks, but none of it has
+been run in the game from this branch. Before release, one GOG and one Steam
+session should cover: `SetPlayerReticleShotConvergence(true)` with and without
+OpenShim (F1, the preimages were read from GOG only); a session with
+`winmm.dll` present but `plugins\openshim.dll` removed, confirming EXU's own
+turbo/HUD/radar/render fallbacks engage (F2); a weather profile with and
+without `EXU_DEBUG_LOG=1` (F3); an overlay HUD that exercises the TextArea
+setters and a deliberately bad material/type (F6, F7); and a mission that
+defines `exu.BulletHit`/`exu.BulletInit` and one that raises inside them (F9).
+
+## 4. Prioritized backlog
+
+Severity/confidence as rated by the reviewer and re-checked where noted.
+"WS" points at the worksheet ID(s).
+
+### P0: safety and correctness, schedule next
+
+| ID | Finding | Where | WS |
+|----|---------|-------|----|
+| P0-1 | **No handle liveness check anywhere.** `CheckHandle` accepts any userdata (including full-userdata vectors); `GetObj` is `base + (h>>20)*0x400` and never fails. The engine's own lookup (`0x004DA060`) rejects `h == 0` and requires `[obj+0x15C] == (h & 0xFFFFF)`. A stale handle either acts on whichever unit now owns the slot or follows the dead object's pointers into freed heap: `SetRadarRange/Period`, `SetVelocJam`, `SetMass`, `SetAsUser`, `SetAiTaskState`, the entity/light/material/animation setters, `SelectOne/Add`, `BuildOrdnance`. 30 of 32 `GetObj` callers trust it. Fix: `lua_islightuserdata` in `CheckHandle`; one `TryGetLiveObject(h)` helper with the serial check (catalog `0x004DA060` and `+0x15C` in `exu.json`); bindings return nil/false for dead handles. `TryResolveHandleValue` already does it right. | `bzr.h:245`, `LuaHelpers.h:196`, all handle bindings | C-1, A-9, H-5, D-15 |
+| P0-2 | **No patch supplies `expectedBytes`.** 26 static code/vtable sites (plus AiTargetSelect's 11 raw writes) take "whatever was there at DLL load" as their preimage, every mission. If OpenShim patched a site first (ordnance velocity, unit VO, turbo, convergence and HUD colour sites overlap), EXU records OpenShim's bytes as original, overwrites them, and restores them on unload with no arbitration. Worksheet E §4 lists verified GOG preimages for all 19 patches in `src/Patches/`; worksheet D covers the 5 ControlPanel hooks. `RestorePatch` should also verify the site still holds EXU's payload before restoring. Needs a Steam-side byte check before landing (Steam `.text` is encrypted on disk). | `BasicPatch.h`, all patch sites | E-2, A-7, H-3, D-11 |
+| P0-3 | **The build gate covers only `BasicPatch` activation.** Direct engine calls (`Set_View`, `SetTimeOfDay`, `RefreshTerrainMasterLight`, `SetAsUser`, `GetHandle`, `UpdateLives`, `OrdnanceClass::Build`, radar layout functions, `LuaCheckStatus` `0x004FF600`, ControlPanel selectors), every `Scanner` write, and the raw writers in `AiTargetSelect.cpp`/`CommandReplacement.cpp` run on any executable. Cache `IsSupportedBzr2301()` once per state in `Init`, expose it, and make those bindings return nil/false when it failed. | `BasicPatch.h`, `bzr.h` callers | A-3, B-10, C-6, D-15 |
+| P0-4 | **`SetAiTaskState` type confusion.** It writes a `UnitTaskLayout` into whichever RTTI child scored highest for "Task"/"Attack"; on a `RecycleTask` that overlaps the state machine and writes past the object. Values are not finite/range-checked and fields are applied one at a time while later fields can still raise. Require `UnitTask` in the RTTI hierarchy, validate every field into locals first, write under SEH, add `static_assert(offsetof(...))` (the pad names disagree with the computed offsets). | `GameObject.cpp:5230-5279` | C-2 |
+| P0-5 | **Ordnance pointers round-trip through Lua.** `BuildOrdnance` returns a raw `Ordnance*`; `GetOrdnanceAttribute` dereferences three pointer levels from any userdata, with no SEH and no liveness check (use-after-free once the round expires). The ordnance class map is a process-lifetime static built once, and `strlen(odf) - 4` can throw `length_error` out of a `lua_CFunction`. | `Ordnance.cpp` | C-4, C-5 |
+| P0-6 | **Unit-VO hooks never stand down for OpenShim.** EXU's wildcard signature resolves "QueueCB" to OpenShim's intercept and probes its prologue for the `q_list` storage; in the current `openshim.dll` the matching `cmp` sits one byte outside EXU's window. A small OpenShim codegen shift makes EXU walk OpenShim `.data` as a linked list on every bark. Stand down when OpenShim exports the unit-VO bridge; reject rel32 targets outside the BZR image. The same static initializer does two full `.text` scans with file logging under the loader lock on every mission load. | `UnitVo.cpp:233-300, 604-625` | E-3, E-4 |
+| P0-7 | **EXU's Lua core hard-codes the executable's `dummynode`.** `Lua5.1-BZR/src/ltable.c` `#define dummynode (0x86EEF0)` is live for every table operation from `luaopen_exu` on, outside `exu.json`, the profile and the address regex. On an executable where it moved, the heap corruption it fixed returns silently. Add it to `exu.json` with a signature from a Lua-core function that embeds it (7 imm32 refs on GOG) and a required runtime anchor, and refuse `luaopen_exu` when it fails. | `ltable.c:72-74` | G-1 |
+
+### P1: correctness and performance worth scheduling
+
+| ID | Finding | Where | WS |
+|----|---------|-------|----|
+| P1-1 | **Raw engine addresses in feature code.** 149 literals (144 distinct) in 17 files; 71 absent from `exu.json`, including 43 hook/patch/vtable sites, 10 called functions and 18 data globals; 4 defined twice. Only 5 of 75 catalog entries carry a signature and 3 of those are stale. Move written/called addresses first (ControlPanel, AiTargetSelect, GlobalTurbo, OrdnanceVelocity, Multiplayer, bullet/scrap/kill hooks, `LuaCheckStatus`, OS.cpp save signatures and `0x008E86D8`, the Overlay pause wrapper that exists only inline in the profile). Add a `--catalog` mode to `qualify_bzr_build.py` and make it detect a SteamStub-packed executable. | many | H §4, G-6, G-20, D-12, F-6, E-17 |
+| P1-2 | **71 raw OgreMain RVAs are called with no module identity check** (`Ogre.h`, `bzr.h`); every one is a named export, and one (`setVisibleOffset`) is actually `Light::setVisible`. Resolve by mangled name and fail closed on null, as the rest of the Ogre code already does. | `Ogre.h:100-356`, `bzr.h:367-381` | B-9, H-4 |
+| P1-3 | **Scanner restore-on-unload rewrites live game state at every mission end.** 25 of 36 Scanners use `Restore::ENABLED`, including 8 that are only read; play options (`*0x0094672C+0x30`) captured at load revert any TLI/auto-level/reverse-mouse change the player makes in the pause menu; difficulty, satellite, reticle, lives and radar globals too. Restore only what `Write()` touched, default read-only scanners to `DISABLED`, do intentional reverts explicitly in `HandleLuaStateClosing`, and stop requesting `PAGE_EXECUTE_READWRITE` on data/heap pages. | `Scanner.h:141-151` | A-6, F-3, H-11 |
+| P1-4 | **Mission reset relies on the DLL being freed.** Cheat/turbo/ordnance requested status, `setTurboUnits` (never pruned, so recycled handles inherit overrides), unit-VO alternates, kill messages, flame colours, HUD offsets/colours, radar scale, reticle range, wireframe mode, `g_cachedMaterials`, the ordnance class map, `coeffBallistic`/`lives`/`showScoreboard` writes: none is reset at `HandleLuaStateClosing`. A consumer that links `exu.lib` (documented in `include/ExtraUtils.h`) pins the DLL and all of it carries into the next mission. Add per-module `ResetMissionState()` calls. | many | E-9, D-8, C-8, C-9, H §5 |
+| P1-5 | **Heavy static initialization inside `DllMain`.** About 130 dynamic initializers per mission load: 36 Scanner constructors (`VirtualQuery` + `VirtualProtect`), two full `.text` signature scans with file logging (UnitVo, CommandReplacement), 65 OgreMain `GetModuleHandleA`, ControlPanel hooks deciding OpenShim ownership. The validator only greps `dllmain.cpp`, so it passes. Resolve lazily from `Init`; extend the validator to flag scanning/logging initializers. | `UnitVo.cpp:621`, `CommandReplacement.cpp:689`, Scanner globals | A-10, E-3, C-13, H-9 |
+| P1-6 | **Per-unit turbo rewrites code every simulation tick.** For each overridden unit, the BEGIN/END hooks toggle two patches (about 4 `VirtualProtect`, 2 `VirtualQuery`, 4 `FlushInstructionCache` per unit per tick) and call C++ while the clamp result is still live in x87 `ST0`. Replace with a data-driven gate (one patch pointing the compare at a per-unit float). | `GlobalTurbo.cpp:56-142` | E-8, H-7 |
+| P1-7 | **No multiplayer gate on gameplay fallbacks.** Global/per-unit turbo (when OpenShim lacks the exports), infinite ammo, infinite scrap and ordnance velocity inheritance change local simulation in network games; OpenShim's own copies are single-player only. Refuse when `isNetGame`, or document them as SP-only. Ordnance velocity also has no OpenShim deference at all. | `GlobalTurbo.cpp`, `Cheats.cpp`, `OrdnanceVelocity.cpp` | E-7, E-2 |
+| P1-8 | **AiTargetSelect writes game code outside the patch engine** (6 rel32 call sites, 5 vtable slots): not build-gated, not unloaded at Lua-state close, restored unconditionally at DLL unload. Express as `InlinePatch`es with preimages; keep its RTTI check. | `AiTargetSelect.cpp` | E-6 |
+| P1-9 | **Stock-function wrappers are not idempotent.** A second `luaopen_exu` on the same state (the documented C++ path) makes `GetBase/GetClassSig/GetOdf/GetPilotClass/GetWeaponClass/SetObjectiveOn/Off` call themselves until C-stack overflow; overlapping states unref the old VM's refs in the new registry. Copy CommandReplacement's `g_ownerState` pattern and skip reinstalling EXU's own wrapper. | `luaexport.cpp:67-274` | A-5 |
+| P1-10 | **Environment lifetimes.** The fog address is captured once at DLL load (silently inert if the scene manager is not bound yet; freed memory if it is ever replaced); getters return zeros instead of nil before the scene exists, which drives the weather controller toward black; any getter permanently arms the stock fog-reset RET patch (no preimage); nothing in Environment is torn down at Lua-state close (particle systems and nodes, Glow compositor state). Resolve fog per call, return nil when unavailable, arm the patch only from `SetFog`, add `Environment::Shutdown()`. | `Environment.cpp/.h` | B-5, B-6, B-7, B-11, H-10 |
+| P1-11 | **Overlay lifetimes.** Mission exit hides overlays but leaves `requestedVisible`, so the next mission's first `CreateOverlay`/`ShowOverlay` resurrects the previous mission's HUD; `ShutdownOverlaySupport` only destroys overlays when EXU created the overlay manager, and frees its OverlaySystem even when detach failed; base-qualified calls bypass TextArea/BorderPanel/Panel overrides of `setMetricsMode/setMaterialName/setColour`; the pause/shell hook callbacks are not `noexcept`. | `Overlay.cpp` | D-5, D-6, D-7, D-10 |
+| P1-12 | **CommandReplacement iterates its registry while Lua callbacks run** (polling fallback, and around `IsSelected` every tick), so a callback that adds or removes a replacement invalidates the iterator. Snapshot keys and re-find after each Lua call. | `CommandReplacement.cpp:973-1017` | C-7 |
+| P1-13 | **Lua stack growth in storage/continuity.** Recursive encode/decode and `PushNativeMatrix` push without `lua_checkstack`; Lua 5.1 never grows the stack on push, so nested tables (worst from a coroutine) can write past the stack. Also: encoder depth limit is effectively 16 while capabilities report 32 and the decoder accepts 33; a 16 MiB `bad_alloc` is uncaught. | `StorageApi.h`, `ContinuityApi.h` | F-2, F-12, F-16 |
+| P1-14 | **Culling never un-hides.** `SetCullingEnabled(false)` or raising the distance leaves already-hidden units invisible; NaN distance hides everything. | `Culling.cpp` | B-8 |
+| P1-15 | **SEH as the C++ exception barrier.** 222 of 235 `__try` blocks use `EXCEPTION_EXECUTE_HANDLER` around Ogre/C++ calls, swallowing `0xE06D7363` (leaking the exception object, logging it as "crashed"). Adopt OgreNativeFontBridge's filter (`CONTINUE_SEARCH` for C++ exceptions) with an outer `try/catch`, as the GameObject material wrappers and StaticGeometry already do. Same class as OpenShim P0-7. | many | B-12, C-12, H-12 |
+| P1-16 | **Native save follow-ups.** The slot+description path still zeroes `missionSave` without restoring it; direct saves ignore `-binarysave`; the description rewrite truncates the just-written save in place; any absolute/`..` path is accepted; slot paths come from the exe directory while the engine uses the startup CWD. | `OS.cpp` | F-7, F-8, F-9 |
+| P1-17 | **Input/API surface.** `GetGameKey` counts the "pressed since last query" bit and ignores focus; `MessageBox` has no owner window (re-entrancy, hidden behind fullscreen); `SetDifficulty`/`SetMass`/`SetRadar*` lack range checks; `exu.GetHandle` hands any pointer to the engine; `examples/PhysicsImpact.lua` calls unregistered `exu.SetOrdnanceVelocity` and `exu.ORDNANCE.VELOCITY`. | various | F-4, F-5, F-18, C-6, H-13 |
+
+### P2: cleanup and maintainability
+
+| ID | Item | WS |
+|----|------|----|
+| P2-1 | Split the god files along the seams the section maps identify: `Environment.cpp` (5.8k lines: Ogre particle ABI to `src/Ogre/`, particle runtime vs bindings, lighting, sky, legacy viewport lighting mode, scene debug), `GameObject.cpp` (5.5k: handle helper, AI inspection ~1.5k, material API ~2k to `src/Ogre/`, terrain TRN, entity render), `Overlay.cpp` (3.2k: overlay runtime and element ops to `src/Ogre/`, font assets, suppression, bindings), `UnitVo.cpp` (~600 lines of unrelated OpenShim AI/HUD bridges). | B §1, C §1, D §1, E §1 |
+| P2-2 | Leak-only longjmp hazards: 90 functions hold `std::string`/`std::vector` across raising Lua calls (worksheet H §9 lists them); the unit-VO getter holds a mutex across `lua_newtable`. Read arguments as `const char*`/numbers first and construct C++ objects after the last raising call. | H-8, B-4, C-11, D-16, E-11, F-16 |
+| P2-3 | Duplicated helpers (14 groups): four Ogre proc resolvers plus ~25 inline `GetProcAddress` lambdas, three private PE section walkers beside `SignatureResolver`, six log wrappers, a 25x copy-pasted OpenShim resolver triple, 11 `TryCall*` overlay bodies. | H §12, D §3 |
+| P2-4 | Dead code still present: `ScopedPatchDisable` (test-only), `SetOrdnanceAttribute/SetOrdnanceVelocity` (unregistered), two pause-menu probes, the never-activated mortar hook and its global named `x`, `DrawLine/DrawBox/ClearVisuals` (exported no-ops), empty bullet headers, 19 unused addresses/offsets/RVAs, `DoEventHooks`. Delete or finish each. | A §3, C §3, D §3, E §3, H §3 |
+| P2-5 | `StorageApi.h`/`ContinuityApi.h`/`AnimationApi.h` are ~2.6k lines of header-only bindings included by one TU: make them `.cpp` and host-test the pure codec pieces. | F-15, G-11 |
+| P2-6 | Tests: no host coverage for `SignatureResolver`/`BuildValidation` pattern matching (and no parity test with the Python qualifier), the storage codec, or the native-save restore logic; `HardeningSmoke` builds unoptimized with different flags from production; five copies of the test `Expect` helper; the host tests are not compiled with MSVC in the Windows lane. | G §8, F-19 |
+| P2-7 | CI/tooling: pin actions by SHA; `generate_weather_textures.py --check` requires exact Pillow resampling output; Ogre patch 0001 is corrupt so `Build-Ogre-BZR.ps1` cannot run; `squish.py` flattens by basename, crashes on a second run and ships a PDB with the maintainer's path; installer backup files accumulate. | G-14, G-15, G-16, G-19, G-23 |
+| P2-8 | Ownership questions for OpenShim (do not move unilaterally): the OpenShim status-returning exports should use distinct "unavailable" sentinels rather than 0; whether a scripting DLL should write MP-global physics (`coeffBallistic`) at all; CR-branded font assets and Workshop scans hard-coded in `Overlay.cpp`; the Ogre rebuild tooling. | A-2, C-9, D-L6, G-14 |
+| P2-9 | Documentation: licence header missing from 17 first-party files; `OgreNativeFontBridge.cpp`'s C++14 pin (required by `OgreString.h`'s `std::tr1::hash`) and `OgreBuildSettings.h`'s allocator setting contradicting `ABI_NOTES.md` are undocumented; VC++ 2015-2022 x86 redistributable requirement not stated; the two shared BZR docs are byte-identical across all four repos today but nothing enforces it; `workshop_changenote.txt` is from the 1.1 era; 35 feature commits since tag `v1.2.0` with no version bump. | G-4, G-21, G-22, D-L1, D-L2, G §8 |
+
+## 5. Hardening and build notes
+
+- exu.dll links with `/DYNAMICBASE`, `/NXCOMPAT`, `/SAFESEH` and `/GS`; these are
+  now pinned explicitly in the Release link group. No `/guard:cf`, which is
+  correct for a module whose hooks jump into game code.
+- Release and Debug both build at `/W4 /WX` with external headers silenced;
+  nothing in CI builds Debug.
+- exu.dll uses the dynamic CRT (VC++ 2015-2022 x86 redistributable); the game
+  itself ships only VC2013 dependencies (P2-9).
+- No thread is created anywhere in `src/`; the four mutexes are uncontended.
+
+## 6. Dead code inventory
+
+Removed in this PR: `WeaponConvergenceMath.h`; `SoundOptions::{Get,Set}{Effects,Voice}Volume`
+(commented-out code, registration rows and definitions);
+`BZR::SoundOptions::soundStruct2/sfxOffset/voiceOffset`.
+
+Remaining candidates are listed per subsystem in the worksheets' section 3 and
+summarized in P2-4.
+
+## 7. Patterns worth keeping
+
+- Deferred, build-gated patch activation with `m_requestedStatus` and a
+  preimage re-check at activation; non-movable `Hook`/`Scanner` pinned by
+  `static_assert`; now also a compile-time refusal of function-pointer payloads.
+- The Lua-state lifecycle sentinel (`__gc`) plus a generation counter exported to
+  native consumers; CommandReplacement's `g_ownerState` guard on registry refs.
+- Look up Ogre objects by name on every call and never cache their pointers
+  (particles, overlays, animation targets).
+- OgreNativeFontBridge's exception layering: `noexcept` API, `try/catch` around
+  an SEH shell whose filter passes C++ exceptions through.
+- `TrySetOverlayParameterDirect`: kind-checked, parsed, finite-validated
+  dispatch. `AiTargetSelect`: RTTI and current-value checks before writing a
+  vtable slot, restore only if the slot still holds EXU's hook.
+- Storage's on-disk contract (magic, version, length, CRC, strict decoder,
+  tmp + `MoveFileEx(REPLACE_EXISTING|WRITE_THROUGH)`, one-generation backup) and
+  a serializer that rejects cycles, non-finite numbers and unsupported types.
+- Pure, host-tested headers compiled from the real `src/` (NativeSaveFlag,
+  OgreParameterValue, OgreRenderSpace, RenderEffectNames, ShotConvergenceMath);
+  the fake-`exu` weather controller test.
+- Release publishes the exact CI-tested artifact with SHA256SUMS, which the
+  Linux installer verifies.
