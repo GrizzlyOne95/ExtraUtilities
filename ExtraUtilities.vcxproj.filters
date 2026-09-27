@@ -347,9 +347,6 @@
     <ClInclude Include="src\Util\GraphicsOptions.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
-    <ClInclude Include="src\Util\VectorSpider.h">
-      <Filter>Header Files\Memory Utilities</Filter>
-    </ClInclude>
     <ClInclude Include="src\Patches\KillMessages.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>

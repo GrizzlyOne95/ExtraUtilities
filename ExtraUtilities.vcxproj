@@ -232,7 +232,6 @@
     <ClInclude Include="src\Game\Steam.h" />
     <ClInclude Include="src\StockExtensions.h" />
     <ClInclude Include="src\Patches\UnitVo.h" />
-    <ClInclude Include="src\Util\VectorSpider.h" />
     <ClInclude Include="src\Patches\WeaponMask.h" />
     <ClInclude Include="src\Game\AnimationApi.h" />
     <ClInclude Include="src\Game\ContinuityApi.h" />
