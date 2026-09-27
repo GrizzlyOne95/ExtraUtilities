@@ -882,6 +882,19 @@ namespace ExtraUtilities::Lua::ControlPanel
 			{ 0x8B, 0x0D, 0x5C, 0x75, 0x91, 0x00, 0x51 });
 	}
 
+	void ResetMissionState() noexcept
+	{
+		const bool moved =
+			g_scrapPilotHudOffsetX[0] != 0 || g_scrapPilotHudOffsetX[1] != 0 ||
+			g_scrapPilotHudOffsetY[0] != 0 || g_scrapPilotHudOffsetY[1] != 0;
+		if (moved)
+		{
+			RestoreScrapPilotHudOriginalBaseline();
+		}
+		g_scrapHudColor = kDefaultHudTextColor;
+		g_pilotHudColor = kDefaultHudTextColor;
+	}
+
 	bool TryGetScrapPilotHudTopLefts(int& scrapLeft, int& scrapTop, int& pilotLeft, int& pilotTop) noexcept
 	{
 		return GetHudCurrentTopLeft(HudTextGroup::Scrap, scrapLeft, scrapTop) &&

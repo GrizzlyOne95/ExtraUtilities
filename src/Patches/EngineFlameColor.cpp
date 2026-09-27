@@ -37,6 +37,11 @@ namespace ExtraUtilities::Patch
 
 	static std::unordered_map<int, EngineFlameColor> teamEngineFlameColors;
 
+	void ResetEngineFlameColors() noexcept
+	{
+		teamEngineFlameColors.clear();
+	}
+
 	static std::string NormalizeColor(std::string_view color)
 	{
 		std::string normalized(color);

@@ -38,6 +38,16 @@
 #include "OpenShimBridge.h"
 #include "UI/Overlay.h"
 #include "Util/PlayOption.h"
+#include "Game/Culling.h"
+#include "Game/GameObject.h"
+#include "Patches/AiTargetSelect.h"
+#include "Patches/EngineFlameColor.h"
+#include "Patches/GlobalTurbo.h"
+#include "Patches/KillMessages.h"
+#include "Patches/UnitVo.h"
+#include "Scanner.h"
+#include "UI/ControlPanel.h"
+#include "UI/Renderer.h"
 #include "Util/Logging.h"
 #include "Util/StorageApi.h"
 
@@ -120,6 +130,27 @@ namespace ExtraUtilities::Lua
 			static_cast<unsigned long long>(state.Generation()));
 	}
 
+	// Everything a mission can change through EXU goes back to its default
+	// here. The DLL usually unloads right after, which used to be the only
+	// reset; a consumer that keeps it loaded would otherwise carry cheats,
+	// overrides and engine values into the next mission.
+	void ResetMissionScopedState() noexcept
+	{
+		BasicPatch::ResetRequestedStatusesToDefaults();
+		BasicScanner::RestoreAllWritten();
+		PlayOption::RestoreScriptChanges();
+		ControlPanel::ResetMissionState();
+		Renderer::ResetMissionState();
+		GameObject::ClearMaterialCache();
+		ExtraUtilities::Culling::ResetMissionState();
+		Patch::ResetTurboMissionState();
+		Patch::ResetUnitVoMissionState();
+		Patch::ResetKillMessages();
+		Patch::ResetEngineFlameColors();
+		Patch::AiTargetSelect::dispatchEnabled = false;
+		Patch::AiTargetSelect::scoreDispatchEnabled = false;
+	}
+
 	void HandleLuaStateClosing(lua_State* L) noexcept
 	{
 		if (L == nullptr || state.Get() != L)
@@ -134,7 +165,7 @@ namespace ExtraUtilities::Lua
 			ReleaseLuaStateBindings(L);
 			CommandReplacement::ReleaseState(L);
 			BasicPatch::UnloadAllPatches();
-			PlayOption::RestoreScriptChanges();
+			ResetMissionScopedState();
 			Overlay::ShutdownOverlaySupport();
 			StaticGeometry::Shutdown();
 			state.Clear(L);

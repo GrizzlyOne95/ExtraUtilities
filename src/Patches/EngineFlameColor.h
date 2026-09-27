@@ -24,6 +24,12 @@
 
 #include <lua.hpp>
 
+namespace ExtraUtilities::Patch
+{
+	// Per-team engine flame colours set by the mission.
+	void ResetEngineFlameColors() noexcept;
+}
+
 namespace ExtraUtilities::Lua::Patches
 {
 	int GetTeamEngineFlameColor(lua_State* L);

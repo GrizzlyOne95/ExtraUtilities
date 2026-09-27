@@ -124,6 +124,21 @@ int main()
 	}
 	BasicPatch::UnloadAllPatches();
 
+	// A patch a mission enabled goes back to its constructed default at Lua-state
+	// close, so the next mission's activation does not re-apply it.
+	patchPage[0] = 0x11;
+	{
+		BytePatch cheat(patchPage, 0x22, BasicPatch::Status::INACTIVE, { 0x11 });
+		BasicPatch::EnableDeferredPatchActivation(false);
+		cheat.SetStatus(true);
+		ok &= Check(patchPage[0] == 0x22, "script-enabled patch did not activate");
+		BasicPatch::UnloadAllPatches();
+		BasicPatch::ResetRequestedStatusesToDefaults();
+		BasicPatch::EnableDeferredPatchActivation(false);
+		ok &= Check(patchPage[0] == 0x11 && !cheat.IsActive(), "script-enabled patch re-armed after the mission reset");
+	}
+	BasicPatch::UnloadAllPatches();
+
 	// Another module patching the site after EXU must survive EXU's unload.
 	patchPage[0] = 0x11;
 	{
@@ -168,6 +183,20 @@ int main()
 		*finalValue = 11;
 	}
 	ok &= Check(*finalValue == 11, "an unwritten scanner restored its load-time value");
+
+	// Closing the Lua state restores written values while the scanner is alive.
+	RuntimeGate::SetSupported(true);
+	*finalValue = 7;
+	{
+		Scanner<int> written(reinterpret_cast<int*>(root), { 0, 0 }, BasicScanner::Restore::ENABLED);
+		written.Write(21);
+		BasicScanner::RestoreAllWritten();
+		ok &= Check(*finalValue == 7, "RestoreAllWritten did not restore a written scanner");
+		*finalValue = 13;
+	}
+	ok &= Check(*finalValue == 13, "a scanner restored again at destruction after RestoreAllWritten");
+	RuntimeGate::SetSupported(false);
+	*finalValue = 7;
 
 	// Scanner::Write is a no-op while the runtime build gate is closed.
 	*finalValue = 7;

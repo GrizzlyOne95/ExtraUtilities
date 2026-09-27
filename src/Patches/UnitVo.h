@@ -35,6 +35,17 @@ namespace ExtraUtilities::Patch
 	inline uint32_t unitVoQueueStaleMs = 2000;
 	inline std::unordered_map<std::string, std::vector<std::string>> unitVoAlternates;
 
+	// Mission overrides back to their defaults. OpenShim's side is reset by
+	// ResetOpenShimMissionOverrides at the next Init.
+	inline void ResetUnitVoMissionState() noexcept
+	{
+		unitVoMuted = false;
+		unitVoThrottleMs = 0;
+		unitVoQueueDepthLimit = 2;
+		unitVoQueueStaleMs = 2000;
+		unitVoAlternates.clear();
+	}
+
 	// Resolves the Say/RecycleTask queue call sites and creates their hooks.
 	// Called from Init after the build gate is recorded and before deferred
 	// patch activation, once per DLL load.

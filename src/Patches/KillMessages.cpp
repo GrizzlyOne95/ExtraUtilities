@@ -28,6 +28,11 @@ namespace ExtraUtilities::Patch
 	constexpr size_t TEAM_MAX_LENGTH = 0x20;
 	std::unordered_map<int, std::string> messageMap;
 
+	void ResetKillMessages() noexcept
+	{
+		messageMap.clear();
+	}
+
 	static void __cdecl ProcessKillMessage(int killedTeam, int killerTeam, char* killedTeamName, char* killerTeamName)
 	{
 		// When a player ejects we want it to say the actual player name not the custom one, in the code an ejection will have
