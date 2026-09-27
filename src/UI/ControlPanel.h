@@ -25,6 +25,10 @@
 
 namespace ExtraUtilities::Lua::ControlPanel
 {
+	// Decides from Init, before patch activation, whether EXU's scrap/pilot
+	// colour hooks run; returns true when OpenShim owns HUD text colour.
+	bool ApplyHudColorOwnership();
+
 	// Puts the scrap/pilot HUD text back to the stock layout and colour if a
 	// mission moved or recoloured it.
 	void ResetMissionState() noexcept;

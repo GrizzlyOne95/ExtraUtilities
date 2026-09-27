@@ -524,6 +524,8 @@ namespace ExtraUtilities::Lua
 		// exu.SetJumpSnipeCrouch(false).
 		Patches::ApplyJumpSnipeCrouchDefault();
 		Patch::InstallUnitVoQueueHooks();
+		CommandReplacement::InstallNativeHooks();
+		const bool openShimOwnsHudColor = ControlPanel::ApplyHudColorOwnership();
 
 		// The build was validated above; do not scan .text a second time.
 		if (supportedBuild && BasicPatch::EnableDeferredPatchActivation(false))
@@ -540,7 +542,7 @@ namespace ExtraUtilities::Lua
 		// that is otherwise completely silent -- which is how "the legacy HUD
 		// text went white" became a debugging session rather than one grep.
 		Logging::LogMessage(
-			OpenShimBridge::HasExport("OpenShimRestoreScrapPilotHudStock")
+			openShimOwnsHudColor
 				? "exu: scrap/pilot colour hooks stood down; OpenShim owns HUD text colour"
 				: "exu: scrap/pilot colour hooks active; no OpenShim HUD text bridge present");
 
