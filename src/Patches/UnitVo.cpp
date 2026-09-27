@@ -22,6 +22,7 @@
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
 #include "Util/Logging.h"
+#include "Util/RuntimeGate.h"
 #include "bzr.h"
 
 #include <Windows.h>
@@ -32,6 +33,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -113,9 +115,27 @@ namespace ExtraUtilities::Patch
 
 		uintptr_t g_unitVoSayQueueCallSite = 0;
 		uintptr_t g_unitVoRecycleTaskQueueCallSite = 0;
-		UnitVoQueueFn g_unitVoQueue = nullptr;
+		// Each hooked call site forwards to the target it originally called.
+		UnitVoQueueFn g_unitVoSayQueue = nullptr;
+		UnitVoQueueFn g_unitVoRecycleTaskQueue = nullptr;
 		UnitVoKillQueueFn g_unitVoKillQueue = nullptr;
 		uintptr_t g_unitVoQueueListStorageAddress = 0;
+		// True when OpenShim owns the global unit-VO policy: its queue
+		// interceptor already sits behind these call sites, or its bridge is
+		// live. EXU then only substitutes alternate lines and forwards;
+		// mute/throttle/depth/stale are OpenShim's (EXU's setters bridge to it).
+		bool g_unitVoPolicyOwnedByOpenShim = false;
+		std::unique_ptr<Hook> g_unitVoSayQueueHook;
+		std::unique_ptr<Hook> g_unitVoRecycleTaskQueueHook;
+
+		bool IsInExecutableImage(uintptr_t address) noexcept
+		{
+			const auto* base = reinterpret_cast<const uint8_t*>(GetModuleHandleA(nullptr));
+			const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
+			const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+			const uintptr_t start = reinterpret_cast<uintptr_t>(base);
+			return address >= start && address < start + nt->OptionalHeader.SizeOfImage;
+		}
 
 		std::vector<ExecutableSection> GetExecutableSections()
 		{
@@ -499,6 +519,13 @@ namespace ExtraUtilities::Patch
 			const DWORD now = GetTickCount();
 			std::lock_guard<std::mutex> lock(g_unitVoMutex);
 
+			if (g_unitVoPolicyOwnedByOpenShim)
+			{
+				// No queue inspection: the list storage is only resolved from
+				// the engine's own QueueCB. Alternates still apply.
+				return { SelectUnitVoFilenameLocked(normalized, filename, {}), false, false };
+			}
+
 			if (unitVoMuted)
 			{
 				return { {}, true, false };
@@ -548,9 +575,9 @@ namespace ExtraUtilities::Patch
 			return decision;
 		}
 
-		int __cdecl QueueUnitVo(const char* filename, void* owner, int priority)
+		int QueueUnitVo(UnitVoQueueFn target, const char* filename, void* owner, int priority)
 		{
-			if (g_unitVoQueue == nullptr)
+			if (target == nullptr)
 			{
 				return 0;
 			}
@@ -566,7 +593,17 @@ namespace ExtraUtilities::Patch
 				g_unitVoKillQueue(0);
 			}
 
-			return g_unitVoQueue(decision.filename.c_str(), owner, priority);
+			return target(decision.filename.c_str(), owner, priority);
+		}
+
+		int __cdecl QueueUnitVoFromSay(const char* filename, void* owner, int priority)
+		{
+			return QueueUnitVo(g_unitVoSayQueue, filename, owner, priority);
+		}
+
+		int __cdecl QueueUnitVoFromRecycleTask(const char* filename, void* owner, int priority)
+		{
+			return QueueUnitVo(g_unitVoRecycleTaskQueue, filename, owner, priority);
 		}
 
 		static void __declspec(naked) UnitVoSayQueueHook()
@@ -579,7 +616,7 @@ namespace ExtraUtilities::Patch
 				push eax
 				mov eax, [esp+12]
 				push eax
-				call QueueUnitVo
+				call QueueUnitVoFromSay
 				add esp, 0x0C
 				ret 0x0C
 			}
@@ -595,34 +632,77 @@ namespace ExtraUtilities::Patch
 				push eax
 				mov eax, [esp+12]
 				push eax
-				call QueueUnitVo
+				call QueueUnitVoFromRecycleTask
 				add esp, 0x0C
 				ret 0x0C
 			}
 		}
 
-		uintptr_t InitializeUnitVoQueueHooks()
+		UnitVoQueueFn ResolveSiteTarget(uintptr_t callSite, const char* label)
 		{
-			g_unitVoSayQueueCallSite = ResolveCallSite(UNIT_VO_SAY_QUEUE_CALL_SIGNATURE, 24, "Say->QueueCB");
-			g_unitVoRecycleTaskQueueCallSite = ResolveCallSite(
-				UNIT_VO_RECYCLE_TASK_QUEUE_CALL_SIGNATURE,
-				24,
-				"RecycleTask::Say->QueueCB");
-
-			const uintptr_t queueTarget = g_unitVoSayQueueCallSite != 0
-				? ResolveRelativeCallTarget(g_unitVoSayQueueCallSite, "QueueCB")
-				: ResolveRelativeCallTarget(g_unitVoRecycleTaskQueueCallSite, "QueueCB");
-			g_unitVoQueue = reinterpret_cast<UnitVoQueueFn>(queueTarget);
-			g_unitVoQueueListStorageAddress = ResolveQueueListStorageAddress(queueTarget);
-			g_unitVoKillQueue = ResolveKillQueueFunction(queueTarget, g_unitVoQueueListStorageAddress);
-			return g_unitVoSayQueueCallSite;
+			return reinterpret_cast<UnitVoQueueFn>(ResolveRelativeCallTarget(callSite, label));
 		}
-
-		inline uintptr_t g_unitVoQueueHooksInitialized = InitializeUnitVoQueueHooks();
 	}
 
-	Hook unitVoSayQueueHook(g_unitVoSayQueueCallSite, &UnitVoSayQueueHook, 8, BasicPatch::Status::ACTIVE);
-	Hook unitVoRecycleTaskQueueHook(g_unitVoRecycleTaskQueueCallSite, &UnitVoRecycleTaskQueueHook, 8, BasicPatch::Status::ACTIVE);
+	void InstallUnitVoQueueHooks()
+	{
+		// Resolved from Init, not a static initializer: the two .text scans and
+		// their log lines used to run inside DllMain on every mission load.
+		static bool attempted = false;
+		if (attempted || !RuntimeGate::IsSupported())
+		{
+			return;
+		}
+		attempted = true;
+
+		g_unitVoSayQueueCallSite = ResolveCallSite(UNIT_VO_SAY_QUEUE_CALL_SIGNATURE, 24, "Say->QueueCB");
+		g_unitVoRecycleTaskQueueCallSite = ResolveCallSite(
+			UNIT_VO_RECYCLE_TASK_QUEUE_CALL_SIGNATURE,
+			24,
+			"RecycleTask::Say->QueueCB");
+
+		g_unitVoSayQueue = ResolveSiteTarget(g_unitVoSayQueueCallSite, "Say QueueCB");
+		g_unitVoRecycleTaskQueue = ResolveSiteTarget(g_unitVoRecycleTaskQueueCallSite, "RecycleTask QueueCB");
+
+		// OpenShim rewrites these call sites to its own interceptor at startup,
+		// so a target outside the executable means OpenShim owns the policy.
+		// Probing that interceptor for the engine's queue list would walk
+		// OpenShim memory as a linked list.
+		const auto isForeign = [](UnitVoQueueFn target)
+		{
+			return target != nullptr && !IsInExecutableImage(reinterpret_cast<uintptr_t>(target));
+		};
+		g_unitVoPolicyOwnedByOpenShim =
+			isForeign(g_unitVoSayQueue) || isForeign(g_unitVoRecycleTaskQueue) ||
+			OpenShimBridge::HasExport("OpenShimGetUnitVoThrottle");
+
+		if (!g_unitVoPolicyOwnedByOpenShim && g_unitVoSayQueue != nullptr)
+		{
+			const uintptr_t queueTarget = reinterpret_cast<uintptr_t>(g_unitVoSayQueue);
+			g_unitVoQueueListStorageAddress = ResolveQueueListStorageAddress(queueTarget);
+			g_unitVoKillQueue = ResolveKillQueueFunction(queueTarget, g_unitVoQueueListStorageAddress);
+		}
+
+		Logging::LogMessage(
+			"[EXU::UnitVo] queue policy owner=%s say=%p recycle=%p",
+			g_unitVoPolicyOwnedByOpenShim ? "OpenShim (EXU substitutes alternates only)" : "EXU",
+			reinterpret_cast<void*>(g_unitVoSayQueue),
+			reinterpret_cast<void*>(g_unitVoRecycleTaskQueue));
+
+		// The call-site signatures verify the surrounding bytes, and the
+		// hooks capture whatever call (engine or OpenShim) sits there as their
+		// original.
+		if (g_unitVoSayQueueCallSite != 0 && g_unitVoSayQueue != nullptr)
+		{
+			g_unitVoSayQueueHook = std::make_unique<Hook>(
+				g_unitVoSayQueueCallSite, &UnitVoSayQueueHook, 8, BasicPatch::Status::ACTIVE);
+		}
+		if (g_unitVoRecycleTaskQueueCallSite != 0 && g_unitVoRecycleTaskQueue != nullptr)
+		{
+			g_unitVoRecycleTaskQueueHook = std::make_unique<Hook>(
+				g_unitVoRecycleTaskQueueCallSite, &UnitVoRecycleTaskQueueHook, 8, BasicPatch::Status::ACTIVE);
+		}
+	}
 }
 
 namespace ExtraUtilities::Lua::Patches
