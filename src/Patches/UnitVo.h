@@ -35,6 +35,11 @@ namespace ExtraUtilities::Patch
 	inline uint32_t unitVoQueueStaleMs = 2000;
 	inline std::unordered_map<std::string, std::vector<std::string>> unitVoAlternates;
 
+	// Resolves the Say/RecycleTask queue call sites and creates their hooks.
+	// Called from Init after the build gate is recorded and before deferred
+	// patch activation, once per DLL load.
+	void InstallUnitVoQueueHooks();
+
 	// Local mirror of per-unit AI tuning pushed through the OpenShim bridge,
 	// keyed by game handle so scripts can read back what they set.
 	struct AiUnitTuningMirror

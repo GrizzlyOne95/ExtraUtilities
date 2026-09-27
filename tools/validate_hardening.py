@@ -216,10 +216,7 @@ def check_hardening_markers() -> None:
 
 # Patches whose address comes from a signature scan that already verifies the
 # bytes before the object is constructed.
-SIGNATURE_RESOLVED_PATCHES = {
-    "unitVoSayQueueHook",
-    "unitVoRecycleTaskQueueHook",
-}
+SIGNATURE_RESOLVED_PATCHES: set[str] = set()
 
 PATCH_DECLARATION_RE = re.compile(r"^[ \t]*(?:inline[ \t]+)?(?:Hook|InlinePatch)[ \t]+(\w+)\((.*?)\);", re.M | re.S)
 
