@@ -39,6 +39,7 @@
 #include <mutex>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <vector>
 
 namespace ExtraUtilities::Lua::Environment
@@ -732,6 +733,63 @@ namespace ExtraUtilities::Lua::Environment
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
 			LogEnvironmentFault("[EXU::SetSunDirection] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			return false;
+		}
+	}
+
+	bool TryGetFog(void* sceneManager, Ogre::Fog& outFog)
+	{
+		if (!Ogre::GetFogColour || !Ogre::GetFogStart || !Ogre::GetFogEnd)
+		{
+			return false;
+		}
+
+		__try
+		{
+			const Ogre::Color* colour = Ogre::GetFogColour(sceneManager);
+			if (colour == nullptr)
+			{
+				return false;
+			}
+			outFog.r = colour->r;
+			outFog.g = colour->g;
+			outFog.b = colour->b;
+			outFog.start = Ogre::GetFogStart(sceneManager);
+			outFog.ending = Ogre::GetFogEnd(sceneManager);
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentFault("[EXU::GetFog] crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+			return false;
+		}
+	}
+
+	// Keeps the scene's fog mode, density and colour alpha; changes colour
+	// and linear range, as the old direct write did.
+	bool TrySetFog(void* sceneManager, const Ogre::Fog& fog)
+	{
+		if (!Ogre::GetFogColour || !Ogre::GetFogMode || !Ogre::GetFogDensity || !Ogre::SetFog)
+		{
+			return false;
+		}
+
+		__try
+		{
+			const Ogre::Color* current = Ogre::GetFogColour(sceneManager);
+			const Ogre::Color colour{ fog.r, fog.g, fog.b, current != nullptr ? current->a : 1.0f };
+			Ogre::SetFog(
+				sceneManager,
+				Ogre::GetFogMode(sceneManager),
+				&colour,
+				Ogre::GetFogDensity(sceneManager),
+				fog.start,
+				fog.ending);
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			LogEnvironmentFault("[EXU::SetFog] crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 			return false;
 		}
 	}
@@ -1647,6 +1705,13 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 
+		// Particle systems created through EXU in the current scene manager,
+		// by name. The scene outlives the Lua state (Redux changes mission in
+		// process), so they are destroyed at Lua-state close rather than left
+		// emitting with no owner.
+		std::unordered_set<std::string> g_managedParticleNames;
+		void* g_managedParticleSceneManager = nullptr;
+
 		bool TryCreateManagedParticleSystem(void* sceneManager, const std::string& name, const std::string& templateName, const BZR::VECTOR_3D& position)
 		{
 			if (sceneManager == nullptr)
@@ -1671,6 +1736,12 @@ namespace ExtraUtilities::Lua::Environment
 
 			if (TryCreateParticleSystemAttachment(sceneManager, name, templateName, nodeName, position))
 			{
+				if (g_managedParticleSceneManager != sceneManager)
+				{
+					g_managedParticleNames.clear();
+					g_managedParticleSceneManager = sceneManager;
+				}
+				g_managedParticleNames.insert(name);
 				return true;
 			}
 
@@ -3193,20 +3264,45 @@ namespace ExtraUtilities::Lua::Environment
 		return 0;
 	}
 
+	void Shutdown() noexcept
+	{
+		try
+		{
+			// Only systems in the scene they were created in: a different
+			// scene manager means the old scene, and its systems, are gone.
+			void* sceneManager = GetSceneManager();
+			if (sceneManager != nullptr && sceneManager == g_managedParticleSceneManager)
+			{
+				for (const std::string& name : g_managedParticleNames)
+				{
+					TryDestroyManagedParticleSystem(sceneManager, name);
+				}
+			}
+			g_managedParticleNames.clear();
+			g_managedParticleSceneManager = nullptr;
+			ForgetAllParticleCameraFollowers();
+			g_desiredLightingMode = ViewportLightingMode::Default;
+		}
+		catch (...)
+		{
+			g_managedParticleNames.clear();
+			g_managedParticleSceneManager = nullptr;
+		}
+	}
+
 	int GetFog(lua_State* L)
 	{
 		Patch::TryInitializeOgre();
 
-		if (GetSceneManager() == nullptr)
+		auto* sceneManager = GetSceneManager();
+		Ogre::Fog f{};
+		if (sceneManager == nullptr || !TryGetFog(sceneManager, f))
 		{
-			PushFog(L, {});
+			lua_pushnil(L);
 			return 1;
 		}
 
-		Ogre::Fog f = fog.Read();
-
 		PushFog(L, f);
-
 		return 1;
 	}
 
@@ -3214,15 +3310,23 @@ namespace ExtraUtilities::Lua::Environment
 	{
 		Patch::TryInitializeOgre();
 
-		if (GetSceneManager() == nullptr)
+		const auto f = CheckFogOrSingles(L, 1);
+		if (!std::isfinite(f.r) || !std::isfinite(f.g) || !std::isfinite(f.b) ||
+			!std::isfinite(f.start) || !std::isfinite(f.ending))
+		{
+			return luaL_argerror(L, 1, "fog values must be finite");
+		}
+
+		auto* sceneManager = GetSceneManager();
+		if (sceneManager == nullptr)
 		{
 			return 0;
 		}
 
-		auto f = CheckFogOrSingles(L, 1);
-
-		fog.Write(f);
-
+		// Stop the engine's own SetFog from overwriting the script's fog for
+		// the rest of this Lua state.
+		Patch::fogResetPatch.SetStatus(true);
+		TrySetFog(sceneManager, f);
 		return 0;
 	}
 
@@ -3231,14 +3335,12 @@ namespace ExtraUtilities::Lua::Environment
 		Patch::TryInitializeOgre();
 
 		auto* sceneManager = GetSceneManager();
-		if (sceneManager == nullptr)
+		Ogre::Color sunColor = DefaultSunColor();
+		if (sceneManager == nullptr || !TryGetSunAmbientColor(sceneManager, sunColor))
 		{
-			PushColor(L, DefaultSunColor());
+			lua_pushnil(L);
 			return 1;
 		}
-
-		Ogre::Color sunColor = DefaultSunColor();
-		TryGetSunAmbientColor(sceneManager, sunColor);
 		PushColor(L, sunColor);
 
 		return 1;
@@ -3300,14 +3402,12 @@ namespace ExtraUtilities::Lua::Environment
 		Patch::TryInitializeOgre();
 
 		auto* terrainMasterLight = GetTerrainMasterLight();
-		if (terrainMasterLight == nullptr)
+		Ogre::Color diffuseColor = DefaultSunColor();
+		if (terrainMasterLight == nullptr || !TryGetSunDiffuseColor(terrainMasterLight, diffuseColor))
 		{
-			PushColor(L, DefaultSunColor());
+			lua_pushnil(L);
 			return 1;
 		}
-
-		Ogre::Color diffuseColor = DefaultSunColor();
-		TryGetSunDiffuseColor(terrainMasterLight, diffuseColor);
 		PushColor(L, diffuseColor);
 
 		return 1;
@@ -3359,14 +3459,12 @@ namespace ExtraUtilities::Lua::Environment
 		Patch::TryInitializeOgre();
 
 		auto* terrainMasterLight = GetTerrainMasterLight();
-		if (terrainMasterLight == nullptr)
+		Ogre::Color specularColor = DefaultSunColor();
+		if (terrainMasterLight == nullptr || !TryGetSunSpecularColor(terrainMasterLight, specularColor))
 		{
-			PushColor(L, DefaultSunColor());
+			lua_pushnil(L);
 			return 1;
 		}
-
-		Ogre::Color specularColor = DefaultSunColor();
-		TryGetSunSpecularColor(terrainMasterLight, specularColor);
 		PushColor(L, specularColor);
 
 		return 1;
@@ -3418,14 +3516,12 @@ namespace ExtraUtilities::Lua::Environment
 		Patch::TryInitializeOgre();
 
 		auto* terrainMasterLight = GetTerrainMasterLight();
-		if (terrainMasterLight == nullptr)
+		BZR::VECTOR_3D direction{};
+		if (terrainMasterLight == nullptr || !TryGetSunDirection(terrainMasterLight, direction))
 		{
-			PushVector(L, {});
+			lua_pushnil(L);
 			return 1;
 		}
-
-		BZR::VECTOR_3D direction{};
-		TryGetSunDirection(terrainMasterLight, direction);
 		PushVector(L, direction);
 		return 1;
 	}
@@ -3944,6 +4040,7 @@ namespace ExtraUtilities::Lua::Environment
 
 		const std::string name = luaL_checkstring(L, 1);
 		ForgetParticleCameraFollower(name);
+		g_managedParticleNames.erase(name);
 		lua_pushboolean(L, TryDestroyManagedParticleSystem(sceneManager, name) ? 1 : 0);
 		return 1;
 	}
@@ -5847,7 +5944,6 @@ namespace ExtraUtilities::Patch
 			return;
 		}
 
-		fogResetPatch.Reload();
 		Lua::Environment::LogEnvironmentDebug(
 			"[EXU::TryInitializeOgre] initialized sceneManager=%p (was %p) terrainMasterLight=%p (was %p) rebind=%d",
 			sceneManager,

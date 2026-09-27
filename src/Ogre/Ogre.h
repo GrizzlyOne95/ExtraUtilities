@@ -80,20 +80,6 @@ namespace ExtraUtilities::Ogre
 	inline Scanner terrain_masterlight(BZR::Ogre::terrain_masterlight, BasicScanner::Restore::DISABLED);
 	inline Scanner sceneManager(BZR::Ogre::sceneManagerStructure, { BZR::Ogre::sceneManagerOffset }, BasicScanner::Restore::DISABLED);
 
-	// Gets the fog structure from the scene manager
-	inline Fog* GetFog()
-	{
-		void* sm = sceneManager.Read();
-		Fog* fog;
-		__asm
-		{
-			mov eax, [sm]
-			add eax, 0x128
-			mov [fog], eax
-		}
-		return fog;
-	}
-
 	// OgreMain entry points, resolved by mangled export name on first use.
 	// They used to be fixed offsets from OgreMain's base with no check that the
 	// DLL was the build they were taken from; a missing export now makes the
@@ -354,6 +340,21 @@ namespace ExtraUtilities::Ogre
 
 	using _SetViewportShadowsEnabled = void(__thiscall*)(void*, bool);
 	inline constinit OgreExport<_SetViewportShadowsEnabled> SetViewportShadowsEnabled{ "?setShadowsEnabled@Viewport@Ogre@@QAEX_N@Z" };
+
+	// Fog goes through SceneManager's own accessors on the current scene
+	// manager. The old path wrote a struct at SceneManager+0x128 whose
+	// address was captured once at DLL load: inert if no scene existed yet,
+	// and a write into freed memory if the scene manager was ever replaced.
+	using _GetFogColour = Color*(__thiscall*)(void*);
+	inline constinit OgreExport<_GetFogColour> GetFogColour{ "?getFogColour@SceneManager@Ogre@@UBEABVColourValue@2@XZ" };
+	using _GetFogFloat = float(__thiscall*)(void*);
+	inline constinit OgreExport<_GetFogFloat> GetFogStart{ "?getFogStart@SceneManager@Ogre@@UBEMXZ" };
+	inline constinit OgreExport<_GetFogFloat> GetFogEnd{ "?getFogEnd@SceneManager@Ogre@@UBEMXZ" };
+	inline constinit OgreExport<_GetFogFloat> GetFogDensity{ "?getFogDensity@SceneManager@Ogre@@UBEMXZ" };
+	using _GetFogMode = int(__thiscall*)(void*);
+	inline constinit OgreExport<_GetFogMode> GetFogMode{ "?getFogMode@SceneManager@Ogre@@UBE?AW4FogMode@2@XZ" };
+	using _SetFog = void(__thiscall*)(void*, int, const Color*, float, float, float);
+	inline constinit OgreExport<_SetFog> SetFog{ "?setFog@SceneManager@Ogre@@QAEXW4FogMode@2@ABVColourValue@2@MMM@Z" };
 
 	inline ::Ogre::SceneManager* AsSceneManager(void* sceneManagerPtr)
 	{
