@@ -456,8 +456,9 @@ function exu.UpdateCommandReplacements() end
 --- These functions can query and modify attributes about the environment like gravity and lighting.
 
 --- Returns a table with the current map fog parameters.
+--- Returns nil while the scene is not ready (for example during loading).
 --- @nodiscard
---- @return Fog
+--- @return Fog?
 function exu.GetFog() end
 
 --- Sets the current map fog parameters. Can take either five number parameters or a fog table.
@@ -493,8 +494,9 @@ function exu.SetGravity(x, y, z) end
 function exu.SetGravity(v) end
 
 --- Returns a table with the current scene ambient light parameters.
+--- Returns nil while the scene is not ready (for example during loading).
 --- @nodiscard
---- @return Color
+--- @return Color?
 function exu.GetAmbientLight() end
 
 --- Sets the current scene ambient light parameters. Can take either three or four number parameters or a color table.
@@ -509,8 +511,9 @@ function exu.SetAmbientLight(r, g, b, a) end
 function exu.SetAmbientLight(newColor) end
 
 --- Returns a table with the current sun ambient parameters.
+--- Returns nil while the scene is not ready (for example during loading).
 --- @nodiscard
---- @return Color
+--- @return Color?
 function exu.GetSunAmbient() end
 
 --- Sets the current map sun ambient parameters. Can take either three number parameters or a color table.
@@ -524,8 +527,9 @@ function exu.SetSunAmbient(r, g, b) end
 function exu.SetSunAmbient(newColor) end
 
 --- Returns a table with the current sun diffuse parameters.
+--- Returns nil while the scene is not ready (for example during loading).
 --- @nodiscard
---- @return Color
+--- @return Color?
 function exu.GetSunDiffuse() end
 
 --- Sets the current map sun diffuse parameters. Can take either three number parameters or a color table.
@@ -539,8 +543,9 @@ function exu.SetSunDiffuse(r, g, b) end
 function exu.SetSunDiffuse(newColor) end
 
 --- Returns a table with the current sun specular parameters.
+--- Returns nil while the scene is not ready (for example during loading).
 --- @nodiscard
---- @return Color
+--- @return Color?
 function exu.GetSunSpecular() end
 
 --- Sets the current map sun specular parameters. Can take either three number parameters or a color table.
@@ -554,8 +559,9 @@ function exu.SetSunSpecular(r, g, b) end
 function exu.SetSunSpecular(newColor) end
 
 --- Returns the current sun direction vector.
+--- Returns nil while the scene is not ready (for example during loading).
 --- @nodiscard
---- @return Vector
+--- @return Vector?
 function exu.GetSunDirection() end
 
 --- Sets the current sun direction vector. Can take either a vector or three number parameters.
