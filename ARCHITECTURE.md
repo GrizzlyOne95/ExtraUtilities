@@ -72,7 +72,7 @@ Two facts about how EXU is loaded shape every lifetime above:
 When a new BZR executable appears:
 
 1. Run `python tools/qualify_bzr_build.py <path-to-bzr.exe> --write-report`.
-2. Review matched, relocated, missing, and ambiguous signatures.
+2. Run it again with `--catalog` to check every `exu.json` signature, then review matched, relocated, missing, and ambiguous signatures. The Steam executable is SteamStub-packed and cannot be qualified; use the GOG executable or an unpacked image.
 3. Reverse-engineer only targets that failed qualification; never invent replacement signatures.
 4. Add or update a build profile only after the executable and critical targets have been validated.
 5. Regenerate the runtime profile header, run CI, and perform an in-game smoke test.
