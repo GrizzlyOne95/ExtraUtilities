@@ -68,8 +68,6 @@ namespace Ogre
 	class Material;
 	class MaterialManager;
 	class TextureUnitState;
-	class SubEntity;
-	class Entity;
 
 	enum TextureType
 	{
