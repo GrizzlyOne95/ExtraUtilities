@@ -24,34 +24,39 @@
 
 namespace ExtraUtilities::Lua::Multiplayer
 {
+	namespace
+	{
+		// Run stock BuildObject with a temporary patch active. The call must be
+		// protected: an error would longjmp past Unload() and leave the patch
+		// on for the rest of the mission, forcing every later BuildObject
+		// async or sync.
+		int BuildObjectWithPatch(lua_State* L, InlinePatch& patch)
+		{
+			const int argC = lua_gettop(L);
+
+			lua_getglobal(L, "BuildObject");
+			lua_insert(L, 1);
+
+			patch.Reload();
+			const int status = lua_pcall(L, argC, 1, 0);
+			patch.Unload();
+
+			if (status != 0)
+			{
+				return lua_error(L);
+			}
+			return 1;
+		}
+	}
+
 	int BuildAsyncObject(lua_State* L)
 	{
-		buildObjectAlwaysAsync.Reload();
-
-		int argC = lua_gettop(L);
-
-		lua_getglobal(L, "BuildObject");
-		lua_insert(L, 1);
-		lua_call(L, argC, 1);
-
-		buildObjectAlwaysAsync.Unload();
-
-		return 1;
+		return BuildObjectWithPatch(L, buildObjectAlwaysAsync);
 	}
 
 	int BuildSyncObject(lua_State* L)
 	{
-		buildObjectAlwaysSync.Reload();
-
-		int argC = lua_gettop(L);
-
-		lua_getglobal(L, "BuildObject");
-		lua_insert(L, 1);
-		lua_call(L, argC, 1);
-
-		buildObjectAlwaysSync.Unload();
-
-		return 1;
+		return BuildObjectWithPatch(L, buildObjectAlwaysSync);
 	}
 
 	int GetLives(lua_State* L)

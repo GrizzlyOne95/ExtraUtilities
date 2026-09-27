@@ -2403,24 +2403,6 @@ function exu.GetSteam64() end
 --- @return number
 function exu.GetMusicVolume() end
 
---- Gets the value of the effects slider from 0-10.
---- @nodiscard
---- @return number
-function exu.GetEffectsVolume() end
-
---- Sets the value of the effects slider from 0-10.
---- @param volume number
-function exu.SetEffectsVolume(volume) end
-
---- Gets the value of the voice slider from 0-10.
---- @nodiscard
---- @return number
-function exu.GetVoiceVolume() end
-
---- Sets the value of the voice slider from 0-10.
---- @param volume number
-function exu.SetVoiceVolume(volume) end
-
 --- Stock Extensions
 ---
 --- These functions are either existing in game but unbound in stock lua, or are in stock lua but were removed.

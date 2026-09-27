@@ -166,14 +166,9 @@ namespace ExtraUtilities::Lua::Radar
 			if (!std::isfinite(requestedScale) || std::fabs(requestedScale - 1.0f) < 0.001f)
 			{
 				// At scale 1 the native layout is already aligned, so the
-				// correction is skipped. If the second-mission offset were
-				// caused by the scale global being reset under us, it would
-				// show up here as an unexpected passthrough.
-				Logging::LogMessage(
-					"[EXU::Radar] refreshLayout passthrough screenHeight=%d scale=%.4f base=%.6f",
-					screenHeight,
-					static_cast<double>(requestedScale),
-					static_cast<double>(scaledProjectionBase));
+				// correction is skipped. No logging here: one of the two
+				// patched call sites is inside CockpitRadar::Render, so this
+				// runs every frame in radar mode.
 				BZR::Radar::RefreshLayout(screenHeight);
 				return;
 			}
@@ -352,12 +347,13 @@ namespace ExtraUtilities::Lua::Radar
 
 	int SetState(lua_State* L)
 	{
-		uint8_t newState = static_cast<uint8_t>(luaL_checkinteger(L, 1));
-		if (newState != 0 && newState != 1)
+		// Range-check before narrowing: 256 would otherwise truncate to 0.
+		const lua_Integer requested = luaL_checkinteger(L, 1);
+		if (requested != 0 && requested != 1)
 		{
-			luaL_error(L, "Invalid input: options are: 0, 1");
+			return luaL_error(L, "Invalid input: options are: 0, 1");
 		}
-		state.Write(newState);
+		state.Write(static_cast<uint8_t>(requested));
 		return 0;
 	}
 
@@ -375,9 +371,9 @@ namespace ExtraUtilities::Lua::Radar
 	int SetSizeScale(lua_State* L)
 	{
 		float newScale = static_cast<float>(luaL_checknumber(L, 1));
-		if (newScale <= 0.f)
+		if (!std::isfinite(newScale) || newScale <= 0.f)
 		{
-			luaL_error(L, "Invalid input: radar size scale must be greater than 0");
+			return luaL_error(L, "Invalid input: radar size scale must be a finite number greater than 0");
 		}
 
 		if (const auto fn = ResolveRadarScaleSetBridge())

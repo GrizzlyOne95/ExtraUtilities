@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "BZR.h"
+#include "bzr.h"
 #include <lua.hpp>
 
 namespace ExtraUtilities::Culling

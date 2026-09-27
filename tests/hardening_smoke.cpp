@@ -1,5 +1,6 @@
 #include "BasicPatch.h"
 #include "Hook.h"
+#include "InlinePatch.h"
 #include "Scanner.h"
 #include "Util/BuildValidation.h"
 #include "Util/SignatureResolver.h"
@@ -69,6 +70,10 @@ int main()
 {
 	static_assert(!std::is_move_constructible_v<Hook>);
 	static_assert(!std::is_move_constructible_v<Scanner<int>>);
+	// A function pointer must never be accepted as a byte buffer to copy from.
+	static_assert(!std::is_constructible_v<InlinePatch, uintptr_t, void (*)(), size_t, BasicPatch::Status>);
+	static_assert(!std::is_constructible_v<InlinePatch, uintptr_t, void (__stdcall*)(int), size_t, BasicPatch::Status>);
+	static_assert(std::is_constructible_v<InlinePatch, uintptr_t, uintptr_t, BasicPatch::Status, std::vector<uint8_t>>);
 
 	bool ok = true;
 	ok &= Check(

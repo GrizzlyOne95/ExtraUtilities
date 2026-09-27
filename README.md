@@ -95,11 +95,15 @@ The optional `third_party/ogre-1.10.0-bzr/Build-Ogre-BZR.ps1` workflow is only f
 ## Updating for a game patch
 
 - Revalidate the addresses and signatures documented in `exu.json` against the new executable.
-- Update the corresponding declarations in `src/BZR.h` and record the verified game version.
-- Run `python tools/qualify_bzr_build.py <path-to-bzr.exe> --write-report` and review missing/ambiguous targets.
-- Regenerate/check the build profile with `python tools/generate_bzr_build_profile.py --check`.
+- Update the corresponding declarations in `src/bzr.h` and record the verified game version.
+- Run `python tools/qualify_bzr_build.py <path-to-battlezone98redux.exe> --write-report` and review missing/ambiguous targets. Qualify the GOG executable or an unpacked image: the Steam executable's code is SteamStub-encrypted on disk and every anchor reports MISS.
+- Regenerate the build profile with `python tools/generate_bzr_build_profile.py`, then confirm with `--check` and `python tools/validate_hardening.py`.
 - Build **Release|x86**, run the validation suites, and smoke-test Lua loading plus the affected feature groups in game.
-- Update the EXU version in `src/About.h`, `include/ExtraUtils.h`, and `Definitions/ExtraUtils.lua` together before tagging a release.
+- Update the EXU version in `src/About.h`, `include/ExtraUtils.h`, `Definitions/ExtraUtils.lua`, and `Resource/Resource.rc` together before tagging a release.
+
+## Diagnostics
+
+EXU writes `logs/exu.log` next to the game executable (falling back to the game folder). Failures and patch refusals always land there. Verbose per-call tracing (`exu_environment_debug.log`, `exu_material_debug.log`, and success lines for overlay setters) is off by default because several of those bindings run every frame; set `EXU_DEBUG_LOG=1` in the game's environment (Steam launch options: `EXU_DEBUG_LOG=1 %command%`) to enable it for a session.
 
 ## Workshop publication
 
