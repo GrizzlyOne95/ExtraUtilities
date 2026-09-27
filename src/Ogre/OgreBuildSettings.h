@@ -1,3 +1,21 @@
+/* Copyright (C) 2023-2026 VTrider
+ *
+ * This file is part of Extra Utilities.
+ *
+ * Extra Utilities is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #ifndef __Custom_Config_H_
 #define __Custom_Config_H_
 
@@ -12,6 +30,17 @@
 #define OGRE_DOUBLE_PRECISION 0
 #define OGRE_NODE_INHERIT_TRANSFORM 1
 
+// ABI invariant: EXU compiles Ogre's inline container code with std::allocator
+// (custom container allocator 0), while the shipped OgreMain/OgreOverlay were
+// built with STLAllocator<..., CategorisedAllocPolicy> (see
+// third_party/ogre-1.10.0-bzr/ABI_NOTES.md). A container filled by inline code
+// here (for example Font::setGlyphTexCoords or addCodePointRange) is later
+// freed by the DLL through its own allocator. That is safe only because the
+// shipped CategorisedAllocPolicy is StdAllocPolicy (OGRE_MEMORY_ALLOCATOR 1,
+// plain malloc/free) and both the game's MSVCR120 and EXU's UCRT allocate from
+// the process heap. Exported functions whose mangled names include the custom
+// allocator types (FontManager::create) cannot be linked from these headers
+// and are resolved with GetProcAddress instead.
 #define OGRE_MEMORY_ALLOCATOR 1
 #define OGRE_CONTAINERS_USE_CUSTOM_MEMORY_ALLOCATOR 0
 #define OGRE_STRING_USE_CUSTOM_MEMORY_ALLOCATOR 0
