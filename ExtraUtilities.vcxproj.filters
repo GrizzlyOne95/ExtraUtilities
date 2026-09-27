@@ -281,9 +281,6 @@
     <ClInclude Include="src\InlinePatch.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
-    <ClInclude Include="src\Patches\BulletHitCallback.h">
-      <Filter>Header Files\Patches</Filter>
-    </ClInclude>
     <ClInclude Include="src\Patches.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -334,9 +331,6 @@
     </ClInclude>
     <ClInclude Include="src\Game\Culling.h">
       <Filter>Header Files\Exports</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Patches\BulletInitCallback.h">
-      <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="src\Patches\OrdnanceVelocity.h">
       <Filter>Header Files\Patches</Filter>

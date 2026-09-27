@@ -29,7 +29,4 @@ namespace ExtraUtilities::Lua::Patches
 
 	int GetOrdnanceVelocMode(lua_State* L);
 	int SetOrdnanceVelocMode(lua_State* L);
-
-	int GetOrdnanceVelocRatio(lua_State* L);
-	int SetOrdnanceVelocRatio(lua_State* L);
 }

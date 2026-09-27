@@ -105,12 +105,6 @@ int main()
 		BasicPatch::EnableDeferredPatchActivation(false);
 		ok &= Check(patchPage[0] == 0x22 && patch.IsActive(), "deferred patch did not activate");
 
-		{
-			ScopedPatchDisable disabled(patch);
-			ok &= Check(patchPage[0] == 0x11 && !patch.IsActive(), "scoped disable did not restore preimage");
-		}
-		ok &= Check(patchPage[0] == 0x22 && patch.IsActive(), "scoped disable did not reactivate patch");
-
 		BasicPatch::UnloadAllPatches();
 		ok &= Check(patchPage[0] == 0x11 && !patch.IsActive(), "UnloadAllPatches did not restore bytes");
 

@@ -182,8 +182,6 @@
     <ClInclude Include="src\About.h" />
     <ClInclude Include="src\Patches\AddScrapCallback.h" />
     <ClInclude Include="src\Patches\AiTargetSelect.h" />
-    <ClInclude Include="src\Patches\BulletHitCallback.h" />
-    <ClInclude Include="src\Patches\BulletInitCallback.h" />
     <ClInclude Include="src\bzr.h" />
     <ClInclude Include="src\Game\Camera.h" />
     <ClInclude Include="src\Patches\Cheats.h" />
