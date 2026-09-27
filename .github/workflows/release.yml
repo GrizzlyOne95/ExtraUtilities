@@ -81,6 +81,12 @@ jobs:
       - name: Run hardening smoke tests
         run: tests\bin\Release\HardeningSmoke.exe
 
+      # The same host tests the Linux lane builds with g++, built with the
+      # 32-bit MSVC that exu.dll ships with.
+      - name: Build and run host tests with MSVC
+        shell: cmd
+        run: tests\host\run_msvc.cmd
+
       - name: Verify DLL Output
         shell: pwsh
         run: |
