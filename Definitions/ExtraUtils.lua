@@ -2077,9 +2077,14 @@ function exu.MessageBox(message) end
 
 --- Triggers the game's native save serializer.
 --- Pass either a save slot number (1-10, mapped to `Save\\game<slot>.sav`) or a save path string.
+--- A path string must name a file inside the game's `Save` directory. Relative paths are taken from the
+--- game directory, so `"Save\\auto.sav"` works; an absolute path under `<game>\\Save` also works.
+--- Any other path (outside `Save`, `..` above it, network or device paths) returns false and a reason.
+--- The save is binary when the game was started with `-binarysave`, as the game's own saves are.
 --- The optional `saveType` argument defaults to 0 and maps to the native second parameter.
 --- You may also pass a description override as the second argument, or as the third argument after `saveType`.
---- Description overrides only rewrite the `saveGameDesc` field in text saves after the native save succeeds.
+--- Description overrides only rewrite the `saveGameDesc` field in text saves after the native save succeeds;
+--- they are skipped for binary saves.
 --- This should be called during active gameplay, not from shell menus or loading screens.
 --- @param slotOrPath integer | string
 --- @param saveType integer | string?
