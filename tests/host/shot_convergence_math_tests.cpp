@@ -1,4 +1,23 @@
+/* Copyright (C) 2026 GrizzlyOne95
+ *
+ * This file is part of Extra Utilities.
+ *
+ * Extra Utilities is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #include "Patches/ShotConvergenceMath.h"
+#include "HostTest.h"
 
 #include <cmath>
 #include <cstdlib>
@@ -8,14 +27,12 @@ using namespace ExtraUtilities::ShotConvergenceMath;
 
 namespace
 {
-    int gFailures = 0;
-
     void ExpectNear(float actual, float expected, float tolerance, const char* what)
     {
         if (std::fabs(actual - expected) > tolerance)
         {
             std::cerr << "FAIL: " << what << " expected " << expected << ", got " << actual << '\n';
-            ++gFailures;
+            HostTest::CountFailure();
         }
     }
 
@@ -56,7 +73,7 @@ namespace
         if (!SolveReticleConvergence(mountLocal, mountWorld, target, solved))
         {
             std::cerr << "FAIL: solver rejected normal target\n";
-            ++gFailures;
+            HostTest::CountFailure();
             return;
         }
 
@@ -108,7 +125,7 @@ namespace
         if (AngleDegrees(fired, desired) < 20.0f)
         {
             std::cerr << "FAIL: old mount-local-as-world-origin regression case no longer fails\n";
-            ++gFailures;
+            HostTest::CountFailure();
         }
     }
 }
@@ -118,9 +135,5 @@ int main()
     TestUsesWorldMuzzleAndWritesMountLocalResult();
     TestOldMountLocalAsWorldOriginMathIsWrong();
 
-    if (gFailures != 0)
-        return EXIT_FAILURE;
-
-    std::cout << "All shot-convergence math checks passed.\n";
-    return EXIT_SUCCESS;
+    return HostTest::Finish("shot-convergence math");
 }

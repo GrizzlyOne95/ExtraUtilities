@@ -145,6 +145,20 @@ download_matched_release() {
     return 1
 }
 
+# Each deploy backs up the previous exu.dll; keep only the newest few so the
+# game directory does not collect one file per install forever.
+prune_exu_backups() {
+    local dest="$1" keep=3
+    local backups=("$dest".bak-*)
+    [[ -e "${backups[0]}" ]] || return 0
+    # Stamps are YYYYmmdd-HHMMSS and glob results are sorted, so the oldest
+    # come first.
+    local count=${#backups[@]}
+    if (( count > keep )); then
+        rm -f -- "${backups[@]:0:count-keep}"
+    fi
+}
+
 deploy_matched() {
     local game_dir="$1" dll="$2"
     local dest="$game_dir/exu.dll"
@@ -158,6 +172,7 @@ deploy_matched() {
     stamp="$(date +%Y%m%d-%H%M%S)"
     if [[ -f "$dest" ]]; then
         cp -f "$dest" "$dest.bak-$stamp"
+        prune_exu_backups "$dest"
     fi
     cp -f "$dll" "$dest"
     echo "  deployed exu.dll ($(stat -c %s "$dest") bytes)"

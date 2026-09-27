@@ -1,4 +1,20 @@
 #!/usr/bin/env python3
+# Copyright (C) 2026 GrizzlyOne95
+#
+# This file is part of Extra Utilities.
+#
+# Extra Utilities is free software: you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by the
+# Free Software Foundation, either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
 """Static validation for EXU API/documentation and hardening invariants."""
 
 from __future__ import annotations
@@ -178,6 +194,79 @@ def check_address_catalog() -> None:
     print(f"Address catalog/runtime build profile OK: BZR 2.2.301 x86 ({len(runtime_anchors)} required anchors)")
 
 
+# Engine image range for the supported x86 build (image base 0x00400000).
+ENGINE_ADDRESS_MIN = 0x00400000
+ENGINE_ADDRESS_MAX = 0x02FFFFFF
+
+# Literals in src/ that fall inside the engine range but are not engine
+# addresses. Every entry needs a reason; keep this list short.
+ENGINE_LITERAL_ALLOWLIST: dict[int, str] = {}
+
+HEX_LITERAL_RE = re.compile(r"\b0[xX]([0-9A-Fa-f]+)[uUlL]*\b")
+# Comments and string literals are blanked (newlines kept) before scanning.
+COMMENT_OR_STRING_RE = re.compile(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\\n])*"', re.S)
+IDA_PATTERN_RE = re.compile(r"^(?:[0-9A-F]{2}|\?\??)(?: (?:[0-9A-F]{2}|\?\??))*$")
+
+
+def catalog_address_entries(node: object, prefix: str = ""):
+    if not isinstance(node, dict):
+        return
+    for key, value in node.items():
+        if key.startswith("_") or not isinstance(value, dict):
+            continue
+        path = f"{prefix}.{key}" if prefix else key
+        if "address" in value:
+            yield path, value
+        else:
+            yield from catalog_address_entries(value, path)
+
+
+def check_engine_address_census() -> None:
+    """Every engine-range literal in src/ must be catalogued in exu.json, and
+    every catalogued signature must be a well-formed IDA-style pattern."""
+    catalog = json.loads(read("exu.json"))
+    catalogued: set[int] = set()
+    patterns = 0
+    for path, entry in catalog_address_entries(catalog.get("addresses", {})):
+        try:
+            catalogued.add(int(entry["address"], 16))
+        except (TypeError, ValueError):
+            fail(f"exu.json entry {path} has an unparsable address: {entry.get('address')!r}")
+        pattern = entry.get("pattern")
+        if pattern is None:
+            continue
+        if not isinstance(pattern, str) or not IDA_PATTERN_RE.match(pattern):
+            fail(f"exu.json entry {path} has a malformed IDA-style pattern: {pattern!r}")
+        if all(token.startswith("?") for token in pattern.split()):
+            fail(f"exu.json entry {path} has a pattern with no literal bytes")
+        if entry.get("pattern_kind") not in ("code", "reference"):
+            fail(f"exu.json entry {path} needs pattern_kind 'code' or 'reference'")
+        patterns += 1
+
+    missing: list[str] = []
+    literals = 0
+    for path in sorted((ROOT / "src").rglob("*")):
+        if path.suffix.lower() not in (".c", ".cpp", ".h", ".hpp") or path.name.endswith(".generated.h"):
+            continue
+        source = path.read_text(encoding="utf-8", errors="replace")
+        code = COMMENT_OR_STRING_RE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), source)
+        for match in HEX_LITERAL_RE.finditer(code):
+            value = int(match.group(1), 16)
+            if not ENGINE_ADDRESS_MIN <= value <= ENGINE_ADDRESS_MAX or value in ENGINE_LITERAL_ALLOWLIST:
+                continue
+            literals += 1
+            if value not in catalogued:
+                line = code.count("\n", 0, match.start()) + 1
+                missing.append(f"{path.relative_to(ROOT).as_posix()}:{line}: 0x{value:08X}")
+
+    if missing:
+        print("Engine-range literals in src/ missing from exu.json (catalogue them, or allowlist a non-address constant with a reason):")
+        for entry in missing:
+            print(f"  - {entry}")
+        raise SystemExit(1)
+    print(f"Engine address census OK: {literals} engine-range literals in src/ are catalogued; {patterns} catalog patterns well-formed")
+
+
 def check_hardening_markers() -> None:
     hook = read("src/Hook.h")
     scanner = read("src/Scanner.h")
@@ -264,6 +353,7 @@ def main() -> None:
     check_api_parity()
     check_versions()
     check_address_catalog()
+    check_engine_address_census()
     check_hardening_markers()
     check_patch_preimages()
     print("All EXU hardening validation checks passed.")
