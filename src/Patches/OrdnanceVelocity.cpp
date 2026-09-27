@@ -295,20 +295,12 @@ namespace ExtraUtilities::Lua::Patches
 
 	int SetOrdnanceVelocInheritance(lua_State* L)
 	{
-		bool active = CheckBool(L, 1);
-		if (active == true)
-		{
-			Patch::ordnanceVelocityPatch.Reload();
-			Patch::cannonLeadPositionPatch.Reload();
-			Patch::cannonVelocityTolerancePatch.Reload();
-		}
-		else
-		{
-			Patch::ordnanceVelocityPatch.Unload();
-			Patch::cannonLeadPositionPatch.Unload();
-			Patch::cannonVelocityTolerancePatch.Unload();
-		}
-		return 0;
+		const bool active = CheckBool(L, 1);
+		Patch::ordnanceVelocityPatch.SetStatus(active);
+		Patch::cannonLeadPositionPatch.SetStatus(active);
+		Patch::cannonVelocityTolerancePatch.SetStatus(active);
+		lua_pushboolean(L, 1);
+		return 1;
 	}
 
 	int GetOrdnanceVelocMode(lua_State* L)

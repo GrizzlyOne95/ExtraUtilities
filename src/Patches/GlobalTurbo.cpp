@@ -174,22 +174,14 @@ namespace ExtraUtilities::Lua::Patches
 		if (const auto fn = OpenShimBridge::Resolve<OpenShimSetGlobalTurboFn>(
 				"OpenShimSetGlobalTurbo"))
 		{
-			fn(status ? TRUE : FALSE);
-			return 0;
+			lua_pushboolean(L, fn(status ? TRUE : FALSE) ? 1 : 0);
+			return 1;
 		}
 
-		if (status == true)
-		{
-			Patch::turboPatch1.Reload();
-			Patch::turboPatch2.Reload();
-		}
-		else
-		{
-			Patch::turboPatch1.Unload();
-			Patch::turboPatch2.Unload();
-		}
-
-		return 0;
+		Patch::turboPatch1.SetStatus(status);
+		Patch::turboPatch2.SetStatus(status);
+		lua_pushboolean(L, 1);
+		return 1;
 	}
 
 	int GetUnitTurbo(lua_State* L)
@@ -235,6 +227,7 @@ namespace ExtraUtilities::Lua::Patches
 			Patch::setTurboUnits[h] = status;
 		}
 
-		return 0;
+		lua_pushboolean(L, 1);
+		return 1;
 	}
 }
