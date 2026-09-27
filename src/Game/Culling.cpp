@@ -7,28 +7,86 @@
 #include "Ogre/Ogre.h"
 #include "Camera.h"
 #include "LuaHelpers.h"
+#include "Util/RuntimeGate.h"
+
+#include <cmath>
+#include <unordered_set>
 
 namespace ExtraUtilities::Culling
 {
+    namespace
+    {
+        // Units culling itself hid, by handle. Only these are ever shown
+        // again: disabling culling or raising the distance re-shows them, and
+        // units the game hid for its own reasons are left alone.
+        std::unordered_set<BZR::handle> g_hiddenByCulling;
+
+        void SetEntityVisible(BZR::GameObject* obj, bool visible)
+        {
+            if (void* entity = obj->GetOgreEntity())
+            {
+                Ogre::SetVisible(entity, visible);
+            }
+        }
+    }
+
     void UpdateUnit(BZR::GameObject* obj)
     {
-        if (!enabled) return;
+        // Also reached through the EXU_UpdateCullingForUnit export, outside
+        // any gated patch.
+        if (obj == nullptr || !RuntimeGate::IsSupported())
+        {
+            return;
+        }
+
+        if (!enabled && g_hiddenByCulling.empty())
+        {
+            return;
+        }
+
+        const BZR::handle h = BZR::GameObject::GetHandle(obj);
+        const auto hidden = g_hiddenByCulling.find(h);
+
+        if (!enabled)
+        {
+            if (hidden != g_hiddenByCulling.end())
+            {
+                SetEntityVisible(obj, true);
+                g_hiddenByCulling.erase(hidden);
+            }
+            return;
+        }
 
         BZR::BZR_Camera* cam = Lua::Camera::mainCam.Get();
-        if (!cam || !obj) return;
+        if (cam == nullptr)
+        {
+            return;
+        }
 
         // Calculate distance (squared for performance)
-        double dx = obj->pos.x - cam->Matrix.posit_x;
-        double dy = obj->pos.y - cam->Matrix.posit_y;
-        double dz = obj->pos.z - cam->Matrix.posit_z;
-        double distSq = dx*dx + dy*dy + dz*dz;
+        const double dx = obj->pos.x - cam->Matrix.posit_x;
+        const double dy = obj->pos.y - cam->Matrix.posit_y;
+        const double dz = obj->pos.z - cam->Matrix.posit_z;
+        const double distSq = dx * dx + dy * dy + dz * dz;
+        const bool inRange = distSq < static_cast<double>(cullDistance) * cullDistance;
 
-        void* entity = obj->GetOgreEntity();
-        if (entity)
+        if (!inRange && hidden == g_hiddenByCulling.end())
         {
-            bool visible = (distSq < (double)cullDistance * cullDistance);
-            Ogre::SetVisible(entity, visible);
+            SetEntityVisible(obj, false);
+            g_hiddenByCulling.insert(h);
         }
+        else if (inRange && hidden != g_hiddenByCulling.end())
+        {
+            SetEntityVisible(obj, true);
+            g_hiddenByCulling.erase(hidden);
+        }
+    }
+
+    void ResetMissionState() noexcept
+    {
+        cullDistance = 500.0f;
+        enabled = false;
+        g_hiddenByCulling.clear();
     }
 }
 
@@ -36,7 +94,9 @@ namespace ExtraUtilities::Lua::Culling
 {
     int SetCullDistance(lua_State* L)
     {
-        ExtraUtilities::Culling::cullDistance = (float)luaL_checknumber(L, 1);
+        const float distance = static_cast<float>(luaL_checknumber(L, 1));
+        luaL_argcheck(L, std::isfinite(distance) && distance >= 0.0f, 1, "cull distance must be a finite, non-negative number");
+        ExtraUtilities::Culling::cullDistance = distance;
         return 0;
     }
 

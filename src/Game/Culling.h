@@ -15,11 +15,8 @@ namespace ExtraUtilities::Culling
     inline float cullDistance = 500.0f;
     inline bool enabled = false;
 
-    inline void ResetMissionState() noexcept
-    {
-        cullDistance = 500.0f;
-        enabled = false;
-    }
+    // Back to defaults at Lua-state close; also forgets which units it hid.
+    void ResetMissionState() noexcept;
 }
 
 namespace ExtraUtilities::Lua::Culling

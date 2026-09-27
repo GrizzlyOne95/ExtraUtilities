@@ -2539,11 +2539,14 @@ function exu.SetAttackRevealEnabled(...) end
 --- @param ... any
 function exu.SetBomberAiRangeEnabled(...) end
 
---- @param ... any
-function exu.SetCullDistance(...) end
+--- Sets the camera distance beyond which units are hidden while culling is enabled.
+--- @param distance number finite, non-negative
+function exu.SetCullDistance(distance) end
 
---- @param ... any
-function exu.SetCullingEnabled(...) end
+--- Enables or disables distance culling of units. Disabling it (or raising the distance)
+--- shows again every unit culling hid; units hidden by the game itself are not touched.
+--- @param enabled boolean
+function exu.SetCullingEnabled(enabled) end
 
 --- @param ... any
 function exu.SetHowitzerVolleyEnabled(...) end
