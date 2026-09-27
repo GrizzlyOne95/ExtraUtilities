@@ -26,6 +26,10 @@
 
 namespace ExtraUtilities::Lua::GameObject
 {
+	// Drops the material handles cached during the mission; Ogre may remove or
+	// reload those materials before the next one.
+	void ClearMaterialCache() noexcept;
+
 	struct EntityAnimationInfo
 	{
 		bool enabled = false;

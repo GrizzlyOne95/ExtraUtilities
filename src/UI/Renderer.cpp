@@ -43,6 +43,11 @@ namespace ExtraUtilities::Lua::Renderer
 		}
 	}
 
+	void ResetMissionState() noexcept
+	{
+		g_isWireframe = false;
+	}
+
 	int SetWireframe(lua_State* L)
 	{
 		g_isWireframe = CheckBool(L, 1);

@@ -122,6 +122,7 @@ namespace ExtraUtilities
 			: m_baseAddress(baseAddress), m_restoreData(restoreData)
 		{
 			PrepareFinalAddress(ResolveBase(address));
+			Register();
 		}
 
 		// Traverse a multi-level pointer chain.
@@ -155,6 +156,7 @@ namespace ExtraUtilities
 			}
 
 			PrepareFinalAddress(reinterpret_cast<T*>(resolvedAddress));
+			Register();
 		}
 
 		Scanner(const Scanner&) = delete;
@@ -165,11 +167,12 @@ namespace ExtraUtilities
 		~Scanner()
 		{
 			RestoreIfWritten();
+			Unregister();
 		}
 
 		// Puts back the value that preceded EXU's first Write, if this scanner
 		// restores and was written. Safe to call more than once.
-		void RestoreIfWritten() noexcept
+		void RestoreIfWritten() noexcept override
 		{
 			if (!m_written || m_restoreData != Restore::ENABLED ||
 				m_address == nullptr ||
