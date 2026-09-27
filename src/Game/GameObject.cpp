@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdarg>
 #include <cctype>
 #include <cstring>
@@ -155,69 +156,78 @@ namespace ExtraUtilities::Lua::GameObject
 			float weaponTriggerTillTime;
 		};
 
+		// UnitTask and RecycleTask layouts for 2.2.301, derived from the stores in
+		// their constructors (UnitTask(me, him) 0x005FE690, RecycleTask
+		// 0x005B53E0 on GOG). Both derive from AiTask, whose constructor
+		// (0x00461BA0) owns +0x04. Offsets marked "ctor" are written there with
+		// an identifying value; "order" means the field is not initialised by
+		// the constructor and is placed by field order between verified
+		// neighbours.
 		struct UnitTaskLayout
 		{
-			void* vftable;
-			uint32_t curState;
-			uint32_t nextState;
-			BZR::GameObject* me;
-			BZR::handle himHandle;
-			void* him;
-			uint8_t wasInTransition;
-			uint8_t pad_21[0x07];
-			BZR::VECTOR_3D gotoPoint;
-			BZR::VECTOR_3D goalPoint;
-			void* plan;
-			uint32_t planPoint;
-			uint32_t fixPoint;
-			BZR::VECTOR_3D gotoForce;
-			BZR::VECTOR_3D gotoDir;
-			float braccelFactor;
-			float strafeFactor;
-			float steerFactor;
-			float omegaFactor;
-			float omegaScale;
-			uint32_t avoidSkip;
-			void* avoidObj;
-			void* skipObj;
-			float nextStuck;
-			BZR::VECTOR_3D lastStuck;
-			uint8_t pad_94[0x04];
-			uint32_t stuckState;
-			float skill;
-			float closeSq;
-			float rangeSq;
-			float time;
-			float shotSpeed;
-			float shotSpeedInv;
-			float pitch;
+			void* vftable;                 // 0x00
+			uint32_t aiTaskBase04;         // 0x04 AiTask base
+			uint32_t curState;             // 0x08 ctor: 0xD
+			uint32_t nextState;            // 0x0C ctor: -1
+			BZR::GameObject* me;           // 0x10 ctor: first argument
+			BZR::handle himHandle;         // 0x14 ctor: GetHandle(second argument)
+			void* him;                     // 0x18 order
+			uint8_t wasInTransition;       // 0x1C ctor: byte 0
+			uint8_t pad_1D[0x03];
+			uint32_t unknown20;            // 0x20 ctor: 0xD
+			uint32_t unknown24;            // 0x24 ctor: 0
+			BZR::VECTOR_3D gotoPoint;      // 0x28 ctor: me position
+			BZR::VECTOR_3D goalPoint;      // 0x34 ctor: me position
+			void* plan;                    // 0x40 ctor: 0
+			uint32_t planPoint;            // 0x44 ctor: 0
+			uint32_t fixPoint;             // 0x48 ctor: 0
+			BZR::VECTOR_3D gotoForce;      // 0x4C ctor: zero vector
+			BZR::VECTOR_3D gotoDir;        // 0x58 ctor: zero vector
+			float braccelFactor;           // 0x64 ctor: 0.05
+			float strafeFactor;            // 0x68 ctor: 0.05
+			float steerFactor;             // 0x6C ctor: 3.0
+			float omegaFactor;             // 0x70 ctor: 0.2
+			float omegaScale;              // 0x74 ctor: 0.3
+			uint32_t avoidSkip;            // 0x78 ctor: 0
+			void* avoidObj;                // 0x7C ctor: 0
+			void* skipObj;                 // 0x80 ctor: 0
+			float nextStuck;               // 0x84 ctor: 0.0
+			BZR::VECTOR_3D lastStuck;      // 0x88 ctor: zero vector
+			uint32_t stuckState;           // 0x94 ctor: 0
+			float skill;                   // 0x98 ctor: 0.0
+			float closeSq;                 // 0x9C order
+			float rangeSq;                 // 0xA0 ctor: 0.0
+			float time;                    // 0xA4 ctor: 0.0
+			float shotSpeed;               // 0xA8 ctor: 0.0
+			float shotSpeedInv;            // 0xAC ctor: 0.0
+			float pitch;                   // 0xB0 ctor: 0.0
 		};
 
 		struct RecycleTaskLayout
 		{
-			void* vftable;
-			const char* deployMsg;
-			const char* foundMsg;
-			const char* notFoundMsg;
-			const char* noDropMsg;
-			float nextStuck;
-			BZR::VECTOR_3D lastStuck;
-			uint8_t pad_28[0x04];
-			uint32_t stuckState;
-			BZR::GameObject* me;
-			void* subtask;
-			BZR::VECTOR_3D lastScrap;
-			uint8_t pad_44[0x08];
-			BZR::handle scrapHandle;
-			BZR::handle dropHandle;
-			uint32_t curState;
-			uint32_t nextState;
-			BZR::VECTOR_3D where;
-			uint8_t pad_60[0x04];
-			float nextCheck;
-			BZR::VECTOR_3D lastRecyclerPos;
+			void* vftable;                 // 0x00
+			uint32_t aiTaskBase04;         // 0x04 AiTask base
+			const char* deployMsg;         // 0x08 ctor: 0
+			const char* foundMsg;          // 0x0C ctor: 0
+			const char* notFoundMsg;       // 0x10 ctor: 0
+			const char* noDropMsg;         // 0x14 ctor: 0
+			float nextStuck;               // 0x18 ctor: float
+			BZR::VECTOR_3D lastStuck;      // 0x1C ctor: vector
+			uint32_t stuckState;           // 0x28 ctor: 0
+			BZR::GameObject* me;           // 0x2C ctor: 0
+			void* subtask;                 // 0x30 ctor: 0
+			BZR::VECTOR_3D lastScrap;      // 0x34 ctor: vector
+			BZR::handle scrapHandle;       // 0x40 ctor: 0 (order)
+			BZR::handle dropHandle;        // 0x44 ctor: 0 (order)
+			uint32_t curState;             // 0x48 ctor: 0 (order)
+			uint32_t nextState;            // 0x4C ctor: 1 (order)
+			BZR::VECTOR_3D where;          // 0x50 ctor: vector
+			float nextCheck;               // 0x5C ctor: float
+			BZR::VECTOR_3D lastRecyclerPos; // 0x60 ctor: vector
 		};
 
+		// Not verified against 2.2.301: its constructor initialises too few
+		// fields to confirm the layout. Read-only diagnostics use it.
 		struct ScavengerProcessLayout
 		{
 			void* vftable;
@@ -239,6 +249,25 @@ namespace ExtraUtilities::Lua::GameObject
 			void* task;
 		};
 #pragma pack(pop)
+
+		// Pin the constructor-verified offsets so an edit cannot shift a field.
+		static_assert(offsetof(UnitTaskLayout, curState) == 0x08);
+		static_assert(offsetof(UnitTaskLayout, me) == 0x10);
+		static_assert(offsetof(UnitTaskLayout, himHandle) == 0x14);
+		static_assert(offsetof(UnitTaskLayout, wasInTransition) == 0x1C);
+		static_assert(offsetof(UnitTaskLayout, gotoPoint) == 0x28);
+		static_assert(offsetof(UnitTaskLayout, gotoForce) == 0x4C);
+		static_assert(offsetof(UnitTaskLayout, gotoDir) == 0x58);
+		static_assert(offsetof(UnitTaskLayout, braccelFactor) == 0x64);
+		static_assert(offsetof(UnitTaskLayout, omegaScale) == 0x74);
+		static_assert(offsetof(UnitTaskLayout, lastStuck) == 0x88);
+		static_assert(offsetof(UnitTaskLayout, stuckState) == 0x94);
+		static_assert(offsetof(UnitTaskLayout, pitch) == 0xB0);
+		static_assert(offsetof(RecycleTaskLayout, deployMsg) == 0x08);
+		static_assert(offsetof(RecycleTaskLayout, me) == 0x2C);
+		static_assert(offsetof(RecycleTaskLayout, lastScrap) == 0x34);
+		static_assert(offsetof(RecycleTaskLayout, where) == 0x50);
+		static_assert(offsetof(RecycleTaskLayout, lastRecyclerPos) == 0x60);
 
 		constexpr size_t kGameObjectCarrierOffset = 0x1A0; // GOG: PDB 0x198 drifted +8 (0x198 is the scanner); see bzr.h
 		constexpr size_t kGameObjectModeListOffset = 0x1A4;            // GOG: 1.5 PDB 0x19C +8 (verified via MODEPROBE 2026-07-14)
@@ -5265,15 +5294,96 @@ namespace ExtraUtilities::Lua::GameObject
 		return 1;
 	}
 
+	namespace
+	{
+		// Values parsed from the Lua table before anything is resolved or
+		// written: every call that can raise happens first, so a bad field can
+		// neither leave a task half-written nor leak the C++ objects used to
+		// find the task.
+		struct AiTaskStateRequest
+		{
+			bool hasBraccel = false, hasStrafe = false, hasSteer = false, hasOmega = false, hasOmegaScale = false, hasPitch = false;
+			float braccel = 0.0f, strafe = 0.0f, steer = 0.0f, omega = 0.0f, omegaScale = 0.0f, pitch = 0.0f;
+			bool hasGotoForce = false, hasGotoDir = false;
+			BZR::VECTOR_3D gotoForce{}, gotoDir{};
+			bool hasTurbo = false, turbo = false;
+		};
+
+		// The steering factors are small multipliers in stock AI; anything
+		// outside this range is a script bug, and NaN/inf would propagate into
+		// the physics integration.
+		constexpr float kMaxAiSteeringMagnitude = 1.0e4f;
+
+		bool IsSaneAiScalar(float value)
+		{
+			return std::isfinite(value) && std::fabs(value) <= kMaxAiSteeringMagnitude;
+		}
+
+		bool IsSaneAiVector(const BZR::VECTOR_3D& value)
+		{
+			return IsSaneAiScalar(value.x) && IsSaneAiScalar(value.y) && IsSaneAiScalar(value.z);
+		}
+
+		void ReadAiScalarField(lua_State* L, const char* name, bool& hasValue, float& value)
+		{
+			hasValue = TryGetOptionalNumberField(L, 2, name, value);
+			if (hasValue && !IsSaneAiScalar(value))
+			{
+				luaL_error(L, "SetAiTaskState field '%s' must be a finite number within +/-%f", name, static_cast<double>(kMaxAiSteeringMagnitude));
+			}
+		}
+
+		void ReadAiVectorField(lua_State* L, const char* name, bool& hasValue, BZR::VECTOR_3D& value)
+		{
+			hasValue = TryGetOptionalVectorField(L, 2, name, value);
+			if (hasValue && !IsSaneAiVector(value))
+			{
+				luaL_error(L, "SetAiTaskState field '%s' must have finite components within +/-%f", name, static_cast<double>(kMaxAiSteeringMagnitude));
+			}
+		}
+
+		// Plain-data write so the SEH frame holds no C++ objects.
+		bool TryApplyAiTaskState(UnitTaskLayout* task, const AiTaskStateRequest& request)
+		{
+			__try
+			{
+				if (request.hasBraccel) task->braccelFactor = request.braccel;
+				if (request.hasStrafe) task->strafeFactor = request.strafe;
+				if (request.hasSteer) task->steerFactor = request.steer;
+				if (request.hasOmega) task->omegaFactor = request.omega;
+				if (request.hasOmegaScale) task->omegaScale = request.omegaScale;
+				if (request.hasPitch) task->pitch = request.pitch;
+				if (request.hasGotoForce) task->gotoForce = request.gotoForce;
+				if (request.hasGotoDir) task->gotoDir = request.gotoDir;
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				return false;
+			}
+		}
+	}
+
 	int SetAiTaskState(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		luaL_checktype(L, 2, LUA_TTABLE);
 
+		AiTaskStateRequest request{};
+		ReadAiScalarField(L, "braccel", request.hasBraccel, request.braccel);
+		ReadAiScalarField(L, "strafe", request.hasStrafe, request.strafe);
+		ReadAiScalarField(L, "steer", request.hasSteer, request.steer);
+		ReadAiScalarField(L, "omega", request.hasOmega, request.omega);
+		ReadAiScalarField(L, "omegaScale", request.hasOmegaScale, request.omegaScale);
+		ReadAiScalarField(L, "pitch", request.hasPitch, request.pitch);
+		ReadAiVectorField(L, "gotoForce", request.hasGotoForce, request.gotoForce);
+		ReadAiVectorField(L, "gotoDir", request.hasGotoDir, request.gotoDir);
+		request.hasTurbo = TryGetOptionalBooleanField(L, 2, "turbo", request.turbo);
+
+		// Nothing below raises a Lua error.
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
 		if (obj == nullptr)
 		{
-			Logging::LogMessage("[EXU::AiTask] SetAiTaskState missing object handle=%u", static_cast<unsigned>(h));
 			lua_pushboolean(L, 0);
 			return 1;
 		}
@@ -5286,69 +5396,46 @@ namespace ExtraUtilities::Lua::GameObject
 			return 1;
 		}
 
-		PolymorphicObjectInfo taskInfo{};
-		if (!TryFindBestAiTask(aiProcess, 0x100, taskInfo))
+		// Only a UnitTask (or a class derived from it) has this layout. In
+		// 2.2.301 every stock task class except RecycleTask derives from
+		// UnitTask; RecycleTask derives from AiTask directly and writing the
+		// UnitTask layout into it corrupted its state machine and wrote past
+		// the object.
+		const bool wantsTaskWrite = request.hasBraccel || request.hasStrafe || request.hasSteer || request.hasOmega ||
+			request.hasOmegaScale || request.hasPitch || request.hasGotoForce || request.hasGotoDir;
+		std::string taskTypeName;
+		if (wantsTaskWrite)
 		{
-			Logging::LogMessage("[EXU::AiTask] SetAiTaskState no task found handle=%u", static_cast<unsigned>(h));
-			lua_pushboolean(L, 0);
-			return 1;
+			PolymorphicObjectInfo taskInfo{};
+			if (!TryFindBestAiTask(aiProcess, 0x100, taskInfo, "UnitTask"))
+			{
+				Logging::LogMessage("[EXU::AiTask] SetAiTaskState no UnitTask found handle=%u", static_cast<unsigned>(h));
+				lua_pushboolean(L, 0);
+				return 1;
+			}
+
+			taskTypeName = taskInfo.typeName;
+			if (!TryApplyAiTaskState(reinterpret_cast<UnitTaskLayout*>(taskInfo.object), request))
+			{
+				Logging::LogMessage("[EXU::AiTask] SetAiTaskState write faulted handle=%u task=%s", static_cast<unsigned>(h), taskTypeName.c_str());
+				lua_pushboolean(L, 0);
+				return 1;
+			}
 		}
 
-		auto* task = reinterpret_cast<UnitTaskLayout*>(taskInfo.object);
-
-		float numericValue = 0.0f;
-		if (TryGetOptionalNumberField(L, 2, "braccel", numericValue))
+		if (request.hasTurbo)
 		{
-			task->braccelFactor = numericValue;
-		}
-		if (TryGetOptionalNumberField(L, 2, "strafe", numericValue))
-		{
-			task->strafeFactor = numericValue;
-		}
-		if (TryGetOptionalNumberField(L, 2, "steer", numericValue))
-		{
-			task->steerFactor = numericValue;
-		}
-		if (TryGetOptionalNumberField(L, 2, "omega", numericValue))
-		{
-			task->omegaFactor = numericValue;
-		}
-		if (TryGetOptionalNumberField(L, 2, "omegaScale", numericValue))
-		{
-			task->omegaScale = numericValue;
-		}
-		if (TryGetOptionalNumberField(L, 2, "pitch", numericValue))
-		{
-			task->pitch = numericValue;
+			Patch::setTurboUnits[h] = request.turbo;
 		}
 
-		BZR::VECTOR_3D vectorValue{};
-		if (TryGetOptionalVectorField(L, 2, "gotoForce", vectorValue))
+		if (Logging::IsDebugLoggingEnabled())
 		{
-			task->gotoForce = vectorValue;
+			Logging::LogMessage(
+				"[EXU::AiTask] SetAiTaskState handle=%u task=%s turbo=%d",
+				static_cast<unsigned>(h),
+				taskTypeName.empty() ? "-" : taskTypeName.c_str(),
+				request.hasTurbo ? (request.turbo ? 1 : 0) : -1);
 		}
-		if (TryGetOptionalVectorField(L, 2, "gotoDir", vectorValue))
-		{
-			task->gotoDir = vectorValue;
-		}
-
-		bool turboEnabled = false;
-		if (TryGetOptionalBooleanField(L, 2, "turbo", turboEnabled))
-		{
-			Patch::setTurboUnits[h] = turboEnabled;
-		}
-
-		Logging::LogMessage(
-			"[EXU::AiTask] SetAiTaskState handle=%u task=%s braccel=%.3f strafe=%.3f steer=%.3f omega=%.3f omegaScale=%.3f pitch=%.3f turbo=%d",
-			static_cast<unsigned>(h),
-			taskInfo.typeName.c_str(),
-			task->braccelFactor,
-			task->strafeFactor,
-			task->steerFactor,
-			task->omegaFactor,
-			task->omegaScale,
-			task->pitch,
-			Patch::setTurboUnits.contains(h) && Patch::setTurboUnits.at(h) ? 1 : 0);
 		lua_pushboolean(L, 1);
 		return 1;
 	}
