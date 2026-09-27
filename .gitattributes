@@ -49,9 +49,10 @@
 include/lua*.h linguist-vendored
 Lua5.1-BZR/** linguist-vendored
 
-# Patches must reach git apply byte-exact; batch files want CRLF on every host.
+# Patches must reach git apply byte-exact; batch and cmd files want CRLF on every host.
 *.patch -text
 *.bat   text eol=crlf
+*.cmd   text eol=crlf
 
 ###############################################################################
 # Shell scripts must stay LF, on every platform.
