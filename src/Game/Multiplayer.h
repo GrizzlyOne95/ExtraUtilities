@@ -37,14 +37,6 @@ namespace ExtraUtilities::Lua::Multiplayer
 	// which it then skips.
 	inline InlinePatch skipStartingRecycler(0x0056F014, { 0xE9, 0xBC, 0x00, 0x00, 0x00 }, BasicPatch::Status::INACTIVE, { 0x8B, 0x45, 0x9C, 0x50, 0x8B });
 
-	// Gameplay changes EXU applies locally (turbo, infinite ammo/scrap,
-	// ordnance velocity inheritance) are single-player only: in a network
-	// game they change this machine's simulation and nobody else's.
-	inline bool IsNetworkGame() noexcept
-	{
-		return isNetGame.Read();
-	}
-
 	int BuildAsyncObject(lua_State* L);
 	int BuildSyncObject(lua_State* L);
 
