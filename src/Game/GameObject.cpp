@@ -3499,6 +3499,11 @@ namespace ExtraUtilities::Lua::GameObject
 		return animationState && TrySetAnimationTimePosition(animationState, timePosition);
 	}
 
+	void ClearMaterialCache() noexcept
+	{
+		g_cachedMaterials.clear();
+	}
+
 	int SetAsUser(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);

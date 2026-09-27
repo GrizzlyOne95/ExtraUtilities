@@ -25,6 +25,10 @@
 
 namespace ExtraUtilities::Lua::ControlPanel
 {
+	// Puts the scrap/pilot HUD text back to the stock layout and colour if a
+	// mission moved or recoloured it.
+	void ResetMissionState() noexcept;
+
 	inline auto controlPanel = BZR::ControlPanel::p_controlPanel;
 
 	bool TryGetScrapPilotHudTopLefts(int& scrapLeft, int& scrapTop, int& pilotLeft, int& pilotTop) noexcept;

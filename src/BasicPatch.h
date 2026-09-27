@@ -48,6 +48,11 @@ namespace ExtraUtilities
 	protected:
 		Status m_status;
 		Status m_requestedStatus;
+		// The status the patch was constructed with. Script calls change
+		// m_requestedStatus; closing the Lua state puts it back here so a
+		// cheat or override a mission enabled is not re-applied by the next
+		// mission's activation (the DLL may stay loaded).
+		Status m_defaultStatus;
 		bool m_initialized = false;
 
 		uintptr_t m_address;
@@ -242,6 +247,18 @@ namespace ExtraUtilities
 			}
 		}
 
+		// Called at Lua-state close, after UnloadAllPatches.
+		static void ResetRequestedStatusesToDefaults() noexcept
+		{
+			for (BasicPatch* patch : deferredPatches)
+			{
+				if (patch != nullptr)
+				{
+					patch->m_requestedStatus = patch->m_defaultStatus;
+				}
+			}
+		}
+
 		BasicPatch(
 			uintptr_t address,
 			size_t length,
@@ -249,6 +266,7 @@ namespace ExtraUtilities
 			std::vector<uint8_t> expectedBytes = {})
 			: m_status(patchActivationEnabled ? status : Status::INACTIVE)
 			, m_requestedStatus(status)
+			, m_defaultStatus(status)
 			, m_address(address)
 			, m_length(length)
 		{
@@ -289,6 +307,7 @@ namespace ExtraUtilities
 		{
 			this->m_status = p.m_status;
 			this->m_requestedStatus = p.m_requestedStatus;
+			this->m_defaultStatus = p.m_defaultStatus;
 			this->m_initialized = p.m_initialized;
 			this->m_address = p.m_address;
 			this->m_length = p.m_length;
