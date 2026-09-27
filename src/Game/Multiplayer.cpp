@@ -72,7 +72,7 @@ namespace ExtraUtilities::Lua::Multiplayer
 
 		// This will crash if done in singleplayer,
 		// not like lives do anything in SP anyways tho
-		if (isNetGame.Read() == true)
+		if (RuntimeGate::IsSupported() && isNetGame.Read() == true)
 		{
 			BZR::Multiplayer::UpdateLives();
 		}

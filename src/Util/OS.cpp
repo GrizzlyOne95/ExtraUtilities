@@ -20,6 +20,7 @@
 
 #include "Logging.h"
 #include "NativeSaveFlag.h"
+#include "RuntimeGate.h"
 
 #include <algorithm>
 #include <array>
@@ -752,6 +753,15 @@ namespace ExtraUtilities::Lua::OS
 
 	int SaveGame(lua_State* L)
 	{
+		// The save routines are found by signature, but the missionSave flag
+		// write and the description buffer are build-specific.
+		if (!RuntimeGate::IsSupported())
+		{
+			lua_pushboolean(L, 0);
+			lua_pushstring(L, "unsupported or modified BZR build");
+			return 2;
+		}
+
 		std::string filename;
 		int slot = 0;
 		if (lua_type(L, 1) == LUA_TNUMBER)

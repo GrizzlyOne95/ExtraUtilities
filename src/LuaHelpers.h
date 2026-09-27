@@ -21,6 +21,8 @@
 #include "bzr.h"
 #include "LuaState.h"
 #include "Ogre/Ogre.h"
+#include "Util/Logging.h"
+#include "Util/RuntimeGate.h"
 
 #include <lua.hpp>
 
@@ -45,14 +47,40 @@ namespace ExtraUtilities
 		}
 	};
 
-	// Pass in the return from pcall to use the game's error handler in event
-	// callbacks
+	// The game's Lua error reporter (logs, does not raise).
 	using _LuaCheckStatus = bool(__cdecl*)(int pcallCode, lua_State* L, const char* message);
-	inline _LuaCheckStatus LuaCheckStatus = (_LuaCheckStatus)0x004FF600;
+	inline _LuaCheckStatus NativeLuaCheckStatus = (_LuaCheckStatus)0x004FF600;
+
+	// Pass in the return from pcall to use the game's error handler in event
+	// callbacks. On an executable that failed the supported-build check the
+	// fixed address is not the reporter, so the error goes to exu.log instead.
+	inline bool LuaCheckStatus(int pcallCode, lua_State* L, const char* message)
+	{
+		if (RuntimeGate::IsSupported())
+		{
+			return NativeLuaCheckStatus(pcallCode, L, message);
+		}
+
+		if (pcallCode != 0)
+		{
+			const char* error = lua_tostring(L, -1);
+			Logging::LogMessage(message != nullptr ? message : "%s", error != nullptr ? error : "(non-string error)");
+		}
+		return pcallCode == 0;
+	}
 }
 
 namespace ExtraUtilities::Lua
 {
+	// Result of a binding that would call engine code or write engine memory
+	// on an executable that failed the supported-build check: nil, no side
+	// effects. See Util/RuntimeGate.h.
+	inline int PushUnsupportedBuild(lua_State* L)
+	{
+		lua_pushnil(L);
+		return 1;
+	}
+
 	inline int AbsoluteStackIndex(lua_State* L, int idx)
 	{
 		return idx > 0 || idx <= LUA_REGISTRYINDEX ? idx : lua_gettop(L) + idx + 1;

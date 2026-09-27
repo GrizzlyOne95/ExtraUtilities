@@ -404,7 +404,7 @@ namespace ExtraUtilities::Lua::CommandReplacement
 
 		bool WriteHuntLabelPointer(const char* label) noexcept
 		{
-			if (!EnsureHuntLabelPointerResolved())
+			if (!RuntimeGate::IsSupported() || !EnsureHuntLabelPointerResolved())
 			{
 				return false;
 			}

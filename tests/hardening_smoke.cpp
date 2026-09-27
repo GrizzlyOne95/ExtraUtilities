@@ -144,6 +144,15 @@ int main()
 	*middle = reinterpret_cast<uintptr_t>(finalValue);
 	*finalValue = 7;
 
+	// Scanner::Write is a no-op while the runtime build gate is closed.
+	*finalValue = 7;
+	{
+		Scanner<int> gated(reinterpret_cast<int*>(root), { 0, 0 }, BasicScanner::Restore::DISABLED);
+		gated.Write(5);
+		ok &= Check(*finalValue == 7, "Scanner wrote with the runtime build gate closed");
+	}
+	RuntimeGate::SetSupported(true);
+
 	MEMORY_BASIC_INFORMATION before{};
 	MEMORY_BASIC_INFORMATION after{};
 	VirtualQuery(finalValue, &before, sizeof(before));
@@ -179,6 +188,12 @@ int main()
 
 			setSerial(5, 0x12345);
 			const BZR::handle live = (5u << 20) | 0x12345u;
+
+			// Off the qualified executable the arena is not at kArenaBase.
+			RuntimeGate::SetSupported(false);
+			ok &= Check(GameObject::GetObj(live) == nullptr, "GetObj resolved a handle with the runtime build gate closed");
+			ok &= Check(!GameObject::IsLiveArenaObject(reinterpret_cast<void*>(slotAddress(5))), "arena pointer accepted with the runtime build gate closed");
+			RuntimeGate::SetSupported(true);
 			ok &= Check(GameObject::GetObj(live) == reinterpret_cast<GameObject*>(slotAddress(5)), "live handle did not resolve to its slot");
 			ok &= Check(GameObject::GetObj(0) == nullptr, "handle 0 resolved to an object");
 			ok &= Check(GameObject::GetObj((5u << 20) | 0x12346u) == nullptr, "stale handle (serial mismatch) resolved to an object");
@@ -192,6 +207,7 @@ int main()
 			ok &= Check(!GameObject::IsLiveArenaObject(reinterpret_cast<void*>(slotAddress(5) + 4)), "mid-slot pointer accepted");
 			ok &= Check(!GameObject::IsLiveArenaObject(reinterpret_cast<void*>(slotAddress(6))), "free slot accepted");
 			ok &= Check(!GameObject::IsLiveArenaObject(reinterpret_cast<void*>(live)), "a handle value was accepted as an object pointer");
+			RuntimeGate::SetSupported(false);
 			VirtualFree(arena, 0, MEM_RELEASE);
 		}
 	}
