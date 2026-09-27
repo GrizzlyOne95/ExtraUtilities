@@ -26,6 +26,7 @@
 // decode and, just as importantly, every way it must fail closed on drift.
 
 #include "Util/NativeSaveFlag.h"
+#include "HostTest.h"
 
 #include <array>
 #include <cstdlib>
@@ -37,16 +38,7 @@ using namespace ExtraUtilities::NativeSave;
 
 namespace
 {
-	int g_failures = 0;
-
-	void Expect(bool condition, const std::string& what)
-	{
-		if (!condition)
-		{
-			++g_failures;
-			std::cerr << "FAIL: " << what << '\n';
-		}
-	}
+	using HostTest::Expect;
 
 	// The real bytes at battlezone98redux.exe VA 0x004FD190 (GOG 2.2.301),
 	// truncated to the region the decode reads. Byte 37 begins 0F B6 05 and the
@@ -257,12 +249,5 @@ int main()
 	TestBinarySaveFlagMustSitBesideMissionSave();
 	TestBinarySaveStoreMustUseTheLoadedRegister();
 
-	if (g_failures != 0)
-	{
-		std::cerr << g_failures << " missionSave decode check(s) failed\n";
-		return EXIT_FAILURE;
-	}
-
-	std::cout << "All missionSave decode checks passed.\n";
-	return EXIT_SUCCESS;
+	return HostTest::Finish("missionSave decode");
 }

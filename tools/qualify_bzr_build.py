@@ -1,4 +1,20 @@
 #!/usr/bin/env python3
+# Copyright (C) 2026 GrizzlyOne95
+#
+# This file is part of Extra Utilities.
+#
+# Extra Utilities is free software: you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by the
+# Free Software Foundation, either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import argparse
@@ -6,6 +22,7 @@ import ctypes
 import hashlib
 import json
 import os
+import re
 import struct
 import sys
 from dataclasses import dataclass
@@ -16,6 +33,10 @@ from typing import Iterable, Optional
 IMAGE_FILE_MACHINE_I386 = 0x014C
 IMAGE_NT_OPTIONAL_HDR32_MAGIC = 0x10B
 IMAGE_SCN_MEM_EXECUTE = 0x20000000
+
+# SteamStub (Steam DRM) adds a ".bind" section and encrypts .text on disk, so
+# no signature can match the file. src/Util/BuildValidation.h uses the same test.
+STEAMSTUB_SECTION = ".bind"
 
 
 @dataclass(frozen=True)
@@ -80,6 +101,10 @@ class PEImage:
     def executable_sections(self) -> Iterable[Section]:
         return (section for section in self.sections if section.executable and section.raw_size > 0)
 
+    @property
+    def steamstub_packed(self) -> bool:
+        return any(section.name == STEAMSTUB_SECTION for section in self.sections)
+
     def rva_to_file_offset(self, rva: int) -> Optional[int]:
         for section in self.sections:
             mapped_size = max(section.virtual_size, section.raw_size)
@@ -93,19 +118,19 @@ class PEImage:
     def find_pattern(self, pattern: list[Optional[int]], executable_only: bool = True) -> list[int]:
         matches: list[int] = []
         sections = list(self.executable_sections()) if executable_only else self.sections
-        plen = len(pattern)
-        if plen == 0:
+        if not pattern:
             return matches
 
+        # A zero-width lookahead reports overlapping matches, like the
+        # byte-by-byte scan this replaces, at regex speed.
+        body = b"".join(b"." if value is None else re.escape(bytes([value])) for value in pattern)
+        regex = re.compile(b"(?=" + body + b")", re.DOTALL)
         for section in sections:
             start = section.raw_offset
             end = min(len(self.data), start + section.raw_size)
             blob = self.data[start:end]
-            if len(blob) < plen:
-                continue
-            for offset in range(0, len(blob) - plen + 1):
-                if all(expected is None or blob[offset + i] == expected for i, expected in enumerate(pattern)):
-                    matches.append(self.image_base + section.virtual_address + offset)
+            for match in regex.finditer(blob):
+                matches.append(self.image_base + section.virtual_address + match.start())
         return matches
 
     def pattern_at_va(self, va: int, pattern: list[Optional[int]]) -> bool:
@@ -326,6 +351,167 @@ def qualify(image: PEImage, profile: dict, catalog: dict) -> dict:
     }
 
 
+PATTERN_KINDS = ("code", "reference")
+
+
+def address_bytes(address: int) -> list[int]:
+    return list(struct.pack("<I", address))
+
+
+def find_address_operand(pattern: list[Optional[int]], address: int) -> Optional[int]:
+    """Offset of the literal little-endian address inside a reference pattern."""
+    needle = address_bytes(address)
+    for offset in range(len(pattern) - 3):
+        if pattern[offset:offset + 4] == needle:
+            return offset
+    return None
+
+
+def load_catalog(catalog_path: Path) -> dict:
+    return json.loads(catalog_path.read_text(encoding="utf-8"))
+
+
+def catalog_pattern_entries(catalog: dict) -> tuple[list[tuple[str, dict]], list[tuple[str, dict]]]:
+    """Split catalog address entries into (with pattern, address-only)."""
+    patterned: list[tuple[str, dict]] = []
+    address_only: list[tuple[str, dict]] = []
+    for name, entry in walk_catalog_entries(catalog.get("addresses", {})):
+        if not isinstance(entry.get("address"), str):
+            continue
+        text = entry.get("pattern")
+        if isinstance(text, str) and text.strip():
+            patterned.append((name, entry))
+        else:
+            address_only.append((name, entry))
+    return patterned, address_only
+
+
+def qualify_catalog_entry(image: PEImage, name: str, entry: dict) -> dict:
+    """Check one catalog signature.
+
+    pattern_kind "code": the pattern must match at the entry's address
+    (functions, hook and patch sites).
+    pattern_kind "reference": the pattern is an instruction sequence elsewhere
+    that embeds the entry's address (data globals, vftables, strings); it must
+    be unique. When it is missing, the scan is retried with the address bytes
+    wildcarded so a moved global reports RELOCATED with its new address.
+    """
+    address = int(entry["address"], 16)
+    kind = entry.get("pattern_kind")
+    if kind not in PATTERN_KINDS:
+        raise ValueError(f"catalog entry {name!r} has pattern_kind {kind!r}; expected one of {PATTERN_KINDS}")
+    pattern = parse_ida_pattern(entry["pattern"])
+    matches = image.find_pattern(pattern, executable_only=True)
+    relocated_to: Optional[int] = None
+
+    if kind == "code":
+        at_address = image.pattern_at_va(address, pattern)
+        if at_address and len(matches) == 1:
+            state = "MATCH"
+        elif len(matches) == 1:
+            state = "RELOCATED"
+            relocated_to = matches[0]
+        elif not matches:
+            state = "MISSING"
+        else:
+            state = "AMBIGUOUS"
+    else:
+        operand = find_address_operand(pattern, address)
+        if operand is None:
+            raise ValueError(
+                f"catalog entry {name!r} is a reference pattern that does not contain its address bytes"
+            )
+        if len(matches) == 1:
+            state = "MATCH"
+        elif len(matches) > 1:
+            state = "AMBIGUOUS"
+        else:
+            wildcarded = list(pattern)
+            wildcarded[operand:operand + 4] = [None] * 4
+            moved = image.find_pattern(wildcarded, executable_only=True)
+            if len(moved) == 1:
+                state = "RELOCATED"
+                rva = moved[0] + operand - image.image_base
+                offset = image.rva_to_file_offset(rva)
+                if offset is not None:
+                    relocated_to = struct.unpack_from("<I", image.data, offset)[0]
+                matches = moved
+            else:
+                state = "MISSING"
+
+    return {
+        "name": name,
+        "address": address,
+        "pattern_kind": kind,
+        "state": state,
+        "matches": matches,
+        "relocated_to": relocated_to,
+    }
+
+
+def qualify_catalog(image: PEImage, catalog: dict) -> dict:
+    patterned, address_only = catalog_pattern_entries(catalog)
+    results = [qualify_catalog_entry(image, name, entry) for name, entry in patterned]
+    counts = {state: 0 for state in ("MATCH", "RELOCATED", "MISSING", "AMBIGUOUS")}
+    for result in results:
+        counts[result["state"]] += 1
+    return {
+        "status": "CATALOG_MATCH" if counts["MATCH"] == len(results) else "CATALOG_CHANGED",
+        "path": str(image.path),
+        "size": len(image.data),
+        "sha256": hashlib.sha256(image.data).hexdigest(),
+        "counts": counts,
+        "entries": results,
+        "address_only": [name for name, _ in address_only],
+    }
+
+
+def render_catalog_report(result: dict) -> str:
+    lines = [
+        "EXU / Battlezone 98 Redux Address Catalog Qualification",
+        "=" * 55,
+        f"Executable: {result['path']}",
+        f"Size: {result['size']} bytes",
+        f"SHA-256: {result['sha256']}",
+        "",
+        "Signature results",
+        "-----------------",
+    ]
+    for entry in result["entries"]:
+        matches = ", ".join(format_va(value) for value in entry["matches"][:4])
+        if len(entry["matches"]) > 4:
+            matches += f", ... (+{len(entry['matches']) - 4})"
+        detail = f"matches={matches or '-'}"
+        if entry["relocated_to"] is not None:
+            detail += f" | now={format_va(entry['relocated_to'])}"
+        lines.append(
+            f"[{entry['state']:9}] {entry['name']} | {entry['pattern_kind']} | "
+            f"catalog={format_va(entry['address'])} | {detail}"
+        )
+    counts = result["counts"]
+    lines.extend([
+        "",
+        "Summary",
+        "-------",
+        f"Entries with signatures: {len(result['entries'])}",
+        "  " + ", ".join(f"{state} {count}" for state, count in counts.items()),
+        f"Address-only entries (not checked): {len(result['address_only'])}",
+        "",
+    ])
+    if result["status"] == "CATALOG_MATCH":
+        lines.append("Conclusion: every catalog signature matches this executable.")
+    else:
+        lines.append("Conclusion: some catalog signatures do not match; review them before trusting the catalog on this executable.")
+    return "\n".join(lines) + "\n"
+
+
+def steamstub_message(path: Path) -> str:
+    return (
+        f"{path}: SteamStub-packed executable ({STEAMSTUB_SECTION} section present). Its code is encrypted on disk, "
+        "so no signature can be checked. Qualify the GOG executable or an unpacked image instead.\n"
+    )
+
+
 def format_va(value: Optional[int]) -> str:
     return "-" if value is None else f"0x{value:08X}"
 
@@ -395,13 +581,25 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--write-report", action="store_true", help="Write a shareable text report in the current working directory")
     parser.add_argument("--output", type=Path, help="Explicit text report path")
     parser.add_argument("--json-output", type=Path, help="Optional machine-readable JSON result path")
+    parser.add_argument(
+        "--catalog",
+        action="store_true",
+        help="Check every exu.json signature (MATCH/RELOCATED/MISSING/AMBIGUOUS) instead of the profile anchors",
+    )
     args = parser.parse_args(argv)
 
     try:
         profile, catalog = load_profile(args.profile.resolve())
         image = PEImage.load(args.executable.resolve())
-        result = qualify(image, profile, catalog)
-        report = render_report(result)
+        if image.steamstub_packed:
+            print(steamstub_message(image.path), end="", file=sys.stderr)
+            return 3
+        if args.catalog:
+            result = qualify_catalog(image, catalog)
+            report = render_catalog_report(result)
+        else:
+            result = qualify(image, profile, catalog)
+            report = render_report(result)
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
         print(f"qualification failed: {exc}", file=sys.stderr)
         return 2
@@ -420,7 +618,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         args.json_output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         print(f"JSON written to: {args.json_output}")
 
-    return 0 if result["status"] == "SUPPORTED_PROFILE_MATCH" else 1
+    return 0 if result["status"] in ("SUPPORTED_PROFILE_MATCH", "CATALOG_MATCH") else 1
 
 
 if __name__ == "__main__":
