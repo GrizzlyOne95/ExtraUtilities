@@ -497,6 +497,8 @@ namespace ExtraUtilities::Lua
 		// OpenShim keeps it off for stock/MP; a mission can opt out with
 		// exu.SetJumpSnipeCrouch(false).
 		Patches::ApplyJumpSnipeCrouchDefault();
+		Patch::InstallUnitVoQueueHooks();
+
 		// The build was validated above; do not scan .text a second time.
 		if (supportedBuild && BasicPatch::EnableDeferredPatchActivation(false))
 		{
