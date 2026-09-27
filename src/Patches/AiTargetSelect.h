@@ -28,7 +28,8 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 	// aborts that slot without patching.
 	bool Install();
 
-	// Restores every patched slot (called automatically on DLL unload).
+	// Switches every slot and score-call patch off. They are also unloaded with
+	// every other patch when the Lua state closes.
 	void Uninstall();
 
 	// Gates dispatch into Lua; patches stay installed but pass through
