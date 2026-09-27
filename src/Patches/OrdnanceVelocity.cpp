@@ -16,7 +16,6 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "Game/Multiplayer.h"
 #include "OrdnanceVelocity.h"
 
 #include "bzr.h"
@@ -297,12 +296,6 @@ namespace ExtraUtilities::Lua::Patches
 	int SetOrdnanceVelocInheritance(lua_State* L)
 	{
 		const bool active = CheckBool(L, 1);
-		if (active && Multiplayer::IsNetworkGame())
-		{
-			lua_pushboolean(L, 0);
-			return 1;
-		}
-
 		Patch::ordnanceVelocityPatch.SetStatus(active);
 		Patch::cannonLeadPositionPatch.SetStatus(active);
 		Patch::cannonVelocityTolerancePatch.SetStatus(active);
