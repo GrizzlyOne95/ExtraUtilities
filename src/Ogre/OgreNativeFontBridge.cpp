@@ -1169,7 +1169,10 @@ namespace Native
 					exceptionCode);
 				return false;
 			}
-			LogNativeOverlayMessage("[EXU::Overlay] native setFontName element=%p font=%s", overlayElement, fontName);
+			if (ExtraUtilities::Logging::IsDebugLoggingEnabled())
+			{
+				LogNativeOverlayMessage("[EXU::Overlay] native setFontName element=%p font=%s", overlayElement, fontName);
+			}
 			return true;
 		}
 		catch (const Ogre::Exception& ex)
@@ -1219,7 +1222,12 @@ namespace Native
 					exceptionCode);
 				return false;
 			}
-			LogNativeOverlayMessage("[EXU::Overlay] native setCaption element=%p text=%s", overlayElement, text);
+			// HUD scripts update captions every frame; keep the success line
+			// behind the debug switch.
+			if (ExtraUtilities::Logging::IsDebugLoggingEnabled())
+			{
+				LogNativeOverlayMessage("[EXU::Overlay] native setCaption element=%p text=%s", overlayElement, text);
+			}
 			return true;
 		}
 		catch (const std::exception& ex)
@@ -1261,7 +1269,10 @@ namespace Native
 					exceptionCode);
 				return false;
 			}
-			LogNativeOverlayMessage("[EXU::Overlay] native setCharHeight element=%p height=%.3f", overlayElement, charHeight);
+			if (ExtraUtilities::Logging::IsDebugLoggingEnabled())
+			{
+				LogNativeOverlayMessage("[EXU::Overlay] native setCharHeight element=%p height=%.3f", overlayElement, charHeight);
+			}
 			return true;
 		}
 		catch (const std::exception& ex)
@@ -1303,9 +1314,12 @@ namespace Native
 					exceptionCode);
 				return false;
 			}
-			LogNativeOverlayMessage("[EXU::Overlay] native setTextColor element=%p rgba=(%.3f,%.3f,%.3f,%.3f)",
-				overlayElement,
-				r, g, b, a);
+			if (ExtraUtilities::Logging::IsDebugLoggingEnabled())
+			{
+				LogNativeOverlayMessage("[EXU::Overlay] native setTextColor element=%p rgba=(%.3f,%.3f,%.3f,%.3f)",
+					overlayElement,
+					r, g, b, a);
+			}
 			return true;
 		}
 		catch (const std::exception& ex)

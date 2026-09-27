@@ -18,7 +18,7 @@
 
 #include "OrdnanceVelocity.h"
 
-#include "BZR.h"
+#include "bzr.h"
 #include "InlinePatch.h"
 #include "Hook.h"
 #include "LuaHelpers.h"

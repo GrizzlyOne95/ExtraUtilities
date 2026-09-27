@@ -13,6 +13,21 @@ namespace ExtraUtilities
 {
 	namespace Logging
 	{
+		// Verbose subsystem tracing (exu_environment_debug.log,
+		// exu_material_debug.log and success-path lines) is opt-in through
+		// EXU_DEBUG_LOG=1 in the game's environment. Fault lines still reach
+		// exu.log unconditionally. Read once per DLL load.
+		inline bool IsDebugLoggingEnabled() noexcept
+		{
+			static const bool enabled = []() noexcept
+			{
+				char value[8]{};
+				const DWORD length = GetEnvironmentVariableA("EXU_DEBUG_LOG", value, sizeof(value));
+				return length > 0 && length < sizeof(value) && value[0] != '0';
+			}();
+			return enabled;
+		}
+
 		inline std::string GetLogFilePath(const char* path)
 		{
 			const char* safeName = (path != nullptr && path[0] != '\0') ? path : "exu.log";

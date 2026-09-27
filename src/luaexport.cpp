@@ -482,8 +482,14 @@ namespace ExtraUtilities::Lua
 		// OpenShim keeps it off for stock/MP; a mission can opt out with
 		// exu.SetJumpSnipeCrouch(false).
 		Patches::ApplyJumpSnipeCrouchDefault();
-		BasicPatch::EnableDeferredPatchActivation();
-		Logging::LogMessage("exu: deferred patches activated");
+		if (BasicPatch::EnableDeferredPatchActivation())
+		{
+			Logging::LogMessage("exu: deferred patches activated");
+		}
+		else
+		{
+			Logging::LogMessage("exu: deferred patches NOT activated; unsupported or modified BZR build");
+		}
 		// Which module owns the scrap/pilot HUD text colour. The colour hooks
 		// stand themselves down at construction when OpenShim is present, and
 		// that is otherwise completely silent -- which is how "the legacy HUD
@@ -933,10 +939,6 @@ namespace ExtraUtilities::Lua
 			{ "PauseMusic",       &SoundOptions::PauseMusic },
 			{ "ResumeMusic",      &SoundOptions::ResumeMusic },
 			{ "GetMusicTrack",    &SoundOptions::GetMusicTrack },
-			//{ "GetEffectsVolume", &SoundOptions::GetEffectsVolume },
-			//{ "SetEffectsVolume", &SoundOptions::SetEffectsVolume },
-			//{ "GetVoiceVolume",   &SoundOptions::GetVoiceVolume },
-			//{ "SetVoiceVolume",   &SoundOptions::SetVoiceVolume },
 
 			// Steam
 			{ "GetSteam64", &Steam::GetSteam64 },

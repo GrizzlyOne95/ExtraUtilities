@@ -19,6 +19,7 @@
 #pragma once
 
 #include "Util/BuildValidation.h"
+#include "Util/Logging.h"
 #include "Util/SignatureResolver.h"
 
 #include <Windows.h>
@@ -106,18 +107,15 @@ namespace ExtraUtilities
 			}
 		}
 
+		// Refusals reach exu.log, not only the debugger: a mismatched preimage
+		// is the one thing a user report needs to show.
 		static void LogPatchIssue(const char* message, uintptr_t address, size_t length) noexcept
 		{
-			char buffer[192]{};
-			std::snprintf(
-				buffer,
-				sizeof(buffer),
-				"ExtraUtilities: %s at %p (len=%zu)\n",
+			Logging::LogMessage(
+				"ExtraUtilities: %s at %p (len=%zu)",
 				message,
 				reinterpret_cast<void*>(address),
-				length
-			);
-			OutputDebugStringA(buffer);
+				length);
 		}
 
 		bool ValidatePreimage() const noexcept
@@ -194,8 +192,8 @@ namespace ExtraUtilities
 			if (validateTargetBuild && !BuildValidation::IsSupportedBzr2301())
 			{
 				patchActivationEnabled = false;
-				OutputDebugStringA(
-					"ExtraUtilities: native patch activation refused; unsupported or modified BZR build\n");
+				Logging::LogMessage(
+					"ExtraUtilities: native patch activation refused; unsupported or modified BZR build");
 				return false;
 			}
 

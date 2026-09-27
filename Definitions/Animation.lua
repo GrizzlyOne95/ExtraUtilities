@@ -38,6 +38,13 @@ local animation = {}
 --- @return ExuAnimationTarget
 function animation.Target(h) end
 
+--- Resolves the local first-person pilot entity (`aspilo_fp`) through OpenShim as an
+--- animation target. The Ogre pointer is re-resolved on every operation and never
+--- cached; operations on this target fail closed when OpenShim or the entity is
+--- unavailable. See Docs/ANIMATION_API.md.
+--- @return ExuAnimationTarget
+function animation.TargetLocalFirstPerson() end
+
 --- Returns the currently implemented target/clock capabilities.
 --- @nodiscard
 --- @return ExuAnimationCapabilities
