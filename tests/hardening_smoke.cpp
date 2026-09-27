@@ -41,7 +41,7 @@ namespace
 			*target = value;
 			FlushPatchedRange();
 			VirtualProtect(target, m_length, oldProtect, &dummyProtect);
-			m_status = Status::ACTIVE;
+			MarkPatched();
 		}
 
 	public:
@@ -120,6 +120,19 @@ int main()
 		ok &= Check(patchPage[0] == 0x22, "requested active state was not restored on enable");
 		patch.SetStatus(false);
 		ok &= Check(patchPage[0] == 0x11, "boolean SetStatus(false) did not unload patch");
+	}
+	BasicPatch::UnloadAllPatches();
+
+	// Another module patching the site after EXU must survive EXU's unload.
+	patchPage[0] = 0x11;
+	{
+		BytePatch patch(patchPage, 0x22, BasicPatch::Status::ACTIVE, { 0x11 });
+		BasicPatch::EnableDeferredPatchActivation(false);
+		ok &= Check(patchPage[0] == 0x22, "patch did not activate before the foreign-overwrite check");
+		patchPage[0] = 0x55;
+		BasicPatch::UnloadAllPatches();
+		ok &= Check(patchPage[0] == 0x55, "unload overwrote another module's patch with EXU's original");
+		ok &= Check(!patch.IsActive(), "patch still reported active after losing its site");
 	}
 	BasicPatch::UnloadAllPatches();
 

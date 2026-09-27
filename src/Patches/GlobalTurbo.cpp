@@ -44,8 +44,8 @@ namespace
 
 namespace ExtraUtilities::Patch
 {
-	InlinePatch turboPatch1(comissPatch, &patchedTurboTolerance, InlinePatch::Status::INACTIVE);
-	InlinePatch turboPatch2(turboConditionPatch, BasicPatch::NOP, 2, InlinePatch::Status::INACTIVE);
+	InlinePatch turboPatch1(comissPatch, &patchedTurboTolerance, InlinePatch::Status::INACTIVE, { 0x04, 0x26, 0x8A, 0x00 });
+	InlinePatch turboPatch2(turboConditionPatch, BasicPatch::NOP, 2, InlinePatch::Status::INACTIVE, { 0x76, 0x0C });
 
 	enum class TurboCode
 	{
@@ -110,7 +110,8 @@ namespace ExtraUtilities::Patch
 		turboPatchBeginAddr,
 		&TurboPatchBegin,
 		6,
-		g_openShimOwnsUnitTurbo ? InlinePatch::Status::INACTIVE : InlinePatch::Status::ACTIVE);
+		g_openShimOwnsUnitTurbo ? InlinePatch::Status::INACTIVE : InlinePatch::Status::ACTIVE,
+		{ 0x8B, 0x45, 0x90, 0xD9, 0x58, 0x08 });
 
 	static void __declspec(naked) TurboPatchEnd()
 	{
@@ -139,7 +140,8 @@ namespace ExtraUtilities::Patch
 		turboPatchEndAddr,
 		&TurboPatchEnd,
 		9,
-		g_openShimOwnsUnitTurbo ? InlinePatch::Status::INACTIVE : InlinePatch::Status::ACTIVE);
+		g_openShimOwnsUnitTurbo ? InlinePatch::Status::INACTIVE : InlinePatch::Status::ACTIVE,
+		{ 0x8B, 0x55, 0x90, 0x8B, 0x85, 0x78, 0xFF, 0xFF, 0xFF });
 }
 
 namespace ExtraUtilities::Lua::Patches
