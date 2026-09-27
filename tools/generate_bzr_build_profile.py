@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (C) 2023-2026 VTrider
+# Copyright (C) 2026 GrizzlyOne95
 #
 # This file is part of Extra Utilities.
 #
