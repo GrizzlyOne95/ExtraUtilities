@@ -2741,6 +2741,18 @@ namespace ExtraUtilities::Lua::GameObject
 			return GetLightObject(BZR::GameObject::GetObj(h));
 		}
 
+		BZR::Scanner* GetLiveScanner(BZR::handle h)
+		{
+			BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+			return obj != nullptr ? obj->GetScanner() : nullptr;
+		}
+
+		BZR::Jammer* GetLiveJammer(BZR::handle h)
+		{
+			BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+			return obj != nullptr ? obj->GetJammer() : nullptr;
+		}
+
 		bool TryGetLightPowerScale(void* light, float& outValue)
 		{
 			__try
@@ -3462,7 +3474,10 @@ namespace ExtraUtilities::Lua::GameObject
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-		TrySetAsUser(obj);
+		if (obj != nullptr)
+		{
+			TrySetAsUser(obj);
+		}
 		return 0;
 	}
 
@@ -3484,7 +3499,10 @@ namespace ExtraUtilities::Lua::GameObject
 
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
 		BZR::handle powerHandle = 0;
-		TryGetCommTowerPowerHandle(obj, powerHandle);
+		if (obj != nullptr)
+		{
+			TryGetCommTowerPowerHandle(obj, powerHandle);
+		}
 		
 		lua_pushboolean(L, powerHandle == 0 ? 0 : 1);
 
@@ -3494,6 +3512,11 @@ namespace ExtraUtilities::Lua::GameObject
 	int GetHandle(lua_State* L)
 	{
 		auto gameObject = reinterpret_cast<BZR::GameObject*>(CheckHandle(L, 1));
+		if (!BZR::GameObject::IsLiveArenaObject(gameObject))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
 		BZR::handle h = BZR::GameObject::GetHandle(gameObject);
 		lua_pushlightuserdata(L, reinterpret_cast<void*>(h));
 		return 1;
@@ -4690,9 +4713,15 @@ namespace ExtraUtilities::Lua::GameObject
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		float mass = 0.0f;
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		if (obj == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
 		__try
 		{
-			mass = BZR::GameObject::GetObj(h)->euler.mass;
+			mass = obj->euler.mass;
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
@@ -4708,13 +4737,17 @@ namespace ExtraUtilities::Lua::GameObject
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		float mass = static_cast<float>(luaL_checknumber(L, 2));
-		if (mass == 0.0f)
+		if (!std::isfinite(mass) || mass <= 0.0f)
 		{
-			return luaL_argerror(L, 2, "mass must be non-zero");
+			return luaL_argerror(L, 2, "mass must be a finite number greater than 0");
+		}
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		if (obj == nullptr)
+		{
+			return 0;
 		}
 		__try
 		{
-			auto obj = BZR::GameObject::GetObj(h);
 			obj->euler.mass = mass;
 			obj->euler.mass_inv = 1 / mass;
 		}
@@ -4729,6 +4762,11 @@ namespace ExtraUtilities::Lua::GameObject
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		if (obj == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
 		lua_pushlightuserdata(L, obj);
 		return 1;
 	}
@@ -4900,7 +4938,8 @@ namespace ExtraUtilities::Lua::GameObject
 		BZR::handle h = CheckHandle(L, 1);
 		__try
 		{
-			void* aiProcess = BZR::GameObject::GetObj(h)->aiProcess;
+			BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+			void* aiProcess = obj != nullptr ? obj->aiProcess : nullptr;
 			if (aiProcess == nullptr)
 			{
 				lua_pushnil(L);
@@ -4926,7 +4965,7 @@ namespace ExtraUtilities::Lua::GameObject
 		std::string rawTypeName;
 		MsvcRttiClassHierarchyDescriptor* classDescriptor = nullptr;
 
-		if (TryGetPolymorphicMetadata(obj->aiProcess, vtable, rawTypeName, classDescriptor))
+		if (obj != nullptr && TryGetPolymorphicMetadata(obj->aiProcess, vtable, rawTypeName, classDescriptor))
 		{
 			std::string typeName = NormalizeMsvcTypeName(rawTypeName);
 			if (!typeName.empty())
@@ -4950,7 +4989,7 @@ namespace ExtraUtilities::Lua::GameObject
 		BZR::handle h = CheckHandle(L, 1);
 		uint32_t scanBytes = GetScanBytesArgument(L, 2, 0x100);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-		void* aiProcess = obj->aiProcess;
+		void* aiProcess = obj != nullptr ? obj->aiProcess : nullptr;
 		if (aiProcess == nullptr)
 		{
 			lua_pushnil(L);
@@ -5002,7 +5041,7 @@ namespace ExtraUtilities::Lua::GameObject
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-		void* aiProcess = obj->aiProcess;
+		void* aiProcess = obj != nullptr ? obj->aiProcess : nullptr;
 		if (aiProcess == nullptr)
 		{
 			lua_pushnil(L);
@@ -5078,7 +5117,7 @@ namespace ExtraUtilities::Lua::GameObject
 		BZR::handle h = CheckHandle(L, 1);
 		uint32_t scanBytes = GetScanBytesArgument(L, 2, 0x100);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-		void* aiProcess = obj->aiProcess;
+		void* aiProcess = obj != nullptr ? obj->aiProcess : nullptr;
 		if (aiProcess == nullptr)
 		{
 			lua_pushnil(L);
@@ -5140,7 +5179,7 @@ namespace ExtraUtilities::Lua::GameObject
 		BZR::handle h = CheckHandle(L, 1);
 		const uint32_t scanBytes = GetScanBytesArgument(L, 2, 0x100);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-		void* aiProcess = obj->aiProcess;
+		void* aiProcess = obj != nullptr ? obj->aiProcess : nullptr;
 		if (aiProcess == nullptr)
 		{
 			lua_pushnil(L);
@@ -5319,7 +5358,7 @@ namespace ExtraUtilities::Lua::GameObject
 		BZR::handle h = CheckHandle(L, 1);
 		uint32_t scanBytes = GetScanBytesArgument(L, 2, 0x100);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-		void* aiProcess = obj->aiProcess;
+		void* aiProcess = obj != nullptr ? obj->aiProcess : nullptr;
 		if (aiProcess == nullptr)
 		{
 			lua_pushnil(L);
@@ -5361,7 +5400,7 @@ namespace ExtraUtilities::Lua::GameObject
 		BZR::handle h = CheckHandle(L, 1);
 		const uint32_t scanBytes = GetScanBytesArgument(L, 2, 0x100);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-		void* aiProcess = obj->aiProcess;
+		void* aiProcess = obj != nullptr ? obj->aiProcess : nullptr;
 		if (aiProcess == nullptr)
 		{
 			lua_pushnil(L);
@@ -5436,7 +5475,7 @@ namespace ExtraUtilities::Lua::GameObject
 	int GetRadarPeriod(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-		BZR::Scanner* scanner = BZR::GameObject::GetObj(h)->GetScanner();
+		BZR::Scanner* scanner = GetLiveScanner(h);
 		if (scanner == nullptr)
 		{
 			lua_pushnil(L);
@@ -5450,7 +5489,7 @@ namespace ExtraUtilities::Lua::GameObject
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		float period = static_cast<float>(luaL_checknumber(L, 2));
-		BZR::Scanner* scanner = BZR::GameObject::GetObj(h)->GetScanner();
+		BZR::Scanner* scanner = GetLiveScanner(h);
 		if (scanner == nullptr)
 		{
 			return 0;
@@ -5464,7 +5503,7 @@ namespace ExtraUtilities::Lua::GameObject
 	int GetRadarRange(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-		BZR::Scanner* scanner = BZR::GameObject::GetObj(h)->GetScanner();
+		BZR::Scanner* scanner = GetLiveScanner(h);
 		if (scanner == nullptr)
 		{
 			lua_pushnil(L);
@@ -5478,7 +5517,7 @@ namespace ExtraUtilities::Lua::GameObject
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		float range = static_cast<float>(luaL_checknumber(L, 2));
-		BZR::Scanner* scanner = BZR::GameObject::GetObj(h)->GetScanner();
+		BZR::Scanner* scanner = GetLiveScanner(h);
 		if (scanner == nullptr)
 		{
 			return 0;
@@ -5490,7 +5529,7 @@ namespace ExtraUtilities::Lua::GameObject
 	int GetVelocJam(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-		BZR::Jammer* jammer = BZR::GameObject::GetObj(h)->GetJammer();
+		BZR::Jammer* jammer = GetLiveJammer(h);
 		if (jammer != nullptr) // sometimes your gameobject may not have a jammer, like if you're a pilot for example
 		{
 			lua_pushnumber(L, jammer->maxSpeed);
@@ -5506,7 +5545,7 @@ namespace ExtraUtilities::Lua::GameObject
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		float maxSpeed = static_cast<float>(luaL_checknumber(L, 2));
-		BZR::Jammer* jammer = BZR::GameObject::GetObj(h)->GetJammer();
+		BZR::Jammer* jammer = GetLiveJammer(h);
 		if (jammer != nullptr)
 		{
 			jammer->maxSpeed = maxSpeed;

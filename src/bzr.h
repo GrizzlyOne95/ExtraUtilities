@@ -241,10 +241,46 @@ namespace BZR
 		using _GetHandle = handle(__thiscall*)(GameObject*);
 		static inline _GetHandle GetHandle = (_GetHandle)(0x00462380);
 
-		// Credit to Janne for this function -VT
-		static GameObject* GetObj(handle h)
+		// The object arena and handle check mirror the engine's own lookup
+		// (GameObject.GetObjByHandle in exu.json): slot (h >> 20) & 0xFFF of a
+		// static 0x400-byte-per-slot table, live only while the slot's serial
+		// at +0x15C equals the handle's low 20 bits. A serial of 0 is a free
+		// slot (GetHandle returns 0 for it).
+		static constexpr uintptr_t kArenaBase = 0x0260DB20;
+		static constexpr uintptr_t kArenaSlotSize = 0x400;
+		static constexpr uint32_t kArenaSlotCount = 0x1000;
+		static constexpr uintptr_t kSerialOffset = 0x15C;
+
+		// Credit to Janne for the arena layout -VT
+		// Returns the live object for h, or nullptr for 0 and for handles whose
+		// object has died or whose slot now holds a different object. Mission
+		// scripts routinely keep handles of units that die, so every caller
+		// must handle nullptr.
+		static GameObject* GetObj(handle h) noexcept
 		{
-			return (GameObject*)(((h >> 0x14) * 0x400) + 0x260DB20);
+			const uint32_t serial = h & 0xFFFFFu;
+			if (serial == 0)
+			{
+				return nullptr;
+			}
+
+			const uintptr_t slot = kArenaBase + ((h >> 20) & 0xFFFu) * kArenaSlotSize;
+			const uint32_t stored = *reinterpret_cast<const uint32_t*>(slot + kSerialOffset);
+			return stored == serial ? reinterpret_cast<GameObject*>(slot) : nullptr;
+		}
+
+		// True when p is the start of an arena slot that currently holds a live
+		// object, i.e. something GetObj returned. Guards APIs that accept a raw
+		// GameObject* from Lua before it reaches engine code.
+		static bool IsLiveArenaObject(const void* p) noexcept
+		{
+			const uintptr_t address = reinterpret_cast<uintptr_t>(p);
+			if (address < kArenaBase || address >= kArenaBase + kArenaSlotCount * kArenaSlotSize ||
+				(address - kArenaBase) % kArenaSlotSize != 0)
+			{
+				return false;
+			}
+			return *reinterpret_cast<const uint32_t*>(address + kSerialOffset) != 0;
 		}
 
 		using _SetAsUser = void(__thiscall*)(GameObject*);
