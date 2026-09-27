@@ -973,6 +973,17 @@ namespace ExtraUtilities::Lua
 		};
 
 		Logging::LogMessage("exu: luaopen_exu called");
+
+		// EXU's own Lua core shares the executable's dummynode; on a build where
+		// it moved, the first table EXU creates and resizes would free the host's
+		// static node. Check before luaL_register creates any table. luaL_error
+		// only builds strings.
+		if (!BuildValidation::IsLuaCoreCompatible())
+		{
+			Logging::LogMessage("exu: refusing to load; the executable's Lua dummynode does not match this EXU build");
+			return luaL_error(L, "Extra Utilities does not support this Battlezone 98 Redux build (Lua core mismatch)");
+		}
+
 		luaL_register(L, "exu", exuExports);
 		Init(L);
 

@@ -59,6 +59,16 @@
       "reason": "Validates the long-lived shell boundary that suppresses custom overlays on mission-success, mission-failure, and all other stock shell pages."
     },
     {
+      "name": "Lua dummynode",
+      "source": "catalog",
+      "catalog_path": "Lua.setnodevector",
+      "match": "expected_va",
+      "expected_va": "0x00831635",
+      "required": true,
+      "runtime_gate": true,
+      "reason": "EXU's statically linked Lua core hard-codes the executable's dummynode address (Lua5.1-BZR/src/ltable.c). luaopen_exu checks this anchor before creating any table and refuses to load when it fails."
+    },
+    {
       "name": "Wingman Hunt activation",
       "source": "inline",
       "pattern": "83 7D 08 0D 75 10 6A 14 8B 4D FC E8 ? ? ? ? B0 01 EB ? EB ? 83 7D 08 10 75 ? A1 ? ? ? ? 50 6A 06 8B 4D FC E8 ? ? ? ?",

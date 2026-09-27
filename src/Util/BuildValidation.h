@@ -224,6 +224,31 @@ namespace ExtraUtilities::BuildValidation
 		return true;
 	}
 
+	inline constexpr const char* kLuaCoreAnchorName = "Lua dummynode";
+
+	// EXU's statically linked Lua core points its empty-table sentinel at the
+	// executable's dummynode (Lua5.1-BZR/src/ltable.c). This checks only that
+	// anchor, which is cheap (one fixed-address compare), so luaopen_exu can run
+	// it before creating a single table. Fails closed if the anchor is missing
+	// from the generated profile.
+	inline bool IsLuaCoreCompatible() noexcept
+	{
+		HMODULE module = GetModuleHandleA(nullptr);
+		if (!Detail::ValidatePeIdentity(module))
+		{
+			return false;
+		}
+
+		for (const BzrBuildProfile::AnchorSpec& anchor : BzrBuildProfile::kRuntimeAnchors)
+		{
+			if (std::strcmp(anchor.name, kLuaCoreAnchorName) == 0)
+			{
+				return Detail::MatchAnchor(module, anchor);
+			}
+		}
+		return false;
+	}
+
 	// Prefer OpenShim's qualified result when available. Older/no-OpenShim
 	// installations fall back to EXU's own full supported-build qualification
 	// before the SteamStub .bind section is considered. This prevents arbitrary
