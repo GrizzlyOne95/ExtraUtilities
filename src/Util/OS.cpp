@@ -277,8 +277,18 @@ namespace ExtraUtilities::Lua::OS
 				return false;
 			}
 
+			// The field is a line of its own; a plain find also matched the key
+			// inside other lines' text.
 			constexpr std::string_view kKey = "saveGameDesc";
-			const size_t keyPos = data.find(kKey);
+			size_t keyPos = data.rfind(kKey, 0) == 0 ? 0 : std::string::npos;
+			for (size_t lineStart = data.find('\n'); keyPos == std::string::npos && lineStart != std::string::npos;
+				lineStart = data.find('\n', lineStart + 1))
+			{
+				if (data.compare(lineStart + 1, kKey.size(), kKey) == 0)
+				{
+					keyPos = lineStart + 1;
+				}
+			}
 			if (keyPos == std::string::npos)
 			{
 				LogNativeSave("[EXU::SaveGame] saveGameDesc not found, skipping description rewrite path={}", filename);
@@ -347,17 +357,34 @@ namespace ExtraUtilities::Lua::OS
 
 			data.replace(valueStart, valueEnd - valueStart, rewrittenValue);
 
-			std::ofstream output(filename, std::ios::binary | std::ios::trunc);
-			if (!output.is_open())
+			// Write a sibling file and swap it in: truncating the save in place
+			// destroyed the save the user just made if the process died or the
+			// disk filled mid-write.
+			const std::string temporary = filename + ".exutmp";
 			{
-				LogNativeSave("[EXU::SaveGame] failed to reopen saved file for description rewrite path={}", filename);
-				return false;
+				std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
+				if (!output.is_open())
+				{
+					LogNativeSave("[EXU::SaveGame] failed to open temporary file for description rewrite path={}", temporary);
+					return false;
+				}
+
+				output.write(data.data(), static_cast<std::streamsize>(data.size()));
+				output.flush();
+				if (!output.good())
+				{
+					output.close();
+					DeleteFileA(temporary.c_str());
+					LogNativeSave("[EXU::SaveGame] failed to write updated save description path={}", temporary);
+					return false;
+				}
 			}
 
-			output.write(data.data(), static_cast<std::streamsize>(data.size()));
-			if (!output.good())
+			if (!MoveFileExA(temporary.c_str(), filename.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
 			{
-				LogNativeSave("[EXU::SaveGame] failed to write updated save description path={}", filename);
+				const DWORD error = GetLastError();
+				DeleteFileA(temporary.c_str());
+				LogNativeSave("[EXU::SaveGame] failed to replace save with rewritten description path={} error={}", filename, error);
 				return false;
 			}
 
@@ -711,20 +738,43 @@ namespace ExtraUtilities::Lua::OS
 			}
 		}
 
+		// SaveShellGame (FUN_004FDC80) stores missionSave = 0 and never puts it
+		// back, like the direct path did before e11a8ce; restore it the same way.
 		bool InvokeNativeSaveShellGame(
 			NativeSaveShellGameFn saveShellGame,
+			MissionSaveFlag missionSaveFlag,
 			int slot,
 			const char* description,
 			DWORD& exceptionCode) noexcept
 		{
 			exceptionCode = 0;
 
+			uint8_t previous = 0;
 			__try
 			{
-				return saveShellGame(slot, description);
+				if (missionSaveFlag != nullptr)
+				{
+					previous = *missionSaveFlag;
+				}
+				const bool saved = saveShellGame(slot, description);
+				if (missionSaveFlag != nullptr)
+				{
+					*missionSaveFlag = previous;
+				}
+				return saved;
 			}
 			__except (exceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
 			{
+				__try
+				{
+					if (missionSaveFlag != nullptr)
+					{
+						*missionSaveFlag = previous;
+					}
+				}
+				__except (EXCEPTION_EXECUTE_HANDLER)
+				{
+				}
 				return false;
 			}
 		}
@@ -851,7 +901,9 @@ namespace ExtraUtilities::Lua::OS
 				LogNativeSave("[EXU::SaveGame] calling native SaveShellGame slot={} description={}", slot, description);
 
 				DWORD exceptionCode = 0;
-				const bool saved = InvokeNativeSaveShellGame(saveShellGame, slot, description.c_str(), exceptionCode);
+				const auto missionSaveFlag = ResolveMissionSaveFlag(ResolveNativeSaveGame());
+				const bool saved = InvokeNativeSaveShellGame(
+					saveShellGame, missionSaveFlag, slot, description.c_str(), exceptionCode);
 				if (exceptionCode != 0)
 				{
 					LogNativeSave(
