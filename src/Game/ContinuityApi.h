@@ -343,7 +343,8 @@ namespace ExtraUtilities::Lua::ContinuityApi
 		inline bool PushNativeMatrix(lua_State* L, const MatrixData& matrix)
 		{
 			const int top = lua_gettop(L);
-			if (!GetGlobalFunction(L, "SetMatrix"))
+			// SetMatrix plus 12 arguments; Lua 5.1 does not grow the stack on push.
+			if (!lua_checkstack(L, 14) || !GetGlobalFunction(L, "SetMatrix"))
 			{
 				return false;
 			}
