@@ -41,6 +41,7 @@
 #include <limits>
 #include <string>
 #include <unordered_set>
+#include <new>
 #include <vector>
 
 namespace ExtraUtilities::Lua::StorageApi
@@ -287,12 +288,21 @@ namespace ExtraUtilities::Lua::StorageApi
 		inline bool EncodeValue(lua_State* L, int index, std::vector<std::uint8_t>& out,
 			EncodeContext& context, int depth, std::string& error);
 
+		// depth is this table's nesting level: 1 for the value passed to Save.
 		inline bool EncodeTable(lua_State* L, int index, std::vector<std::uint8_t>& out,
 			EncodeContext& context, int depth, std::string& error)
 		{
 			if (depth > kMaxDepth)
 			{
 				SetError(error, "table nesting exceeds the EXU storage depth limit");
+				return false;
+			}
+
+			// Each level keeps a key and a value on the stack. Lua 5.1 does not
+			// grow the stack on push, so reserve it or fail cleanly.
+			if (!lua_checkstack(L, 4))
+			{
+				SetError(error, "table nesting exceeds the available Lua stack");
 				return false;
 			}
 
@@ -356,7 +366,7 @@ namespace ExtraUtilities::Lua::StorageApi
 					return false;
 				}
 
-				if (!EncodeValue(L, -1, out, context, depth + 1, error))
+				if (!EncodeValue(L, -1, out, context, depth, error))
 				{
 					lua_pop(L, 2);
 					context.activeTables.erase(identity);
@@ -447,14 +457,9 @@ namespace ExtraUtilities::Lua::StorageApi
 			return true;
 		}
 
+		// depth is the number of tables enclosing this value.
 		inline bool DecodeValue(lua_State* L, DecodeCursor& cursor, int depth, std::string& error)
 		{
-			if (depth > kMaxDepth)
-			{
-				SetError(error, "persistent table nesting exceeds the supported depth");
-				return false;
-			}
-
 			std::uint8_t rawTag = 0;
 			if (!ReadPod(cursor, rawTag, error))
 			{
@@ -492,6 +497,17 @@ namespace ExtraUtilities::Lua::StorageApi
 				return DecodeString(L, cursor, error);
 			case ValueTag::Table:
 			{
+				if (depth + 1 > kMaxDepth)
+				{
+					SetError(error, "persistent table nesting exceeds the supported depth");
+					return false;
+				}
+				if (!lua_checkstack(L, 4))
+				{
+					SetError(error, "persistent table nesting exceeds the available Lua stack");
+					return false;
+				}
+
 				lua_newtable(L);
 				const int tableIndex = AbsoluteStackIndex(L, -1);
 				for (;;)
@@ -808,15 +824,43 @@ namespace ExtraUtilities::Lua::StorageApi
 			return Detail::PushIoResult(L, false, error);
 		}
 
-		std::vector<std::uint8_t> bytes;
-		if (!Detail::BuildFile(L, 2, schemaVersion, bytes, error))
+		// A 16 MiB buffer can fail to allocate in a fragmented 32-bit process;
+		// a C++ exception must not cross the Lua C boundary.
+		bool saved = false;
+		try
 		{
-			return Detail::PushIoResult(L, false, error);
+			std::vector<std::uint8_t> bytes;
+			saved = Detail::BuildFile(L, 2, schemaVersion, bytes, error) &&
+				Detail::SaveAtomic(paths, bytes, error);
 		}
-		return Detail::PushIoResult(L, Detail::SaveAtomic(paths, bytes, error), error);
+		catch (const std::bad_alloc&)
+		{
+			error = "out of memory while saving persistent data";
+			saved = false;
+		}
+		return Detail::PushIoResult(L, saved, error);
 	}
 
+	inline int LoadUnguarded(lua_State* L);
+
 	inline int Load(lua_State* L)
+	{
+		const int baseTop = lua_gettop(L);
+		try
+		{
+			return LoadUnguarded(L);
+		}
+		catch (const std::bad_alloc&)
+		{
+			lua_settop(L, baseTop);
+			lua_pushnil(L);
+			Detail::DecodeMeta meta{};
+			Detail::PushLoadMeta(L, false, "error", false, meta, "out of memory while loading persistent data");
+			return 2;
+		}
+	}
+
+	inline int LoadUnguarded(lua_State* L)
 	{
 		const std::string name = Detail::CheckNamespace(L, 1);
 		std::string pathError;

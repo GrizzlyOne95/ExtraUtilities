@@ -47,7 +47,7 @@ if not ok then
 end
 ```
 
-The store accepts nil, booleans, finite numbers, strings, and nested tables. Table keys may be strings or finite numbers. It rejects handles/userdata, functions, threads, lightuserdata, cyclic tables, non-finite numbers, excessive nesting, and oversized files rather than serializing values that cannot be safely reconstructed in a later process.
+The store accepts nil, booleans, finite numbers, strings, and nested tables. Table keys may be strings or finite numbers. It rejects handles/userdata, functions, threads, lightuserdata, cyclic tables, non-finite numbers, more than 32 levels of nested tables, and oversized files rather than serializing values that cannot be safely reconstructed in a later process.
 
 ### Duration
 
