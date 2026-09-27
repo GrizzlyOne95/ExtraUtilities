@@ -17,7 +17,7 @@
       "expected_va": "0x0061D120",
       "required": false,
       "runtime_gate": false,
-      "reason": "Legacy catalog diagnostic retained for camera-address repair; the shipped 2.2.301 executable does not match this stale preimage, so it must not disable unrelated native hooks."
+      "reason": "Diagnostic for the camera-view call target. The catalog pattern was re-derived from the shipped 2.2.301 executable on 2026-09-27; it stays non-gating so a camera change cannot disable unrelated native hooks."
     },
     {
       "name": "Camera.View_Record_MainCam reference",
@@ -26,7 +26,7 @@
       "match": "executable_contains",
       "required": false,
       "runtime_gate": false,
-      "reason": "Legacy catalog diagnostic retained for camera-address repair; the shipped 2.2.301 executable does not contain this stale reference pattern."
+      "reason": "Diagnostic reference to a camera global. The catalog pattern was re-derived from the shipped 2.2.301 executable on 2026-09-27; it stays non-gating."
     },
     {
       "name": "Camera.zoomFactorFPP reference",
@@ -35,12 +35,12 @@
       "match": "executable_contains",
       "required": false,
       "runtime_gate": false,
-      "reason": "Legacy catalog diagnostic retained for camera-address repair; the shipped 2.2.301 executable does not contain this stale reference pattern."
+      "reason": "Diagnostic reference to a camera global. The catalog pattern was re-derived from the shipped 2.2.301 executable on 2026-09-27; it stays non-gating."
     },
     {
       "name": "Overlay pause wrapper",
-      "source": "inline",
-      "pattern": "55 8B EC 51 83 3D 2C 83 91 00 00 74 05 E9 ? ? ? ? 0F B6 05 2B 81 91 00 85 C0 0F 85 ? ? ? ?",
+      "source": "catalog",
+      "catalog_path": "GameUI.PauseWrapper",
       "match": "expected_va",
       "expected_va": "0x005D4690",
       "required": true,
