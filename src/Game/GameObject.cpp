@@ -5581,6 +5581,7 @@ namespace ExtraUtilities::Lua::GameObject
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		float period = static_cast<float>(luaL_checknumber(L, 2));
+		luaL_argcheck(L, std::isfinite(period) && period > 0.0f, 2, "radar period must be a finite number greater than 0");
 		BZR::Scanner* scanner = GetLiveScanner(h);
 		if (scanner == nullptr)
 		{
@@ -5609,6 +5610,7 @@ namespace ExtraUtilities::Lua::GameObject
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		float range = static_cast<float>(luaL_checknumber(L, 2));
+		luaL_argcheck(L, std::isfinite(range) && range >= 0.0f, 2, "radar range must be a finite, non-negative number");
 		BZR::Scanner* scanner = GetLiveScanner(h);
 		if (scanner == nullptr)
 		{
@@ -5637,6 +5639,7 @@ namespace ExtraUtilities::Lua::GameObject
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		float maxSpeed = static_cast<float>(luaL_checknumber(L, 2));
+		luaL_argcheck(L, std::isfinite(maxSpeed) && maxSpeed >= 0.0f, 2, "velocity jam speed must be a finite, non-negative number");
 		BZR::Jammer* jammer = GetLiveJammer(h);
 		if (jammer != nullptr)
 		{
