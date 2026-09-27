@@ -24,6 +24,7 @@
 
 #include <cstdint>
 
+#include "Util/RuntimeGate.h"
 #include "Util/Vec3.h"
 
 namespace BZR
@@ -258,6 +259,12 @@ namespace BZR
 		// must handle nullptr.
 		static GameObject* GetObj(handle h) noexcept
 		{
+			// The arena is only at kArenaBase on the qualified executable.
+			if (!ExtraUtilities::RuntimeGate::IsSupported())
+			{
+				return nullptr;
+			}
+
 			const uint32_t serial = h & 0xFFFFFu;
 			if (serial == 0)
 			{
@@ -274,6 +281,11 @@ namespace BZR
 		// GameObject* from Lua before it reaches engine code.
 		static bool IsLiveArenaObject(const void* p) noexcept
 		{
+			if (!ExtraUtilities::RuntimeGate::IsSupported())
+			{
+				return false;
+			}
+
 			const uintptr_t address = reinterpret_cast<uintptr_t>(p);
 			if (address < kArenaBase || address >= kArenaBase + kArenaSlotCount * kArenaSlotSize ||
 				(address - kArenaBase) % kArenaSlotSize != 0)

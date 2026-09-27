@@ -738,6 +738,11 @@ namespace ExtraUtilities::Lua::Environment
 
 	bool TrySetNativeTimeOfDay(int timeOfDay)
 	{
+		if (!RuntimeGate::IsSupported())
+		{
+			return false;
+		}
+
 		__try
 		{
 			*BZR::Environment::timeOfDay = timeOfDay;
@@ -753,6 +758,11 @@ namespace ExtraUtilities::Lua::Environment
 
 	bool TryRefreshTerrainMasterLight()
 	{
+		if (!RuntimeGate::IsSupported())
+		{
+			return false;
+		}
+
 		__try
 		{
 			BZR::Environment::RefreshTerrainMasterLight();

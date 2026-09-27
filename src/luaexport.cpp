@@ -25,7 +25,9 @@
 #include "Game/RenderEffects.h"
 #include "Game/StaticGeometry.h"
 #include "Exports.h"
+#include "Util/BuildValidation.h"
 #include "Util/Logging.h"
+#include "Util/RuntimeGate.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
 #include "OpenShimBridge.h"
@@ -480,6 +482,13 @@ namespace ExtraUtilities::Lua
 	int Init(lua_State* L)
 	{
 		StackGuard guard(L);
+
+		// Decide once, before anything touches the engine, whether this is the
+		// qualified executable. The same result gates native patches below and
+		// every direct engine call or fixed-address write (RuntimeGate).
+		const bool supportedBuild = BuildValidation::IsSupportedBzr2301();
+		RuntimeGate::SetSupported(supportedBuild);
+
 		state = L; // save the state pointer to use in callbacks
 		CommandReplacement::ResetState(L);
 		Logging::LogMessage("exu: Init starting");
@@ -488,13 +497,15 @@ namespace ExtraUtilities::Lua
 		// OpenShim keeps it off for stock/MP; a mission can opt out with
 		// exu.SetJumpSnipeCrouch(false).
 		Patches::ApplyJumpSnipeCrouchDefault();
-		if (BasicPatch::EnableDeferredPatchActivation())
+		// The build was validated above; do not scan .text a second time.
+		if (supportedBuild && BasicPatch::EnableDeferredPatchActivation(false))
 		{
 			Logging::LogMessage("exu: deferred patches activated");
 		}
 		else
 		{
-			Logging::LogMessage("exu: deferred patches NOT activated; unsupported or modified BZR build");
+			Logging::LogMessage(
+				"exu: unsupported or modified BZR build; native patches and direct engine calls are disabled for this session");
 		}
 		// Which module owns the scrap/pilot HUD text colour. The colour hooks
 		// stand themselves down at construction when OpenShim is present, and

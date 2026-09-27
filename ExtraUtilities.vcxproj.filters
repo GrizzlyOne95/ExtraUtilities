@@ -218,6 +218,9 @@
     <ClInclude Include="src\Util\Logging.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Util\RuntimeGate.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
     <ClInclude Include="src\Util\NativeSaveFlag.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>

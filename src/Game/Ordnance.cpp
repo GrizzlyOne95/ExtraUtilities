@@ -244,6 +244,11 @@ namespace ExtraUtilities::Lua::Ordnance
 
 	int BuildOrdnance(lua_State* L)
 	{
+		if (!RuntimeGate::IsSupported())
+		{
+			return PushUnsupportedBuild(L);
+		}
+
 		size_t nameLength = 0;
 		const char* requestedOrd = luaL_checklstring(L, 1, &nameLength);
 		BZR::Mat3 matrix = CheckMatrix(L, 2);
@@ -270,6 +275,11 @@ namespace ExtraUtilities::Lua::Ordnance
 
 	int GetOrdnanceAttribute(lua_State* L)
 	{
+		if (!RuntimeGate::IsSupported())
+		{
+			return PushUnsupportedBuild(L);
+		}
+
 		BZR::Ordnance* ord = CheckOrdnance(L, 1);
 		const lua_Integer rawCode = luaL_checkinteger(L, 2);
 		if (rawCode < ODF || rawCode > LIFE_TIME)
