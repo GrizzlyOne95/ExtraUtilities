@@ -224,6 +224,9 @@
     <ClInclude Include="src\Util\NativeSaveFlag.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
+    <ClInclude Include="src\Util\SavePathPolicy.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
     <ClInclude Include="src\Util\SignatureResolver.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
