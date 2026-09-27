@@ -320,6 +320,11 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 
 		bool InstallScoreCalls()
 		{
+			if (!RuntimeGate::IsSupported())
+			{
+				return false;
+			}
+
 			if (g_scoreInstallAttempted)
 			{
 				return g_scoreInstallSucceeded;
@@ -634,6 +639,11 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 
 	bool Install()
 	{
+		if (!RuntimeGate::IsSupported())
+		{
+			return false;
+		}
+
 		if (g_installAttempted)
 		{
 			return g_installSucceeded;

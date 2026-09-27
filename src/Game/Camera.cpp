@@ -75,7 +75,18 @@ namespace ExtraUtilities::Lua::Camera
 
 	int GetTransformMatrix(lua_State* L)
 	{
-		BZR::MAT_3D viewMatrix = mainCam.Get()->Matrix;
+		if (!RuntimeGate::IsSupported())
+		{
+			return PushUnsupportedBuild(L);
+		}
+
+		BZR::BZR_Camera* cam = mainCam.Get();
+		if (cam == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		BZR::MAT_3D viewMatrix = cam->Matrix;
 		
 		BZR::MAT_3D transformMatrix;
 		BZR::Matrix_Inverse(&transformMatrix, &viewMatrix);
@@ -350,7 +361,12 @@ namespace ExtraUtilities::Lua::Camera
 			return 0;
 		}
 
-		BZR::Camera::Set_View(userEntity.Read(), view);
+		BZR::tagENTITY* entity = userEntity.Read();
+		if (!RuntimeGate::IsSupported() || entity == nullptr)
+		{
+			return 0;
+		}
+		BZR::Camera::Set_View(entity, view);
 
 		return 0;
 	}

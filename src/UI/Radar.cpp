@@ -330,7 +330,7 @@ namespace ExtraUtilities::Lua::Radar
 
 		bool IsMissionLoaded()
 		{
-			return BZR::GameObject::user_entity_ptr != nullptr && *BZR::GameObject::user_entity_ptr != nullptr;
+			return RuntimeGate::IsSupported() && BZR::GameObject::user_entity_ptr != nullptr && *BZR::GameObject::user_entity_ptr != nullptr;
 		}
 	}
 
@@ -383,6 +383,11 @@ namespace ExtraUtilities::Lua::Radar
 				return luaL_error(L, "OpenShim rejected the radar size scale");
 			}
 			return 0;
+		}
+
+		if (!RuntimeGate::IsSupported())
+		{
+			return PushUnsupportedBuild(L);
 		}
 
 		// Order matters: the stock base is derived from

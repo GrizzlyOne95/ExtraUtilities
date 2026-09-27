@@ -243,6 +243,7 @@
     <ClInclude Include="src\Util\Logging.h" />
     <ClInclude Include="src\Util\NativeSaveFlag.h" />
     <ClInclude Include="src\Util\OS.h" />
+    <ClInclude Include="src\Util\RuntimeGate.h" />
     <ClInclude Include="src\Util\SignatureResolver.h" />
     <ClInclude Include="src\Util\StorageApi.h" />
     <ClInclude Include="src\Util\Vec3.h" />

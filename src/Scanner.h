@@ -25,6 +25,7 @@
 #pragma once
 
 #include "BasicScanner.h"
+#include "Util/RuntimeGate.h"
 #include "Util/SignatureResolver.h"
 
 #include <Windows.h>
@@ -161,9 +162,12 @@ namespace ExtraUtilities
 			return *m_address;
 		}
 
+		// Writes only on the qualified executable: on any other build the
+		// fixed address belongs to something else.
 		void Write(T value) noexcept
 		{
-			if (m_address == nullptr ||
+			if (!RuntimeGate::IsSupported() ||
+				m_address == nullptr ||
 				!SignatureResolver::IsReadableRange(m_address, sizeof(T)))
 			{
 				return;
