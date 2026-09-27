@@ -16,6 +16,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "Game/Multiplayer.h"
 #include "Game/Culling.h"
 #include "GlobalTurbo.h"
 #include "bzr.h"
@@ -170,26 +171,24 @@ namespace ExtraUtilities::Lua::Patches
 	int SetGlobalTurbo(lua_State* L)
 	{
 		bool status = CheckBool(L, 1);
+		if (status && Multiplayer::IsNetworkGame())
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
 		Patch::globalTurboEnabled = status;
 		if (const auto fn = OpenShimBridge::Resolve<OpenShimSetGlobalTurboFn>(
 				"OpenShimSetGlobalTurbo"))
 		{
-			fn(status ? TRUE : FALSE);
-			return 0;
+			lua_pushboolean(L, fn(status ? TRUE : FALSE) ? 1 : 0);
+			return 1;
 		}
 
-		if (status == true)
-		{
-			Patch::turboPatch1.Reload();
-			Patch::turboPatch2.Reload();
-		}
-		else
-		{
-			Patch::turboPatch1.Unload();
-			Patch::turboPatch2.Unload();
-		}
-
-		return 0;
+		Patch::turboPatch1.SetStatus(status);
+		Patch::turboPatch2.SetStatus(status);
+		lua_pushboolean(L, 1);
+		return 1;
 	}
 
 	int GetUnitTurbo(lua_State* L)
@@ -222,6 +221,12 @@ namespace ExtraUtilities::Lua::Patches
 		BZR::handle h = CheckHandle(L, 1);
 		bool status = CheckBool(L, 2);
 
+		if (status && Multiplayer::IsNetworkGame())
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
 		if (g_openShimOwnsUnitTurbo)
 		{
 			if (const auto fn = OpenShimBridge::Resolve<OpenShimSetUnitTurboFn>(
@@ -235,6 +240,7 @@ namespace ExtraUtilities::Lua::Patches
 			Patch::setTurboUnits[h] = status;
 		}
 
-		return 0;
+		lua_pushboolean(L, 1);
+		return 1;
 	}
 }

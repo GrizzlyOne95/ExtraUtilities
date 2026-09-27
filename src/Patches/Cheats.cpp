@@ -16,6 +16,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "Game/Multiplayer.h"
 #include "Cheats.h"
 
 #include "Hook.h"
@@ -58,9 +59,15 @@ namespace ExtraUtilities::Lua::Patches
 
 	int SetInfiniteAmmo(lua_State* L)
 	{
-		bool enable = lua_toboolean(L, 1);
+		const bool enable = lua_toboolean(L, 1);
+		if (enable && Multiplayer::IsNetworkGame())
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
 		Patch::infiniteAmmoHook.SetStatus(enable);
-		return 0;
+		lua_pushboolean(L, 1);
+		return 1;
 	}
 
 	int GetInfiniteScrap(lua_State* L)
@@ -71,8 +78,14 @@ namespace ExtraUtilities::Lua::Patches
 
 	int SetInfiniteScrap(lua_State* L)
 	{
-		bool enable = lua_toboolean(L, 1);
+		const bool enable = lua_toboolean(L, 1);
+		if (enable && Multiplayer::IsNetworkGame())
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
 		Patch::infiniteScrapHook.SetStatus(enable);
-		return 0;
+		lua_pushboolean(L, 1);
+		return 1;
 	}
 }
