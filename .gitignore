@@ -60,6 +60,10 @@ save/
 # Workshop-generated/local publication state
 # ---------------------------------------------------------------------------
 workshop.vdf
+Build/
+
+# tools/qualify_bzr_build.py --write-report output
+EXU_BZR_Compatibility_*.txt
 
 # ---------------------------------------------------------------------------
 # Ogre rebuild / dependency scratch

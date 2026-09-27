@@ -19,7 +19,7 @@
 #include "ShotConvergence.h"
 #include "ShotConvergenceMath.h"
 
-#include "BZR.h"
+#include "bzr.h"
 #include "InlinePatch.h"
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
@@ -28,7 +28,12 @@
 
 namespace ExtraUtilities::Patch
 {
-	InlinePatch shotConvergence(wingmanWeaponAimVftableEntry, &walkerUpdateWeaponAim, 4, InlinePatch::Status::INACTIVE);
+	// Stock slot holds 0x004EB590 on 2.2.301.
+	InlinePatch shotConvergence(
+		wingmanWeaponAimVftableEntry,
+		walkerUpdateWeaponAim,
+		InlinePatch::Status::INACTIVE,
+		{ 0x90, 0xB5, 0x4E, 0x00 });
 }
 
 namespace
@@ -157,11 +162,13 @@ namespace
 
 namespace ExtraUtilities::Patch
 {
+	// The vtable slot receives the hook's address as a 4-byte value; the stock
+	// slot holds TurretCraft::UpdateWeaponAim (0x005F0930) on 2.2.301.
 	InlinePatch playerReticleShotConvergence(
 		hovercraftWeaponAimVftableEntry,
-		&HoverCraftUpdateWeaponAimForReticle,
-		4,
-		InlinePatch::Status::INACTIVE);
+		reinterpret_cast<uintptr_t>(&HoverCraftUpdateWeaponAimForReticle),
+		InlinePatch::Status::INACTIVE,
+		{ 0x30, 0x09, 0x5F, 0x00 });
 }
 
 namespace ExtraUtilities::Lua::Patches

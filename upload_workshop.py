@@ -33,14 +33,20 @@ description: str = ''
 changenote: str = ''
 
 
+def vdf_escape(value: str) -> str:
+    """Escape a value for a quoted VDF string; the description contains
+    require("exu"), which would otherwise terminate the string early."""
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
 def get_workshop_txts() -> tuple[str, str]:
-    with open("workshop_description.txt", 'r') as des:
+    with open("workshop_description.txt", "r", encoding="utf-8") as des:
         description = des.read()
 
-    with open("workshop_changenote.txt", 'r') as cn:
+    with open("workshop_changenote.txt", "r", encoding="utf-8") as cn:
         changenote = cn.read()
 
-    return (description, changenote)
+    return (vdf_escape(description), vdf_escape(changenote))
 
 
 def generate_manifest() -> None:
@@ -49,7 +55,7 @@ def generate_manifest() -> None:
 
     description, changenote = get_workshop_txts()
 
-    with open("workshop.vdf", "w") as manifest:
+    with open("workshop.vdf", "w", encoding="utf-8") as manifest:
         manifest.write('"workshopitem"\n')
         manifest.write('{\n')
         manifest.write(f'    "appid" "{APPID}"\n')
@@ -86,11 +92,13 @@ def upload() -> None:
     cmd = [steamcmd_path, "+login", steam_username, "+workshop_build_item", MANIFEST_PATH, "+quit"]
 
     try:
-        subprocess.run(cmd)
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            print(f"steamcmd exited with status {result.returncode}; the upload did not complete.")
+        else:
+            print("Done")
     except Exception as e:
         print(f"An error occured in steamcmd: {e}")
-
-    print("Done")
     os.system("pause")
 
 

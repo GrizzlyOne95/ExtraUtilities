@@ -53,21 +53,9 @@
     <IncludePath>$(IncludePath)</IncludePath>
     <LibraryPath>$(LibraryPath)</LibraryPath>
     <CopyCppRuntimeToOutputDir>false</CopyCppRuntimeToOutputDir>
-    <ExternalIncludePath>$(ProjectDir)\minhook;$(ProjectDir)\discord;$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <TargetName>exu</TargetName>
-  </PropertyGroup>
-  <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <VcpkgUseStatic>true</VcpkgUseStatic>
-    <VcpkgUseMD>false</VcpkgUseMD>
-  </PropertyGroup>
-  <PropertyGroup Label="Vcpkg" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <VcpkgUseStatic>true</VcpkgUseStatic>
-    <VcpkgUseMD>false</VcpkgUseMD>
-  </PropertyGroup>
-  <PropertyGroup Label="Vcpkg">
-    <VcpkgEnabled>false</VcpkgEnabled>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -77,11 +65,14 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)third_party\ogre-1.10.0-bzr\include\OgreMain;$(ProjectDir)third_party\ogre-1.10.0-bzr\include\Components\Overlay;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)third_party\ogre-1.10.0-bzr\include\OgreMain;$(ProjectDir)third_party\ogre-1.10.0-bzr\include\Components\Overlay;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <TreatWarningAsError>true</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <TreatAngleIncludeAsExternal>true</TreatAngleIncludeAsExternal>
+      <ExternalTemplatesDiagnostics>false</ExternalTemplatesDiagnostics>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <SupportJustMyCode>false</SupportJustMyCode>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
@@ -106,11 +97,11 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;EXTRAUTILITIES_EXPORTS;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions);WIN32_LEAN_AND_MEAN;GC_PATCH</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;EXTRAUTILITIES_EXPORTS;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions);WIN32_LEAN_AND_MEAN</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)\lib;$(ProjectDir)\bin;$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)third_party\ogre-1.10.0-bzr\include\OgreMain;$(ProjectDir)third_party\ogre-1.10.0-bzr\include\Components\Overlay;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\include;$(ProjectDir)\src;$(ProjectDir)third_party\ogre-1.10.0-bzr\include\OgreMain;$(ProjectDir)third_party\ogre-1.10.0-bzr\include\Components\Overlay;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -129,10 +120,13 @@
       <AdditionalLibraryDirectories>$(ProjectDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Lua5.1-BZR.lib;OgreMain.lib;OgreOverlay.lib;User32.lib</AdditionalDependencies>
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
-      <AdditionalOptions>/NODEFAULTLIB:library %(AdditionalOptions)</AdditionalOptions>
       <LargeAddressAware>true</LargeAddressAware>
       <IgnoreSpecificDefaultLibraries>
       </IgnoreSpecificDefaultLibraries>
+      <!-- Pinned explicitly so a toolset default change cannot drop them. No /guard:cf: EXU's hooks jump into game code. -->
+      <RandomizedBaseAddress>true</RandomizedBaseAddress>
+      <DataExecutionPrevention>true</DataExecutionPrevention>
+      <ImageHasSafeExceptionHandlers>true</ImageHasSafeExceptionHandlers>
       <LinkStatus>false</LinkStatus>
       <TreatLinkerWarningAsErrors>false</TreatLinkerWarningAsErrors>
     </Link>
@@ -157,7 +151,7 @@
     <ClCompile Include="src\Util\GraphicsOptions.cpp" />
     <ClCompile Include="src\Util\IO.cpp" />
     <ClCompile Include="src\Patches\KillMessages.cpp" />
-    <ClCompile Include="src\LuaExport.cpp" />
+    <ClCompile Include="src\luaexport.cpp" />
     <ClCompile Include="src\PublicAPI.cpp" />
     <ClCompile Include="src\Game\Multiplayer.cpp" />
     <ClCompile Include="src\Ogre\OgreNativeFontBridge.cpp">
@@ -167,7 +161,6 @@
     <ClCompile Include="src\Game\Ordnance.cpp" />
     <ClCompile Include="src\Patches\OrdnanceVelocity.cpp" />
     <ClCompile Include="src\Util\OS.cpp" />
-    <ClCompile Include="src\Util\OS.h" />
     <ClCompile Include="src\Util\PlayOption.cpp" />
     <ClCompile Include="src\UI\Radar.cpp" />
     <ClCompile Include="src\UI\Renderer.cpp" />
@@ -180,7 +173,6 @@
     <ClCompile Include="src\StockExtensions.cpp" />
     <ClCompile Include="src\Patches\UnitVo.cpp" />
     <ClCompile Include="src\Patches\WeaponMask.cpp" />
-    <ClCompile Include="src\Util\Vec3.h" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Resource\resource.h" />
@@ -192,7 +184,7 @@
     <ClInclude Include="src\Patches\AiTargetSelect.h" />
     <ClInclude Include="src\Patches\BulletHitCallback.h" />
     <ClInclude Include="src\Patches\BulletInitCallback.h" />
-    <ClInclude Include="src\BZR.h" />
+    <ClInclude Include="src\bzr.h" />
     <ClInclude Include="src\Game\Camera.h" />
     <ClInclude Include="src\Patches\Cheats.h" />
     <ClInclude Include="src\Game\CommandReplacement.h" />
@@ -242,6 +234,19 @@
     <ClInclude Include="src\Patches\UnitVo.h" />
     <ClInclude Include="src\Util\VectorSpider.h" />
     <ClInclude Include="src\Patches\WeaponMask.h" />
+    <ClInclude Include="src\Game\AnimationApi.h" />
+    <ClInclude Include="src\Game\ContinuityApi.h" />
+    <ClInclude Include="src\Ogre\OgreMaterialShim.h" />
+    <ClInclude Include="src\Ogre\OgreSceneManagerShim.h" />
+    <ClInclude Include="src\Patches\ShotConvergenceMath.h" />
+    <ClInclude Include="src\Util\BuildValidation.h" />
+    <ClInclude Include="src\Util\BzrBuildProfile.generated.h" />
+    <ClInclude Include="src\Util\Logging.h" />
+    <ClInclude Include="src\Util\NativeSaveFlag.h" />
+    <ClInclude Include="src\Util\OS.h" />
+    <ClInclude Include="src\Util\SignatureResolver.h" />
+    <ClInclude Include="src\Util\StorageApi.h" />
+    <ClInclude Include="src\Util\Vec3.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource\Resource.rc" />

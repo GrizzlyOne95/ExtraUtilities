@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "BZR.h"
+#include "bzr.h"
 #include "Scanner.h"
 #include "Util/VectorSpider.h"
 

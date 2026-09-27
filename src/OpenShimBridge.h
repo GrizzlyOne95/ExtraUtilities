@@ -7,9 +7,40 @@
 
 namespace ExtraUtilities::OpenShimBridge
 {
+	using GetApiFn = const void* (__cdecl*)(std::uint32_t requestedVersion);
+
+	// winmm.dll exports every OpenShim* name whether or not the OpenShim plugin
+	// (plugins\openshim.dll) installed its provider table. Without the provider
+	// each export returns a fixed "unavailable" value that EXU would otherwise
+	// read as success (0 == AppliedLive/Accepted) while standing its own
+	// fallbacks down. OpenShimGetApi returns nullptr in that state, so it is the
+	// liveness probe; builds that predate the export have no thunk layer and are
+	// live whenever the module is loaded.
+	inline bool IsProviderLive(HMODULE module) noexcept
+	{
+		if (module == nullptr)
+		{
+			return false;
+		}
+
+		const auto getApi = reinterpret_cast<GetApiFn>(GetProcAddress(module, "OpenShimGetApi"));
+		return getApi == nullptr || getApi(0) != nullptr;
+	}
+
+	// Null unless OpenShim is loaded AND its provider is live, so every Resolve
+	// caller fails closed on a bootstrap-only winmm.dll.
 	inline HMODULE GetModule() noexcept
 	{
-		return GetModuleHandleA("winmm.dll");
+		static HMODULE cachedModule = nullptr;
+		static bool cachedLive = false;
+
+		const HMODULE module = GetModuleHandleA("winmm.dll");
+		if (module != cachedModule || (module != nullptr && !cachedLive))
+		{
+			cachedModule = module;
+			cachedLive = IsProviderLive(module);
+		}
+		return cachedLive ? module : nullptr;
 	}
 
 	template <typename T>

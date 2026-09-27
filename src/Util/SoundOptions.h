@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "BZR.h"
+#include "bzr.h"
 #include "Scanner.h"
 
 #include <lua.hpp>
@@ -28,8 +28,6 @@ namespace ExtraUtilities::Lua::SoundOptions
 	using namespace BZR::SoundOptions;
 
 	inline Scanner musicVolume(soundStruct1, { musicOffset }, BasicScanner::Restore::DISABLED); // only a display value
-	// inline Scanner sfxVolume(soundStruct2, { sfxOffset }, BasicScanner::Restore::DISABLED);
-	// inline Scanner voiceVolume(soundStruct2, { voiceOffset }, BasicScanner::Restore::DISABLED);
 
 	int GetMusicVolume(lua_State* L);
 	int SetMusicTrack(lua_State* L);
@@ -37,8 +35,4 @@ namespace ExtraUtilities::Lua::SoundOptions
 	int PauseMusic(lua_State* L);
 	int ResumeMusic(lua_State* L);
 	int GetMusicTrack(lua_State* L);
-	//int GetEffectsVolume(lua_State* L);
-	//int SetEffectsVolume(lua_State* L);
-	//int GetVoiceVolume(lua_State* L);
-	//int SetVoiceVolume(lua_State* L);
 }

@@ -18,7 +18,7 @@
 
 #include "Game/Culling.h"
 #include "GlobalTurbo.h"
-#include "BZR.h"
+#include "bzr.h"
 #include "Hook.h"
 #include "InlinePatch.h"
 #include "LuaHelpers.h"

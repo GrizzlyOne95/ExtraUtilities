@@ -267,8 +267,16 @@ namespace ExtraUtilities::Lua::GameObject
 		using MaterialHandle = ::Ogre::SharedPtr<::Ogre::Material>;
 		inline std::unordered_map<std::string, MaterialHandle> g_cachedMaterials;
 
+		// Verbose per-call tracing, opt-in through EXU_DEBUG_LOG=1: entity and
+		// material bindings log on every call and each line costs a log-file
+		// open/close.
 		void LogMaterialDebug(const char* fmt, ...)
 		{
+			if (!ExtraUtilities::Logging::IsDebugLoggingEnabled())
+			{
+				return;
+			}
+
 			char message[1024];
 			va_list args;
 			va_start(args, fmt);
@@ -283,6 +291,18 @@ namespace ExtraUtilities::Lua::GameObject
 				fprintf(file, "%s\n", message);
 				fclose(file);
 			}
+		}
+
+		// Fault paths (SEH handlers) always reach exu.log.
+		void LogMaterialFault(const char* fmt, ...)
+		{
+			char message[1024];
+			va_list args;
+			va_start(args, fmt);
+			vsnprintf_s(message, sizeof(message), _TRUNCATE, fmt, args);
+			va_end(args);
+			ExtraUtilities::Logging::LogMessage("%s", message);
+			LogMaterialDebug("%s", message);
 		}
 
 		void CacheMaterialHandle(const std::string& materialName, const MaterialHandle& material)
@@ -2126,7 +2146,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Material] GetNumSubEntities crashed entity=%p code=0x%08X", entity, GetExceptionCode());
+				LogMaterialFault("[EXU::Material] GetNumSubEntities crashed entity=%p code=0x%08X", entity, GetExceptionCode());
 				outCount = 0;
 				return false;
 			}
@@ -2141,7 +2161,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Material] GetSubEntity crashed entity=%p index=%u code=0x%08X", entity, index, GetExceptionCode());
+				LogMaterialFault("[EXU::Material] GetSubEntity crashed entity=%p index=%u code=0x%08X", entity, index, GetExceptionCode());
 				outSubEntity = nullptr;
 				return false;
 			}
@@ -2157,7 +2177,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Material] GetMaterialName crashed subEntity=%p code=0x%08X", subEntity, GetExceptionCode());
+				LogMaterialFault("[EXU::Material] GetMaterialName crashed subEntity=%p code=0x%08X", subEntity, GetExceptionCode());
 				outName.clear();
 				return false;
 			}
@@ -2177,7 +2197,7 @@ namespace ExtraUtilities::Lua::GameObject
 				}
 				__except (EXCEPTION_EXECUTE_HANDLER)
 				{
-					LogMaterialDebug(
+					LogMaterialFault(
 						"[EXU::Material] SetEntityMaterial cached apply crashed entity=%p material=%s code=0x%08X",
 						entity,
 						materialName.c_str(),
@@ -2192,7 +2212,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug(
+				LogMaterialFault(
 					"[EXU::Material] SetMaterialNameEntity crashed entity=%p material=%s group=%s code=0x%08X",
 					entity,
 					materialName.c_str(),
@@ -2216,7 +2236,7 @@ namespace ExtraUtilities::Lua::GameObject
 				}
 				__except (EXCEPTION_EXECUTE_HANDLER)
 				{
-					LogMaterialDebug(
+					LogMaterialFault(
 						"[EXU::Material] SetSubEntityMaterial cached apply crashed subEntity=%p material=%s code=0x%08X",
 						subEntity,
 						materialName.c_str(),
@@ -2231,7 +2251,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug(
+				LogMaterialFault(
 					"[EXU::Material] SetMaterialNameSubEntity crashed subEntity=%p material=%s group=%s code=0x%08X",
 					subEntity,
 					materialName.c_str(),
@@ -2250,7 +2270,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Material] GetVisible crashed entity=%p code=0x%08X", entity, GetExceptionCode());
+				LogMaterialFault("[EXU::Material] GetVisible crashed entity=%p code=0x%08X", entity, GetExceptionCode());
 				outVisible = false;
 				return false;
 			}
@@ -2265,7 +2285,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Material] SetVisible crashed entity=%p visible=%d code=0x%08X", entity, visible ? 1 : 0, GetExceptionCode());
+				LogMaterialFault("[EXU::Material] SetVisible crashed entity=%p visible=%d code=0x%08X", entity, visible ? 1 : 0, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2279,7 +2299,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Material] GetCastShadows crashed entity=%p code=0x%08X", entity, GetExceptionCode());
+				LogMaterialFault("[EXU::Material] GetCastShadows crashed entity=%p code=0x%08X", entity, GetExceptionCode());
 				outCastShadows = false;
 				return false;
 			}
@@ -2294,7 +2314,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Material] SetCastShadows crashed entity=%p castShadows=%d code=0x%08X", entity, castShadows ? 1 : 0, GetExceptionCode());
+				LogMaterialFault("[EXU::Material] SetCastShadows crashed entity=%p castShadows=%d code=0x%08X", entity, castShadows ? 1 : 0, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2308,7 +2328,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Render] GetRenderingDistance crashed entity=%p code=0x%08X", entity, GetExceptionCode());
+				LogMaterialFault("[EXU::Render] GetRenderingDistance crashed entity=%p code=0x%08X", entity, GetExceptionCode());
 				outDistance = 0.0f;
 				return false;
 			}
@@ -2323,7 +2343,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Render] SetRenderingDistance crashed entity=%p distance=%g code=0x%08X", entity, distance, GetExceptionCode());
+				LogMaterialFault("[EXU::Render] SetRenderingDistance crashed entity=%p distance=%g code=0x%08X", entity, distance, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2337,7 +2357,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Render] GetVisibilityFlags crashed entity=%p code=0x%08X", entity, GetExceptionCode());
+				LogMaterialFault("[EXU::Render] GetVisibilityFlags crashed entity=%p code=0x%08X", entity, GetExceptionCode());
 				outFlags = 0;
 				return false;
 			}
@@ -2352,7 +2372,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Render] SetVisibilityFlags crashed entity=%p flags=0x%08X code=0x%08X", entity, flags, GetExceptionCode());
+				LogMaterialFault("[EXU::Render] SetVisibilityFlags crashed entity=%p flags=0x%08X code=0x%08X", entity, flags, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2366,7 +2386,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Render] GetQueryFlags crashed entity=%p code=0x%08X", entity, GetExceptionCode());
+				LogMaterialFault("[EXU::Render] GetQueryFlags crashed entity=%p code=0x%08X", entity, GetExceptionCode());
 				outFlags = 0;
 				return false;
 			}
@@ -2381,7 +2401,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Render] SetQueryFlags crashed entity=%p flags=0x%08X code=0x%08X", entity, flags, GetExceptionCode());
+				LogMaterialFault("[EXU::Render] SetQueryFlags crashed entity=%p flags=0x%08X code=0x%08X", entity, flags, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2395,7 +2415,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Render] GetRenderQueueGroup crashed renderable=%p code=0x%08X", renderable, GetExceptionCode());
+				LogMaterialFault("[EXU::Render] GetRenderQueueGroup crashed renderable=%p code=0x%08X", renderable, GetExceptionCode());
 				outGroup = 0;
 				return false;
 			}
@@ -2410,7 +2430,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Render] SetRenderQueueGroup crashed entity=%p group=%u code=0x%08X", entity, group, GetExceptionCode());
+				LogMaterialFault("[EXU::Render] SetRenderQueueGroup crashed entity=%p group=%u code=0x%08X", entity, group, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2424,7 +2444,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Animation] HasSkeleton crashed entity=%p code=0x%08X", entity, GetExceptionCode());
+				LogMaterialFault("[EXU::Animation] HasSkeleton crashed entity=%p code=0x%08X", entity, GetExceptionCode());
 				outHasSkeleton = false;
 				return false;
 			}
@@ -2439,7 +2459,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Animation] GetAllAnimationStates crashed entity=%p code=0x%08X", entity, GetExceptionCode());
+				LogMaterialFault("[EXU::Animation] GetAllAnimationStates crashed entity=%p code=0x%08X", entity, GetExceptionCode());
 				outStates = nullptr;
 				return false;
 			}
@@ -2454,7 +2474,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Animation] HasAnimationState crashed states=%p name=%s code=0x%08X", animationStates, name.c_str(), GetExceptionCode());
+				LogMaterialFault("[EXU::Animation] HasAnimationState crashed states=%p name=%s code=0x%08X", animationStates, name.c_str(), GetExceptionCode());
 				outHasAnimation = false;
 				return false;
 			}
@@ -2469,7 +2489,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Animation] GetAnimationState crashed states=%p name=%s code=0x%08X", animationStates, name.c_str(), GetExceptionCode());
+				LogMaterialFault("[EXU::Animation] GetAnimationState crashed states=%p name=%s code=0x%08X", animationStates, name.c_str(), GetExceptionCode());
 				outAnimationState = nullptr;
 				return false;
 			}
@@ -2513,7 +2533,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Animation] GetLength crashed animationState=%p code=0x%08X", animationState, GetExceptionCode());
+				LogMaterialFault("[EXU::Animation] GetLength crashed animationState=%p code=0x%08X", animationState, GetExceptionCode());
 				outValue = 0.0f;
 				return false;
 			}
@@ -2528,7 +2548,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Animation] GetTimePosition crashed animationState=%p code=0x%08X", animationState, GetExceptionCode());
+				LogMaterialFault("[EXU::Animation] GetTimePosition crashed animationState=%p code=0x%08X", animationState, GetExceptionCode());
 				outValue = 0.0f;
 				return false;
 			}
@@ -2543,7 +2563,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Animation] GetWeight crashed animationState=%p code=0x%08X", animationState, GetExceptionCode());
+				LogMaterialFault("[EXU::Animation] GetWeight crashed animationState=%p code=0x%08X", animationState, GetExceptionCode());
 				outValue = 0.0f;
 				return false;
 			}
@@ -2558,7 +2578,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Animation] GetLoop crashed animationState=%p code=0x%08X", animationState, GetExceptionCode());
+				LogMaterialFault("[EXU::Animation] GetLoop crashed animationState=%p code=0x%08X", animationState, GetExceptionCode());
 				outValue = false;
 				return false;
 			}
@@ -2573,7 +2593,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Animation] GetEnabled crashed animationState=%p code=0x%08X", animationState, GetExceptionCode());
+				LogMaterialFault("[EXU::Animation] GetEnabled crashed animationState=%p code=0x%08X", animationState, GetExceptionCode());
 				outValue = false;
 				return false;
 			}
@@ -2588,7 +2608,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Animation] SetEnabled crashed animationState=%p enabled=%d code=0x%08X", animationState, enabled ? 1 : 0, GetExceptionCode());
+				LogMaterialFault("[EXU::Animation] SetEnabled crashed animationState=%p enabled=%d code=0x%08X", animationState, enabled ? 1 : 0, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2602,7 +2622,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Animation] SetLoop crashed animationState=%p loop=%d code=0x%08X", animationState, loop ? 1 : 0, GetExceptionCode());
+				LogMaterialFault("[EXU::Animation] SetLoop crashed animationState=%p loop=%d code=0x%08X", animationState, loop ? 1 : 0, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2616,7 +2636,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Animation] SetWeight crashed animationState=%p weight=%g code=0x%08X", animationState, weight, GetExceptionCode());
+				LogMaterialFault("[EXU::Animation] SetWeight crashed animationState=%p weight=%g code=0x%08X", animationState, weight, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2630,7 +2650,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Animation] SetTimePosition crashed animationState=%p time=%g code=0x%08X", animationState, timePosition, GetExceptionCode());
+				LogMaterialFault("[EXU::Animation] SetTimePosition crashed animationState=%p time=%g code=0x%08X", animationState, timePosition, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2677,7 +2697,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Material] Ogre pointer lookup crashed obj=%p code=0x%08X", obj, GetExceptionCode());
+				LogMaterialFault("[EXU::Material] Ogre pointer lookup crashed obj=%p code=0x%08X", obj, GetExceptionCode());
 				return nullptr;
 			}
 
@@ -2709,7 +2729,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Light] Ogre light lookup crashed obj=%p code=0x%08X", obj, GetExceptionCode());
+				LogMaterialFault("[EXU::Light] Ogre light lookup crashed obj=%p code=0x%08X", obj, GetExceptionCode());
 				return nullptr;
 			}
 
@@ -2730,7 +2750,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Light] GetPowerScale crashed light=%p code=0x%08X", light, GetExceptionCode());
+				LogMaterialFault("[EXU::Light] GetPowerScale crashed light=%p code=0x%08X", light, GetExceptionCode());
 				outValue = 0.0f;
 				return false;
 			}
@@ -2745,7 +2765,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Light] SetPowerScale crashed light=%p value=%g code=0x%08X", light, value, GetExceptionCode());
+				LogMaterialFault("[EXU::Light] SetPowerScale crashed light=%p value=%g code=0x%08X", light, value, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2763,7 +2783,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Light] GetPosition crashed light=%p code=0x%08X", light, GetExceptionCode());
+				LogMaterialFault("[EXU::Light] GetPosition crashed light=%p code=0x%08X", light, GetExceptionCode());
 				outPosition = {};
 				return false;
 			}
@@ -2778,7 +2798,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Light] SetPosition crashed light=%p code=0x%08X", light, GetExceptionCode());
+				LogMaterialFault("[EXU::Light] SetPosition crashed light=%p code=0x%08X", light, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2796,7 +2816,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Light] GetDirection crashed light=%p code=0x%08X", light, GetExceptionCode());
+				LogMaterialFault("[EXU::Light] GetDirection crashed light=%p code=0x%08X", light, GetExceptionCode());
 				outDirection = {};
 				return false;
 			}
@@ -2811,7 +2831,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Light] SetDirection crashed light=%p code=0x%08X", light, GetExceptionCode());
+				LogMaterialFault("[EXU::Light] SetDirection crashed light=%p code=0x%08X", light, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2825,7 +2845,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Light] SetAttenuation crashed light=%p code=0x%08X", light, GetExceptionCode());
+				LogMaterialFault("[EXU::Light] SetAttenuation crashed light=%p code=0x%08X", light, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2841,7 +2861,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug(
+				LogMaterialFault(
 					"[EXU::Material] ResolveMaterial crashed material=%s group=%s code=0x%08X",
 					materialName.c_str(),
 					resourceGroup.c_str(),
@@ -2863,7 +2883,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug(
+				LogMaterialFault(
 					"[EXU::Material] CloneMaterial crashed clone=%s group=%s code=0x%08X",
 					cloneName.c_str(),
 					resourceGroup.c_str(),
@@ -2886,7 +2906,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug(
+				LogMaterialFault(
 					"[EXU::Material] ResolveMaterialPass crashed material=%s technique=%d pass=%d code=0x%08X",
 					materialName.c_str(),
 					techniqueIndex,
@@ -2992,7 +3012,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug(
+				LogMaterialFault(
 					"[EXU::Material] CollectMaterialTintPasses crashed material=%s pass=%d code=0x%08X",
 					materialName.c_str(),
 					passIndex,
@@ -3021,7 +3041,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug(
+				LogMaterialFault(
 					"[EXU::Material] ResolveMaterialTextureUnit crashed material=%s technique=%d pass=%d unit=%d code=0x%08X",
 					materialName.c_str(),
 					techniqueIndex,
@@ -3041,7 +3061,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug(
+				LogMaterialFault(
 					"[EXU::Material] SetTextureUnitStateTextureName crashed textureUnit=%p texture=%s code=0x%08X",
 					textureUnit,
 					textureName.c_str(),
@@ -3058,7 +3078,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug(
+				LogMaterialFault(
 					"[EXU::Material] SetTextureScroll crashed textureUnit=%p u=%g v=%g code=0x%08X",
 					textureUnit,
 					u,
@@ -3076,7 +3096,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug(
+				LogMaterialFault(
 					"[EXU::Material] SetTextureRotate crashed textureUnit=%p radians=%g code=0x%08X",
 					textureUnit,
 					radians,
@@ -3093,7 +3113,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug(
+				LogMaterialFault(
 					"[EXU::Material] SetScrollAnimation crashed textureUnit=%p uSpeed=%g vSpeed=%g code=0x%08X",
 					textureUnit,
 					uSpeed,
@@ -3111,7 +3131,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug(
+				LogMaterialFault(
 					"[EXU::Material] SetRotateAnimation crashed textureUnit=%p speed=%g code=0x%08X",
 					textureUnit,
 					speed,
@@ -3138,7 +3158,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Material] GetPassAmbient crashed pass=%p code=0x%08X", pass, GetExceptionCode());
+				LogMaterialFault("[EXU::Material] GetPassAmbient crashed pass=%p code=0x%08X", pass, GetExceptionCode());
 				outColor = {};
 				return false;
 			}
@@ -3152,7 +3172,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Material] GetPassDiffuse crashed pass=%p code=0x%08X", pass, GetExceptionCode());
+				LogMaterialFault("[EXU::Material] GetPassDiffuse crashed pass=%p code=0x%08X", pass, GetExceptionCode());
 				outColor = {};
 				return false;
 			}
@@ -3166,7 +3186,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Material] GetPassSpecular crashed pass=%p code=0x%08X", pass, GetExceptionCode());
+				LogMaterialFault("[EXU::Material] GetPassSpecular crashed pass=%p code=0x%08X", pass, GetExceptionCode());
 				outColor = {};
 				return false;
 			}
@@ -3180,7 +3200,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Material] GetPassSelfIllumination crashed pass=%p code=0x%08X", pass, GetExceptionCode());
+				LogMaterialFault("[EXU::Material] GetPassSelfIllumination crashed pass=%p code=0x%08X", pass, GetExceptionCode());
 				outColor = {};
 				return false;
 			}
@@ -3194,7 +3214,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Material] SetPassAmbient crashed pass=%p code=0x%08X", pass, GetExceptionCode());
+				LogMaterialFault("[EXU::Material] SetPassAmbient crashed pass=%p code=0x%08X", pass, GetExceptionCode());
 				return false;
 			}
 		}
@@ -3207,7 +3227,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Material] SetPassDiffuse crashed pass=%p code=0x%08X", pass, GetExceptionCode());
+				LogMaterialFault("[EXU::Material] SetPassDiffuse crashed pass=%p code=0x%08X", pass, GetExceptionCode());
 				return false;
 			}
 		}
@@ -3220,7 +3240,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Material] SetPassSpecular crashed pass=%p code=0x%08X", pass, GetExceptionCode());
+				LogMaterialFault("[EXU::Material] SetPassSpecular crashed pass=%p code=0x%08X", pass, GetExceptionCode());
 				return false;
 			}
 		}
@@ -3233,7 +3253,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Material] SetPassSelfIllumination crashed pass=%p code=0x%08X", pass, GetExceptionCode());
+				LogMaterialFault("[EXU::Material] SetPassSelfIllumination crashed pass=%p code=0x%08X", pass, GetExceptionCode());
 				return false;
 			}
 		}
@@ -3265,7 +3285,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Light] SetDiffuseColor crashed light=%p code=0x%08X", light, GetExceptionCode());
+				LogMaterialFault("[EXU::Light] SetDiffuseColor crashed light=%p code=0x%08X", light, GetExceptionCode());
 				return false;
 			}
 		}
@@ -3279,7 +3299,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Light] SetSpecularColor crashed light=%p code=0x%08X", light, GetExceptionCode());
+				LogMaterialFault("[EXU::Light] SetSpecularColor crashed light=%p code=0x%08X", light, GetExceptionCode());
 				return false;
 			}
 		}
@@ -3293,7 +3313,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::Light] SetSpotlightRange crashed light=%p code=0x%08X", light, GetExceptionCode());
+				LogMaterialFault("[EXU::Light] SetSpotlightRange crashed light=%p code=0x%08X", light, GetExceptionCode());
 				return false;
 			}
 		}
@@ -3307,7 +3327,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::SetAsUser] crashed obj=%p code=0x%08X", obj, GetExceptionCode());
+				LogMaterialFault("[EXU::SetAsUser] crashed obj=%p code=0x%08X", obj, GetExceptionCode());
 				return false;
 			}
 		}
@@ -3326,7 +3346,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::IsCommTowerPowered] crashed obj=%p code=0x%08X", obj, GetExceptionCode());
+				LogMaterialFault("[EXU::IsCommTowerPowered] crashed obj=%p code=0x%08X", obj, GetExceptionCode());
 				outHandle = 0;
 				return false;
 			}
@@ -4676,7 +4696,7 @@ namespace ExtraUtilities::Lua::GameObject
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogMaterialDebug("[EXU::GetMass] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
+			LogMaterialFault("[EXU::GetMass] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
 			lua_pushnil(L);
 			return 1;
 		}
@@ -4700,7 +4720,7 @@ namespace ExtraUtilities::Lua::GameObject
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogMaterialDebug("[EXU::SetMass] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
+			LogMaterialFault("[EXU::SetMass] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
 		}
 		return 0;
 	}
@@ -4808,7 +4828,7 @@ namespace ExtraUtilities::Lua::GameObject
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogMaterialDebug("[EXU::GetSelectedWeaponMask] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
+			LogMaterialFault("[EXU::GetSelectedWeaponMask] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
 			lua_pushnil(L);
 		}
 		return 1;
@@ -4868,7 +4888,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogMaterialDebug("[EXU::GetWeaponSelectionInfo] crashed while reading carrier handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
+				LogMaterialFault("[EXU::GetWeaponSelectionInfo] crashed while reading carrier handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
 			}
 		}
 
@@ -4892,7 +4912,7 @@ namespace ExtraUtilities::Lua::GameObject
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogMaterialDebug("[EXU::GetAiProcess] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
+			LogMaterialFault("[EXU::GetAiProcess] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
 			lua_pushnil(L);
 		}
 		return 1;

@@ -2416,12 +2416,15 @@ namespace ExtraUtilities::Lua::Overlay
 				return false;
 			}
 
-			Logging::LogMessage(
-				"[EXU::Overlay] setParameter element=%p name=%s value=%s success=%d",
-				element,
-				name.c_str(),
-				value.c_str(),
-				success ? 1 : 0);
+			if (!success || Logging::IsDebugLoggingEnabled())
+			{
+				Logging::LogMessage(
+					"[EXU::Overlay] setParameter element=%p name=%s value=%s success=%d",
+					element,
+					name.c_str(),
+					value.c_str(),
+					success ? 1 : 0);
+			}
 			return success;
 		}
 
@@ -2833,7 +2836,20 @@ namespace ExtraUtilities::Lua::Overlay
 			return 1;
 		}
 
-		::Ogre::OverlayElement* element = manager->createOverlayElement(typeName, instanceName, false);
+		::Ogre::OverlayElement* element = nullptr;
+		try
+		{
+			element = manager->createOverlayElement(typeName, instanceName, false);
+		}
+		catch (...)
+		{
+			// Ogre throws for an unknown element type; a C++ exception must not
+			// cross the Lua C boundary.
+			Logging::LogMessage("[EXU::Overlay] CreateOverlayElement threw type=%s name=%s", typeName.c_str(), instanceName.c_str());
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
 		if (element != nullptr)
 		{
 			knownElements[instanceName] = GetElementKindByTypeName(typeName);
@@ -2935,7 +2951,15 @@ namespace ExtraUtilities::Lua::Overlay
 			return 0;
 		}
 
-		parent->::Ogre::OverlayContainer::addChild(child);
+		try
+		{
+			parent->::Ogre::OverlayContainer::addChild(child);
+		}
+		catch (...)
+		{
+			// Duplicate child names throw in Ogre.
+			Logging::LogMessage("[EXU::Overlay] AddOverlayElementChild threw parent=%s child=%s", parentName.c_str(), childName.c_str());
+		}
 		return 0;
 	}
 
@@ -2950,7 +2974,15 @@ namespace ExtraUtilities::Lua::Overlay
 			return 0;
 		}
 
-		parent->::Ogre::OverlayContainer::removeChild(childName);
+		try
+		{
+			parent->::Ogre::OverlayContainer::removeChild(childName);
+		}
+		catch (...)
+		{
+			// A missing child throws in Ogre.
+			Logging::LogMessage("[EXU::Overlay] RemoveOverlayElementChild threw parent=%s child=%s", parentName.c_str(), childName.c_str());
+		}
 		return 0;
 	}
 
@@ -3061,8 +3093,21 @@ namespace ExtraUtilities::Lua::Overlay
 			return 0;
 		}
 
-		element->::Ogre::OverlayElement::setMaterialName(materialName);
-		Logging::LogMessage("[EXU::Overlay] SetOverlayMaterial name=%s element=%p material=%s", name.c_str(), element, materialName.c_str());
+		try
+		{
+			element->::Ogre::OverlayElement::setMaterialName(materialName);
+		}
+		catch (...)
+		{
+			// A missing material throws in Ogre.
+			Logging::LogMessage("[EXU::Overlay] SetOverlayMaterial threw name=%s material=%s", name.c_str(), materialName.c_str());
+			return 0;
+		}
+
+		if (Logging::IsDebugLoggingEnabled())
+		{
+			Logging::LogMessage("[EXU::Overlay] SetOverlayMaterial name=%s element=%p material=%s", name.c_str(), element, materialName.c_str());
+		}
 		return 0;
 	}
 
@@ -3140,6 +3185,15 @@ namespace ExtraUtilities::Lua::Overlay
 			return 1;
 		}
 
+		// The native setter writes TextArea-only members; a Panel or foreign
+		// element would be corrupted.
+		if (GetKnownElementKind(name) != ElementKind::TextArea)
+		{
+			Logging::LogMessage("[EXU::Overlay] SetOverlayTextFont rejected name=%s reason=not-a-TextArea", name.c_str());
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
 		EnsureOverlayRuntimeFont();
 		if (!overlayRuntimeFontReady)
 		{
@@ -3172,6 +3226,12 @@ namespace ExtraUtilities::Lua::Overlay
 			return 0;
 		}
 
+		if (GetKnownElementKind(name) != ElementKind::TextArea)
+		{
+			Logging::LogMessage("[EXU::Overlay] SetOverlayTextColor rejected name=%s reason=not-a-TextArea", name.c_str());
+			return 0;
+		}
+
 		if (!Native::TrySetTextAreaColor(element, color.r, color.g, color.b, color.a))
 		{
 			const std::string colorValue = std::to_string(color.r) + " "
@@ -3196,6 +3256,12 @@ namespace ExtraUtilities::Lua::Overlay
 		::Ogre::OverlayElement* element = FindOverlayElement(name);
 		if (element == nullptr)
 		{
+			return 0;
+		}
+
+		if (GetKnownElementKind(name) != ElementKind::TextArea)
+		{
+			Logging::LogMessage("[EXU::Overlay] SetOverlayTextCharHeight rejected name=%s reason=not-a-TextArea", name.c_str());
 			return 0;
 		}
 

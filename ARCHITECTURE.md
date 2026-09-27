@@ -62,6 +62,11 @@ EXU code should distinguish these lifetimes explicitly:
 
 Do not assume that module initialization, Lua initialization, mission loading, and process startup are equivalent events.
 
+Two facts about how EXU is loaded shape every lifetime above:
+
+- **`exu.dll` is reloaded per mission Lua state.** It is loaded by `require("exu")`, nothing pins it, and Lua 5.1's `loadlib` finalizer calls `FreeLibrary` when the mission state closes. Namespace-scope statics therefore live for one Lua state in practice, and static initializers run inside `DllMain` (loader lock) on every mission load. Code must not rely on the reload for cleanup: a C++ consumer that links `exu.lib` or holds the module pins it, and everything that is only reset by DLL unload then leaks into the next mission. Reset per-mission state explicitly from `HandleLuaStateClosing`/`Init`, and keep static initializers trivial (no signature scans, no file I/O).
+- **Two Lua cores.** `exu.dll` statically links its own Lua 5.1.5 (`Lua5.1-BZR/`) and runs it against the game's `lua_State`. The single shared sentinel that matters, the table `dummynode`, is reconciled by pointing EXU's copy at the executable's static (`Lua5.1-BZR/src/ltable.c`); every other sentinel comparison stays inside the copy that produced the pointer. That address is build-specific like any other and belongs under the same qualification as the address catalog.
+
 ## Supported-build workflow
 
 When a new BZR executable appears:

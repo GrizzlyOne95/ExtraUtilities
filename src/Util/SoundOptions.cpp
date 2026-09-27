@@ -162,38 +162,4 @@ namespace ExtraUtilities::Lua::SoundOptions
 		lua_pushnil(L);
 		return 1;
 	}
-
-	//int GetEffectsVolume(lua_State* L)
-	//{
-	//	lua_pushnumber(L, sfxVolume.Read());
-	//	return 1;
-	//}
-
-	//int SetEffectsVolume(lua_State* L)
-	//{
-	//	int newVolume = luaL_checkinteger(L, 1);
-	//	if (newVolume < 0 || newVolume > 10)
-	//	{
-	//		luaL_argerror(L, 1, "Value must be between 0 and 10");
-	//	}
-	//	sfxVolume.Write(newVolume);
-	//	return 0;
-	//}
-
-	//int GetVoiceVolume(lua_State* L)
-	//{
-	//	lua_pushnumber(L, voiceVolume.Read());
-	//	return 1;
-	//}
-
-	//int SetVoiceVolume(lua_State* L)
-	//{
-	//	int newVolume = luaL_checkinteger(L, 1);
-	//	if (newVolume < 0 || newVolume > 10)
-	//	{
-	//		luaL_argerror(L, 1, "Value must be between 0 and 10");
-	//	}
-	//	voiceVolume.Write(newVolume);
-	//	return 0;
-	//}
 }

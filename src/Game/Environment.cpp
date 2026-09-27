@@ -48,6 +48,7 @@ namespace ExtraUtilities::Lua::Environment
 		std::mutex g_environmentLogMutex;
 		std::string g_lastModernMaterialScheme = "high-pssm";
 		void LogEnvironmentDebug(const char* fmt, ...);
+		void LogEnvironmentFault(const char* fmt, ...);
 
 		enum class ViewportLightingMode
 		{
@@ -271,7 +272,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug(
+				LogEnvironmentFault(
 					"[EXU::Viewport] get material scheme crashed viewport=%p code=0x%08X",
 					viewport,
 					GetExceptionCode());
@@ -294,7 +295,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug(
+				LogEnvironmentFault(
 					"[EXU::Viewport] set material scheme crashed viewport=%p target=%s code=0x%08X",
 					viewport,
 					scheme.c_str(),
@@ -320,14 +321,37 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 
+		// Verbose per-call tracing, opt-in through EXU_DEBUG_LOG=1. The weather
+		// controller drives several of these bindings every frame and each
+		// line costs a log-file open/close, so it must be off by default.
 		void LogEnvironmentDebug(const char* fmt, ...)
 		{
+			if (!ExtraUtilities::Logging::IsDebugLoggingEnabled())
+			{
+				return;
+			}
+
 			char buffer[1024]{};
 			va_list args;
 			va_start(args, fmt);
 			vsnprintf_s(buffer, sizeof(buffer), _TRUNCATE, fmt, args);
 			va_end(args);
 			WriteEnvironmentDebug(buffer);
+		}
+
+		// Fault paths (SEH handlers) always reach exu.log.
+		void LogEnvironmentFault(const char* fmt, ...)
+		{
+			char buffer[1024]{};
+			va_list args;
+			va_start(args, fmt);
+			vsnprintf_s(buffer, sizeof(buffer), _TRUNCATE, fmt, args);
+			va_end(args);
+			ExtraUtilities::Logging::LogMessage("%s", buffer);
+			if (ExtraUtilities::Logging::IsDebugLoggingEnabled())
+			{
+				WriteEnvironmentDebug(buffer);
+			}
 		}
 
 		HMODULE GetOgreMainModule()
@@ -402,7 +426,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Viewport] Root::getSingletonPtr crashed code=0x%08X", GetExceptionCode());
+				LogEnvironmentFault("[EXU::Viewport] Root::getSingletonPtr crashed code=0x%08X", GetExceptionCode());
 				return false;
 			}
 		}
@@ -428,7 +452,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Viewport] Root::getRenderSystem crashed root=%p code=0x%08X", root, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Viewport] Root::getRenderSystem crashed root=%p code=0x%08X", root, GetExceptionCode());
 				return false;
 			}
 		}
@@ -454,7 +478,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Viewport] RenderSystem::_getViewport crashed renderSystem=%p code=0x%08X", renderSystem, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Viewport] RenderSystem::_getViewport crashed renderSystem=%p code=0x%08X", renderSystem, GetExceptionCode());
 				return false;
 			}
 		}
@@ -496,7 +520,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Viewport] get current viewport crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Viewport] get current viewport crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 				return nullptr;
 			}
 		}
@@ -597,7 +621,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::GetSunAmbient] crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+			LogEnvironmentFault("[EXU::GetSunAmbient] crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 			return false;
 		}
 	}
@@ -611,7 +635,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::SetSunAmbient] crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+			LogEnvironmentFault("[EXU::SetSunAmbient] crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 			return false;
 		}
 	}
@@ -629,7 +653,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::GetSunDiffuse] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			LogEnvironmentFault("[EXU::GetSunDiffuse] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
 			return false;
 		}
 	}
@@ -643,7 +667,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::SetSunDiffuse] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			LogEnvironmentFault("[EXU::SetSunDiffuse] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
 			return false;
 		}
 	}
@@ -661,7 +685,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::GetSunSpecular] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			LogEnvironmentFault("[EXU::GetSunSpecular] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
 			return false;
 		}
 	}
@@ -675,7 +699,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::SetSunSpecular] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			LogEnvironmentFault("[EXU::SetSunSpecular] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
 			return false;
 		}
 	}
@@ -693,7 +717,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::GetSunDirection] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			LogEnvironmentFault("[EXU::GetSunDirection] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
 			return false;
 		}
 	}
@@ -707,7 +731,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::SetSunDirection] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			LogEnvironmentFault("[EXU::SetSunDirection] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
 			return false;
 		}
 	}
@@ -722,7 +746,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::SetTimeOfDay] crashed timeOfDay=%d code=0x%08X", timeOfDay, GetExceptionCode());
+			LogEnvironmentFault("[EXU::SetTimeOfDay] crashed timeOfDay=%d code=0x%08X", timeOfDay, GetExceptionCode());
 			return false;
 		}
 	}
@@ -736,7 +760,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::SetTimeOfDay] refresh crashed code=0x%08X", GetExceptionCode());
+			LogEnvironmentFault("[EXU::SetTimeOfDay] refresh crashed code=0x%08X", GetExceptionCode());
 			return false;
 		}
 	}
@@ -750,7 +774,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::GetSunPowerScale] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			LogEnvironmentFault("[EXU::GetSunPowerScale] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
 			outValue = 0.0f;
 			return false;
 		}
@@ -765,7 +789,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::SetSunPowerScale] crashed terrainMasterLight=%p value=%g code=0x%08X", terrainMasterLight, value, GetExceptionCode());
+			LogEnvironmentFault("[EXU::SetSunPowerScale] crashed terrainMasterLight=%p value=%g code=0x%08X", terrainMasterLight, value, GetExceptionCode());
 			return false;
 		}
 	}
@@ -779,7 +803,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::GetSunShadowFarDistance] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
+			LogEnvironmentFault("[EXU::GetSunShadowFarDistance] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
 			outValue = 0.0f;
 			return false;
 		}
@@ -794,7 +818,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::SetSunShadowFarDistance] crashed terrainMasterLight=%p value=%g code=0x%08X", terrainMasterLight, value, GetExceptionCode());
+			LogEnvironmentFault("[EXU::SetSunShadowFarDistance] crashed terrainMasterLight=%p value=%g code=0x%08X", terrainMasterLight, value, GetExceptionCode());
 			return false;
 		}
 	}
@@ -810,7 +834,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::Sky] %s node probe crashed sceneManager=%p code=0x%08X", label, sceneManager, GetExceptionCode());
+			LogEnvironmentFault("[EXU::Sky] %s node probe crashed sceneManager=%p code=0x%08X", label, sceneManager, GetExceptionCode());
 			outHasNode = false;
 			return false;
 		}
@@ -824,7 +848,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::Sky] get skybox params crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+			LogEnvironmentFault("[EXU::Sky] get skybox params crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 			return false;
 		}
 	}
@@ -837,7 +861,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::Sky] get skydome params crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+			LogEnvironmentFault("[EXU::Sky] get skydome params crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 			return false;
 		}
 	}
@@ -850,7 +874,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Sky] get skyplane params crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Sky] get skyplane params crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 				return false;
 			}
 		}
@@ -956,7 +980,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Sky] %s enabled probe crashed sceneManager=%p code=0x%08X", label, sceneManager, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Sky] %s enabled probe crashed sceneManager=%p code=0x%08X", label, sceneManager, GetExceptionCode());
 				return false;
 			}
 		}
@@ -975,7 +999,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Sky] %s enabled setter crashed sceneManager=%p enabled=%d code=0x%08X", label, sceneManager, enabled ? 1 : 0, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Sky] %s enabled setter crashed sceneManager=%p enabled=%d code=0x%08X", label, sceneManager, enabled ? 1 : 0, GetExceptionCode());
 				return false;
 			}
 		}
@@ -996,7 +1020,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug(
+				LogEnvironmentFault(
 					"[EXU::Sky] setSkyBox crashed sceneManager=%p material=%s distance=%g drawFirst=%d group=%s code=0x%08X",
 					sceneManager,
 					materialName.c_str(),
@@ -1034,7 +1058,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug(
+				LogEnvironmentFault(
 					"[EXU::Sky] setSkyDome crashed sceneManager=%p material=%s curvature=%g tiling=%g distance=%g drawFirst=%d group=%s code=0x%08X",
 					sceneManager,
 					materialName.c_str(),
@@ -1073,7 +1097,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug(
+				LogEnvironmentFault(
 					"[EXU::Sky] setSkyPlane crashed sceneManager=%p material=%s scale=%g tiling=%g drawFirst=%d bow=%g group=%s code=0x%08X",
 					sceneManager,
 					materialName.c_str(),
@@ -1343,7 +1367,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] hasParticleSystem crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] hasParticleSystem crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
@@ -1364,7 +1388,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] hasSceneNode crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] hasSceneNode crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
@@ -1391,7 +1415,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] getParticleSystem crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] getParticleSystem crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
@@ -1418,7 +1442,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] getSceneNode crashed sceneManager=%p node=%s code=0x%08X", sceneManager, nodeName.c_str(), GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] getSceneNode crashed sceneManager=%p node=%s code=0x%08X", sceneManager, nodeName.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
@@ -1465,7 +1489,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] getMovableObject crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] getMovableObject crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
 				outMovableObject = nullptr;
 				return false;
 			}
@@ -1492,7 +1516,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] destroyParticleSystem crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] destroyParticleSystem crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
@@ -1518,7 +1542,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] destroySceneNode crashed sceneManager=%p node=%s code=0x%08X", sceneManager, nodeName.c_str(), GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] destroySceneNode crashed sceneManager=%p node=%s code=0x%08X", sceneManager, nodeName.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
@@ -1602,7 +1626,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug(
+				LogEnvironmentFault(
 					"[EXU::Particle] create crashed sceneManager=%p name=%s template=%s node=%s code=0x%08X",
 					sceneManager,
 					name.c_str(),
@@ -1660,7 +1684,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] setPosition crashed sceneNode=%p name=%s code=0x%08X", sceneNode, name.c_str(), GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] setPosition crashed sceneNode=%p name=%s code=0x%08X", sceneNode, name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
@@ -1682,7 +1706,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] setDirection crashed sceneNode=%p name=%s code=0x%08X", sceneNode, name.c_str(), GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] setDirection crashed sceneNode=%p name=%s code=0x%08X", sceneNode, name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
@@ -1703,7 +1727,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] setEmitting crashed particleSystem=%p name=%s enabled=%d code=0x%08X", particleSystem, name.c_str(), enabled ? 1 : 0, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] setEmitting crashed particleSystem=%p name=%s enabled=%d code=0x%08X", particleSystem, name.c_str(), enabled ? 1 : 0, GetExceptionCode());
 				return false;
 			}
 		}
@@ -1726,7 +1750,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] setVisible crashed movableObject=%p name=%s enabled=%d code=0x%08X", movableObject, name.c_str(), enabled ? 1 : 0, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] setVisible crashed movableObject=%p name=%s enabled=%d code=0x%08X", movableObject, name.c_str(), enabled ? 1 : 0, GetExceptionCode());
 				return false;
 			}
 		}
@@ -1747,7 +1771,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] setSpeedFactor crashed particleSystem=%p name=%s speed=%g code=0x%08X", particleSystem, name.c_str(), speedFactor, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] setSpeedFactor crashed particleSystem=%p name=%s speed=%g code=0x%08X", particleSystem, name.c_str(), speedFactor, GetExceptionCode());
 				return false;
 			}
 		}
@@ -1768,7 +1792,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] setKeepParticlesInLocalSpace crashed particleSystem=%p name=%s enabled=%d code=0x%08X", particleSystem, name.c_str(), enabled ? 1 : 0, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] setKeepParticlesInLocalSpace crashed particleSystem=%p name=%s enabled=%d code=0x%08X", particleSystem, name.c_str(), enabled ? 1 : 0, GetExceptionCode());
 				return false;
 			}
 		}
@@ -1789,7 +1813,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug(
+				LogEnvironmentFault(
 					"[EXU::Particle] setMaterialName crashed particleSystem=%p name=%s material=%s group=%s code=0x%08X",
 					particleSystem,
 					name.c_str(),
@@ -1802,21 +1826,27 @@ namespace ExtraUtilities::Lua::Environment
 
 		bool TrySetParticleSystemRenderQueueGroup(void* sceneManager, const std::string& name, uint8_t renderQueueGroup)
 		{
-			void* particleSystem = nullptr;
+			// ParticleSystem::setRenderQueueGroup overrides a MovableObject
+			// virtual, so under the MSVC ABI its this-pointer is the re-based
+			// MovableObject subobject, exactly like MovableObject's own bodies.
+			// Passing the ParticleSystem* wrote the queue id into the
+			// StringInterface subobject and made a virtual call through an
+			// unrelated field.
+			void* movableObject = nullptr;
 			const auto fn = ResolveSetParticleSystemRenderQueueGroup();
-			if (!TryGetParticleSystem(sceneManager, name, particleSystem) || fn == nullptr)
+			if (!TryGetParticleMovableObject(sceneManager, name, movableObject) || fn == nullptr)
 			{
 				return false;
 			}
 
 			__try
 			{
-				fn(particleSystem, renderQueueGroup);
+				fn(movableObject, renderQueueGroup);
 				return true;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] setRenderQueueGroup crashed particleSystem=%p name=%s queue=%u code=0x%08X", particleSystem, name.c_str(), renderQueueGroup, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] setRenderQueueGroup crashed movableObject=%p name=%s queue=%u code=0x%08X", movableObject, name.c_str(), renderQueueGroup, GetExceptionCode());
 				return false;
 			}
 		}
@@ -1837,7 +1867,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] setParticleQuota crashed particleSystem=%p name=%s quota=%u code=0x%08X", particleSystem, name.c_str(), quota, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] setParticleQuota crashed particleSystem=%p name=%s quota=%u code=0x%08X", particleSystem, name.c_str(), quota, GetExceptionCode());
 				return false;
 			}
 		}
@@ -1858,7 +1888,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] setDefaultDimensions crashed particleSystem=%p name=%s width=%g height=%g code=0x%08X", particleSystem, name.c_str(), width, height, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] setDefaultDimensions crashed particleSystem=%p name=%s width=%g height=%g code=0x%08X", particleSystem, name.c_str(), width, height, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2142,7 +2172,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] Viewport::getCamera crashed code=0x%08X", GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] Viewport::getCamera crashed code=0x%08X", GetExceptionCode());
 				return nullptr;
 			}
 		}
@@ -2168,7 +2198,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] Camera::getDerivedPosition crashed camera=%p code=0x%08X", camera, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] Camera::getDerivedPosition crashed camera=%p code=0x%08X", camera, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2184,7 +2214,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug(
+				LogEnvironmentFault(
 					"[EXU::Particle] render-position conversion failed reason=origin_read_crashed code=0x%08X",
 					GetExceptionCode());
 				return false;
@@ -2218,7 +2248,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] getParentSceneNode crashed movableObject=%p code=0x%08X", movableObject, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] getParentSceneNode crashed movableObject=%p code=0x%08X", movableObject, GetExceptionCode());
 				return nullptr;
 			}
 		}
@@ -2255,7 +2285,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] reparent crashed node=%p newParent=%p code=0x%08X", node, newParent, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] reparent crashed node=%p newParent=%p code=0x%08X", node, newParent, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2275,7 +2305,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] setInheritOrientation crashed node=%p code=0x%08X", node, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] setInheritOrientation crashed node=%p code=0x%08X", node, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2295,7 +2325,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] setInheritScale crashed node=%p code=0x%08X", node, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] setInheritScale crashed node=%p code=0x%08X", node, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2315,7 +2345,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] setPosition crashed node=%p code=0x%08X", node, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] setPosition crashed node=%p code=0x%08X", node, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2336,7 +2366,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] getRootSceneNode crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] getRootSceneNode crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 				return false;
 			}
 
@@ -2465,7 +2495,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug(
+				LogEnvironmentFault(
 					"[EXU::Particle] bone attach crashed name=%s bone=%s entity=%p code=0x%08X",
 					name.c_str(),
 					boneName.c_str(),
@@ -2498,7 +2528,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] getEmitter crashed name=%s index=%d code=0x%08X", name.c_str(), emitterIndex, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] getEmitter crashed name=%s index=%d code=0x%08X", name.c_str(), emitterIndex, GetExceptionCode());
 				return nullptr;
 			}
 		}
@@ -2520,7 +2550,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] getNumEmitters crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] getNumEmitters crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
@@ -2548,7 +2578,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] getAffector crashed name=%s index=%d code=0x%08X", name.c_str(), affectorIndex, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] getAffector crashed name=%s index=%d code=0x%08X", name.c_str(), affectorIndex, GetExceptionCode());
 				return nullptr;
 			}
 		}
@@ -2570,7 +2600,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] getNumAffectors crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] getNumAffectors crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
@@ -2662,7 +2692,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] getType crashed object=%p code=0x%08X", stringInterface, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] getType crashed object=%p code=0x%08X", stringInterface, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2688,7 +2718,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug(
+				LogEnvironmentFault(
 					"[EXU::Particle] %s setParameter crashed object=%p parameter=%s value=%s code=0x%08X",
 					what,
 					stringInterface,
@@ -2719,7 +2749,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug(
+				LogEnvironmentFault(
 					"[EXU::Particle] %s getParameter crashed object=%p parameter=%s code=0x%08X",
 					what,
 					stringInterface,
@@ -2747,7 +2777,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug(
+				LogEnvironmentFault(
 					"[EXU::Particle] %s getParameters crashed object=%p code=0x%08X",
 					what,
 					stringInterface,
@@ -2771,7 +2801,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] emitter setEnabled crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] emitter setEnabled crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2791,7 +2821,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] emitter setEmissionRate crashed emitter=%p rate=%g code=0x%08X", emitter, rate, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] emitter setEmissionRate crashed emitter=%p rate=%g code=0x%08X", emitter, rate, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2812,7 +2842,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] emitter getEmissionRate crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] emitter getEmissionRate crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2832,7 +2862,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] emitter setDirection crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] emitter setDirection crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2852,7 +2882,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] emitter setPosition crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] emitter setPosition crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2872,7 +2902,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] emitter setParticleVelocity crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] emitter setParticleVelocity crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2892,7 +2922,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] emitter setAngle crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] emitter setAngle crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2912,7 +2942,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] emitter setTimeToLive crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] emitter setTimeToLive crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2932,7 +2962,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] emitter setColour crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] emitter setColour crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
 				return false;
 			}
 		}
@@ -2969,7 +2999,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] detach crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] detach crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
@@ -2990,7 +3020,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
 			{
-				LogEnvironmentDebug("[EXU::Particle] setNonVisibleUpdateTimeout crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
+				LogEnvironmentFault("[EXU::Particle] setNonVisibleUpdateTimeout crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
@@ -3062,7 +3092,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::Viewport] getOverlaysEnabled crashed viewport=%p code=0x%08X", viewport, GetExceptionCode());
+			LogEnvironmentFault("[EXU::Viewport] getOverlaysEnabled crashed viewport=%p code=0x%08X", viewport, GetExceptionCode());
 			return false;
 		}
 	}
@@ -3088,7 +3118,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::Viewport] setOverlaysEnabled crashed viewport=%p enabled=%d code=0x%08X", viewport, enabled ? 1 : 0, GetExceptionCode());
+			LogEnvironmentFault("[EXU::Viewport] setOverlaysEnabled crashed viewport=%p enabled=%d code=0x%08X", viewport, enabled ? 1 : 0, GetExceptionCode());
 			return false;
 		}
 	}
@@ -4798,7 +4828,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::Scene] getShowBoundingBoxes crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+			LogEnvironmentFault("[EXU::Scene] getShowBoundingBoxes crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 		}
 
 		lua_pushboolean(L, enabled ? 1 : 0);
@@ -4822,7 +4852,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::Scene] showBoundingBoxes crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+			LogEnvironmentFault("[EXU::Scene] showBoundingBoxes crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 		}
 
 		return 0;
@@ -4846,7 +4876,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::Scene] getShowDebugShadows crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+			LogEnvironmentFault("[EXU::Scene] getShowDebugShadows crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 		}
 
 		lua_pushboolean(L, enabled ? 1 : 0);
@@ -4870,7 +4900,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::Scene] setShowDebugShadows crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+			LogEnvironmentFault("[EXU::Scene] setShowDebugShadows crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 		}
 
 		return 0;
@@ -4894,7 +4924,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::Viewport] getShadowsEnabled crashed viewport=%p code=0x%08X", viewport, GetExceptionCode());
+			LogEnvironmentFault("[EXU::Viewport] getShadowsEnabled crashed viewport=%p code=0x%08X", viewport, GetExceptionCode());
 		}
 
 		lua_pushboolean(L, enabled ? 1 : 0);
@@ -4918,7 +4948,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::Viewport] setShadowsEnabled crashed viewport=%p code=0x%08X", viewport, GetExceptionCode());
+			LogEnvironmentFault("[EXU::Viewport] setShadowsEnabled crashed viewport=%p code=0x%08X", viewport, GetExceptionCode());
 		}
 
 		return 0;
@@ -5035,7 +5065,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug(
+			LogEnvironmentFault(
 				"[EXU::Viewport] setCompositorEnabled crashed viewport=%p enabled=%d code=0x%08X",
 				viewport,
 				enabled ? 1 : 0,
@@ -5666,7 +5696,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::Scene] getVisibilityMask crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+			LogEnvironmentFault("[EXU::Scene] getVisibilityMask crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 			lua_pushnil(L);
 			return 1;
 		}
@@ -5692,7 +5722,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER)
 		{
-			LogEnvironmentDebug("[EXU::Scene] setVisibilityMask crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
+			LogEnvironmentFault("[EXU::Scene] setVisibilityMask crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 		}
 
 		return 0;

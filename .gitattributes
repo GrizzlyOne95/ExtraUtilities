@@ -45,9 +45,13 @@
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
 
-src/BZR.h linguist-vendored
-include/** linguist-vendored
+# Only the vendored Lua headers; src/bzr.h and include/ExtraUtils.h are first-party.
+include/lua*.h linguist-vendored
 Lua5.1-BZR/** linguist-vendored
+
+# Patches must reach git apply byte-exact; batch files want CRLF on every host.
+*.patch -text
+*.bat   text eol=crlf
 
 ###############################################################################
 # Shell scripts must stay LF, on every platform.
