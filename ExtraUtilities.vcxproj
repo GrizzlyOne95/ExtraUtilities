@@ -157,6 +157,8 @@
     <ClCompile Include="src\PublicAPI.cpp" />
     <ClCompile Include="src\Game\Multiplayer.cpp" />
     <ClCompile Include="src\Ogre\OgreNativeFontBridge.cpp">
+      <!-- The only file that includes the real Ogre headers. OgreString.h (line ~211) uses
+           std::tr1::hash for MSVC, which MSVC no longer provides in C++17 and later modes. -->
       <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <ClCompile Include="src\UI\Overlay.cpp" />

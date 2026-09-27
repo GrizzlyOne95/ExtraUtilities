@@ -36,6 +36,8 @@ Install `exu.dll` through the EXU Steam Workshop item or download it from the [l
 local exu = require("exu")
 ```
 
+`exu.dll` needs the **Microsoft Visual C++ 2015-2022 Redistributable (x86)**, which the game itself does not install. Without it, `require("exu")` fails as if the module could not be found. Under Proton, Wine's built-in runtime is used and nothing extra is needed.
+
 Depending on the shared Workshop installation is preferred to bundling a private DLL copy with each mod. A shared installation receives fixes and avoids conflicts when multiple mods expect different EXU versions.
 
 See [`examples/`](examples) for focused demonstrations. C++ consumers can include [`include/ExtraUtils.h`](include/ExtraUtils.h) and link against the import library produced by the build.
