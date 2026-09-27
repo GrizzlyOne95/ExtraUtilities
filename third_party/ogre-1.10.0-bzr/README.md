@@ -7,8 +7,11 @@ This folder tracks the local Ogre work needed to build Battlezone Redux-compatib
 - `patches/0001-suppress-cross-renderer-hlsl-target-warnings.patch`
   - suppresses false HLSL target warnings when Ogre parses the inactive renderer's optional shader delegates
   - fixes the mislabeled D3D9 log string so it reports `D3D9 shader` instead of `D3D11 shader`
+- `patches/0002-d3d11-resource-hardening.patch`
+  - skips creating a shader-resource view for D3D11 textures that lack the shader-resource bind flag, and throws when creating a staging texture fails instead of continuing with a null buffer
+- Patches are stored byte-exact (`*.patch -text` in `.gitattributes`); do not let an editor strip trailing whitespace from them, since a blank context line is a single space.
 - `Build-Ogre-BZR.ps1`
-  - applies the patch to a clean Ogre 1.10.0 source tree
+  - applies both patches to a clean Ogre 1.10.0 source tree
   - downloads and builds `zlib` and `freetype`
   - can fetch `zziplib` and the official Win32 FreeImage package for the Battlezone ABI profile
   - configures Ogre for Win32

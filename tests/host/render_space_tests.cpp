@@ -17,6 +17,7 @@
  */
 
 #include "Ogre/OgreRenderSpace.h"
+#include "HostTest.h"
 
 #include <cmath>
 #include <cstdlib>
@@ -49,15 +50,13 @@ namespace
 		return Quaternion{ std::cos(half), 0.0f, std::sin(half), 0.0f };
 	}
 
-	int g_failures = 0;
-
 	void ExpectEqual(float actual, float expected, const std::string& what)
 	{
 		if (actual != expected)
 		{
 			std::cerr << "FAIL: " << what << " -- expected " << expected
 			          << ", got " << actual << '\n';
-			++g_failures;
+			HostTest::CountFailure();
 		}
 	}
 
@@ -171,12 +170,5 @@ int main()
 	TestOrientationConversionIsAnInvolution();
 	TestIdentityOrientationSurvives();
 
-	if (g_failures != 0)
-	{
-		std::cerr << g_failures << " render-space check(s) failed\n";
-		return EXIT_FAILURE;
-	}
-
-	std::cout << "All render-space checks passed.\n";
-	return EXIT_SUCCESS;
+	return HostTest::Finish("render-space");
 }

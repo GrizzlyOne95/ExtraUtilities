@@ -47,3 +47,4 @@ index 41ca04f..6a39d27 100644
 +                "Invalid target for D3D9 shader '" + mName + "' - '" + target + "'");
          }
      }
+ 

@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include "Util/PatternMatch.h"
+
 #include <Windows.h>
 
 #include <array>
@@ -282,112 +284,8 @@ namespace ExtraUtilities::SignatureResolver
 		return sections;
 	}
 
-	inline uintptr_t FindMaskedPattern(
-		const uint8_t* data,
-		size_t dataSize,
-		uintptr_t baseAddress,
-		const uint8_t* pattern,
-		const uint8_t* mask,
-		size_t patternSize) noexcept
-	{
-		if (data == nullptr || pattern == nullptr || mask == nullptr || patternSize == 0 || dataSize < patternSize)
-		{
-			return 0;
-		}
-
-		for (size_t offset = 0; offset <= dataSize - patternSize; ++offset)
-		{
-			bool matched = true;
-			for (size_t i = 0; i < patternSize; ++i)
-			{
-				if (mask[i] != 0 && data[offset + i] != pattern[i])
-				{
-					matched = false;
-					break;
-				}
-			}
-
-			if (matched)
-			{
-				return baseAddress + offset;
-			}
-		}
-
-		return 0;
-	}
-
-	template <size_t N>
-	inline const uint8_t* FindPattern(
-		const uint8_t* data,
-		size_t dataSize,
-		const std::array<int, N>& pattern) noexcept
-	{
-		if (data == nullptr || dataSize < N)
-		{
-			return nullptr;
-		}
-
-		for (size_t offset = 0; offset <= dataSize - N; ++offset)
-		{
-			bool matched = true;
-			for (size_t i = 0; i < N; ++i)
-			{
-				const int expected = pattern[i];
-				if (expected >= 0 && data[offset + i] != static_cast<uint8_t>(expected))
-				{
-					matched = false;
-					break;
-				}
-			}
-
-			if (matched)
-			{
-				return data + offset;
-			}
-		}
-
-		return nullptr;
-	}
-
-	inline uintptr_t FindUniqueMaskedPattern(
-		const uint8_t* data,
-		size_t dataSize,
-		uintptr_t baseAddress,
-		const uint8_t* pattern,
-		const uint8_t* mask,
-		size_t patternSize) noexcept
-	{
-		if (data == nullptr || pattern == nullptr || mask == nullptr || patternSize == 0 || dataSize < patternSize)
-		{
-			return 0;
-		}
-
-		uintptr_t matchAddress = 0;
-		for (size_t offset = 0; offset <= dataSize - patternSize; ++offset)
-		{
-			bool matched = true;
-			for (size_t i = 0; i < patternSize; ++i)
-			{
-				if (mask[i] != 0 && data[offset + i] != pattern[i])
-				{
-					matched = false;
-					break;
-				}
-			}
-
-			if (!matched)
-			{
-				continue;
-			}
-
-			if (matchAddress != 0)
-			{
-				return 0; // Ambiguous signature; fail closed.
-			}
-
-			matchAddress = baseAddress + offset;
-		}
-
-		return matchAddress;
-	}
+	// The matchers live in PatternMatch.h so tests/host can exercise them.
+	using PatternMatch::FindMaskedPattern;
+	using PatternMatch::FindPattern;
+	using PatternMatch::FindUniqueMaskedPattern;
 }
