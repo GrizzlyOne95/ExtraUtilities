@@ -182,6 +182,25 @@ namespace ExtraUtilities::Lua::Overlay
 
 		::Ogre::OverlayManager* GetOverlayManager();
 
+		// Lookup that never creates overlay support; safe from hook context.
+		::Ogre::Overlay* FindExistingOverlay(const std::string& name)
+		{
+			::Ogre::OverlayManager* manager = GetOverlayManagerRaw();
+			if (manager == nullptr)
+			{
+				return nullptr;
+			}
+
+			__try
+			{
+				return manager->getByName(name);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				return nullptr;
+			}
+		}
+
 		::Ogre::Overlay* FindOverlay(const std::string& name)
 		{
 			::Ogre::OverlayManager* manager = GetOverlayManager();
@@ -982,19 +1001,25 @@ namespace ExtraUtilities::Lua::Overlay
 				spriteTablePath.c_str());
 		}
 
-		void DetachOverlaySystemFromTrackedSceneManagers(void* overlaySystem)
+		void DestroyOverlaySystemInstance();
+
+		// Returns false if the OverlaySystem may still be registered as a
+		// render-queue listener on some scene manager; it must not be freed then.
+		bool DetachOverlaySystemFromTrackedSceneManagers(void* overlaySystem)
 		{
 			if (overlaySystem == nullptr || attachedOverlaySceneManagers.empty())
 			{
-				return;
+				return true;
 			}
 
 			const auto removeListener = ResolveRemoveRenderQueueListener();
 			if (removeListener == nullptr)
 			{
 				Logging::LogMessage("[EXU::Overlay] removeRenderQueueListener unavailable overlaySystem=%p", overlaySystem);
-				return;
+				return false;
 			}
+
+			bool allDetached = true;
 
 			for (void* sceneManager : attachedOverlaySceneManagers)
 			{
@@ -1011,10 +1036,28 @@ namespace ExtraUtilities::Lua::Overlay
 				__except (EXCEPTION_EXECUTE_HANDLER)
 				{
 					Logging::LogMessage("[EXU::Overlay] removeRenderQueueListener crashed sceneManager=%p overlaySystem=%p code=0x%08X", sceneManager, overlaySystem, GetExceptionCode());
+					allDetached = false;
 				}
 			}
 
 			attachedOverlaySceneManagers.clear();
+			return allDetached;
+		}
+
+		// Frees EXU's OverlaySystem only when nothing can still call into it.
+		// Otherwise it is deliberately leaked: a dangling render-queue listener
+		// crashes the next frame, a leaked 256-byte object does not.
+		void DetachAndDestroyOverlaySystem()
+		{
+			if (DetachOverlaySystemFromTrackedSceneManagers(overlaySystemInstance))
+			{
+				DestroyOverlaySystemInstance();
+			}
+			else if (overlaySystemInstance != nullptr)
+			{
+				Logging::LogMessage("[EXU::Overlay] OverlaySystem left allocated; detach did not complete instance=%p", overlaySystemInstance);
+				overlaySystemInstance = nullptr;
+			}
 		}
 
 		void DestroyOverlaySystemInstance()
@@ -1269,7 +1312,7 @@ namespace ExtraUtilities::Lua::Overlay
 				return;
 			}
 
-			::Ogre::Overlay* overlay = FindOverlay(name);
+			::Ogre::Overlay* overlay = FindExistingOverlay(name);
 			if (overlay == nullptr)
 			{
 				visibilityState.effectiveVisible = false;
@@ -1329,14 +1372,31 @@ namespace ExtraUtilities::Lua::Overlay
 			}
 		}
 
-		void OnOverlayPauseWrapperEnter(int dialogId)
+		// Overlays a mission asked to show belong to that mission. Without this,
+		// the next refresh that synchronizes visibility (the next mission's
+		// first CreateOverlay/ShowOverlay, or a pause) re-showed them.
+		void ForgetMissionShowRequests()
 		{
-			const long depth = InterlockedIncrement(&overlayPauseWrapperDepth);
-			Logging::LogMessage("[EXU::Overlay] pause wrapper enter dialog=%d depth=%ld", dialogId, depth);
-			RefreshOverlaySuppressionState("pause-wrapper-enter");
+			for (auto& [name, visibilityState] : overlayVisibilityStates)
+			{
+				visibilityState.requestedVisible = false;
+			}
 		}
 
-		void OnOverlayPauseWrapperExit()
+		void OnOverlayPauseWrapperEnter(int dialogId) noexcept
+		{
+			const long depth = InterlockedIncrement(&overlayPauseWrapperDepth);
+			try
+			{
+				Logging::LogMessage("[EXU::Overlay] pause wrapper enter dialog=%d depth=%ld", dialogId, depth);
+				RefreshOverlaySuppressionState("pause-wrapper-enter");
+			}
+			catch (...)
+			{
+			}
+		}
+
+		void OnOverlayPauseWrapperExit() noexcept
 		{
 			long depth = InterlockedDecrement(&overlayPauseWrapperDepth);
 			if (depth < 0)
@@ -1345,18 +1405,32 @@ namespace ExtraUtilities::Lua::Overlay
 				depth = 0;
 			}
 
-			Logging::LogMessage("[EXU::Overlay] pause wrapper exit depth=%ld", depth);
-			RefreshOverlaySuppressionState("pause-wrapper-exit");
+			try
+			{
+				Logging::LogMessage("[EXU::Overlay] pause wrapper exit depth=%ld", depth);
+				RefreshOverlaySuppressionState("pause-wrapper-exit");
+			}
+			catch (...)
+			{
+			}
 		}
 
-		void OnOverlayGameShellWrapperEnter()
+		void OnOverlayGameShellWrapperEnter() noexcept
 		{
 			const long depth = InterlockedIncrement(&overlayGameShellWrapperDepth);
-			Logging::LogMessage("[EXU::Overlay] game shell wrapper enter depth=%ld", depth);
-			RefreshOverlaySuppressionState("game-shell-wrapper-enter");
+			try
+			{
+				Logging::LogMessage("[EXU::Overlay] game shell wrapper enter depth=%ld", depth);
+				// The shell means the mission is over.
+				ForgetMissionShowRequests();
+				RefreshOverlaySuppressionState("game-shell-wrapper-enter");
+			}
+			catch (...)
+			{
+			}
 		}
 
-		void OnOverlayGameShellWrapperExit()
+		void OnOverlayGameShellWrapperExit() noexcept
 		{
 			long depth = InterlockedDecrement(&overlayGameShellWrapperDepth);
 			if (depth < 0)
@@ -1365,10 +1439,14 @@ namespace ExtraUtilities::Lua::Overlay
 				depth = 0;
 			}
 
-			Logging::LogMessage("[EXU::Overlay] game shell wrapper exit depth=%ld", depth);
-			// Do not resurrect overlays requested by the mission that just ended.
-			// A new mission's first ShowOverlay call will synchronize them normally.
-			RefreshOverlaySuppressionState("game-shell-wrapper-exit", false);
+			try
+			{
+				Logging::LogMessage("[EXU::Overlay] game shell wrapper exit depth=%ld", depth);
+				RefreshOverlaySuppressionState("game-shell-wrapper-exit", false);
+			}
+			catch (...)
+			{
+			}
 		}
 
 		static void __declspec(naked) OverlayPauseWrapperEnterHook()
@@ -2589,8 +2667,7 @@ namespace ExtraUtilities::Lua::Overlay
 				}
 			}
 
-			DetachOverlaySystemFromTrackedSceneManagers(overlaySystemInstance);
-			DestroyOverlaySystemInstance();
+			DetachAndDestroyOverlaySystem();
 			overlayVisibilityStates.clear();
 			knownElements.clear();
 			overlaySuppressionActive = false;
@@ -2609,12 +2686,20 @@ namespace ExtraUtilities::Lua::Overlay
 
 	void ShutdownOverlaySupport() noexcept
 	{
+		// Destroy what the mission created by name (children before
+		// containers). Clearing the tracking maps alone left the overlays alive
+		// but unreachable whenever EXU did not own the OverlayManager, and the
+		// next mission's CreateOverlay with the same names then failed.
+		try
+		{
+			ResetOverlaySupportInternal("lua-state-close");
+		}
+		catch (...)
+		{
+			knownElements.clear();
+			overlayVisibilityStates.clear();
+		}
 		DestroyOverlayPauseHooks();
-		DetachOverlaySystemFromTrackedSceneManagers(overlaySystemInstance);
-		DestroyOverlaySystemInstance();
-		ResetOverlayRuntimeCaches();
-		knownElements.clear();
-		overlayVisibilityStates.clear();
 	}
 
 	void NotifyMissionSimulationState(bool active) noexcept
@@ -2630,6 +2715,10 @@ namespace ExtraUtilities::Lua::Overlay
 		// Hiding on exit is mandatory. Entering a new mission must not resurrect
 		// requested-visible overlays owned by the previous mission; the new Lua
 		// state will explicitly show the overlays it creates.
+		if (!active)
+		{
+			ForgetMissionShowRequests();
+		}
 		RefreshOverlaySuppressionState(
 			active ? "mission-simulation-enter" : "mission-simulation-exit",
 			!active);
