@@ -37,6 +37,7 @@
 #include "LuaState.h"
 #include "OpenShimBridge.h"
 #include "UI/Overlay.h"
+#include "Util/PlayOption.h"
 #include "Util/Logging.h"
 #include "Util/StorageApi.h"
 
@@ -133,6 +134,7 @@ namespace ExtraUtilities::Lua
 			ReleaseLuaStateBindings(L);
 			CommandReplacement::ReleaseState(L);
 			BasicPatch::UnloadAllPatches();
+			PlayOption::RestoreScriptChanges();
 			Overlay::ShutdownOverlaySupport();
 			StaticGeometry::Shutdown();
 			state.Clear(L);
