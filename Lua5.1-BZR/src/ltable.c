@@ -71,7 +71,9 @@
 
 // THIS IS CRITICAL!!! This reassigns the dummy node to the dummy node
 // that BZR uses, this prevents the infamous heap corruption crash! -VT
-#define dummynode		(0x86EEF0)
+// Build-specific: catalogued as Lua.dummynode in exu.json and checked by the
+// "Lua dummynode" runtime anchor before luaopen_exu creates any table.
+#define dummynode		((Node *)0x86EEF0)
 
 static const Node dummynode_ = {
   {{NULL}, LUA_TNIL},  /* value */
