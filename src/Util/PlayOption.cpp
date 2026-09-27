@@ -22,23 +22,66 @@
 
 namespace ExtraUtilities::Lua::PlayOption
 {
+	namespace
+	{
+		constexpr uint8_t kAutoLevelBit = 1u << 4;
+		constexpr uint8_t kTliBit = 1u << 5;
+		constexpr uint8_t kReverseMouseBit = 1u << 6;
+
+		// Bits a script changed, and their values before the first change.
+		uint8_t g_touchedBits = 0;
+		uint8_t g_originalBits = 0;
+
+		void SetPlayOptionBit(uint8_t bit, bool enabled)
+		{
+			const uint8_t current = playOption.Read();
+			if ((g_touchedBits & bit) == 0)
+			{
+				g_touchedBits |= bit;
+				g_originalBits = static_cast<uint8_t>((g_originalBits & ~bit) | (current & bit));
+			}
+
+			const uint8_t updated = enabled
+				? static_cast<uint8_t>(current | bit)
+				: static_cast<uint8_t>(current & ~bit);
+			if (updated != current)
+			{
+				playOption.Write(updated);
+			}
+		}
+
+		bool GetPlayOptionBit(uint8_t bit)
+		{
+			return (playOption.Read() & bit) != 0;
+		}
+	}
+
+	void RestoreScriptChanges() noexcept
+	{
+		if (g_touchedBits == 0)
+		{
+			return;
+		}
+
+		const uint8_t current = playOption.Read();
+		const uint8_t restored = static_cast<uint8_t>((current & ~g_touchedBits) | (g_originalBits & g_touchedBits));
+		if (restored != current)
+		{
+			playOption.Write(restored);
+		}
+		g_touchedBits = 0;
+		g_originalBits = 0;
+	}
+
 	int GetAutoLevel(lua_State* L)
 	{
-		bool levelBit = (playOption.Read() >> 4) & 1;
-		lua_pushboolean(L, levelBit);
+		lua_pushboolean(L, GetPlayOptionBit(kAutoLevelBit));
 		return 1;
 	}
 
 	int SetAutoLevel(lua_State* L)
 	{
-		bool enabled = CheckBool(L, 1);
-
-		uint8_t* p_playOption = playOption.Get();
-		*p_playOption &= ~(1 << 4); // clear bit
-		if (enabled)
-		{
-			*p_playOption |= (1 << 4); // set bit
-		}
+		SetPlayOptionBit(kAutoLevelBit, CheckBool(L, 1));
 		return 0;
 	}
 
@@ -50,48 +93,34 @@ namespace ExtraUtilities::Lua::PlayOption
 
 	int SetDifficulty(lua_State* L)
 	{
-		uint8_t newDifficulty = static_cast<uint8_t>(luaL_checkinteger(L, 1));
-		difficulty.Write(newDifficulty);
+		// 0 = Very Easy .. 4 = Very Hard (exu.json PlayOption.difficulty).
+		const lua_Integer requested = luaL_checkinteger(L, 1);
+		luaL_argcheck(L, requested >= 0 && requested <= 4, 1, "difficulty must be 0-4");
+		difficulty.Write(static_cast<uint8_t>(requested));
 		return 0;
 	}
 
 	int GetTLI(lua_State* L)
 	{
-		bool TLIbit = (playOption.Read() >> 5) & 1;
-		lua_pushboolean(L, TLIbit);
+		lua_pushboolean(L, GetPlayOptionBit(kTliBit));
 		return 1;
 	}
 
 	int SetTLI(lua_State* L)
 	{
-		bool enabled = CheckBool(L, 1);
-
-		uint8_t* p_playOption = playOption.Get();
-		*p_playOption &= ~(1 << 5); // clear bit
-		if (enabled)
-		{
-			*p_playOption |= (1 << 5); // set bit
-		}
+		SetPlayOptionBit(kTliBit, CheckBool(L, 1));
 		return 0;
 	}
 
 	int GetReverseMouse(lua_State* L)
 	{
-		bool reverseMouseBit = (playOption.Read() >> 6) & 1;
-		lua_pushboolean(L, reverseMouseBit);
+		lua_pushboolean(L, GetPlayOptionBit(kReverseMouseBit));
 		return 1;
 	}
 
 	int SetReverseMouse(lua_State* L)
 	{
-		bool enabled = CheckBool(L, 1);
-
-		uint8_t* p_playOption = playOption.Get();
-		*p_playOption &= ~(1 << 6); // clear bit
-		if (enabled)
-		{
-			*p_playOption |= (1 << 6); // set bit
-		}
+		SetPlayOptionBit(kReverseMouseBit, CheckBool(L, 1));
 		return 0;
 	}
 }
