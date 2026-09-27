@@ -20,6 +20,7 @@
 // path, so everything outside the game's Save directory must be refused.
 
 #include "Util/SavePathPolicy.h"
+#include "HostTest.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -30,16 +31,7 @@ using namespace ExtraUtilities::NativeSave;
 
 namespace
 {
-	int g_failures = 0;
-
-	void Expect(bool condition, const std::string& what)
-	{
-		if (!condition)
-		{
-			++g_failures;
-			std::cerr << "FAIL: " << what << '\n';
-		}
-	}
+	using HostTest::Expect;
 
 	const std::string kGame = "C:\\Games\\Battlezone 98 Redux";
 	const std::vector<std::string> kRoots{ kGame };
@@ -153,12 +145,5 @@ int main()
 	TestMissingRootFailsClosed();
 	TestForwardSlashRootsWork();
 
-	if (g_failures != 0)
-	{
-		std::cerr << g_failures << " save path check(s) failed\n";
-		return EXIT_FAILURE;
-	}
-
-	std::cout << "All save path checks passed.\n";
-	return EXIT_SUCCESS;
+	return HostTest::Finish("save path");
 }

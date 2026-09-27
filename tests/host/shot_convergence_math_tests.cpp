@@ -17,6 +17,7 @@
 */
 
 #include "Patches/ShotConvergenceMath.h"
+#include "HostTest.h"
 
 #include <cmath>
 #include <cstdlib>
@@ -26,14 +27,12 @@ using namespace ExtraUtilities::ShotConvergenceMath;
 
 namespace
 {
-    int gFailures = 0;
-
     void ExpectNear(float actual, float expected, float tolerance, const char* what)
     {
         if (std::fabs(actual - expected) > tolerance)
         {
             std::cerr << "FAIL: " << what << " expected " << expected << ", got " << actual << '\n';
-            ++gFailures;
+            HostTest::CountFailure();
         }
     }
 
@@ -74,7 +73,7 @@ namespace
         if (!SolveReticleConvergence(mountLocal, mountWorld, target, solved))
         {
             std::cerr << "FAIL: solver rejected normal target\n";
-            ++gFailures;
+            HostTest::CountFailure();
             return;
         }
 
@@ -126,7 +125,7 @@ namespace
         if (AngleDegrees(fired, desired) < 20.0f)
         {
             std::cerr << "FAIL: old mount-local-as-world-origin regression case no longer fails\n";
-            ++gFailures;
+            HostTest::CountFailure();
         }
     }
 }
@@ -136,9 +135,5 @@ int main()
     TestUsesWorldMuzzleAndWritesMountLocalResult();
     TestOldMountLocalAsWorldOriginMathIsWrong();
 
-    if (gFailures != 0)
-        return EXIT_FAILURE;
-
-    std::cout << "All shot-convergence math checks passed.\n";
-    return EXIT_SUCCESS;
+    return HostTest::Finish("shot-convergence math");
 }
