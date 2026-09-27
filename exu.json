@@ -168,9 +168,17 @@
       "GetObj_base": {
         "address": "0x0260DB20",
         "type": "uintptr_t (base of object table)",
-        "description": "Base of the flat GameObject pointer table. Used in: (h >> 0x14) * 0x400 + base.",
+        "description": "Base of the static GameObject arena: 0x1000 slots of 0x400 bytes. Slot for handle h: base + ((h >> 20) & 0xFFF) * 0x400.",
         "pattern": null
       },
+      "GetObjByHandle": {
+        "address": "0x004DA060",
+        "type": "function: GameObject* __cdecl(handle)",
+        "description": "Engine handle-to-object lookup. Returns null for handle 0 and whenever the slot's serial at +0x15C differs from the handle's low 20 bits (dead or recycled). BZR::GameObject::GetObj mirrors it.",
+        "pattern": "55 8B EC 83 EC 08 83 7D 08 00 75 04 33 C0 EB 39 8B 45 08 89 45 FC 8B 4D FC C1 E9 14 81 E1 FF 0F 00 00 C1 E1 0A 81 C1 20 DB 60 02 89 4D F8 8B 55 FC 81 E2 FF FF 0F 00 8B 45 F8 39 90 5C 01 00 00 74 04 33 C0 EB 03 8B 45 F8 8B E5 5D C3",
+        "note": "Pattern is the whole function, unique in GOG 2.2.301 .text (verified 2026-09-27)."
+      },
+      "serialOffset": { "value": "0x15C", "description": "Offset of the live-object serial in a GameObject arena slot; 0 means the slot is free. Compared against handle & 0xFFFFF." },
       "SetAsUser": {
         "address": "0x004DB930",
         "type": "function: void __thiscall(GameObject*)",
@@ -478,15 +486,7 @@
         "pattern": null,
         "note": "Aliased with PlayOption::userProfilePtr — same base address, different typed interpretation."
       },
-      "soundStruct2": {
-        "address": "0x00915594",
-        "type": "uint32_t*",
-        "description": "Base of a second sound struct. SFX real value at +0x08, voice real value at +0x0C.",
-        "pattern": null
-      },
-      "musicOffset":  { "value": "0x2A", "description": "Byte offset from soundStruct1 to the music volume display byte." },
-      "sfxOffset":    { "value": "0x08", "description": "Byte offset from soundStruct2 to the SFX volume real value." },
-      "voiceOffset":  { "value": "0x0C", "description": "Byte offset from soundStruct2 to the voice volume real value." }
+      "musicOffset":  { "value": "0x2A", "description": "Byte offset from soundStruct1 to the music volume display byte." }
     },
     "Steam": {
       "steam64": {

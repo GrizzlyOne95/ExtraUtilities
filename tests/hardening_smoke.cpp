@@ -2,6 +2,7 @@
 #include "Hook.h"
 #include "InlinePatch.h"
 #include "Scanner.h"
+#include "bzr.h"
 #include "Util/BuildValidation.h"
 #include "Util/SignatureResolver.h"
 
@@ -156,6 +157,44 @@ int main()
 	VirtualQuery(finalValue, &after, sizeof(after));
 	ok &= Check(*finalValue == 7, "scanner destructor did not restore original value");
 	ok &= Check(before.Protect == after.Protect, "scanner restored memory protection to the wrong page/protection");
+
+	// GameObject handle liveness. The arena lives at a fixed address in BZR;
+	// reserve the same range here so GetObj runs against real memory.
+	{
+		using BZR::GameObject;
+		const uintptr_t arenaPage = GameObject::kArenaBase & ~static_cast<uintptr_t>(0xFFFF);
+		const size_t arenaBytes = (GameObject::kArenaBase - arenaPage) + GameObject::kArenaSlotCount * GameObject::kArenaSlotSize;
+		void* arena = VirtualAlloc(reinterpret_cast<void*>(arenaPage), arenaBytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+		if (arena == nullptr)
+		{
+			std::cout << "SKIP: GameObject arena range is not free in this process\n";
+		}
+		else
+		{
+			auto slotAddress = [](uint32_t slot) { return GameObject::kArenaBase + slot * GameObject::kArenaSlotSize; };
+			auto setSerial = [&](uint32_t slot, uint32_t serial)
+			{
+				*reinterpret_cast<uint32_t*>(slotAddress(slot) + GameObject::kSerialOffset) = serial;
+			};
+
+			setSerial(5, 0x12345);
+			const BZR::handle live = (5u << 20) | 0x12345u;
+			ok &= Check(GameObject::GetObj(live) == reinterpret_cast<GameObject*>(slotAddress(5)), "live handle did not resolve to its slot");
+			ok &= Check(GameObject::GetObj(0) == nullptr, "handle 0 resolved to an object");
+			ok &= Check(GameObject::GetObj((5u << 20) | 0x12346u) == nullptr, "stale handle (serial mismatch) resolved to an object");
+			ok &= Check(GameObject::GetObj(5u << 20) == nullptr, "serial-0 handle resolved to an object");
+			setSerial(5, 0);
+			ok &= Check(GameObject::GetObj(live) == nullptr, "handle to a freed slot resolved to an object");
+			setSerial(5, 0x54321);
+			ok &= Check(GameObject::GetObj(live) == nullptr, "handle to a reused slot resolved to the new object");
+
+			ok &= Check(GameObject::IsLiveArenaObject(reinterpret_cast<void*>(slotAddress(5))), "live slot start rejected");
+			ok &= Check(!GameObject::IsLiveArenaObject(reinterpret_cast<void*>(slotAddress(5) + 4)), "mid-slot pointer accepted");
+			ok &= Check(!GameObject::IsLiveArenaObject(reinterpret_cast<void*>(slotAddress(6))), "free slot accepted");
+			ok &= Check(!GameObject::IsLiveArenaObject(reinterpret_cast<void*>(live)), "a handle value was accepted as an object pointer");
+			VirtualFree(arena, 0, MEM_RELEASE);
+		}
+	}
 
 	const std::array<uint8_t, 8> bytes{ 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80 };
 	const std::array<uint8_t, 3> pattern{ 0x30, 0x00, 0x50 };
