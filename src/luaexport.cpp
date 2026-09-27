@@ -441,6 +441,12 @@ namespace ExtraUtilities::Lua
 		lua_pushinteger(L, Ordnance::AttributeCode::INIT_TIME);
 		lua_setfield(L, -2, "INIT_TIME");
 
+		lua_pushinteger(L, Ordnance::AttributeCode::VELOCITY);
+		lua_setfield(L, -2, "VELOCITY");
+
+		lua_pushinteger(L, Ordnance::AttributeCode::LIFE_TIME);
+		lua_setfield(L, -2, "LIFE_TIME");
+
 		lua_setfield(L, exuIdx, "ORDNANCE"); // end ordnance enum
 
 		// Radar state enum
