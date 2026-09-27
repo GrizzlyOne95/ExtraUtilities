@@ -168,6 +168,170 @@ namespace ExtraUtilities::Lua::Overlay
 			return ogreOverlay;
 		}
 
+		// OgreOverlayShim.h cannot call Ogre's virtuals (its vtables are not
+		// Ogre's), so element setters are called by qualified name. Calling the
+		// OverlayElement version skipped the derived overrides: TextArea's
+		// setMetricsMode/setMaterialName/setColour (pixel char height and space
+		// width, top/bottom colours), BorderPanel's setMetricsMode (pixel
+		// border sizes) and Panel's setMaterialName. These are the exported
+		// overrides, plus the exported vftables used to identify the concrete
+		// class of any element, including ones EXU did not create.
+		struct ElementOverrides
+		{
+			using SetMetricsModeFn = void(__thiscall*)(void*, ::Ogre::GuiMetricsMode);
+			using SetMaterialNameFn = void(__thiscall*)(void*, const ::Ogre::String&);
+			using SetColourFn = void(__thiscall*)(void*, const ::Ogre::ColourValue&);
+
+			// Each element's first vptr is its StringInterface vftable, the
+			// first base of OverlayElement.
+			const void* textAreaVftable = nullptr;
+			const void* panelVftable = nullptr;
+			const void* borderPanelVftable = nullptr;
+
+			SetMetricsModeFn textAreaSetMetricsMode = nullptr;
+			SetMetricsModeFn borderPanelSetMetricsMode = nullptr;
+			SetMaterialNameFn textAreaSetMaterialName = nullptr;
+			SetMaterialNameFn panelSetMaterialName = nullptr;
+			SetColourFn textAreaSetColour = nullptr;
+		};
+
+		ElementOverrides ResolveElementOverrides()
+		{
+			ElementOverrides overrides;
+			HMODULE ogreOverlay = GetOgreOverlayModule();
+			if (ogreOverlay == nullptr)
+			{
+				return overrides;
+			}
+
+			const auto resolve = [ogreOverlay](const char* name)
+			{
+				return reinterpret_cast<const void*>(GetProcAddress(ogreOverlay, name));
+			};
+
+			overrides.textAreaVftable = resolve("??_7TextAreaOverlayElement@Ogre@@6BStringInterface@1@@");
+			overrides.panelVftable = resolve("??_7PanelOverlayElement@Ogre@@6BStringInterface@1@@");
+			overrides.borderPanelVftable = resolve("??_7BorderPanelOverlayElement@Ogre@@6BStringInterface@1@@");
+			overrides.textAreaSetMetricsMode = reinterpret_cast<ElementOverrides::SetMetricsModeFn>(
+				resolve("?setMetricsMode@TextAreaOverlayElement@Ogre@@UAEXW4GuiMetricsMode@2@@Z"));
+			overrides.borderPanelSetMetricsMode = reinterpret_cast<ElementOverrides::SetMetricsModeFn>(
+				resolve("?setMetricsMode@BorderPanelOverlayElement@Ogre@@UAEXW4GuiMetricsMode@2@@Z"));
+			overrides.textAreaSetMaterialName = reinterpret_cast<ElementOverrides::SetMaterialNameFn>(
+				resolve("?setMaterialName@TextAreaOverlayElement@Ogre@@UAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z"));
+			overrides.panelSetMaterialName = reinterpret_cast<ElementOverrides::SetMaterialNameFn>(
+				resolve("?setMaterialName@PanelOverlayElement@Ogre@@UAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z"));
+			overrides.textAreaSetColour = reinterpret_cast<ElementOverrides::SetColourFn>(
+				resolve("?setColour@TextAreaOverlayElement@Ogre@@UAEXABVColourValue@2@@Z"));
+			return overrides;
+		}
+
+		const ElementOverrides& GetElementOverrides()
+		{
+			static const ElementOverrides overrides = ResolveElementOverrides();
+			return overrides;
+		}
+
+		const void* ReadElementVftable(const ::Ogre::OverlayElement* element) noexcept
+		{
+			__try
+			{
+				return *reinterpret_cast<const void* const*>(element);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				return nullptr;
+			}
+		}
+
+		// Concrete class by vftable identity. Anything else (a plain container
+		// or a type from another plugin) uses the OverlayElement versions.
+		ElementKind IdentifyElementKind(const ::Ogre::OverlayElement* element)
+		{
+			const auto& overrides = GetElementOverrides();
+			const void* vftable = element != nullptr ? ReadElementVftable(element) : nullptr;
+			if (vftable == nullptr)
+			{
+				return ElementKind::Unknown;
+			}
+			if (vftable == overrides.textAreaVftable)
+			{
+				return ElementKind::TextArea;
+			}
+			if (vftable == overrides.borderPanelVftable)
+			{
+				return ElementKind::BorderPanel;
+			}
+			if (vftable == overrides.panelVftable)
+			{
+				return ElementKind::Panel;
+			}
+			return ElementKind::Unknown;
+		}
+
+		void SetElementMetricsMode(::Ogre::OverlayElement* element, ::Ogre::GuiMetricsMode mode)
+		{
+			const auto& overrides = GetElementOverrides();
+			switch (IdentifyElementKind(element))
+			{
+			case ElementKind::TextArea:
+				if (overrides.textAreaSetMetricsMode != nullptr)
+				{
+					overrides.textAreaSetMetricsMode(element, mode);
+					return;
+				}
+				break;
+			case ElementKind::BorderPanel:
+				if (overrides.borderPanelSetMetricsMode != nullptr)
+				{
+					overrides.borderPanelSetMetricsMode(element, mode);
+					return;
+				}
+				break;
+			default:
+				break;
+			}
+			element->::Ogre::OverlayElement::setMetricsMode(mode);
+		}
+
+		// May throw (Ogre throws for a missing material).
+		void SetElementMaterialName(::Ogre::OverlayElement* element, const ::Ogre::String& materialName)
+		{
+			const auto& overrides = GetElementOverrides();
+			switch (IdentifyElementKind(element))
+			{
+			case ElementKind::TextArea:
+				if (overrides.textAreaSetMaterialName != nullptr)
+				{
+					overrides.textAreaSetMaterialName(element, materialName);
+					return;
+				}
+				break;
+			case ElementKind::Panel:
+			case ElementKind::BorderPanel:
+				// BorderPanel inherits Panel's override.
+				if (overrides.panelSetMaterialName != nullptr)
+				{
+					overrides.panelSetMaterialName(element, materialName);
+					return;
+				}
+				break;
+			default:
+				break;
+			}
+			element->::Ogre::OverlayElement::setMaterialName(materialName);
+		}
+
+		void SetElementColour(::Ogre::OverlayElement* element, const ::Ogre::ColourValue& colour)
+		{
+			const auto& overrides = GetElementOverrides();
+			if (IdentifyElementKind(element) == ElementKind::TextArea && overrides.textAreaSetColour != nullptr)
+			{
+				overrides.textAreaSetColour(element, colour);
+				return;
+			}
+			element->::Ogre::OverlayElement::setColour(colour);
+		}
+
 		::Ogre::OverlayManager* GetOverlayManagerRaw()
 		{
 			__try
@@ -3118,7 +3282,7 @@ namespace ExtraUtilities::Lua::Overlay
 			return 0;
 		}
 
-		element->::Ogre::OverlayElement::setMetricsMode(static_cast<::Ogre::GuiMetricsMode>(mode));
+		SetElementMetricsMode(element, static_cast<::Ogre::GuiMetricsMode>(mode));
 		return 0;
 	}
 
@@ -3184,7 +3348,7 @@ namespace ExtraUtilities::Lua::Overlay
 
 		try
 		{
-			element->::Ogre::OverlayElement::setMaterialName(materialName);
+			SetElementMaterialName(element, materialName);
 		}
 		catch (...)
 		{
@@ -3238,7 +3402,7 @@ namespace ExtraUtilities::Lua::Overlay
 		}
 
 		const ::Ogre::ColourValue ogreColor{ color.r, color.g, color.b, color.a };
-		element->::Ogre::OverlayElement::setColour(ogreColor);
+		SetElementColour(element, ogreColor);
 		return 0;
 	}
 
