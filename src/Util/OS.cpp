@@ -20,6 +20,7 @@
 
 #include "Logging.h"
 #include "NativeSaveFlag.h"
+#include "SavePathPolicy.h"
 #include "RuntimeGate.h"
 
 #include <algorithm>
@@ -46,6 +47,14 @@ namespace ExtraUtilities::Lua::OS
 		using NativeSaveGameFn = bool(__cdecl*)(char*, int);
 		using NativeSaveShellGameFn = bool(__cdecl*)(int, const char*);
 		using MissionSaveFlag = volatile uint8_t*;
+
+		struct BinarySaveState
+		{
+			// -binarysave command-line option (int) and the byte SaveGame reads
+			// to choose the binary writer.
+			const volatile int32_t* commandLineSwitch = nullptr;
+			volatile uint8_t* saveFlag = nullptr;
+		};
 
 		struct ExecutableSection
 		{
@@ -113,19 +122,30 @@ namespace ExtraUtilities::Lua::OS
 			return std::format("{}\\Save\\game{}.sav", moduleDirectory, slot);
 		}
 
-		std::string NormalizeSavePath(std::string path)
+		std::string GetCurrentDirectoryString()
 		{
-			std::filesystem::path normalized(path);
-			if (normalized.is_relative())
+			char path[MAX_PATH]{};
+			const DWORD length = GetCurrentDirectoryA(MAX_PATH, path);
+			if (length == 0 || length >= MAX_PATH)
 			{
-				const auto moduleDirectory = GetMainModuleDirectory();
-				if (!moduleDirectory.empty())
-				{
-					normalized = std::filesystem::path(moduleDirectory) / normalized;
-				}
+				return {};
 			}
+			return std::string(path, length);
+		}
 
-			return normalized.lexically_normal().string();
+		// A script-supplied path must name a file under the game's Save
+		// directory. The game root is the executable's directory; the engine's
+		// own saves use the working directory, which is normally the same place
+		// but may differ with some launchers, so both count.
+		ExtraUtilities::NativeSave::SavePathResult ResolveScriptSavePath(std::string_view requested)
+		{
+			const auto moduleDirectory = GetMainModuleDirectory();
+			std::vector<std::string> roots{ moduleDirectory };
+			if (auto workingDirectory = GetCurrentDirectoryString(); !workingDirectory.empty())
+			{
+				roots.push_back(std::move(workingDirectory));
+			}
+			return ExtraUtilities::NativeSave::ResolveSavePath(requested, moduleDirectory, roots);
 		}
 
 		bool EnsureSaveParentDirectory(const std::string& filename)
@@ -277,8 +297,18 @@ namespace ExtraUtilities::Lua::OS
 				return false;
 			}
 
+			// The field is a line of its own; a plain find also matched the key
+			// inside other lines' text.
 			constexpr std::string_view kKey = "saveGameDesc";
-			const size_t keyPos = data.find(kKey);
+			size_t keyPos = data.rfind(kKey, 0) == 0 ? 0 : std::string::npos;
+			for (size_t lineStart = data.find('\n'); keyPos == std::string::npos && lineStart != std::string::npos;
+				lineStart = data.find('\n', lineStart + 1))
+			{
+				if (data.compare(lineStart + 1, kKey.size(), kKey) == 0)
+				{
+					keyPos = lineStart + 1;
+				}
+			}
 			if (keyPos == std::string::npos)
 			{
 				LogNativeSave("[EXU::SaveGame] saveGameDesc not found, skipping description rewrite path={}", filename);
@@ -347,17 +377,34 @@ namespace ExtraUtilities::Lua::OS
 
 			data.replace(valueStart, valueEnd - valueStart, rewrittenValue);
 
-			std::ofstream output(filename, std::ios::binary | std::ios::trunc);
-			if (!output.is_open())
+			// Write a sibling file and swap it in: truncating the save in place
+			// destroyed the save the user just made if the process died or the
+			// disk filled mid-write.
+			const std::string temporary = filename + ".exutmp";
 			{
-				LogNativeSave("[EXU::SaveGame] failed to reopen saved file for description rewrite path={}", filename);
-				return false;
+				std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
+				if (!output.is_open())
+				{
+					LogNativeSave("[EXU::SaveGame] failed to open temporary file for description rewrite path={}", temporary);
+					return false;
+				}
+
+				output.write(data.data(), static_cast<std::streamsize>(data.size()));
+				output.flush();
+				if (!output.good())
+				{
+					output.close();
+					DeleteFileA(temporary.c_str());
+					LogNativeSave("[EXU::SaveGame] failed to write updated save description path={}", temporary);
+					return false;
+				}
 			}
 
-			output.write(data.data(), static_cast<std::streamsize>(data.size()));
-			if (!output.good())
+			if (!MoveFileExA(temporary.c_str(), filename.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
 			{
-				LogNativeSave("[EXU::SaveGame] failed to write updated save description path={}", filename);
+				const DWORD error = GetLastError();
+				DeleteFileA(temporary.c_str());
+				LogNativeSave("[EXU::SaveGame] failed to replace save with rewritten description path={} error={}", filename, error);
 				return false;
 			}
 
@@ -526,6 +573,64 @@ namespace ExtraUtilities::Lua::OS
 			}
 		}
 
+		NativeSaveShellGameFn ResolveNativeSaveShellGame();
+
+		// Decoded from the stock slot-save wrapper, which is where the engine
+		// itself applies -binarysave. Fails closed (both pointers null) when the
+		// wrapper or the sequence cannot be found.
+		BinarySaveState ResolveBinarySaveState(MissionSaveFlag missionSaveFlag) noexcept
+		{
+			static BinarySaveState cached;
+			if (cached.saveFlag != nullptr)
+			{
+				return cached;
+			}
+
+			const auto saveShellGame = ResolveNativeSaveShellGame();
+			if (saveShellGame == nullptr || missionSaveFlag == nullptr)
+			{
+				return {};
+			}
+
+			// Covers the whole wrapper; IsSaveShellGameCandidate scans the same
+			// window.
+			constexpr size_t kWrapperWindow = 0x140;
+			ExtraUtilities::NativeSave::BinarySaveAddresses addresses;
+			__try
+			{
+				if (!ExtraUtilities::NativeSave::FindBinarySaveAddresses(
+					reinterpret_cast<const uint8_t*>(saveShellGame),
+					kWrapperWindow,
+					static_cast<uint32_t>(reinterpret_cast<uintptr_t>(missionSaveFlag)),
+					addresses))
+				{
+					return {};
+				}
+
+				auto* saveFlag = reinterpret_cast<volatile uint8_t*>(static_cast<uintptr_t>(addresses.saveFlag));
+				auto* commandLineSwitch = reinterpret_cast<const volatile int32_t*>(
+					static_cast<uintptr_t>(addresses.commandLineSwitch));
+				if (!ExtraUtilities::NativeSave::IsPlausibleMissionSaveValue(*saveFlag))
+				{
+					return {};
+				}
+				(void)*commandLineSwitch;
+
+				cached.saveFlag = saveFlag;
+				cached.commandLineSwitch = commandLineSwitch;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				return {};
+			}
+
+			LogNativeSave(
+				"[EXU::SaveGame] resolved binarySave flag at 0x{:08X}, -binarysave switch at 0x{:08X}",
+				addresses.saveFlag,
+				addresses.commandLineSwitch);
+			return cached;
+		}
+
 		const uint8_t* BacktrackFunctionProlog(const ExecutableSection& section, const uint8_t* address, size_t maxBack = 0x400)
 		{
 			if (section.address == nullptr || address == nullptr || address < section.address || address >= section.address + section.size)
@@ -668,12 +773,16 @@ namespace ExtraUtilities::Lua::OS
 		bool InvokeNativeNormalSaveGame(
 			NativeSaveGameFn saveGame,
 			MissionSaveFlag missionSaveFlag,
+			const BinarySaveState& binarySave,
 			char* filename,
 			int saveType,
+			bool& wroteBinary,
 			DWORD& exceptionCode) noexcept
 		{
 			exceptionCode = 0;
-			if (saveGame == nullptr || missionSaveFlag == nullptr)
+			wroteBinary = false;
+			if (saveGame == nullptr || missionSaveFlag == nullptr ||
+				binarySave.saveFlag == nullptr || binarySave.commandLineSwitch == nullptr)
 			{
 				return false;
 			}
@@ -689,12 +798,21 @@ namespace ExtraUtilities::Lua::OS
 			// Anything that saves from inside that window would otherwise clear
 			// a flag the engine is still relying on and silently downgrade the
 			// user's mission save to a normal one.
+			//
+			// The wrapper also sets binarySave from the -binarysave option; SaveGame
+			// itself never reads the option, so without this every direct save
+			// was written as text.
 			uint8_t previous = 0;
+			uint8_t previousBinary = 0;
 			__try
 			{
 				previous = *missionSaveFlag;
+				previousBinary = *binarySave.saveFlag;
+				wroteBinary = *binarySave.commandLineSwitch != 0;
 				*missionSaveFlag = 0;
+				*binarySave.saveFlag = wroteBinary ? 1 : 0;
 				const bool saved = saveGame(filename, saveType);
+				*binarySave.saveFlag = previousBinary;
 				*missionSaveFlag = previous;
 				return saved;
 			}
@@ -702,6 +820,7 @@ namespace ExtraUtilities::Lua::OS
 			{
 				__try
 				{
+					*binarySave.saveFlag = previousBinary;
 					*missionSaveFlag = previous;
 				}
 				__except (EXCEPTION_EXECUTE_HANDLER)
@@ -711,20 +830,43 @@ namespace ExtraUtilities::Lua::OS
 			}
 		}
 
+		// SaveShellGame (FUN_004FDC80) stores missionSave = 0 and never puts it
+		// back, like the direct path did before e11a8ce; restore it the same way.
 		bool InvokeNativeSaveShellGame(
 			NativeSaveShellGameFn saveShellGame,
+			MissionSaveFlag missionSaveFlag,
 			int slot,
 			const char* description,
 			DWORD& exceptionCode) noexcept
 		{
 			exceptionCode = 0;
 
+			uint8_t previous = 0;
 			__try
 			{
-				return saveShellGame(slot, description);
+				if (missionSaveFlag != nullptr)
+				{
+					previous = *missionSaveFlag;
+				}
+				const bool saved = saveShellGame(slot, description);
+				if (missionSaveFlag != nullptr)
+				{
+					*missionSaveFlag = previous;
+				}
+				return saved;
 			}
 			__except (exceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
 			{
+				__try
+				{
+					if (missionSaveFlag != nullptr)
+					{
+						*missionSaveFlag = previous;
+					}
+				}
+				__except (EXCEPTION_EXECUTE_HANDLER)
+				{
+				}
 				return false;
 			}
 		}
@@ -778,7 +920,15 @@ namespace ExtraUtilities::Lua::OS
 		{
 			size_t length = 0;
 			const char* rawPath = luaL_checklstring(L, 1, &length);
-			filename = NormalizeSavePath(std::string(rawPath, length));
+			auto resolved = ResolveScriptSavePath(std::string_view(rawPath, length));
+			if (!resolved.ok)
+			{
+				LogNativeSave("[EXU::SaveGame] rejected save path {}: {}", std::string_view(rawPath, length), resolved.error);
+				lua_pushboolean(L, 0);
+				lua_pushstring(L, resolved.error);
+				return 2;
+			}
+			filename = std::move(resolved.path);
 		}
 
 		if (filename.empty())
@@ -851,7 +1001,9 @@ namespace ExtraUtilities::Lua::OS
 				LogNativeSave("[EXU::SaveGame] calling native SaveShellGame slot={} description={}", slot, description);
 
 				DWORD exceptionCode = 0;
-				const bool saved = InvokeNativeSaveShellGame(saveShellGame, slot, description.c_str(), exceptionCode);
+				const auto missionSaveFlag = ResolveMissionSaveFlag(ResolveNativeSaveGame());
+				const bool saved = InvokeNativeSaveShellGame(
+					saveShellGame, missionSaveFlag, slot, description.c_str(), exceptionCode);
 				if (exceptionCode != 0)
 				{
 					LogNativeSave(
@@ -907,6 +1059,14 @@ namespace ExtraUtilities::Lua::OS
 			return 2;
 		}
 
+		const auto binarySave = ResolveBinarySaveState(missionSaveFlag);
+		if (binarySave.saveFlag == nullptr)
+		{
+			lua_pushboolean(L, 0);
+			lua_pushstring(L, "native binarysave state could not be resolved");
+			return 2;
+		}
+
 		if (!EnsureSaveParentDirectory(filename))
 		{
 			LogNativeSave("[EXU::SaveGame] failed to create parent directory for {}", filename);
@@ -918,11 +1078,14 @@ namespace ExtraUtilities::Lua::OS
 		LogNativeSave("[EXU::SaveGame] calling native save path={} type={}", filename, saveType);
 
 		DWORD exceptionCode = 0;
+		bool wroteBinary = false;
 		const bool saved = InvokeNativeNormalSaveGame(
 			saveGame,
 			missionSaveFlag,
+			binarySave,
 			filename.data(),
 			saveType,
+			wroteBinary,
 			exceptionCode);
 		if (exceptionCode != 0)
 		{
@@ -937,12 +1100,22 @@ namespace ExtraUtilities::Lua::OS
 			return 2;
 		}
 
-		LogNativeSave("[EXU::SaveGame] native save result={} path={} type={}", saved ? 1 : 0, filename, saveType);
+		LogNativeSave(
+			"[EXU::SaveGame] native save result={} path={} type={} binary={}",
+			saved ? 1 : 0, filename, saveType, wroteBinary ? 1 : 0);
 
 		lua_pushboolean(L, saved ? 1 : 0);
 		if (saved)
 		{
-			if (!description.empty() && !RewriteTextSaveDescription(filename, description))
+			if (!description.empty() && wroteBinary)
+			{
+				LogNativeSave(
+					"[EXU::SaveGame] description override skipped for binary save path={} description={}",
+					filename,
+					description
+				);
+			}
+			else if (!description.empty() && !RewriteTextSaveDescription(filename, description))
 			{
 				LogNativeSave(
 					"[EXU::SaveGame] description override could not be applied path={} description={}",
