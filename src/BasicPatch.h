@@ -58,6 +58,10 @@ namespace ExtraUtilities
 		static inline bool patchActivationEnabled = false;
 		static inline std::vector<BasicPatch*> deferredPatches{};
 		std::vector<uint8_t> m_originalBytes;
+		// Bytes this patch wrote, captured when it activates. Restoring checks
+		// the site still holds them, so a patch installed over EXU's by another
+		// module (OpenShim) is never overwritten with EXU's stale original.
+		std::vector<uint8_t> m_patchedBytes;
 
 		static void RegisterDeferredPatch(BasicPatch* patch)
 		{
@@ -152,10 +156,27 @@ namespace ExtraUtilities
 
 		virtual void DoPatch() = 0;
 
+		// DoPatch implementations call this once their bytes are in place.
+		void MarkPatched()
+		{
+			const auto* p_address = reinterpret_cast<const uint8_t*>(m_address);
+			m_patchedBytes.assign(p_address, p_address + m_length);
+			m_status = Status::ACTIVE;
+		}
+
 		void RestorePatch()
 		{
 			if (!m_initialized || m_originalBytes.size() != m_length)
 			{
+				return;
+			}
+
+			if (m_patchedBytes.size() != m_length || !SignatureResolver::MatchBytes(m_address, m_patchedBytes))
+			{
+				// Someone else patched the site after EXU did. Writing EXU's
+				// original back would tear their patch down; leave it alone.
+				LogPatchIssue("site no longer holds EXU's patch; leaving it in place", m_address, m_length);
+				m_status = Status::INACTIVE;
 				return;
 			}
 
@@ -273,6 +294,7 @@ namespace ExtraUtilities
 			this->m_length = p.m_length;
 			this->m_oldProtect = p.m_oldProtect;
 			this->m_originalBytes = std::move(p.m_originalBytes);
+			this->m_patchedBytes = std::move(p.m_patchedBytes);
 			ReplaceDeferredPatch(&p, this);
 
 			p.m_status = Status::INACTIVE;

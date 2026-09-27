@@ -854,27 +854,32 @@ namespace ExtraUtilities::Lua::ControlPanel
 			kScrapPilotHudDrawHookAddress,
 			&ScrapPilotHudDrawHook,
 			kScrapPilotHudDrawHookLength,
-			BasicPatch::Status::ACTIVE);
+			BasicPatch::Status::ACTIVE,
+			{ 0xB9, 0xB0, 0xF4, 0x94, 0x00, 0xE8, 0x76, 0x50, 0xEB, 0xFF });
 		inline Hook g_scrapLabelColorHook(
 			kScrapLabelColorHookAddress,
 			&ScrapLabelColorHook,
 			kScrapHudTextColorHookLength,
-			ScrapPilotColorHookInitialStatus());
+			ScrapPilotColorHookInitialStatus(),
+			{ 0xA1, 0x5C, 0x75, 0x91, 0x00, 0x50 });
 		inline Hook g_scrapValueColorHook(
 			kScrapValueColorHookAddress,
 			&ScrapValueColorHook,
 			kPilotHudTextColorHookLength,
-			ScrapPilotColorHookInitialStatus());
+			ScrapPilotColorHookInitialStatus(),
+			{ 0x8B, 0x15, 0x5C, 0x75, 0x91, 0x00, 0x52 });
 		inline Hook g_pilotLabelColorHook(
 			kPilotLabelColorHookAddress,
 			&PilotLabelColorHook,
 			kPilotHudTextColorHookLength,
-			ScrapPilotColorHookInitialStatus());
+			ScrapPilotColorHookInitialStatus(),
+			{ 0x8B, 0x15, 0x5C, 0x75, 0x91, 0x00, 0x52 });
 		inline Hook g_pilotValueColorHook(
 			kPilotValueColorHookAddress,
 			&PilotValueColorHook,
 			kPilotHudTextColorHookLength,
-			ScrapPilotColorHookInitialStatus());
+			ScrapPilotColorHookInitialStatus(),
+			{ 0x8B, 0x0D, 0x5C, 0x75, 0x91, 0x00, 0x51 });
 	}
 
 	bool TryGetScrapPilotHudTopLefts(int& scrapLeft, int& scrapTop, int& pilotLeft, int& pilotTop) noexcept
