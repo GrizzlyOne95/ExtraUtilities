@@ -5,89 +5,109 @@ to upload to the steam workshop or use in-game
 
 import os
 import shutil
+import sys
 
-ROOT: str = os.getcwd()
+# Paths come from this script's location so it works from any working directory.
+ROOT: str = os.path.dirname(os.path.abspath(__file__))
 BUILD_FOLDER: str = os.path.join(ROOT, "Build")
 
-# Add file extensions to this list that should not be included in build
-excluded_file_types: set[str] = set([
-    ".exp", # Unnnecesary binaries from exu compilation
-    ".lib"
-])
-
-# Add specific files in this list that must be present for the build to succeed
-required_items: list[str] = [
-    "exu.dll"
+# Built binaries that ship, by path under Release/.
+RELEASE_FILES: list[str] = [
+    "exu.dll",
+    "exu.pdb",
 ]
 
-source_paths: list[str] = []
+# Source trees copied whole. Each file keeps its path relative to the tree,
+# placed under the given folder of Build/ ("" is the Build/ root).
+SOURCE_TREES: list[tuple[str, str]] = [
+    # Editor metadata (--- @meta). Kept in their own folder so generic names
+    # such as Storage.lua cannot shadow a mission's own module on the Lua path.
+    ("Definitions", "Definitions"),
+    ("Workshop", ""),
+]
 
-# Helper to add source directories
-def add_item_recurse(*path_from_root: str) -> None:
-    final_path: str = ROOT
-    for dir in path_from_root:
-        final_path = os.path.join(final_path, dir)
-
-    source_paths.append(final_path)
-
-
-# Add the target paths for the build, it will search their entire tree
-# so you only need to list the top level path
-
-add_item_recurse("Definitions")
-add_item_recurse("Release")
-add_item_recurse("Workshop")
-
-
-def squish() -> None:
-    os.makedirs("Build", exist_ok = True)
-    for path in source_paths:
-        for path, _, files in os.walk(path):
-            for file in files:
-                _, extension = os.path.splitext(file)
-                if extension in excluded_file_types:
-                    continue
-                shutil.copyfile(os.path.join(path, file), os.path.join(BUILD_FOLDER, file))
-
-
-def verify_files() -> list[str]:
-    missing_files: list[str] = []
-    for _, _, files in os.walk(BUILD_FOLDER):
-        for required_file in required_items:
-            if required_file not in files:
-                missing_files.append(required_file)
-    return missing_files
-
-
-def post_build() -> None:
-    os.makedirs(os.path.join(BUILD_FOLDER, "Bin"))
-    os.makedirs(os.path.join(BUILD_FOLDER, "Scripts"))
-    os.makedirs(os.path.join(BUILD_FOLDER, "Assets"))
-    shutil.move(os.path.join(BUILD_FOLDER, "exu.dll"), os.path.join(BUILD_FOLDER, "Bin", "exu.dll"))
-    shutil.move(os.path.join(BUILD_FOLDER, "exu.pdb"), os.path.join(BUILD_FOLDER, "Bin", "exu.pdb"))
-    shutil.move(os.path.join(BUILD_FOLDER, "RequireFix.lua"), os.path.join(BUILD_FOLDER, "Scripts", "RequireFix.lua"))
-    shutil.move(os.path.join(BUILD_FOLDER, "ExtraUtils.lua"), os.path.join(BUILD_FOLDER, "Scripts", "ExtraUtils.lua"))
+# Files moved out of their default place after copying, by Build/-relative path.
+RELOCATIONS: dict[str, str] = {
+    # RequireFix and ExtraUtils.lua have always been published in Scripts/.
+    "RequireFix.lua": os.path.join("Scripts", "RequireFix.lua"),
+    os.path.join("Definitions", "ExtraUtils.lua"): os.path.join("Scripts", "ExtraUtils.lua"),
     # exu_weather.lua is a real runtime module, not a @meta definition stub, so it
     # has to sit where a bare require() can find it. Scripts/ is already on the
     # default Lua path - RequireFix.lua lives there and is required by bare name
     # before any path setup runs. At the Build root it would only resolve after an
     # explicit RequireFix.Initialize(), which examples/Weather.lua does not call.
-    shutil.move(os.path.join(BUILD_FOLDER, "exu_weather.lua"), os.path.join(BUILD_FOLDER, "Scripts", "exu_weather.lua"))
-    shutil.move(os.path.join(BUILD_FOLDER, "monkey.jpg"), os.path.join(BUILD_FOLDER, "Assets", "monkey.jpg"))
+    "exu_weather.lua": os.path.join("Scripts", "exu_weather.lua"),
+    "monkey.jpg": os.path.join("Assets", "monkey.jpg"),
+}
+
+
+class PackagingError(Exception):
+    pass
+
+
+def plan() -> dict[str, str]:
+    """Build/-relative destination -> absolute source, failing on any clash."""
+    placements: dict[str, tuple[str, str]] = {}
+
+    def place(destination: str, source: str) -> None:
+        # Windows and the game treat names case-insensitively.
+        key = os.path.normcase(destination)
+        if key in placements:
+            raise PackagingError(
+                f"two files would be packaged as {destination}: {placements[key][1]} and {source}")
+        placements[key] = (destination, source)
+
+    for name in RELEASE_FILES:
+        source = os.path.join(ROOT, "Release", name)
+        if not os.path.isfile(source):
+            raise PackagingError(f"missing {os.path.relpath(source, ROOT)}; build Release|x86 first")
+        place(os.path.join("Bin", name), source)
+
+    for tree, target in SOURCE_TREES:
+        tree_root = os.path.join(ROOT, tree)
+        for directory, _, files in os.walk(tree_root):
+            for file in sorted(files):
+                source = os.path.join(directory, file)
+                destination = os.path.join(target, os.path.relpath(source, tree_root))
+                destination = RELOCATIONS.get(destination, destination)
+                place(destination, source)
+
+    for relocated in RELOCATIONS.values():
+        if os.path.normcase(relocated) not in placements:
+            raise PackagingError(f"expected packaged file is missing: {relocated}")
+
+    return {destination: source for destination, source in placements.values()}
+
+
+def squish() -> None:
+    placements = plan()
+
+    # Start from an empty folder so files removed from the sources do not
+    # linger in a later upload.
+    if os.path.isdir(BUILD_FOLDER):
+        shutil.rmtree(BUILD_FOLDER)
+
+    for destination, source in sorted(placements.items()):
+        target = os.path.join(BUILD_FOLDER, destination)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        shutil.copyfile(source, target)
+
+
+def main() -> int:
+    try:
+        squish()
+    except PackagingError as error:
+        print(f"Failed to build release: {error}")
+        return 1
+
+    print("Built release")
+    return 0
 
 
 if __name__ == "__main__":
-    squish()
-
-    missing_files: list[str] = verify_files()
-    if len(missing_files) == 0:
-        post_build()
-        print("Built release")
-    else:
-        print("Failed to build release, missing file(s):")
-        shutil.rmtree(BUILD_FOLDER)
-        for missing_file in missing_files:
-            print(missing_file)
-        print("\nDid you remember to compile the binaries?")
-    
-    os.system("pause")
+    status = main()
+    # Keep the console open when run by double-click; scripts and CI pass
+    # --no-pause.
+    if os.name == "nt" and "--no-pause" not in sys.argv[1:] and not os.environ.get("CI"):
+        os.system("pause")
+    sys.exit(status)
