@@ -44,8 +44,6 @@ namespace ExtraUtilities
 
 		bool IsGameUiOpen() noexcept;
 		bool IsPauseMenuOpen() noexcept;
-		bool IsSingleplayerPauseMenuOpen() noexcept;
-		bool IsMultiplayerPauseMenuOpen() noexcept;
 		bool TryGetPauseMenuDebugState(PauseMenuDebugState& outState) noexcept;
 		const char* DescribeScreenType(uint32_t screenType) noexcept;
 	}

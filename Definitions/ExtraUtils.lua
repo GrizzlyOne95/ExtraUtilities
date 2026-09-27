@@ -2472,14 +2472,23 @@ function exu.ClearAiUnitTuning(...) end
 --- @param ... any
 function exu.ClearAllAiUnitTuning(...) end
 
---- @param ... any
-function exu.ClearVisuals(...) end
+--- Placeholder: clears nothing. Debug line and box drawing is not implemented yet;
+--- the function exists so scripts that call it keep working.
+function exu.ClearVisuals() end
 
---- @param ... any
-function exu.DrawBox(...) end
+--- Placeholder: checks its arguments and draws nothing. Debug line and box drawing
+--- is not implemented yet; the function exists so scripts that call it keep working.
+--- @param min Vector
+--- @param max Vector
+--- @param color Color
+function exu.DrawBox(min, max, color) end
 
---- @param ... any
-function exu.DrawLine(...) end
+--- Placeholder: checks its arguments and draws nothing. Debug line and box drawing
+--- is not implemented yet; the function exists so scripts that call it keep working.
+--- @param from Vector
+--- @param to Vector
+--- @param color Color
+function exu.DrawLine(from, to, color) end
 
 --- @param ... any
 function exu.GetAiTargetScoringEnabled(...) end

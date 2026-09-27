@@ -130,26 +130,6 @@ namespace ExtraUtilities
 			return state.gameUiOpen;
 		}
 
-		bool IsMultiplayerPauseMenuOpen() noexcept
-		{
-			PauseMenuDebugState state{};
-			if (!TryGetPauseMenuDebugState(state))
-			{
-				return false;
-			}
-			return state.multiplayerPauseOpen;
-		}
-
-		bool IsSingleplayerPauseMenuOpen() noexcept
-		{
-			PauseMenuDebugState state{};
-			if (!TryGetPauseMenuDebugState(state))
-			{
-				return false;
-			}
-			return state.singleplayerPauseOpen;
-		}
-
 		bool IsPauseMenuOpen() noexcept
 		{
 			PauseMenuDebugState state{};

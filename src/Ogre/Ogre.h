@@ -221,9 +221,6 @@ namespace ExtraUtilities::Ogre
 	using _SetRenderQueueGroupMovable = void(__thiscall*)(void*, uint8_t);
 	inline constinit OgreExport<_SetRenderQueueGroupMovable> SetRenderQueueGroupMovable{ "?setRenderQueueGroup@MovableObject@Ogre@@UAEXE@Z" };
 
-	using _SetRenderQueueGroupSubEntity = void(__thiscall*)(void*, uint8_t);
-	inline constinit OgreExport<_SetRenderQueueGroupSubEntity> SetRenderQueueGroupSubEntity{ "?setRenderQueueGroup@SubEntity@Ogre@@UAEXE@Z" };
-
 	using _GetNumSubEntities = uint32_t(__thiscall*)(void*);
 	inline constinit OgreExport<_GetNumSubEntities> GetNumSubEntities{ "?getNumSubEntities@Entity@Ogre@@QBEIXZ" };
 
