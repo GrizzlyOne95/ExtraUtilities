@@ -1850,11 +1850,15 @@ function exu.GetAiTaskFieldScan(h) end
 --- @return table | nil
 function exu.GetAiTaskState(h) end
 
---- Updates selected fields on the primary live AI task for the object.
---- Supported fields currently include `braccel`, `strafe`, `steer`, `omega`,
---- `omegaScale`, `pitch`, `gotoForce`, `gotoDir`, and `turbo`.
+--- Updates selected fields on the primary live UnitTask (any stock task except
+--- RecycleTask) for the object. Supported fields: `braccel`, `strafe`, `steer`,
+--- `omega`, `omegaScale`, `pitch`, `gotoForce`, `gotoDir`, and `turbo`.
+--- Numbers and vector components must be finite and within +/-10000; an invalid
+--- field raises an error before anything is written. Returns false, writing
+--- nothing, when the handle is dead or a task field is given and the object has no UnitTask.
 --- @param h Handle
 --- @param state table
+--- @return boolean
 function exu.SetAiTaskState(h, state) end
 
 --- Gets a typed snapshot of the active recycle subtask when the object's AI task is a recycle task.
