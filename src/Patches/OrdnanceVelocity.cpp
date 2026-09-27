@@ -160,7 +160,7 @@ namespace ExtraUtilities::Patch
 			ret
 		}
 	}
-	Hook ordnanceVelocityPatch(0x004803D4, &OrdnanceVelocityPatch, 8, BasicPatch::Status::INACTIVE);
+	Hook ordnanceVelocityPatch(0x004803D4, &OrdnanceVelocityPatch, 8, BasicPatch::Status::INACTIVE, { 0x8B, 0x4D, 0xF0, 0x89, 0x08, 0x8B, 0x55, 0xF4 });
 
 	static void __declspec(naked) CannonLeadPositionPatch()
 	{
@@ -278,28 +278,10 @@ namespace ExtraUtilities::Patch
 			ret
 		}
 	}
-	Hook cannonLeadPositionPatch(0x0048F658, &CannonLeadPositionPatch, 6, BasicPatch::Status::INACTIVE);
-	float x = 500.0f;
-	void __declspec(naked)MortarLeadPositionPatch()
-	{
-		__asm
-		{
-			// Game code
-			mov [ecx+0x08], eax
-			mov ecx, [ebp+0xC]
-
-			push eax
-			mov eax, [x]
-			mov [ebp-0x18], eax
-			pop eax
-
-			ret
-		}
-	}
-	Hook mortarLeadPositionPatch(0x0056B254, &MortarLeadPositionPatch, 6, BasicPatch::Status::INACTIVE);
+	Hook cannonLeadPositionPatch(0x0048F658, &CannonLeadPositionPatch, 6, BasicPatch::Status::INACTIVE, { 0x8B, 0x45, 0xE0, 0x8B, 0x48, 0x0C });
 	// This bypasses the is target speed > 0.1 m/s check, you still want to calculate
 	// lead position even on still targets because it will be affected by the shooter's speed
-	InlinePatch cannonVelocityTolerancePatch(0x0048F639, BasicPatch::NOP, 6, BasicPatch::Status::INACTIVE);
+	InlinePatch cannonVelocityTolerancePatch(0x0048F639, BasicPatch::NOP, 6, BasicPatch::Status::INACTIVE, { 0x0F, 0x86, 0xF0, 0x01, 0x00, 0x00 });
 }
 
 namespace ExtraUtilities::Lua::Patches
