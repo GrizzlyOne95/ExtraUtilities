@@ -259,6 +259,44 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			entry.callbackRef = LUA_NOREF;
 		}
 
+		std::vector<uint64_t> SnapshotReplacementKeys()
+		{
+			std::vector<uint64_t> keys;
+			keys.reserve(g_replacements.size());
+			for (const auto& [key, entry] : g_replacements)
+			{
+				keys.push_back(key);
+			}
+			return keys;
+		}
+
+		// Replacements registered for units that have since died are dropped,
+		// so the per-tick polling does not grow with every unit a mission ever
+		// registered.
+		void PruneDeadReplacements(lua_State* L)
+		{
+			// Liveness comes from the object arena, which is only trusted on
+			// the qualified build; the Lua-only polling path must keep working
+			// elsewhere.
+			if (!RuntimeGate::IsSupported())
+			{
+				return;
+			}
+
+			for (auto it = g_replacements.begin(); it != g_replacements.end();)
+			{
+				const BZR::handle handle = static_cast<BZR::handle>(it->first >> 32);
+				if (BZR::GameObject::GetObj(handle) != nullptr)
+				{
+					++it;
+					continue;
+				}
+
+				ReleaseEntry(L, it->second);
+				it = g_replacements.erase(it);
+			}
+		}
+
 		std::unordered_map<uint64_t, ReplacementEntry>::iterator FindReplacement(
 			BZR::handle handle,
 			StockCommandId stockCommand)
@@ -700,7 +738,10 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			size_t selectedReplacementCount = 0;
 			std::string selectedLabel;
 
-			for (const auto& [key, entry] : g_replacements)
+			// IsSelected is a Lua global a mission can override, so the registry
+			// may change under this loop; iterate a snapshot of keys and look
+			// each entry up again after the call.
+			for (const uint64_t key : SnapshotReplacementKeys())
 			{
 				const auto stockCommand = static_cast<StockCommandId>(key & 0xFFFFFFFF);
 				if (stockCommand != StockCommandId::HUNT)
@@ -715,8 +756,14 @@ namespace ExtraUtilities::Lua::CommandReplacement
 					continue;
 				}
 
+				const auto entryIt = g_replacements.find(key);
+				if (entryIt == g_replacements.end())
+				{
+					continue;
+				}
+
 				selectedReplacementCount += 1;
-				selectedLabel = entry.replacementLabel;
+				selectedLabel = entryIt->second.replacementLabel;
 				if (selectedReplacementCount > 1)
 				{
 					break;
@@ -960,6 +1007,7 @@ namespace ExtraUtilities::Lua::CommandReplacement
 		}
 		g_lastUpdateAt = now;
 
+		PruneDeadReplacements(L);
 		UpdateHuntLabelOverride(L);
 
 		const bool nativeHuntHookActive =
@@ -970,7 +1018,20 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			return 0;
 		}
 
-		for (auto& [key, entry] : g_replacements)
+		// Every step below calls into mission Lua (GetCurrentCommand,
+		// IsSelected, the replacement callback), which can add or remove
+		// replacements. Iterate a snapshot of keys and re-find the entry after
+		// each call instead of holding an iterator or reference across it.
+		const auto setLastObserved = [](uint64_t key, int command)
+		{
+			const auto entryIt = g_replacements.find(key);
+			if (entryIt != g_replacements.end())
+			{
+				entryIt->second.lastObservedCommand = command;
+			}
+		};
+
+		for (const uint64_t key : SnapshotReplacementKeys())
 		{
 			const auto stockCommand = static_cast<StockCommandId>(key & 0xFFFFFFFF);
 			const BZR::handle handle = static_cast<BZR::handle>(key >> 32);
@@ -978,16 +1039,17 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			int currentCommand = -1;
 			if (!TryGetCurrentCommand(L, handle, currentCommand))
 			{
-				entry.lastObservedCommand = -1;
+				setLastObserved(key, -1);
 				continue;
 			}
 
-			if (currentCommand == entry.lastObservedCommand)
+			const auto entryIt = g_replacements.find(key);
+			if (entryIt == g_replacements.end() || currentCommand == entryIt->second.lastObservedCommand)
 			{
 				continue;
 			}
 
-			entry.lastObservedCommand = currentCommand;
+			entryIt->second.lastObservedCommand = currentCommand;
 
 			if (stockCommand != StockCommandId::HUNT || currentCommand != kCmdHunt)
 			{
@@ -1013,7 +1075,7 @@ namespace ExtraUtilities::Lua::CommandReplacement
 				commandAfterCallback = kCmdNone;
 			}
 
-			entry.lastObservedCommand = commandAfterCallback;
+			setLastObserved(key, commandAfterCallback);
 		}
 
 		return 0;
