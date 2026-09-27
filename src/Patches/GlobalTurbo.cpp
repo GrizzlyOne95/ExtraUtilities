@@ -16,7 +16,6 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "Game/Multiplayer.h"
 #include "Game/Culling.h"
 #include "GlobalTurbo.h"
 #include "bzr.h"
@@ -171,12 +170,6 @@ namespace ExtraUtilities::Lua::Patches
 	int SetGlobalTurbo(lua_State* L)
 	{
 		bool status = CheckBool(L, 1);
-		if (status && Multiplayer::IsNetworkGame())
-		{
-			lua_pushboolean(L, 0);
-			return 1;
-		}
-
 		Patch::globalTurboEnabled = status;
 		if (const auto fn = OpenShimBridge::Resolve<OpenShimSetGlobalTurboFn>(
 				"OpenShimSetGlobalTurbo"))
@@ -220,12 +213,6 @@ namespace ExtraUtilities::Lua::Patches
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		bool status = CheckBool(L, 2);
-
-		if (status && Multiplayer::IsNetworkGame())
-		{
-			lua_pushboolean(L, 0);
-			return 1;
-		}
 
 		if (g_openShimOwnsUnitTurbo)
 		{
