@@ -215,6 +215,13 @@ def check_hardening_markers() -> None:
     if lua_check < 0 or register < 0 or lua_check > register:
         fail("luaopen_exu must check the Lua dummynode anchor before luaL_register creates any table")
 
+    # Static initializers run inside DllMain on every mission load. Signature
+    # scans and resolution belong in Init.
+    static_init = re.compile(r"^[ \t]*inline[ \t]+[\w:<>\*& \t]+?[ \t]+\w+[ \t]*=[ \t]*(?:Initialize|Resolve)\w*\(", re.M)
+    for path in sorted((ROOT / "src").rglob("*.[ch]*")):
+        for match in static_init.finditer(path.read_text(encoding="utf-8", errors="replace")):
+            fail(f"namespace-scope initializer runs resolution under the loader lock: {path.relative_to(ROOT).as_posix()}: {match.group(0).strip()}")
+
     for token in forbidden_loader_calls:
         if token in dllmain:
             fail(f"DllMain still performs nontrivial loader-lock work: {token}")
