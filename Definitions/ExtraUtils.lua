@@ -1930,7 +1930,7 @@ function exu.GetUIScaling() end
 ---
 --- These functions handle input/output that the stock game doesn't provide.
 
---- Gets whether or not a key is held.
+--- Gets whether or not a key is held. Always false while the game window is not in the foreground.
 --- A full list of keys can be found here.
 --- @nodiscard
 --- @param key string

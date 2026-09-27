@@ -21,11 +21,22 @@
 
 namespace ExtraUtilities::Lua::IO
 {
+	namespace
+	{
+		bool IsGameWindowForeground() noexcept
+		{
+			DWORD processId = 0;
+			const HWND foreground = GetForegroundWindow();
+			return foreground != nullptr &&
+				GetWindowThreadProcessId(foreground, &processId) != 0 &&
+				processId == GetCurrentProcessId();
+		}
+	}
+
 	int GetGameKey(lua_State* L)
 	{
-		std::string key = luaL_checkstring(L, 1);
-		
-		auto it = keyMap.find(ToUpper(key));
+		const char* keyName = luaL_checkstring(L, 1);
+		auto it = keyMap.find(ToUpper(keyName));
 
 		int vKey;
 
@@ -39,9 +50,11 @@ namespace ExtraUtilities::Lua::IO
 			return 0;
 		}
 
-		// this ternary is necessary cause you need to evaluate the
-		// truthiness in C++ due to the weird return value of GetAsyncKeyState
-		lua_pushboolean(L, GetAsyncKeyState(vKey) ? true : false);
+		// Held means the high bit. The low bit is "pressed since the last
+		// query", which reported released keys as held. Keys typed into another
+		// window while the game is in the background do not count.
+		const bool held = IsGameWindowForeground() && (GetAsyncKeyState(vKey) & 0x8000) != 0;
+		lua_pushboolean(L, held ? 1 : 0);
 
 		return 1;
 	}
