@@ -878,7 +878,20 @@ namespace ExtraUtilities::Lua::OS
 		lua_pushvalue(L, 1); // string parameter
 		lua_call(L, 1, 1);
 		const char* message = lua_tostring(L, -1);
-		MessageBoxA(0, message, "Extra Utilities", MB_OK | MB_APPLMODAL);
+
+		// Own the box by the game's window when it is in front, so the game
+		// window is disabled while the box is up (no input re-enters the game
+		// mid-callback) and the box stays above an exclusive-fullscreen
+		// surface instead of looking like a hang.
+		HWND owner = GetForegroundWindow();
+		DWORD ownerProcess = 0;
+		if (owner == nullptr || GetWindowThreadProcessId(owner, &ownerProcess) == 0 ||
+			ownerProcess != GetCurrentProcessId())
+		{
+			owner = nullptr;
+		}
+		MessageBoxA(owner, message != nullptr ? message : "", "Extra Utilities",
+			MB_OK | MB_APPLMODAL | MB_TOPMOST | MB_SETFOREGROUND);
 		return 0;
 	}
 
