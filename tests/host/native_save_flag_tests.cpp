@@ -16,7 +16,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-// Host-side checks for the missionSave operand decode used by exu.SaveGame.
+// Host-side checks for the missionSave and binarySave decodes used by
+// exu.SaveGame.
 //
 // A direct native SaveGame call must run with missionSave=0 or the engine skips
 // runType, saveGameDesc, mission status, start_time, the [AiTasks] section and
@@ -139,6 +140,105 @@ namespace
 		Expect(!IsPlausibleMissionSaveValue(0xCD), "uninitialised fill is rejected");
 		Expect(!IsPlausibleMissionSaveValue(0xFF), "missionSave=0xFF is rejected");
 	}
+
+	// The real bytes at battlezone98redux.exe VA 0x004FDD38 (GOG 2.2.301), inside
+	// the SaveShellGame wrapper at 0x004FDC80: missionSave=0, then
+	// binarySave = (-binarysave switch != 0).
+	constexpr uint32_t kMissionSave = 0x009173B7u;
+
+	std::array<uint8_t, BINARY_SAVE_SEQUENCE_SIZE> RealBinarySaveSequence()
+	{
+		return {
+			0xC6, 0x05, 0xB7, 0x73, 0x91, 0x00, 0x00, 0x83, 0x3D, 0xB4, 0xAA, 0x8E,
+			0x00, 0x00, 0x74, 0x09, 0xC7, 0x45, 0x8C, 0x01, 0x00, 0x00, 0x00, 0xEB,
+			0x07, 0xC7, 0x45, 0x8C, 0x00, 0x00, 0x00, 0x00, 0x8A, 0x55, 0x8C, 0x88,
+			0x15, 0xB6, 0x73, 0x91, 0x00,
+		};
+	}
+
+	void TestDecodesTheShippingBinarySaveSequence()
+	{
+		// Embed the sequence at the same offset it has in the wrapper, behind
+		// filler that must not match.
+		std::array<uint8_t, 0x140> wrapper{};
+		wrapper.fill(0xCC);
+		const auto sequence = RealBinarySaveSequence();
+		std::memcpy(wrapper.data() + 0xB8, sequence.data(), sequence.size());
+
+		BinarySaveAddresses addresses;
+		Expect(
+			FindBinarySaveAddresses(wrapper.data(), wrapper.size(), kMissionSave, addresses),
+			"the shipping wrapper yields the binary-save addresses");
+		Expect(addresses.commandLineSwitch == 0x008EAAB4u, "the -binarysave switch decodes to 0x008EAAB4");
+		Expect(addresses.saveFlag == 0x009173B6u, "the binarySave flag decodes to 0x009173B6");
+	}
+
+	void TestBinarySaveNeedsTheMissionSaveAnchor()
+	{
+		const auto sequence = RealBinarySaveSequence();
+		BinarySaveAddresses addresses;
+		Expect(
+			!FindBinarySaveAddresses(sequence.data(), sequence.size(), kMissionSave + 4, addresses),
+			"a different missionSave address does not anchor the sequence");
+		Expect(
+			!FindBinarySaveAddresses(sequence.data(), sequence.size(), 0, addresses),
+			"a zero missionSave address fails closed");
+		Expect(
+			!FindBinarySaveAddresses(nullptr, sequence.size(), kMissionSave, addresses),
+			"a null wrapper fails closed");
+		Expect(
+			!FindBinarySaveAddresses(sequence.data(), sequence.size() - 1, kMissionSave, addresses),
+			"a truncated window fails closed");
+		Expect(addresses.saveFlag == 0 && addresses.commandLineSwitch == 0, "a failed decode leaves no addresses");
+	}
+
+	void TestDriftedBinarySaveSequenceFailsClosed()
+	{
+		// Every structural byte after the anchor, one at a time. Operand and
+		// stack-slot bytes (9..12, 18, 27, 34, 37..40) are covered separately.
+		for (const std::size_t byte : { 7u, 8u, 13u, 14u, 15u, 16u, 17u, 19u, 23u, 24u, 25u, 26u, 28u, 32u, 35u })
+		{
+			auto sequence = RealBinarySaveSequence();
+			sequence[byte] ^= 0x10;
+			BinarySaveAddresses addresses;
+			Expect(
+				!FindBinarySaveAddresses(sequence.data(), sequence.size(), kMissionSave, addresses),
+				"a drifted byte " + std::to_string(byte) + " fails closed");
+		}
+	}
+
+	void TestBinarySaveFlagMustSitBesideMissionSave()
+	{
+		auto sequence = RealBinarySaveSequence();
+		sequence[37] = 0xB5;
+		BinarySaveAddresses addresses;
+		Expect(
+			!FindBinarySaveAddresses(sequence.data(), sequence.size(), kMissionSave, addresses),
+			"a binarySave operand not adjacent to missionSave fails closed");
+
+		sequence = RealBinarySaveSequence();
+		std::memset(sequence.data() + 9, 0, sizeof(uint32_t));
+		Expect(
+			!FindBinarySaveAddresses(sequence.data(), sequence.size(), kMissionSave, addresses),
+			"a null -binarysave operand fails closed");
+	}
+
+	void TestBinarySaveStoreMustUseTheLoadedRegister()
+	{
+		auto sequence = RealBinarySaveSequence();
+		sequence[36] = 0x05; // mov [disp32], al while dl was loaded.
+		BinarySaveAddresses addresses;
+		Expect(
+			!FindBinarySaveAddresses(sequence.data(), sequence.size(), kMissionSave, addresses),
+			"storing a different register than the one loaded fails closed");
+
+		sequence = RealBinarySaveSequence();
+		sequence[33] = 0x45; // load al instead of dl ...
+		sequence[36] = 0x05; // ... and store al: still the same shape.
+		Expect(
+			FindBinarySaveAddresses(sequence.data(), sequence.size(), kMissionSave, addresses),
+			"a different register choice with the same shape still decodes");
+	}
 }
 
 int main()
@@ -151,6 +251,11 @@ int main()
 	TestZeroOperandIsIndistinguishableFromFailure();
 	TestOperandIsReadLittleEndian();
 	TestOnlyBooleanFlagValuesAreAccepted();
+	TestDecodesTheShippingBinarySaveSequence();
+	TestBinarySaveNeedsTheMissionSaveAnchor();
+	TestDriftedBinarySaveSequenceFailsClosed();
+	TestBinarySaveFlagMustSitBesideMissionSave();
+	TestBinarySaveStoreMustUseTheLoadedRegister();
 
 	if (g_failures != 0)
 	{
