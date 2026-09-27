@@ -5787,7 +5787,7 @@ namespace ExtraUtilities::Lua::Environment
 namespace ExtraUtilities::Patch
 {
 	// Prevents fog reset function from running.
-	InlinePatch fogResetPatch(fogReset, BasicPatch::RET, BasicPatch::Status::INACTIVE);
+	InlinePatch fogResetPatch(fogReset, BasicPatch::RET, BasicPatch::Status::INACTIVE, { 0x55 });
 
 	/*
 	* This waits to initialize the ogre patch until you call an ogre function

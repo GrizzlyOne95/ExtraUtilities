@@ -39,7 +39,7 @@ namespace ExtraUtilities::Patch
 		}
 	}
 
-	Hook weaponMaskHook(BZR::Cheats::WeaponMaskCaptureAddr, &WeaponMaskCallback, 9, BasicPatch::Status::ACTIVE);
+	Hook weaponMaskHook(BZR::Cheats::WeaponMaskCaptureAddr, &WeaponMaskCallback, 9, BasicPatch::Status::ACTIVE, { 0x89, 0x51, 0x1C, 0x8B, 0x85, 0xF0, 0xFE, 0xFF, 0xFF });
 
 	uint32_t GetCapturedWeaponMask()
 	{

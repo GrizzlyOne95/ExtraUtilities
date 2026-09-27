@@ -198,5 +198,5 @@ namespace ExtraUtilities::Patch
 			ret
 		}
 	}
-	Hook bulletHitHook(0x00480771, &BulletHitCallback, 6, Hook::Status::ACTIVE);
+	Hook bulletHitHook(0x00480771, &BulletHitCallback, 6, Hook::Status::ACTIVE, { 0x8B, 0x48, 0x14, 0x83, 0xC1, 0x38 });
 }

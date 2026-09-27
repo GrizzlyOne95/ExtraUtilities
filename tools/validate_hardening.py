@@ -214,11 +214,46 @@ def check_hardening_markers() -> None:
     print("Hardening markers OK")
 
 
+# Patches whose address comes from a signature scan that already verifies the
+# bytes before the object is constructed.
+SIGNATURE_RESOLVED_PATCHES = {
+    "unitVoSayQueueHook",
+    "unitVoRecycleTaskQueueHook",
+}
+
+PATCH_DECLARATION_RE = re.compile(r"^[ \t]*(?:inline[ \t]+)?(?:Hook|InlinePatch)[ \t]+(\w+)\((.*?)\);", re.M | re.S)
+
+
+def check_patch_preimages() -> None:
+    """Every namespace-scope patch at a fixed address must carry the stock
+    bytes it expects, so it fails closed on a different build or when another
+    module already owns the site."""
+    missing = []
+    count = 0
+    for path in sorted((ROOT / "src").rglob("*.[ch]*")):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for match in PATCH_DECLARATION_RE.finditer(text):
+            name, arguments = match.group(1), match.group(2)
+            if name in SIGNATURE_RESOLVED_PATCHES:
+                continue
+            count += 1
+            # The expected-byte vector is the last brace-enclosed argument.
+            if not re.search(r"\{\s*0x[0-9A-Fa-f]{2}(?:\s*,\s*0x[0-9A-Fa-f]{2})*\s*\}\s*$", arguments.strip()):
+                missing.append(f"{path.relative_to(ROOT).as_posix()}: {name}")
+    if missing:
+        print("Fixed-address patches without expected bytes:")
+        for entry in missing:
+            print(f"  - {entry}")
+        raise SystemExit(1)
+    print(f"Patch preimages OK: {count} fixed-address patches carry expected bytes")
+
+
 def main() -> None:
     check_api_parity()
     check_versions()
     check_address_catalog()
     check_hardening_markers()
+    check_patch_preimages()
     print("All EXU hardening validation checks passed.")
 
 

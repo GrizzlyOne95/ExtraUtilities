@@ -28,12 +28,14 @@ namespace ExtraUtilities::Lua::Multiplayer
 {
 	inline const Scanner isNetGame(BZR::Multiplayer::isNetGame, BasicScanner::Restore::DISABLED);
 	inline Scanner lives(BZR::Multiplayer::lives);
-	inline InlinePatch buildObjectAlwaysAsync(0x005C833D, BasicPatch::NOP, 11, BasicPatch::Status::INACTIVE);
-	inline InlinePatch buildObjectAlwaysSync(0x005C833B, BasicPatch::NOP, 2, BasicPatch::Status::INACTIVE);
+	inline InlinePatch buildObjectAlwaysAsync(0x005C833D, BasicPatch::NOP, 11, BasicPatch::Status::INACTIVE, { 0x8B, 0x4D, 0xFC, 0x83, 0xC1, 0x18, 0xE8, 0x18, 0x01, 0xEF, 0xFF });
+	inline InlinePatch buildObjectAlwaysSync(0x005C833B, BasicPatch::NOP, 2, BasicPatch::Status::INACTIVE, { 0x74, 0x0B });
 	inline const Scanner myNetID(BZR::Multiplayer::myNetID, BasicScanner::Restore::DISABLED);
 	inline Scanner showScoreboard(BZR::Multiplayer::showScoreboard);
-	// Jumps over the section of code that spawns the starting recycler in MultSTMission
-	inline InlinePatch skipStartingRecycler(0x0056F014, { 0xE9, 0xBC, 0x00, 0x00, 0x00 }, BasicPatch::Status::INACTIVE);
+	// Jumps over the section of code that spawns the starting recycler in
+	// MultSTMission. The jump overwrites part of the following instruction,
+	// which it then skips.
+	inline InlinePatch skipStartingRecycler(0x0056F014, { 0xE9, 0xBC, 0x00, 0x00, 0x00 }, BasicPatch::Status::INACTIVE, { 0x8B, 0x45, 0x9C, 0x50, 0x8B });
 
 	int BuildAsyncObject(lua_State* L);
 	int BuildSyncObject(lua_State* L);

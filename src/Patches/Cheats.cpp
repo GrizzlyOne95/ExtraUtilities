@@ -44,8 +44,8 @@ namespace ExtraUtilities::Patch
 		}
 	}
 
-	Hook infiniteAmmoHook(BZR::Cheats::InfiniteAmmoAddr, &InfiniteAmmoCallback, 8, BasicPatch::Status::INACTIVE);
-	Hook infiniteScrapHook(BZR::Cheats::InfiniteScrapAddr, &InfiniteScrapCallback, 8, BasicPatch::Status::INACTIVE);
+	Hook infiniteAmmoHook(BZR::Cheats::InfiniteAmmoAddr, &InfiniteAmmoCallback, 8, BasicPatch::Status::INACTIVE, { 0x8B, 0x45, 0x08, 0x35, 0x33, 0x33, 0x33, 0x33 });
+	Hook infiniteScrapHook(BZR::Cheats::InfiniteScrapAddr, &InfiniteScrapCallback, 8, BasicPatch::Status::INACTIVE, { 0x8B, 0x45, 0x08, 0x35, 0x33, 0x33, 0x33, 0x33 });
 }
 
 namespace ExtraUtilities::Lua::Patches

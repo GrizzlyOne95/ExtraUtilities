@@ -56,7 +56,7 @@ namespace ExtraUtilities
 				LogPatchIssue("failed to restore inline patch memory protection", m_address, m_length);
 			}
 
-			m_status = Status::ACTIVE;
+			MarkPatched();
 		}
 
 	public:
