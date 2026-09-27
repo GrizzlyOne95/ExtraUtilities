@@ -2117,7 +2117,7 @@ function exu.ClearTeamEngineFlameColor(team) end
 function exu.GetGlobalTurbo() end
 
 --- Sets the state of the global turbo mode patch.
---- Single-player only: enabling it in a network game returns false and changes nothing.
+--- In multiplayer this is local to each machine: every peer's mission script must make the same call.
 --- @param state boolean
 --- @return boolean applied
 function exu.SetGlobalTurbo(state) end
@@ -2129,7 +2129,7 @@ function exu.SetGlobalTurbo(state) end
 function exu.GetUnitTurbo(h) end
 
 --- Sets turbo for an individual unit that overrides the global setting.
---- Single-player only: enabling it in a network game returns false and changes nothing.
+--- In multiplayer this is local to each machine: every peer's mission script must make the same call.
 --- @param h Handle
 --- @param state boolean
 --- @return boolean applied
@@ -2141,7 +2141,7 @@ function exu.SetUnitTurbo(h, state) end
 function exu.GetOrdnanceVelocInheritance() end
 
 --- Makes projectiles inherit the velocity of the shooter, and patches the TLI for both the player and AI to account for this, currently does NOT work in multiplayer, and the TLI on mortars is not accurate.
---- Single-player only: enabling it in a network game returns false and changes nothing.
+--- In multiplayer this is local to each machine: every peer's mission script must make the same call.
 --- @param state boolean
 --- @return boolean applied
 function exu.SetOrdnanceVelocInheritance(state) end
@@ -2564,13 +2564,13 @@ function exu.SetHudSpriteRect(...) end
 function exu.SetHudSpriteVisible(...) end
 
 --- Enables or disables infinite ammo for the local player.
---- Single-player only: enabling it in a network game returns false and changes nothing.
+--- In multiplayer this is local to each machine: every peer's mission script must make the same call.
 --- @param enabled boolean
 --- @return boolean applied
 function exu.SetInfiniteAmmo(enabled) end
 
 --- Enables or disables infinite scrap.
---- Single-player only: enabling it in a network game returns false and changes nothing.
+--- In multiplayer this is local to each machine: every peer's mission script must make the same call.
 --- @param enabled boolean
 --- @return boolean applied
 function exu.SetInfiniteScrap(enabled) end
