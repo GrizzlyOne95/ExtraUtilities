@@ -20,6 +20,12 @@
 
 #include <lua.hpp>
 
+namespace ExtraUtilities::Patch
+{
+	// Custom team names for kill messages set by the mission.
+	void ResetKillMessages() noexcept;
+}
+
 namespace ExtraUtilities::Lua::Patches
 {
 	int GetCustomKillMessage(lua_State* L);

@@ -44,6 +44,13 @@ namespace ExtraUtilities::Patch
 	inline bool globalTurboEnabled = false;
 
 	inline std::unordered_map<BZR::handle, bool> setTurboUnits;
+
+	// Per-mission turbo overrides; handles are only meaningful for one mission.
+	inline void ResetTurboMissionState() noexcept
+	{
+		setTurboUnits.clear();
+		globalTurboEnabled = false;
+	}
 }
 
 namespace ExtraUtilities::Lua::Patches

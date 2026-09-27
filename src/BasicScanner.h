@@ -21,6 +21,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include <Windows.h>
 
@@ -40,10 +41,53 @@ namespace ExtraUtilities
 			return cache;
 		}
 
+		// Every scanner, so closing the Lua state can put back what scripts
+		// wrote without waiting for the DLL to unload (it may stay loaded).
+		// Constant-initialized, so it outlives every scanner.
+		static inline std::vector<BasicScanner*> registry{};
+
 		BasicScanner() = default;
 		virtual ~BasicScanner() = default;
 
+		void Register() noexcept
+		{
+			try
+			{
+				registry.push_back(this);
+			}
+			catch (...)
+			{
+				// Restore then only happens at DLL unload, as before.
+			}
+		}
+
+		void Unregister() noexcept
+		{
+			for (size_t i = 0; i < registry.size(); ++i)
+			{
+				if (registry[i] == this)
+				{
+					registry.erase(registry.begin() + static_cast<std::ptrdiff_t>(i));
+					return;
+				}
+			}
+		}
+
 	public:
+		virtual void RestoreIfWritten() noexcept {}
+
+		// Called at Lua-state close.
+		static void RestoreAllWritten() noexcept
+		{
+			for (BasicScanner* scanner : registry)
+			{
+				if (scanner != nullptr)
+				{
+					scanner->RestoreIfWritten();
+				}
+			}
+		}
+
 		// Should the scanner restore the original data when the dll exits?
 		enum class Restore : uint8_t
 		{
