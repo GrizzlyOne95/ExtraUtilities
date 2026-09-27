@@ -24,6 +24,7 @@
 // rules live in their own translation unit instead of inside Environment.cpp.
 
 #include "Ogre/OgreParameterValue.h"
+#include "HostTest.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -34,16 +35,7 @@ using namespace ExtraUtilities::OgreParams;
 
 namespace
 {
-	int g_failures = 0;
-
-	void Expect(bool condition, const std::string& what)
-	{
-		if (!condition)
-		{
-			std::cerr << "FAIL: " << what << '\n';
-			++g_failures;
-		}
-	}
+	using HostTest::Expect;
 
 	void ExpectEqual(const std::string& actual, const std::string& expected, const std::string& what)
 	{
@@ -51,7 +43,7 @@ namespace
 		{
 			std::cerr << "FAIL: " << what << " -- expected \"" << expected
 			          << "\", got \"" << actual << "\"\n";
-			++g_failures;
+			HostTest::CountFailure();
 		}
 	}
 
@@ -152,12 +144,5 @@ int main()
 	TestParameterValueValidation();
 	TestRoundTripShapes();
 
-	if (g_failures != 0)
-	{
-		std::cerr << g_failures << " parameter-value check(s) failed\n";
-		return EXIT_FAILURE;
-	}
-
-	std::cout << "All parameter-value checks passed.\n";
-	return EXIT_SUCCESS;
+	return HostTest::Finish("parameter-value");
 }
