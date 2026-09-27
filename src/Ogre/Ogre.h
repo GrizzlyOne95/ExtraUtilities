@@ -25,6 +25,9 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <type_traits>
+
+#include <Windows.h>
 
 namespace ExtraUtilities::Ogre
 {
@@ -91,271 +94,266 @@ namespace ExtraUtilities::Ogre
 		return fog;
 	}
 
-	// Function Pointers
+	// OgreMain entry points, resolved by mangled export name on first use.
+	// They used to be fixed offsets from OgreMain's base with no check that the
+	// DLL was the build they were taken from; a missing export now makes the
+	// call a no-op returning a default value instead of a jump into arbitrary
+	// code. The names were mapped from the offsets against the shipped
+	// OgreMain.dll (identical on GOG and Steam, 2026-09-27).
+	template <typename Fn>
+	class OgreExport;
 
-	// This is bordering on voodoo
+	template <typename R, typename... Args>
+	class OgreExport<R(__thiscall*)(Args...)>
+	{
+	public:
+		using Fn = R(__thiscall*)(Args...);
 
-	using enum BasicScanner::BaseAddress;
+		constexpr explicit OgreExport(const char* mangledName) noexcept
+			: m_name(mangledName)
+		{
+		}
 
-	inline uintptr_t getAmbientLightAddr = BasicScanner::CalculateAddress(BZR::Ogre::getAmbientLightOffset, OGRE);
+		Fn Get() const noexcept
+		{
+			if (!m_resolved)
+			{
+				if (HMODULE ogreMain = GetModuleHandleA("OgreMain.dll"))
+				{
+					m_fn = reinterpret_cast<Fn>(GetProcAddress(ogreMain, m_name));
+					m_resolved = true;
+				}
+			}
+			return m_fn;
+		}
+
+		explicit operator bool() const noexcept
+		{
+			return Get() != nullptr;
+		}
+
+		R operator()(Args... args) const
+		{
+			if (const Fn fn = Get())
+			{
+				return fn(args...);
+			}
+
+			if constexpr (std::is_void_v<R>)
+			{
+				return;
+			}
+			else if constexpr (std::is_reference_v<R>)
+			{
+				static std::remove_cvref_t<R> fallback{};
+				return fallback;
+			}
+			else
+			{
+				return R{};
+			}
+		}
+
+	private:
+		const char* m_name;
+		mutable Fn m_fn = nullptr;
+		mutable bool m_resolved = false;
+	};
+
 	using _GetAmbientLight = Color*(__thiscall*)(void*);
-	inline _GetAmbientLight GetAmbientLight = (_GetAmbientLight)getAmbientLightAddr;
+	inline constinit OgreExport<_GetAmbientLight> GetAmbientLight{ "?getAmbientLight@SceneManager@Ogre@@QBEABVColourValue@2@XZ" };
 
-	inline uintptr_t setAmbientLightAddr = BasicScanner::CalculateAddress(BZR::Ogre::setAmbientLightOffset, OGRE);
 	using _SetAmbientLight = void(__thiscall*)(void*, Color*);
-	inline _SetAmbientLight SetAmbientLight = (_SetAmbientLight)setAmbientLightAddr;
+	inline constinit OgreExport<_SetAmbientLight> SetAmbientLight{ "?setAmbientLight@SceneManager@Ogre@@QAEXABVColourValue@2@@Z" };
 
-	inline uintptr_t getDiffuseColorAddr = BasicScanner::CalculateAddress(BZR::Ogre::getDiffuseColorOffset, OGRE);
 	using _GetDiffuseColor = Color*(__thiscall*)(void*);
-	inline _GetDiffuseColor GetDiffuseColor = (_GetDiffuseColor)getDiffuseColorAddr;
+	inline constinit OgreExport<_GetDiffuseColor> GetDiffuseColor{ "?getDiffuseColour@Light@Ogre@@QBEABVColourValue@2@XZ" };
 
-	inline uintptr_t setDiffuseColorAddr = BasicScanner::CalculateAddress(BZR::Ogre::setDiffuseColorOffset, OGRE);
 	using _SetDiffuseColor = void(__thiscall*)(void*, float, float, float);
-	inline _SetDiffuseColor SetDiffuseColor = (_SetDiffuseColor)setDiffuseColorAddr;
+	inline constinit OgreExport<_SetDiffuseColor> SetDiffuseColor{ "?setDiffuseColour@Light@Ogre@@QAEXMMM@Z" };
 
-	inline uintptr_t getSpecularColorAddr = BasicScanner::CalculateAddress(BZR::Ogre::getSpecularColorOffset, OGRE);
 	using _GetSpecularColor = Color*(__thiscall*)(void*);
-	inline _GetSpecularColor GetSpecularColor = (_GetDiffuseColor)getSpecularColorAddr;
+	inline constinit OgreExport<_GetSpecularColor> GetSpecularColor{ "?getSpecularColour@Light@Ogre@@QBEABVColourValue@2@XZ" };
 
-	inline uintptr_t setSpecularColorAddr = BasicScanner::CalculateAddress(BZR::Ogre::setSpecularColorOffset, OGRE);
 	using _SetSpecularColor = void(__thiscall*)(void*, float, float, float);
-	inline _SetSpecularColor SetSpecularColor = (_SetSpecularColor)setSpecularColorAddr;
+	inline constinit OgreExport<_SetSpecularColor> SetSpecularColor{ "?setSpecularColour@Light@Ogre@@QAEXMMM@Z" };
 
-	inline uintptr_t getDirectionAddr = BasicScanner::CalculateAddress(0x14042, OGRE);
 	using _GetDirection = BZR::VECTOR_3D*(__thiscall*)(void*);
-	inline _GetDirection GetDirection = (_GetDirection)getDirectionAddr;
+	inline constinit OgreExport<_GetDirection> GetDirection{ "?getDirection@Light@Ogre@@QBEABVVector3@2@XZ" };
 
-	inline uintptr_t setDirectionAddr = BasicScanner::CalculateAddress(0x0FB69, OGRE);
 	using _SetDirection = void(__thiscall*)(void*, float, float, float);
-	inline _SetDirection SetDirection = (_SetDirection)setDirectionAddr;
+	inline constinit OgreExport<_SetDirection> SetDirection{ "?setDirection@Light@Ogre@@QAEXMMM@Z" };
 
-	inline uintptr_t getPowerScaleAddr = BasicScanner::CalculateAddress(0x3A5CB, OGRE);
 	using _GetPowerScale = float(__thiscall*)(void*);
-	inline _GetPowerScale GetPowerScale = (_GetPowerScale)getPowerScaleAddr;
+	inline constinit OgreExport<_GetPowerScale> GetPowerScale{ "?getPowerScale@Light@Ogre@@QBEMXZ" };
 
-	inline uintptr_t setPowerScaleAddr = BasicScanner::CalculateAddress(0x10FBE, OGRE);
 	using _SetPowerScale = void(__thiscall*)(void*, float);
-	inline _SetPowerScale SetPowerScale = (_SetPowerScale)setPowerScaleAddr;
+	inline constinit OgreExport<_SetPowerScale> SetPowerScale{ "?setPowerScale@Light@Ogre@@QAEXM@Z" };
 
-	inline uintptr_t getShadowFarDistanceAddr = BasicScanner::CalculateAddress(0x1A9B0, OGRE);
 	using _GetShadowFarDistance = float(__thiscall*)(void*);
-	inline _GetShadowFarDistance GetShadowFarDistance = (_GetShadowFarDistance)getShadowFarDistanceAddr;
+	inline constinit OgreExport<_GetShadowFarDistance> GetShadowFarDistance{ "?getShadowFarDistance@Light@Ogre@@QBEMXZ" };
 
-	inline uintptr_t setShadowFarDistanceAddr = BasicScanner::CalculateAddress(0x0F5C4, OGRE);
 	using _SetShadowFarDistance = void(__thiscall*)(void*, float);
-	inline _SetShadowFarDistance SetShadowFarDistance = (_SetShadowFarDistance)setShadowFarDistanceAddr;
+	inline constinit OgreExport<_SetShadowFarDistance> SetShadowFarDistance{ "?setShadowFarDistance@Light@Ogre@@QAEXM@Z" };
 
-	inline uintptr_t setSpotlightRangeAddr = BasicScanner::CalculateAddress(BZR::Ogre::setSpotlightRangeOffset, OGRE);
 	using _SetSpotlightRange = void(__thiscall*)(void*, float*, float*, float);
-	inline _SetSpotlightRange SetSpotlightRange = (_SetSpotlightRange)setSpotlightRangeAddr;
+	inline constinit OgreExport<_SetSpotlightRange> SetSpotlightRange{ "?setSpotlightRange@Light@Ogre@@QAEXABVRadian@2@0M@Z" };
 
-	inline uintptr_t setVisibleAddr = BasicScanner::CalculateAddress(BZR::Ogre::setVisibleOffset, OGRE);
 	using _SetVisible = void(__thiscall*)(void*, bool);
-	inline _SetVisible SetVisible = (_SetVisible)setVisibleAddr;
+	inline constinit OgreExport<_SetVisible> SetVisible{ "?setVisible@MovableObject@Ogre@@UAEX_N@Z" };
 
-	inline uintptr_t getVisibleAddr = BasicScanner::CalculateAddress(0x05E70, OGRE);
 	using _GetVisible = bool(__thiscall*)(void*);
-	inline _GetVisible GetVisible = (_GetVisible)getVisibleAddr;
+	inline constinit OgreExport<_GetVisible> GetVisible{ "?getVisible@MovableObject@Ogre@@UBE_NXZ" };
 
-	inline uintptr_t getCastShadowsAddr = BasicScanner::CalculateAddress(0x37C40, OGRE);
 	using _GetCastShadows = bool(__thiscall*)(void*);
-	inline _GetCastShadows GetCastShadows = (_GetCastShadows)getCastShadowsAddr;
+	inline constinit OgreExport<_GetCastShadows> GetCastShadows{ "?getCastShadows@MovableObject@Ogre@@UBE_NXZ" };
 
-	inline uintptr_t setCastShadowsAddr = BasicScanner::CalculateAddress(0x325C4, OGRE);
 	using _SetCastShadows = void(__thiscall*)(void*, bool);
-	inline _SetCastShadows SetCastShadows = (_SetCastShadows)setCastShadowsAddr;
+	inline constinit OgreExport<_SetCastShadows> SetCastShadows{ "?setCastShadows@MovableObject@Ogre@@QAEX_N@Z" };
 
-	inline uintptr_t getRenderingDistanceAddr = BasicScanner::CalculateAddress(0x3C48E, OGRE);
 	using _GetRenderingDistance = float(__thiscall*)(void*);
-	inline _GetRenderingDistance GetRenderingDistance = (_GetRenderingDistance)getRenderingDistanceAddr;
+	inline constinit OgreExport<_GetRenderingDistance> GetRenderingDistance{ "?getRenderingDistance@MovableObject@Ogre@@UBEMXZ" };
 
-	inline uintptr_t setRenderingDistanceAddr = BasicScanner::CalculateAddress(0x11E82, OGRE);
 	using _SetRenderingDistance = void(__thiscall*)(void*, float);
-	inline _SetRenderingDistance SetRenderingDistance = (_SetRenderingDistance)setRenderingDistanceAddr;
+	inline constinit OgreExport<_SetRenderingDistance> SetRenderingDistance{ "?setRenderingDistance@MovableObject@Ogre@@UAEXM@Z" };
 
-	inline uintptr_t getVisibilityFlagsAddr = BasicScanner::CalculateAddress(0x2B819, OGRE);
 	using _GetVisibilityFlags = uint32_t(__thiscall*)(void*);
-	inline _GetVisibilityFlags GetVisibilityFlags = (_GetVisibilityFlags)getVisibilityFlagsAddr;
+	inline constinit OgreExport<_GetVisibilityFlags> GetVisibilityFlags{ "?getVisibilityFlags@MovableObject@Ogre@@UBEIXZ" };
 
-	inline uintptr_t setVisibilityFlagsAddr = BasicScanner::CalculateAddress(0x33906, OGRE);
 	using _SetVisibilityFlags = void(__thiscall*)(void*, uint32_t);
-	inline _SetVisibilityFlags SetVisibilityFlags = (_SetVisibilityFlags)setVisibilityFlagsAddr;
+	inline constinit OgreExport<_SetVisibilityFlags> SetVisibilityFlags{ "?setVisibilityFlags@MovableObject@Ogre@@UAEXI@Z" };
 
-	inline uintptr_t getQueryFlagsAddr = BasicScanner::CalculateAddress(0x2526B, OGRE);
 	using _GetQueryFlags = uint32_t(__thiscall*)(void*);
-	inline _GetQueryFlags GetQueryFlags = (_GetQueryFlags)getQueryFlagsAddr;
+	inline constinit OgreExport<_GetQueryFlags> GetQueryFlags{ "?getQueryFlags@MovableObject@Ogre@@UBEIXZ" };
 
-	inline uintptr_t setQueryFlagsAddr = BasicScanner::CalculateAddress(0x361BF, OGRE);
 	using _SetQueryFlags = void(__thiscall*)(void*, uint32_t);
-	inline _SetQueryFlags SetQueryFlags = (_SetQueryFlags)setQueryFlagsAddr;
+	inline constinit OgreExport<_SetQueryFlags> SetQueryFlags{ "?setQueryFlags@MovableObject@Ogre@@UAEXI@Z" };
 
-	inline uintptr_t getRenderQueueGroupAddr = BasicScanner::CalculateAddress(0x1584D, OGRE);
 	using _GetRenderQueueGroup = uint8_t(__thiscall*)(void*);
-	inline _GetRenderQueueGroup GetRenderQueueGroup = (_GetRenderQueueGroup)getRenderQueueGroupAddr;
+	inline constinit OgreExport<_GetRenderQueueGroup> GetRenderQueueGroup{ "?getRenderQueueGroup@MovableObject@Ogre@@UBEEXZ" };
 
-	inline uintptr_t setRenderQueueGroupMovableAddr = BasicScanner::CalculateAddress(0x11CBB, OGRE);
 	using _SetRenderQueueGroupMovable = void(__thiscall*)(void*, uint8_t);
-	inline _SetRenderQueueGroupMovable SetRenderQueueGroupMovable = (_SetRenderQueueGroupMovable)setRenderQueueGroupMovableAddr;
+	inline constinit OgreExport<_SetRenderQueueGroupMovable> SetRenderQueueGroupMovable{ "?setRenderQueueGroup@MovableObject@Ogre@@UAEXE@Z" };
 
-	inline uintptr_t setRenderQueueGroupSubEntityAddr = BasicScanner::CalculateAddress(0x2454B, OGRE);
 	using _SetRenderQueueGroupSubEntity = void(__thiscall*)(void*, uint8_t);
-	inline _SetRenderQueueGroupSubEntity SetRenderQueueGroupSubEntity = (_SetRenderQueueGroupSubEntity)setRenderQueueGroupSubEntityAddr;
+	inline constinit OgreExport<_SetRenderQueueGroupSubEntity> SetRenderQueueGroupSubEntity{ "?setRenderQueueGroup@SubEntity@Ogre@@UAEXE@Z" };
 
-	inline uintptr_t getNumSubEntitiesAddr = BasicScanner::CalculateAddress(0x2635F, OGRE);
 	using _GetNumSubEntities = uint32_t(__thiscall*)(void*);
-	inline _GetNumSubEntities GetNumSubEntities = (_GetNumSubEntities)getNumSubEntitiesAddr;
+	inline constinit OgreExport<_GetNumSubEntities> GetNumSubEntities{ "?getNumSubEntities@Entity@Ogre@@QBEIXZ" };
 
-	inline uintptr_t getSubEntityByIndexAddr = BasicScanner::CalculateAddress(0x1A163, OGRE);
 	using _GetSubEntityByIndex = void*(__thiscall*)(void*, uint32_t);
-	inline _GetSubEntityByIndex GetSubEntityByIndex = (_GetSubEntityByIndex)getSubEntityByIndexAddr;
+	inline constinit OgreExport<_GetSubEntityByIndex> GetSubEntityByIndex{ "?getSubEntity@Entity@Ogre@@QBEPAVSubEntity@2@I@Z" };
 
-	inline uintptr_t getMaterialNameSubEntityAddr = BasicScanner::CalculateAddress(0x07B08, OGRE);
 	using _GetMaterialNameSubEntity = const std::string&(__thiscall*)(void*);
-	inline _GetMaterialNameSubEntity GetMaterialNameSubEntity = (_GetMaterialNameSubEntity)getMaterialNameSubEntityAddr;
+	inline constinit OgreExport<_GetMaterialNameSubEntity> GetMaterialNameSubEntity{ "?getMaterialName@SubEntity@Ogre@@QBEABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@XZ" };
 
-	inline uintptr_t setMaterialNameEntityAddr = BasicScanner::CalculateAddress(0x1BF9F, OGRE);
 	using _SetMaterialNameEntity = void(__thiscall*)(void*, const std::string&, const std::string&);
-	inline _SetMaterialNameEntity SetMaterialNameEntity = (_SetMaterialNameEntity)setMaterialNameEntityAddr;
+	inline constinit OgreExport<_SetMaterialNameEntity> SetMaterialNameEntity{ "?setMaterialName@Entity@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0@Z" };
 
-	inline uintptr_t setMaterialNameSubEntityAddr = BasicScanner::CalculateAddress(0x06E3D, OGRE);
 	using _SetMaterialNameSubEntity = void(__thiscall*)(void*, const std::string&, const std::string&);
-	inline _SetMaterialNameSubEntity SetMaterialNameSubEntity = (_SetMaterialNameSubEntity)setMaterialNameSubEntityAddr;
+	inline constinit OgreExport<_SetMaterialNameSubEntity> SetMaterialNameSubEntity{ "?setMaterialName@SubEntity@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0@Z" };
 
-	inline uintptr_t hasSkeletonAddr = BasicScanner::CalculateAddress(0x1D5E8, OGRE);
 	using _HasSkeleton = bool(__thiscall*)(void*);
-	inline _HasSkeleton HasSkeleton = (_HasSkeleton)hasSkeletonAddr;
+	inline constinit OgreExport<_HasSkeleton> HasSkeleton{ "?hasSkeleton@Entity@Ogre@@QBE_NXZ" };
 
-	inline uintptr_t getAllAnimationStatesAddr = BasicScanner::CalculateAddress(0x3F684, OGRE);
 	using _GetAllAnimationStates = void*(__thiscall*)(void*);
-	inline _GetAllAnimationStates GetAllAnimationStates = (_GetAllAnimationStates)getAllAnimationStatesAddr;
+	inline constinit OgreExport<_GetAllAnimationStates> GetAllAnimationStates{ "?getAllAnimationStates@Entity@Ogre@@QBEPAVAnimationStateSet@2@XZ" };
 
-	inline uintptr_t hasAnimationStateAddr = BasicScanner::CalculateAddress(0x1D624, OGRE);
 	using _HasAnimationState = bool(__thiscall*)(void*, const std::string&);
-	inline _HasAnimationState HasAnimationState = (_HasAnimationState)hasAnimationStateAddr;
+	inline constinit OgreExport<_HasAnimationState> HasAnimationState{ "?hasAnimationState@AnimationStateSet@Ogre@@QBE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z" };
 
-	inline uintptr_t getAnimationStateAddr = BasicScanner::CalculateAddress(0x32B1E, OGRE);
 	using _GetAnimationState = void*(__thiscall*)(void*, const std::string&);
-	inline _GetAnimationState GetAnimationState = (_GetAnimationState)getAnimationStateAddr;
+	inline constinit OgreExport<_GetAnimationState> GetAnimationState{ "?getAnimationState@AnimationStateSet@Ogre@@QBEPAVAnimationState@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z" };
 
-	inline uintptr_t getAnimationLengthAddr = BasicScanner::CalculateAddress(0x0F439, OGRE);
 	using _GetAnimationLength = float(__thiscall*)(void*);
-	inline _GetAnimationLength GetAnimationLength = (_GetAnimationLength)getAnimationLengthAddr;
+	inline constinit OgreExport<_GetAnimationLength> GetAnimationLength{ "?getLength@AnimationState@Ogre@@QBEMXZ" };
 
-	inline uintptr_t getAnimationTimePositionAddr = BasicScanner::CalculateAddress(0x3FE09, OGRE);
 	using _GetAnimationTimePosition = float(__thiscall*)(void*);
-	inline _GetAnimationTimePosition GetAnimationTimePosition = (_GetAnimationTimePosition)getAnimationTimePositionAddr;
+	inline constinit OgreExport<_GetAnimationTimePosition> GetAnimationTimePosition{ "?getTimePosition@AnimationState@Ogre@@QBEMXZ" };
 
-	inline uintptr_t getAnimationWeightAddr = BasicScanner::CalculateAddress(0x1CD05, OGRE);
 	using _GetAnimationWeight = float(__thiscall*)(void*);
-	inline _GetAnimationWeight GetAnimationWeight = (_GetAnimationWeight)getAnimationWeightAddr;
+	inline constinit OgreExport<_GetAnimationWeight> GetAnimationWeight{ "?getWeight@AnimationState@Ogre@@QBEMXZ" };
 
-	inline uintptr_t getAnimationLoopAddr = BasicScanner::CalculateAddress(0x0C3B5, OGRE);
 	using _GetAnimationLoop = bool(__thiscall*)(void*);
-	inline _GetAnimationLoop GetAnimationLoop = (_GetAnimationLoop)getAnimationLoopAddr;
+	inline constinit OgreExport<_GetAnimationLoop> GetAnimationLoop{ "?getLoop@AnimationState@Ogre@@QBE_NXZ" };
 
-	inline uintptr_t getAnimationEnabledAddr = BasicScanner::CalculateAddress(0x21256, OGRE);
 	using _GetAnimationEnabled = bool(__thiscall*)(void*);
-	inline _GetAnimationEnabled GetAnimationEnabled = (_GetAnimationEnabled)getAnimationEnabledAddr;
+	inline constinit OgreExport<_GetAnimationEnabled> GetAnimationEnabled{ "?getEnabled@AnimationState@Ogre@@QBE_NXZ" };
 
-	inline uintptr_t setAnimationTimePositionAddr = BasicScanner::CalculateAddress(0x3BE62, OGRE);
 	using _SetAnimationTimePosition = void(__thiscall*)(void*, float);
-	inline _SetAnimationTimePosition SetAnimationTimePosition = (_SetAnimationTimePosition)setAnimationTimePositionAddr;
+	inline constinit OgreExport<_SetAnimationTimePosition> SetAnimationTimePosition{ "?setTimePosition@AnimationState@Ogre@@QAEXM@Z" };
 
-	inline uintptr_t setAnimationWeightAddr = BasicScanner::CalculateAddress(0x2EABE, OGRE);
 	using _SetAnimationWeight = void(__thiscall*)(void*, float);
-	inline _SetAnimationWeight SetAnimationWeight = (_SetAnimationWeight)setAnimationWeightAddr;
+	inline constinit OgreExport<_SetAnimationWeight> SetAnimationWeight{ "?setWeight@AnimationState@Ogre@@QAEXM@Z" };
 
-	inline uintptr_t setAnimationEnabledAddr = BasicScanner::CalculateAddress(0x0B6DB, OGRE);
 	using _SetAnimationEnabled = void(__thiscall*)(void*, bool);
-	inline _SetAnimationEnabled SetAnimationEnabled = (_SetAnimationEnabled)setAnimationEnabledAddr;
+	inline constinit OgreExport<_SetAnimationEnabled> SetAnimationEnabled{ "?setEnabled@AnimationState@Ogre@@QAEX_N@Z" };
 
-	inline uintptr_t setAnimationLoopAddr = BasicScanner::CalculateAddress(0x16027, OGRE);
 	using _SetAnimationLoop = void(__thiscall*)(void*, bool);
-	inline _SetAnimationLoop SetAnimationLoop = (_SetAnimationLoop)setAnimationLoopAddr;
+	inline constinit OgreExport<_SetAnimationLoop> SetAnimationLoop{ "?setLoop@AnimationState@Ogre@@QAEX_N@Z" };
 
-	inline uintptr_t getLightPositionAddr = BasicScanner::CalculateAddress(0x2B68E, OGRE);
 	using _GetLightPosition = BZR::VECTOR_3D * (__thiscall*)(void*);
-	inline _GetLightPosition GetLightPosition = (_GetLightPosition)getLightPositionAddr;
+	inline constinit OgreExport<_GetLightPosition> GetLightPosition{ "?getPosition@Light@Ogre@@QBEABVVector3@2@XZ" };
 
-	inline uintptr_t setLightPositionAddr = BasicScanner::CalculateAddress(0x3D695, OGRE);
 	using _SetLightPosition = void(__thiscall*)(void*, float, float, float);
-	inline _SetLightPosition SetLightPosition = (_SetLightPosition)setLightPositionAddr;
+	inline constinit OgreExport<_SetLightPosition> SetLightPosition{ "?setPosition@Light@Ogre@@QAEXMMM@Z" };
 
-	inline uintptr_t setAttenuationAddr = BasicScanner::CalculateAddress(0x2BC42, OGRE);
 	using _SetAttenuation = void(__thiscall*)(void*, float, float, float, float);
-	inline _SetAttenuation SetAttenuation = (_SetAttenuation)setAttenuationAddr;
+	inline constinit OgreExport<_SetAttenuation> SetAttenuation{ "?setAttenuation@Light@Ogre@@QAEXMMMM@Z" };
 
-	inline uintptr_t getCameraNearClipDistanceAddr = BasicScanner::CalculateAddress(0x34040, OGRE);
 	using _GetCameraNearClipDistance = float(__thiscall*)(void*);
-	inline _GetCameraNearClipDistance GetCameraNearClipDistance = (_GetCameraNearClipDistance)getCameraNearClipDistanceAddr;
+	inline constinit OgreExport<_GetCameraNearClipDistance> GetCameraNearClipDistance{ "?getNearClipDistance@Camera@Ogre@@UBEMXZ" };
 
-	inline uintptr_t getCameraFarClipDistanceAddr = BasicScanner::CalculateAddress(0x3C8EE, OGRE);
 	using _GetCameraFarClipDistance = float(__thiscall*)(void*);
-	inline _GetCameraFarClipDistance GetCameraFarClipDistance = (_GetCameraFarClipDistance)getCameraFarClipDistanceAddr;
+	inline constinit OgreExport<_GetCameraFarClipDistance> GetCameraFarClipDistance{ "?getFarClipDistance@Camera@Ogre@@UBEMXZ" };
 
-	inline uintptr_t getFrustumAspectRatioAddr = BasicScanner::CalculateAddress(0x3F012, OGRE);
 	using _GetFrustumAspectRatio = float(__thiscall*)(void*);
-	inline _GetFrustumAspectRatio GetFrustumAspectRatio = (_GetFrustumAspectRatio)getFrustumAspectRatioAddr;
+	inline constinit OgreExport<_GetFrustumAspectRatio> GetFrustumAspectRatio{ "?getAspectRatio@Frustum@Ogre@@UBEMXZ" };
 
-	inline uintptr_t setFrustumAspectRatioAddr = BasicScanner::CalculateAddress(0x02077, OGRE);
 	using _SetFrustumAspectRatio = void(__thiscall*)(void*, float);
-	inline _SetFrustumAspectRatio SetFrustumAspectRatio = (_SetFrustumAspectRatio)setFrustumAspectRatioAddr;
+	inline constinit OgreExport<_SetFrustumAspectRatio> SetFrustumAspectRatio{ "?setAspectRatio@Frustum@Ogre@@UAEXM@Z" };
 
-	inline uintptr_t setFrustumNearClipDistanceAddr = BasicScanner::CalculateAddress(0x321E1, OGRE);
 	using _SetFrustumNearClipDistance = void(__thiscall*)(void*, float);
-	inline _SetFrustumNearClipDistance SetFrustumNearClipDistance = (_SetFrustumNearClipDistance)setFrustumNearClipDistanceAddr;
+	inline constinit OgreExport<_SetFrustumNearClipDistance> SetFrustumNearClipDistance{ "?setNearClipDistance@Frustum@Ogre@@UAEXM@Z" };
 
-	inline uintptr_t setFrustumFarClipDistanceAddr = BasicScanner::CalculateAddress(0x1BC2A, OGRE);
 	using _SetFrustumFarClipDistance = void(__thiscall*)(void*, float);
-	inline _SetFrustumFarClipDistance SetFrustumFarClipDistance = (_SetFrustumFarClipDistance)setFrustumFarClipDistanceAddr;
+	inline constinit OgreExport<_SetFrustumFarClipDistance> SetFrustumFarClipDistance{ "?setFarClipDistance@Frustum@Ogre@@UAEXM@Z" };
 
-	inline uintptr_t getFrustumProjectionTypeAddr = BasicScanner::CalculateAddress(0x03373, OGRE);
 	using _GetFrustumProjectionType = int(__thiscall*)(void*);
-	inline _GetFrustumProjectionType GetFrustumProjectionType = (_GetFrustumProjectionType)getFrustumProjectionTypeAddr;
+	inline constinit OgreExport<_GetFrustumProjectionType> GetFrustumProjectionType{ "?getProjectionType@Frustum@Ogre@@UBE?AW4ProjectionType@2@XZ" };
 
-	inline uintptr_t setFrustumProjectionTypeAddr = BasicScanner::CalculateAddress(0x2C165, OGRE);
 	using _SetFrustumProjectionType = void(__thiscall*)(void*, int);
-	inline _SetFrustumProjectionType SetFrustumProjectionType = (_SetFrustumProjectionType)setFrustumProjectionTypeAddr;
+	inline constinit OgreExport<_SetFrustumProjectionType> SetFrustumProjectionType{ "?setProjectionType@Frustum@Ogre@@UAEXW4ProjectionType@2@@Z" };
 
-	inline uintptr_t getCameraPolygonModeAddr = BasicScanner::CalculateAddress(0x2A2D4, OGRE);
 	using _GetCameraPolygonMode = int(__thiscall*)(void*);
-	inline _GetCameraPolygonMode GetCameraPolygonMode = (_GetCameraPolygonMode)getCameraPolygonModeAddr;
+	inline constinit OgreExport<_GetCameraPolygonMode> GetCameraPolygonMode{ "?getPolygonMode@Camera@Ogre@@QBE?AW4PolygonMode@2@XZ" };
 
-	inline uintptr_t setCameraPolygonModeAddr = BasicScanner::CalculateAddress(0x1F352, OGRE);
 	using _SetCameraPolygonMode = void(__thiscall*)(void*, int);
-	inline _SetCameraPolygonMode SetCameraPolygonMode = (_SetCameraPolygonMode)setCameraPolygonModeAddr;
+	inline constinit OgreExport<_SetCameraPolygonMode> SetCameraPolygonMode{ "?setPolygonMode@Camera@Ogre@@QAEXW4PolygonMode@2@@Z" };
 
-	inline uintptr_t getShowBoundingBoxesAddr = BasicScanner::CalculateAddress(0x09C64, OGRE);
 	using _GetShowBoundingBoxes = bool(__thiscall*)(void*);
-	inline _GetShowBoundingBoxes GetShowBoundingBoxes = (_GetShowBoundingBoxes)getShowBoundingBoxesAddr;
+	inline constinit OgreExport<_GetShowBoundingBoxes> GetShowBoundingBoxes{ "?getShowBoundingBoxes@SceneManager@Ogre@@UBE_NXZ" };
 
-	inline uintptr_t showBoundingBoxesAddr = BasicScanner::CalculateAddress(0x0D8D2, OGRE);
 	using _ShowBoundingBoxes = void(__thiscall*)(void*, bool);
-	inline _ShowBoundingBoxes ShowBoundingBoxes = (_ShowBoundingBoxes)showBoundingBoxesAddr;
+	inline constinit OgreExport<_ShowBoundingBoxes> ShowBoundingBoxes{ "?showBoundingBoxes@SceneManager@Ogre@@UAEX_N@Z" };
 
-	inline uintptr_t getShowDebugShadowsAddr = BasicScanner::CalculateAddress(0x23CB8, OGRE);
 	using _GetShowDebugShadows = bool(__thiscall*)(void*);
-	inline _GetShowDebugShadows GetShowDebugShadows = (_GetShowDebugShadows)getShowDebugShadowsAddr;
+	inline constinit OgreExport<_GetShowDebugShadows> GetShowDebugShadows{ "?getShowDebugShadows@SceneManager@Ogre@@UBE_NXZ" };
 
-	inline uintptr_t setShowDebugShadowsAddr = BasicScanner::CalculateAddress(0x0D396, OGRE);
 	using _SetShowDebugShadows = void(__thiscall*)(void*, bool);
-	inline _SetShowDebugShadows SetShowDebugShadows = (_SetShowDebugShadows)setShowDebugShadowsAddr;
+	inline constinit OgreExport<_SetShowDebugShadows> SetShowDebugShadows{ "?setShowDebugShadows@SceneManager@Ogre@@UAEX_N@Z" };
 
-	inline uintptr_t getSceneVisibilityMaskAddr = BasicScanner::CalculateAddress(0x03A7B, OGRE);
 	using _GetSceneVisibilityMask = uint32_t(__thiscall*)(void*);
-	inline _GetSceneVisibilityMask GetSceneVisibilityMask = (_GetSceneVisibilityMask)getSceneVisibilityMaskAddr;
+	inline constinit OgreExport<_GetSceneVisibilityMask> GetSceneVisibilityMask{ "?getVisibilityMask@SceneManager@Ogre@@UAEIXZ" };
 
-	inline uintptr_t setSceneVisibilityMaskAddr = BasicScanner::CalculateAddress(0x0DF71, OGRE);
 	using _SetSceneVisibilityMask = void(__thiscall*)(void*, uint32_t);
-	inline _SetSceneVisibilityMask SetSceneVisibilityMask = (_SetSceneVisibilityMask)setSceneVisibilityMaskAddr;
+	inline constinit OgreExport<_SetSceneVisibilityMask> SetSceneVisibilityMask{ "?setVisibilityMask@SceneManager@Ogre@@UAEXI@Z" };
 
-	inline uintptr_t getViewportShadowsEnabledAddr = BasicScanner::CalculateAddress(0x2617A, OGRE);
 	using _GetViewportShadowsEnabled = bool(__thiscall*)(void*);
-	inline _GetViewportShadowsEnabled GetViewportShadowsEnabled = (_GetViewportShadowsEnabled)getViewportShadowsEnabledAddr;
+	inline constinit OgreExport<_GetViewportShadowsEnabled> GetViewportShadowsEnabled{ "?getShadowsEnabled@Viewport@Ogre@@QBE_NXZ" };
 
-	inline uintptr_t setViewportShadowsEnabledAddr = BasicScanner::CalculateAddress(0x06735, OGRE);
 	using _SetViewportShadowsEnabled = void(__thiscall*)(void*, bool);
-	inline _SetViewportShadowsEnabled SetViewportShadowsEnabled = (_SetViewportShadowsEnabled)setViewportShadowsEnabledAddr;
+	inline constinit OgreExport<_SetViewportShadowsEnabled> SetViewportShadowsEnabled{ "?setShadowsEnabled@Viewport@Ogre@@QAEX_N@Z" };
 
 	inline ::Ogre::SceneManager* AsSceneManager(void* sceneManagerPtr)
 	{
