@@ -190,6 +190,8 @@ def check_hardening_markers() -> None:
         ("instruction cache flush", "FlushInstructionCache" in basic),
         ("expected-byte validation", "expected bytes do not match" in basic),
         ("runtime BZR build gate", "BuildValidation::IsSupportedBzr2301()" in basic),
+        ("runtime gate recorded in Init", "RuntimeGate::SetSupported(supportedBuild)" in read("src/luaexport.cpp")),
+        ("Scanner writes gated", "RuntimeGate::IsSupported()" in scanner),
         ("deferred requested status", "m_requestedStatus = s;" in basic),
         ("Lua-state generation", "m_generation" in lua_state),
         ("protected AddScrap call", "lua_pcall(L, 2, 1, 0)" in add_scrap),

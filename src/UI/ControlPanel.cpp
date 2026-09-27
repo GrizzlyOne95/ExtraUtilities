@@ -143,6 +143,12 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		void CaptureScrapPilotHudBaseline() noexcept
 		{
+			if (!RuntimeGate::IsSupported())
+			{
+				g_scrapPilotHudBaselineValid = false;
+				return;
+			}
+
 			size_t baselineIndex = 0;
 			for (const HudTextPoint& point : g_scrapPilotHudTextPoints)
 			{
@@ -243,6 +249,11 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		void ApplyScrapPilotHudOffset() noexcept
 		{
+			if (!RuntimeGate::IsSupported())
+			{
+				return;
+			}
+
 			if (!ScrapPilotHudMatchesExpectedLayout())
 			{
 				CaptureScrapPilotHudBaseline();
@@ -1279,7 +1290,10 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 	int SelectNone(lua_State*)
 	{
-		BZR::ControlPanel::SelectNone(controlPanel);
+		if (RuntimeGate::IsSupported())
+		{
+			BZR::ControlPanel::SelectNone(controlPanel);
+		}
 		return 0;
 	}
 
