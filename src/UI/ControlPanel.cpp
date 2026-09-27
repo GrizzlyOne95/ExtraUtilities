@@ -1270,7 +1270,10 @@ namespace ExtraUtilities::Lua::ControlPanel
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-		BZR::ControlPanel::SelectAdd(controlPanel, obj);
+		if (obj != nullptr)
+		{
+			BZR::ControlPanel::SelectAdd(controlPanel, obj);
+		}
 		return 0;
 	}
 
@@ -1284,7 +1287,10 @@ namespace ExtraUtilities::Lua::ControlPanel
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-		BZR::ControlPanel::SelectOne(controlPanel, obj);
+		if (obj != nullptr)
+		{
+			BZR::ControlPanel::SelectOne(controlPanel, obj);
+		}
 		return 0;
 	}
 }
