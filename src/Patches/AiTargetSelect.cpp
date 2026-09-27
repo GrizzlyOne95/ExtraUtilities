@@ -29,7 +29,7 @@
 
 #include "AiTargetSelect.h"
 
-#include "BZR.h"
+#include "bzr.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
 #include "Util/Logging.h"

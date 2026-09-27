@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "BZR.h"
+#include "bzr.h"
 #include "Ogre/Ogre.h"
 #include "Scanner.h"
 

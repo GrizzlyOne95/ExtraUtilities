@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "BZR.h"
+#include "bzr.h"
 #include "OgreSceneManagerShim.h"
 #include "Scanner.h"
 

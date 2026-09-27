@@ -20,42 +20,70 @@ def fail(message: str) -> None:
     raise SystemExit(1)
 
 
-def check_api_parity() -> None:
-    source = read("src/luaexport.cpp")
-    marker = "const luaL_Reg exuExports[] = {"
-    start = source.find(marker)
+LINE_COMMENT_RE = re.compile(r"//[^\n]*")
+REGISTRATION_ROW_RE = re.compile(r'\{\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*,')
+SENTINEL_ROW_RE = re.compile(r"\{\s*(?:nullptr|NULL|0)\s*,\s*(?:nullptr|NULL|0)\s*\}")
+
+
+def registered_names(path: str, start_marker: str) -> set[str]:
+    """Names in a luaL_Reg table. Comments are stripped first so a
+    commented-out row is not counted as a live export."""
+    source = read(path)
+    start = source.find(start_marker)
     if start < 0:
-        fail("could not locate exuExports registration table")
-    end = source.find("{ 0, 0 }", start)
-    if end < 0:
-        fail("could not locate exuExports sentinel")
+        fail(f"could not locate registration table in {path}")
+    sentinel = SENTINEL_ROW_RE.search(source, start)
+    if not sentinel:
+        fail(f"could not locate registration table sentinel in {path}")
+    table = LINE_COMMENT_RE.sub("", source[start:sentinel.start()])
+    return set(REGISTRATION_ROW_RE.findall(table))
 
-    table = source[start:end]
-    runtime = set(re.findall(r'\{\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*,', table))
-    definitions = set(
-        re.findall(r"\bfunction\s+exu\.([A-Za-z_][A-Za-z0-9_]*)\s*\(", read("Definitions/ExtraUtils.lua"))
-    )
 
+def documented_names(path: str, table: str) -> set[str]:
+    return set(re.findall(rf"\bfunction\s+{table}\.([A-Za-z_][A-Za-z0-9_]*)\s*\(", read(path)))
+
+
+def require_parity(label: str, definitions_path: str, runtime: set[str], definitions: set[str]) -> None:
     missing_docs = sorted(runtime - definitions)
     stale_docs = sorted(definitions - runtime)
     if missing_docs or stale_docs:
         if missing_docs:
-            print("Runtime exports missing from Definitions/ExtraUtils.lua:")
+            print(f"Runtime {label} exports missing from {definitions_path}:")
             for name in missing_docs:
                 print(f"  - {name}")
         if stale_docs:
-            print("Definition functions not present in runtime export table:")
+            print(f"{definitions_path} functions not present in the {label} runtime table:")
             for name in stale_docs:
                 print(f"  - {name}")
         raise SystemExit(1)
 
-    print(f"API parity OK: {len(runtime)} Lua functions")
+
+SUB_API_TABLES = (
+    ("exu.animation", "src/Game/AnimationApi.h", "Definitions/Animation.lua", "animation"),
+    ("exu.storage", "src/Util/StorageApi.h", "Definitions/Storage.lua", "storage"),
+    ("exu.continuity", "src/Game/ContinuityApi.h", "Definitions/Continuity.lua", "continuity"),
+)
+
+
+def check_api_parity() -> None:
+    runtime = registered_names("src/luaexport.cpp", "const luaL_Reg exuExports[] = {")
+    require_parity("exu", "Definitions/ExtraUtils.lua", runtime, documented_names("Definitions/ExtraUtils.lua", "exu"))
+    total = len(runtime)
+
+    for label, header, definitions_path, table in SUB_API_TABLES:
+        sub_runtime = registered_names(header, "luaL_Reg functions[] = {")
+        require_parity(label, definitions_path, sub_runtime, documented_names(definitions_path, table))
+        total += len(sub_runtime)
+
+    print(f"API parity OK: {len(runtime)} exu functions, {total} including sub-APIs")
 
 
 def check_versions() -> None:
     about = read("src/About.h")
     public = read("include/ExtraUtils.h")
     defs = read("Definitions/ExtraUtils.lua")
+    # The resource script is UTF-16LE; the DLL's version resource is read from it.
+    resource = (ROOT / "Resource/Resource.rc").read_text(encoding="utf-16")
 
     runtime = re.search(r'version\s*=\s*"([^"]+)"', about)
     header = re.search(r'EXU_VERSION_EXPECTED\s+"([^"]+)"', public)
@@ -63,11 +91,18 @@ def check_versions() -> None:
     if not runtime or not header or not definition:
         fail("could not resolve all EXU version declarations")
 
-    values = {runtime.group(1), header.group(1), definition.group(1)}
+    numeric_versions = re.findall(r"\b(?:FILE|PRODUCT)VERSION\s+(\d+),(\d+),(\d+),\d+", resource)
+    string_versions = re.findall(r'VALUE\s+"(?:File|Product)Version",\s*"(\d+\.\d+\.\d+)(?:\.\d+)?"', resource)
+    if len(numeric_versions) != 2 or len(string_versions) != 2:
+        fail("could not resolve FILEVERSION/PRODUCTVERSION declarations in Resource/Resource.rc")
+    resource_values = {".".join(parts) for parts in numeric_versions} | set(string_versions)
+
+    values = {runtime.group(1), header.group(1), definition.group(1)} | resource_values
     if len(values) != 1:
         fail(
             "version declarations disagree: "
-            f"runtime={runtime.group(1)} header={header.group(1)} definitions={definition.group(1)}"
+            f"runtime={runtime.group(1)} header={header.group(1)} definitions={definition.group(1)} "
+            f"resource={sorted(resource_values)}"
         )
 
     print(f"Version parity OK: {runtime.group(1)}")

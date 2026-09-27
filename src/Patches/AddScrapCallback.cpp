@@ -26,6 +26,38 @@
 
 namespace ExtraUtilities::Patch
 {
+	namespace
+	{
+		struct AddScrapArgs
+		{
+			uint32_t teamNumber;
+			uint32_t scrapAmount;
+		};
+
+		// Runs under lua_cpcall; see BulletHitCallback.cpp.
+		int ProtectedAddScrap(lua_State* L)
+		{
+			const auto* args = static_cast<const AddScrapArgs*>(lua_touserdata(L, 1));
+			lua_settop(L, 0);
+
+			lua_getglobal(L, "exu");
+			if (!lua_istable(L, -1))
+			{
+				return 0;
+			}
+			lua_getfield(L, -1, "AddScrap");
+			if (!lua_isfunction(L, -1))
+			{
+				return 0;
+			}
+
+			lua_pushinteger(L, args->teamNumber);
+			lua_pushinteger(L, args->scrapAmount);
+			lua_call(L, 2, 0);
+			return 0;
+		}
+	}
+
 	static void __cdecl LuaCallback(uint32_t teamNumber, uint32_t scrapAmount)
 	{
 		lua_State* L = Lua::state;
@@ -35,20 +67,12 @@ namespace ExtraUtilities::Patch
 		}
 
 		StackGuard guard(L);
-
-		lua_getglobal(L, "exu");
-		lua_getfield(L, -1, "AddScrap");
-
-		if (!lua_isfunction(L, -1))
+		AddScrapArgs args{ teamNumber, scrapAmount };
+		const int status = lua_cpcall(L, &ProtectedAddScrap, &args);
+		if (status != 0)
 		{
-			return;
+			LuaCheckStatus(status, L, "Extra Utilities AddScrap error:\n%s");
 		}
-
-		lua_pushinteger(L, teamNumber);
-		lua_pushinteger(L, scrapAmount);
-
-		const int status = lua_pcall(L, 2, 0, 0);
-		LuaCheckStatus(status, L, "Extra Utilities AddScrap error:\n%s");
 	}
 
 	static void __declspec(naked) AddScrapCallback()

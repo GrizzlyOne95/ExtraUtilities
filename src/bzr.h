@@ -494,10 +494,7 @@ namespace BZR
 	namespace SoundOptions
 	{
 		inline auto soundStruct1 = (uint8_t*)0x0094672C; // this points to the music *display* value
-		inline auto soundStruct2 = (uint32_t*)0x00915594; // this points to the sfx and voice *real* values
 		inline uint8_t musicOffset = 0x2A;
-		inline uint8_t sfxOffset = 0x08;
-		inline uint8_t voiceOffset = 0x0C;
 	}
 
 	namespace Steam

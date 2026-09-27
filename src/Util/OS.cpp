@@ -817,6 +817,14 @@ namespace ExtraUtilities::Lua::OS
 
 		description = TrimAsciiWhitespace(description);
 
+		// Native SaveShellGame copies the description unbounded into the
+		// 256-byte saveGameDesc global; clamp it to what the engine can hold.
+		constexpr size_t kMaxSaveDescriptionLength = 255;
+		if (description.size() > kMaxSaveDescriptionLength)
+		{
+			description.resize(kMaxSaveDescriptionLength);
+		}
+
 		if (slot != 0 && !description.empty())
 		{
 			const auto saveShellGame = ResolveNativeSaveShellGame();

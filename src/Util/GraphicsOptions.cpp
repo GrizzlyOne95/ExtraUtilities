@@ -18,7 +18,7 @@
 
 #include "GraphicsOptions.h"
 
-#include "BZR.h"
+#include "bzr.h"
 #include "Game/Camera.h"
 
 #include <cmath>
