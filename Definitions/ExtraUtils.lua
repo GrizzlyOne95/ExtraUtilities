@@ -192,6 +192,8 @@ exu.ORDNANCE = {
     INIT_TRANSFORM = 2, -- The initial transform of the ordnance when it was spawned/shot
     OWNER = 3,          -- The handle of the ordnance's owner (usually who shot it unless it's been spawned manually, then it could be anything)
     INIT_TIME = 4,      -- The time that the ordnance was spawned/shot
+    VELOCITY = 5,       -- The current velocity vector of the ordnance
+    LIFE_TIME = 6,      -- How long the ordnance has existed
 }
 
 --- @class RadarState
@@ -2019,11 +2021,11 @@ function exu.SetTargetReticlePopupMode(mode) end
 --- You must also provide an owner handle since the game appears to require this.
 --- The owner of an ordnance will not be hit by it if it is created inside its hitbox, otherwise it can be hit.
 --- Returns a handle to the ordnance object that can be used in exu.GetOrdnanceAttribute().
---- Ordnances are short lived, DO NOT access this value for longer than its lifespan.
---- If you need to hold on to a handle you should verify it still exists by checking current time minus its init time
---- (from GetOrdnanceAttribute) is less than the lifespan defined in the odf.
---- You can also use the exu.BulletHit callback to detect if the value is no longer valid,
---- however this does not account for ordnance despawning or being destroyed through other means.
+--- Ordnances are short lived. exu.GetOrdnanceAttribute returns nil once the object is gone,
+--- but a freed round's memory can be reused by a newer round, so do not hold on to the value
+--- past its lifespan: check that current time minus its init time is below the ODF lifespan,
+--- or use the exu.BulletHit callback. The odf name is matched case-insensitively, without
+--- the .odf extension, against the ordnance classes loaded so far.
 ---
 --- Multiplayer remarks: You should not Send() another player a local ordnance handle,
 --- they are likely client side and I haven't rigorously tested it in MP.
@@ -2034,6 +2036,7 @@ function exu.SetTargetReticlePopupMode(mode) end
 function exu.BuildOrdnance(odf, transform, owner) end
 
 --- Queries an ordnance handle for certain values. See the valid attribute codes in the ORDNANCE enum.
+--- Returns nil when the value is no longer a live ordnance object.
 --- @nodiscard
 --- @param ordnanceHandle Ordnance*
 --- @param attribute OrdnanceAttributes
