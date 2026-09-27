@@ -724,14 +724,10 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			return 0;
 		}
 
-		inline uintptr_t g_wingmanHuntActivationHookInitialized = InitializeWingmanHuntActivationHook();
-		inline std::unique_ptr<Hook> g_wingmanHuntActivationHook = g_wingmanHuntActivationHookAddress != 0
-			? std::make_unique<Hook>(
-				g_wingmanHuntActivationHookAddress,
-				&WingmanHuntActivationHook,
-				10,
-				BasicPatch::Status::ACTIVE)
-			: nullptr;
+		// Created by InstallNativeHooks from Init. Resolving it in a static
+		// initializer ran a full .text scan and file logging inside DllMain
+		// (loader lock) on every mission load.
+		std::unique_ptr<Hook> g_wingmanHuntActivationHook;
 
 		void UpdateHuntLabelOverride(lua_State* L)
 		{
@@ -778,6 +774,27 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			{
 				RestoreStockHuntLabel();
 			}
+		}
+	}
+
+	void InstallNativeHooks()
+	{
+		static bool attempted = false;
+		if (attempted || !RuntimeGate::IsSupported())
+		{
+			return;
+		}
+		attempted = true;
+
+		if (InitializeWingmanHuntActivationHook() != 0)
+		{
+			// The signature is a required build-profile anchor; the hook
+			// captures the verified bytes as its preimage.
+			g_wingmanHuntActivationHook = std::make_unique<Hook>(
+				g_wingmanHuntActivationHookAddress,
+				&WingmanHuntActivationHook,
+				10,
+				BasicPatch::Status::ACTIVE);
 		}
 	}
 
