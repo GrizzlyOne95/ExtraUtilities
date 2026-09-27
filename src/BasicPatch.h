@@ -385,34 +385,4 @@ namespace ExtraUtilities
 		}
 	};
 
-	// Temporarily disables a patch and restores its prior active state on normal
-	// C++ scope exit. Do not span a Lua API call that can longjmp; use lua_pcall
-	// and restore the patch before propagating the Lua error instead.
-	class ScopedPatchDisable
-	{
-	private:
-		BasicPatch* m_patch = nullptr;
-		bool m_restore = false;
-
-	public:
-		explicit ScopedPatchDisable(BasicPatch& patch)
-			: m_patch(&patch), m_restore(patch.IsActive())
-		{
-			if (m_restore)
-			{
-				m_patch->Unload();
-			}
-		}
-
-		ScopedPatchDisable(const ScopedPatchDisable&) = delete;
-		ScopedPatchDisable& operator=(const ScopedPatchDisable&) = delete;
-
-		~ScopedPatchDisable()
-		{
-			if (m_restore && m_patch != nullptr)
-			{
-				m_patch->Reload();
-			}
-		}
-	};
 }

@@ -125,11 +125,6 @@ namespace ExtraUtilities::OpenShimBridge
 
 	using SetBzrNetNicknameFn = DWORD (WINAPI*)(LPCSTR nickname);
 
-	inline bool HasBzrNetNicknameBridge() noexcept
-	{
-		return HasExport("OpenShimSetBZRNetNickname");
-	}
-
 	inline BzrNetNicknameResult SetBzrNetNickname(const char* nickname) noexcept
 	{
 		const SetBzrNetNicknameFn setter =

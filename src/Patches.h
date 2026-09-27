@@ -24,8 +24,6 @@
 
 #include "Patches/AddScrapCallback.h"
 #include "Patches/AiTargetSelect.h"
-#include "Patches/BulletHitCallback.h"
-#include "Patches/BulletInitCallback.h"
 #include "Patches/Cheats.h"
 #include "Patches/EngineFlameColor.h"
 #include "Patches/GlobalTurbo.h"

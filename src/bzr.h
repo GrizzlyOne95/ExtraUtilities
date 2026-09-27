@@ -89,10 +89,6 @@ namespace BZR
 		double x, y, z;
 		VECTOR_3D_LONG() : x(0), y(0), z(0) {}
 		VECTOR_3D_LONG(double x, double y, double z) : x(x), y(y), z(z) {}
-		ExtraUtilities::Vec3 ToVec()
-		{
-			return ExtraUtilities::Vec3(x, y, z);
-		}
 	};
 
 	struct Frustum
@@ -141,7 +137,6 @@ namespace BZR
 		inline auto zoomFactorTPP = (float*)0x008EAB10;
 		inline auto maxZoomFactor = (float*)0x008A2688;
 		inline auto minZoomFactor = (float*)0x008A25FC;
-		inline auto viewFrustum = (void*)0x008EABE0;
 
 		enum View
 		{
@@ -178,7 +173,6 @@ namespace BZR
 
 	namespace Cheats
 	{
-		inline auto editMode = (bool*)0x009454B8;
 		constexpr uintptr_t InfiniteAmmoAddr = 0x004A7709;
 		constexpr uintptr_t InfiniteScrapAddr = 0x005E10D7;
 		constexpr uintptr_t WeaponMaskCaptureAddr = 0x0060A8C6;
@@ -203,7 +197,6 @@ namespace BZR
 	{
 		inline auto gravityVector = (VECTOR_3D*)0x00871A80;
 		inline auto timeOfDay = (int*)0x02CD94E4;
-		inline auto sunDirection = (VECTOR_3D*)0x02CEB830;
 
 		using _SetTimeOfDay = void(__cdecl*)(int hourOfDay);
 		inline _SetTimeOfDay SetTimeOfDay = (_SetTimeOfDay)0x0068A230;
@@ -539,20 +532,13 @@ namespace BZR
 		inline auto state = (uint8_t*)0x008EAAAC;
 		inline auto scale = (float*)0x008E77B0;
 		inline auto cockpitWireframeProjectionBase = (float*)0x008E7754;
-		inline auto cockpitWireframeProjectionRadius = (int*)0x009173C0;
-		inline auto radarLeftBase = (float*)0x009782A0;
 		inline auto radarLeft = (int*)0x008E77A8;
 		inline auto radarBottom = (int*)0x008E77AC;
-		inline auto cockpitWireframeCenterBase = (float*)0x008E7918;
 		// Screen-space centre of the cockpit radar wireframe: the world origin
 		// (player) projects exactly onto this point (see 0x00493330, which adds
 		// centerX and subtracts from centerY).
 		inline auto cockpitWireframeCenterX = (int*)0x008E7924;
 		inline auto cockpitWireframeCenterY = (int*)0x008E7928;
-		inline auto edgeMinX = (float*)0x00917388;
-		inline auto edgeMaxX = (float*)0x0091738C;
-		inline auto edgeMinZ = (float*)0x00917390;
-		inline auto edgeMaxZ = (float*)0x00917394;
 
 		struct EdgePathPoint
 		{

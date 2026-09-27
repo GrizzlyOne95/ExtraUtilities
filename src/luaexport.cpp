@@ -500,11 +500,6 @@ namespace ExtraUtilities::Lua
 		lua_setfield(L, exuIdx, "SATELLITE"); // end satellite state enum
 	}
 
-	void DoEventHooks(lua_State*)
-	{
-
-	}
-
 	int Init(lua_State* L)
 	{
 		StackGuard guard(L);
@@ -556,7 +551,6 @@ namespace ExtraUtilities::Lua
 		lua_setfield(L, exuIdx, "VERSION");
 
 		MakeEnums(L, exuIdx);
-		DoEventHooks(L);
 		ForgetForeignStockBindings(L);
 		if (g_stockBindingOwner != L)
 		{

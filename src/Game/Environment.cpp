@@ -2010,7 +2010,6 @@ namespace ExtraUtilities::Lua::Environment
 		using MovableObjectDetachFromParentFn = void(__thiscall*)(void*);
 		using EntityHasSkeletonFn = bool(__thiscall*)(void*);
 		using EntityAttachObjectToBoneFn = void*(__thiscall*)(void*, const std::string&, void*, const OgreQuaternionValue&, const BZR::VECTOR_3D&);
-		using EntityDetachObjectFromBoneFn = void(__thiscall*)(void*, void*);
 		using GetNumEmittersFn = uint16_t(__thiscall*)(void*);
 		using GetEmitterFn = void*(__thiscall*)(void*, uint16_t);
 		using EmitterSetEnabledFn = void(__thiscall*)(void*, bool);
@@ -2081,12 +2080,6 @@ namespace ExtraUtilities::Lua::Environment
 		EntityAttachObjectToBoneFn ResolveEntityAttachObjectToBone()
 		{
 			static EntityAttachObjectToBoneFn fn = ResolveOgreProc<EntityAttachObjectToBoneFn>("?attachObjectToBone@Entity@Ogre@@QAEPAVTagPoint@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@PAVMovableObject@2@ABVQuaternion@2@ABVVector3@2@@Z");
-			return fn;
-		}
-
-		EntityDetachObjectFromBoneFn ResolveEntityDetachObjectFromBone()
-		{
-			static EntityDetachObjectFromBoneFn fn = ResolveOgreProc<EntityDetachObjectFromBoneFn>("?detachObjectFromBone@Entity@Ogre@@QAEXPAVMovableObject@2@@Z");
 			return fn;
 		}
 
