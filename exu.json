@@ -14,6 +14,21 @@
     "note": "BZR is a 32-bit process. All absolute addresses are virtual addresses in the default load image."
   },
   "addresses": {
+    "Lua": {
+      "dummynode": {
+        "address": "0x0086EEF0",
+        "type": "Node (static, 32 zero bytes)",
+        "description": "The executable's Lua 5.1 dummynode_. EXU links its own Lua core against the game's lua_State, and Lua5.1-BZR/src/ltable.c hard-codes this address as dummynode so both cores agree on the empty-table sentinel. If it moves, EXU's luaH_resize frees the host's static node (heap corruption).",
+        "pattern": null
+      },
+      "setnodevector": {
+        "address": "0x00831635",
+        "type": "function: void __cdecl(lua_State*, Table*, int)",
+        "description": "Lua 5.1 setnodevector; the size==0 branch stores t->node = dummynode. Required runtime anchor: its signature embeds the dummynode address, so a build where the address moved fails before EXU creates any table.",
+        "pattern": "55 8B EC 53 56 8B 75 10 85 F6 75 0E 8B 4D 0C 33 DB C7 41 10 F0 EE 86 00 EB 79",
+        "note": "Unique in GOG 2.2.301 .text (verified 2026-09-27). The executable has 7 imm32 references to dummynode, all in the Lua core."
+      }
+    },
     "GameUI": {
       "EscapeWrapperActive": {
         "address": "0x00918310",

@@ -140,6 +140,7 @@ def check_address_catalog() -> None:
     for required_name in (
         "Overlay pause wrapper",
         "Overlay game shell wrapper",
+        "Lua dummynode",
         "Wingman Hunt activation",
     ):
         if required_name not in required_anchor_names:
@@ -164,6 +165,7 @@ def check_address_catalog() -> None:
         '"Overlay pause wrapper"',
         '"Overlay game shell wrapper"',
         '"Wingman Hunt activation"',
+        '"Lua dummynode"',
         "kRuntimeAnchors",
     ]
     for marker in required_generated_markers:
@@ -207,6 +209,12 @@ def check_hardening_markers() -> None:
         "AllocConsole",
         "FreeConsole",
     ]
+    luaexport = read("src/luaexport.cpp")
+    lua_check = luaexport.find("BuildValidation::IsLuaCoreCompatible()")
+    register = luaexport.find('luaL_register(L, "exu"')
+    if lua_check < 0 or register < 0 or lua_check > register:
+        fail("luaopen_exu must check the Lua dummynode anchor before luaL_register creates any table")
+
     for token in forbidden_loader_calls:
         if token in dllmain:
             fail(f"DllMain still performs nontrivial loader-lock work: {token}")

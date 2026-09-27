@@ -83,6 +83,7 @@ int main()
 	ok &= Check(
 		BuildValidation::GetBzrDistribution() == BuildValidation::BzrDistribution::Unknown,
 		"unsupported executable did not fail closed to unknown storefront");
+	ok &= Check(!BuildValidation::IsLuaCoreCompatible(), "synthetic test executable matched the Lua dummynode anchor");
 	ok &= Check(!BuildValidation::IsSteamBuild(), "unsupported executable was mislabeled as Steam");
 	ok &= Check(!BuildValidation::IsGogBuild(), "unsupported executable was mislabeled as GOG");
 
