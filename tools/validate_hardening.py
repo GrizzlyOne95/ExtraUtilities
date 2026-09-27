@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
@@ -349,8 +350,33 @@ def check_patch_preimages() -> None:
     print(f"Patch preimages OK: {count} fixed-address patches carry expected bytes")
 
 
+# The two BZR policy documents are shared byte-for-byte by EXU, OpenShim,
+# Campaign Reimagined and bzfile. Each repository pins the same hashes, so an
+# edit in one repository fails here until the document and these hashes are
+# updated in all four. Line endings are normalised so Windows and Linux
+# checkouts agree.
+SHARED_BZR_DOCS = {
+    "Docs/BZR_LUA_AGENT_REFERENCE.md": "95a146ae81c94a84c2b4c0767f7e2a6ab4aa1ee40148e2414a72733b13ac2fd1",
+    "Docs/BZR_PLATFORM_COMPATIBILITY.md": "b9af9f6452996080a046949f3164e102ec8aa4eefaa9d0c4b8d194e52b516fb3",
+}
+
+
+def check_shared_bzr_docs() -> None:
+    for path, expected in SHARED_BZR_DOCS.items():
+        body = (ROOT / path).read_bytes().replace(b"\r\n", b"\n")
+        actual = hashlib.sha256(body).hexdigest()
+        if actual != expected:
+            fail(
+                f"{path} no longer matches the shared copy (sha256 {actual}). Make the same change in "
+                "ExtraUtilities, BZR-OpenShim, Campaign Reimagined and bzfile, then update SHARED_BZR_DOCS "
+                "in each repository's check."
+            )
+    print(f"Shared BZR docs OK: {len(SHARED_BZR_DOCS)} documents match the pinned shared copies")
+
+
 def main() -> None:
     check_api_parity()
+    check_shared_bzr_docs()
     check_versions()
     check_address_catalog()
     check_engine_address_census()
