@@ -12,6 +12,7 @@
 
 #include "OpenShimBridge.h"
 #include "Util/BzrBuildProfile.generated.h"
+#include "Util/PatternMatch.h"
 #include "Util/SignatureResolver.h"
 
 #include <Windows.h>
@@ -27,58 +28,8 @@ namespace ExtraUtilities::BuildValidation
 
 	namespace Detail
 	{
-		inline bool PatternMatches(
-			const uint8_t* data,
-			size_t dataSize,
-			const int* pattern,
-			size_t patternSize) noexcept
-		{
-			if (data == nullptr || pattern == nullptr || patternSize == 0 || dataSize < patternSize)
-			{
-				return false;
-			}
-
-			for (size_t index = 0; index < patternSize; ++index)
-			{
-				const int expected = pattern[index];
-				if (expected >= 0 && data[index] != static_cast<uint8_t>(expected))
-				{
-					return false;
-				}
-			}
-
-			return true;
-		}
-
-		inline size_t CountPatternMatches(
-			const uint8_t* data,
-			size_t dataSize,
-			const int* pattern,
-			size_t patternSize,
-			size_t stopAfter = (std::numeric_limits<size_t>::max)()) noexcept
-		{
-			if (data == nullptr || pattern == nullptr || patternSize == 0 || dataSize < patternSize)
-			{
-				return 0;
-			}
-
-			size_t matches = 0;
-			for (size_t offset = 0; offset <= dataSize - patternSize; ++offset)
-			{
-				if (!PatternMatches(data + offset, dataSize - offset, pattern, patternSize))
-				{
-					continue;
-				}
-
-				++matches;
-				if (matches >= stopAfter)
-				{
-					return matches;
-				}
-			}
-
-			return matches;
-		}
+		using PatternMatch::CountPatternMatches;
+		using PatternMatch::PatternMatches;
 
 		inline size_t CountTextMatches(
 			HMODULE module,

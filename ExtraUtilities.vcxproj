@@ -242,6 +242,7 @@
     <ClInclude Include="src\Util\BzrBuildProfile.generated.h" />
     <ClInclude Include="src\Util\Logging.h" />
     <ClInclude Include="src\Util\NativeSaveFlag.h" />
+    <ClInclude Include="src\Util\PatternMatch.h" />
     <ClInclude Include="src\Util\SavePathPolicy.h" />
     <ClInclude Include="src\Util\OS.h" />
     <ClInclude Include="src\Util\RuntimeGate.h" />
