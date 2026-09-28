@@ -69,6 +69,9 @@
     <ClCompile Include="src\Game\PilotState.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Game\PilotFsmIntercept.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Game\ContinuityApi.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
@@ -409,6 +412,12 @@
     </ClInclude>
     <ClInclude Include="src\Game\PilotStateSemantics.h">
       <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\PilotFsmIntercept.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\EntryDetour32.h">
+      <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
     <ClInclude Include="src\Ogre\OgreEntityRuntime.h">
       <Filter>Header Files\Exports</Filter>
