@@ -23,6 +23,7 @@
 
 #include <lua.hpp>
 #include <string>
+#include <vector>
 
 namespace ExtraUtilities::Lua::GameObject
 {
@@ -39,11 +40,18 @@ namespace ExtraUtilities::Lua::GameObject
 		float length = 0.0f;
 	};
 
+	struct EntityAnimationSnapshot
+	{
+		std::string name;
+		EntityAnimationInfo info{};
+	};
+
 	// Entity-level animation bridge shared by handle targets and OpenShim-owned
 	// runtime targets. Each operation is SEH guarded and stores no Ogre pointer.
 	void* ResolveAnimationEntity(BZR::handle handle);
 	bool HasAnimation(void* entity, const std::string& name);
 	bool GetAnimationInfo(void* entity, const std::string& name, EntityAnimationInfo& outInfo);
+	bool GetAnimationInventory(void* entity, std::vector<EntityAnimationSnapshot>& outInventory);
 	bool SetAnimationEnabled(void* entity, const std::string& name, bool enabled);
 	bool SetAnimationLoop(void* entity, const std::string& name, bool loop);
 	bool SetAnimationWeight(void* entity, const std::string& name, float weight);

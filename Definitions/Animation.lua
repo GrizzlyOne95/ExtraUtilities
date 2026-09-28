@@ -25,6 +25,7 @@
 --- @class ExuAnimationCapabilities
 --- @field gameObjectTarget boolean
 --- @field localFirstPersonTarget boolean True when either the optional OpenShim resolver or EXU's native BZR resolver is available.
+--- @field animationInventory boolean True when `List` is available.
 --- @field managedClock boolean False while Redux/Ogre remains responsible for animation time advancement.
 --- @field nativeAdvancement "unvalidated"|string
 --- @field firstPersonStatus string
@@ -64,6 +65,14 @@ function animation.Has(target, name) end
 --- @param name string
 --- @return ExuAnimationInfo|nil
 function animation.GetInfo(target, name) end
+
+--- Returns a deterministic name-sorted snapshot of every Ogre AnimationState
+--- currently exposed by the target. Returns nil when the target or state set
+--- cannot be resolved; a valid target with no states returns an empty array.
+--- @nodiscard
+--- @param target Handle|ExuAnimationTarget
+--- @return ExuAnimationInfo[]|nil
+function animation.List(target) end
 
 --- Enables and configures a named Ogre animation state.
 --- EXU does not install a separate animation clock; Redux/Ogre owns time advancement.

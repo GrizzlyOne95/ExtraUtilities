@@ -36,6 +36,22 @@ if info then
 end
 ```
 
+Enumerate the target's complete current animation inventory:
+
+```lua
+local states = exu.animation.List(player)
+if states then
+    for _, state in ipairs(states) do
+        print(state.name, state.length, state.enabled, state.timePosition)
+    end
+end
+```
+
+`List` returns the same metadata shape as `GetInfo` for each state and sorts
+the snapshot by animation name for deterministic script/tool output. It returns
+`nil` when the target cannot be resolved or Ogre enumeration fails; a valid
+entity with no animation states returns an empty table.
+
 Stop or seek:
 
 ```lua
@@ -99,6 +115,7 @@ Current expected values:
 ```lua
 caps.gameObjectTarget == true
 caps.localFirstPersonTarget == true -- with OpenShim or EXU's native supported-build resolver
+caps.animationInventory == true
 caps.managedClock == false
 caps.nativeAdvancement == "unvalidated"
 ```
@@ -118,6 +135,27 @@ The public path is now qualified on GOG Redux 2.2.301 with matching isolated Rel
 - A synchronized first-person capture showed the FP half-kneel pose; Shift+F3 during the same FP-only hold showed the external WORLD pilot still standing.
 
 This proves stock `Play`, `Stop`, and `Seek` through the complete Lua → EXU → OpenShim tracker → Ogre `AnimationState` path. The native EXU fallback intentionally reuses the same downstream `GameObject::HasAnimation` / `AnimationState` operations; only target discovery changes. It does not prove autonomous native advancement of an externally selected clip, so `managedClock` remains `false` and `nativeAdvancement` remains `"unvalidated"`.
+
+## Animation inventory implementation
+
+`List` snapshots Ogre's `AnimationStateSet` through the vendored Ogre 1.10
+ABI rather than guessing internal STL/container offsets. The iterator work is
+isolated in a C++14 bridge, matching EXU's existing native Ogre bridge strategy.
+The snapshot contains only names and one-operation state pointers; metadata is
+then read through EXU's existing guarded animation getters and no Ogre pointer
+is retained after the public call returns.
+
+The two Ogre entry points the bridge needs (`Entity::getAllAnimationStates` and
+`AnimationStateSet::getAnimationStateIterator`) are resolved from the loaded
+`OgreMain.dll` by mangled name at run time (`Ogre/OgreProc.h`), like the other
+native Ogre bridges, and are not added to the hand-made `lib/OgreMain.lib`
+import subset. A load-time import of a name the shipped `OgreMain.dll` does not
+export would stop `exu.dll` loading at all; a missing export here only makes
+`List` return `nil`. Each animation's name is the `AnimationStateSet` map key,
+which is exactly the name `Has`, `GetInfo`, and `Play` look states up by.
+
+This is deliberately read-only. Enumerating states does not enable, seek,
+weight, or otherwise mutate them.
 
 ## Why there is no speed control yet
 

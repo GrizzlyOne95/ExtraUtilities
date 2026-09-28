@@ -176,8 +176,11 @@
     <ClCompile Include="src\PublicAPI.cpp" />
     <ClCompile Include="src\Game\Multiplayer.cpp" />
     <ClCompile Include="src\Ogre\OgreNativeFontBridge.cpp">
-      <!-- The only file that includes the real Ogre headers. OgreString.h (line ~211) uses
-           std::tr1::hash for MSVC, which MSVC no longer provides in C++17 and later modes. -->
+      <!-- Native Ogre bridge files include the real Ogre headers. OgreString.h (line ~211)
+           uses std::tr1::hash for MSVC, which MSVC no longer provides in C++17+ modes. -->
+      <LanguageStandard>stdcpp14</LanguageStandard>
+    </ClCompile>
+    <ClCompile Include="src\Ogre\OgreAnimationInventoryBridge.cpp">
       <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <ClCompile Include="src\UI\Overlay.cpp" />
@@ -249,6 +252,7 @@
     <ClInclude Include="src\Game\Multiplayer.h" />
     <ClInclude Include="src\Ogre\OgreBuildSettings.h" />
     <ClInclude Include="src\Ogre\OgreNativeFontBridge.h" />
+    <ClInclude Include="src\Ogre\OgreAnimationInventoryBridge.h" />
     <ClInclude Include="src\Ogre\OgreOverlayShim.h" />
     <ClInclude Include="src\Ogre\OgreParameterValue.h" />
     <ClInclude Include="src\Ogre\OgreRenderSpace.h" />
