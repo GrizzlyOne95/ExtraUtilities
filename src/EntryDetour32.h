@@ -208,6 +208,11 @@ namespace ExtraUtilities
 			}
 		}
 
+		bool PrepareTrampoline() noexcept
+		{
+			return EnsureTrampoline();
+		}
+
 		void* GetTrampoline() const noexcept
 		{
 			return m_trampoline;
