@@ -102,12 +102,7 @@ namespace ExtraUtilities::Lua::StaticGeometry
 		using StaticGeometryBuildFn = void(__thiscall*)(void*);
 		using EntitySetMaterialNameFn = void(__thiscall*)(void*, const std::string&, const std::string&);
 
-		template<typename T>
-		T ResolveOgreProc(const char* name)
-		{
-			const HMODULE module = GetModuleHandleA("OgreMain.dll");
-			return module == nullptr ? nullptr : reinterpret_cast<T>(GetProcAddress(module, name));
-		}
+		using ExtraUtilities::OgreDll::ResolveOgreProc;
 
 		SceneManagerCreateStaticGeometryFn ResolveCreateStaticGeometry()
 		{

@@ -135,17 +135,8 @@ namespace ExtraUtilities::Lua::Overlay
 		bool SetOverlayParameter(const std::string& elementName, ::Ogre::OverlayElement* element, const std::string& name, const std::string& value)
 		{
 			using SetParameterFn = bool(__thiscall*)(void*, const std::string&, const std::string&);
-			static SetParameterFn setParameter = []()
-			{
-				HMODULE ogreMain = GetModuleHandleA("OgreMain.dll");
-				if (ogreMain == nullptr)
-				{
-					return static_cast<SetParameterFn>(nullptr);
-				}
-
-				return reinterpret_cast<SetParameterFn>(
-					GetProcAddress(ogreMain, "?setParameter@StringInterface@Ogre@@UAE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0@Z"));
-			}();
+			static constinit OgreProc<SetParameterFn> setParameterProc{ "?setParameter@StringInterface@Ogre@@UAE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0@Z" };
+			const SetParameterFn setParameter = setParameterProc.Get();
 
 			if (element == nullptr)
 			{

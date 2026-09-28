@@ -59,53 +59,20 @@ namespace ExtraUtilities::Lua::Environment
 
 		GetRootSingletonFn ResolveGetRootSingleton()
 		{
-			static GetRootSingletonFn fn = []()
-			{
-				HMODULE ogreMain = GetOgreMainModule();
-				if (ogreMain == nullptr)
-				{
-					return static_cast<GetRootSingletonFn>(nullptr);
-				}
-
-				return reinterpret_cast<GetRootSingletonFn>(
-					GetProcAddress(ogreMain, "?getSingletonPtr@Root@Ogre@@SAPAV12@XZ"));
-			}();
-
-			return fn;
+			static constinit OgreProc<GetRootSingletonFn> fn{ "?getSingletonPtr@Root@Ogre@@SAPAV12@XZ" };
+			return fn.Get();
 		}
 
 		GetRootRenderSystemFn ResolveGetRootRenderSystem()
 		{
-			static GetRootRenderSystemFn fn = []()
-			{
-				HMODULE ogreMain = GetOgreMainModule();
-				if (ogreMain == nullptr)
-				{
-					return static_cast<GetRootRenderSystemFn>(nullptr);
-				}
-
-				return reinterpret_cast<GetRootRenderSystemFn>(
-					GetProcAddress(ogreMain, "?getRenderSystem@Root@Ogre@@QAEPAVRenderSystem@2@XZ"));
-			}();
-
-			return fn;
+			static constinit OgreProc<GetRootRenderSystemFn> fn{ "?getRenderSystem@Root@Ogre@@QAEPAVRenderSystem@2@XZ" };
+			return fn.Get();
 		}
 
 		GetRenderSystemViewportFn ResolveGetRenderSystemViewport()
 		{
-			static GetRenderSystemViewportFn fn = []()
-			{
-				HMODULE ogreMain = GetOgreMainModule();
-				if (ogreMain == nullptr)
-				{
-					return static_cast<GetRenderSystemViewportFn>(nullptr);
-				}
-
-				return reinterpret_cast<GetRenderSystemViewportFn>(
-					GetProcAddress(ogreMain, "?_getViewport@RenderSystem@Ogre@@UAEPAVViewport@2@XZ"));
-			}();
-
-			return fn;
+			static constinit OgreProc<GetRenderSystemViewportFn> fn{ "?_getViewport@RenderSystem@Ogre@@UAEPAVViewport@2@XZ" };
+			return fn.Get();
 		}
 
 		bool TryGetRootSingleton(void*& outRoot)
@@ -295,11 +262,6 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 
-		HMODULE GetOgreMainModule()
-		{
-			return GetModuleHandleA("OgreMain.dll");
-		}
-
 		ActiveViewportSet GetActiveViewports()
 		{
 			ActiveViewportSet result{};
@@ -369,36 +331,14 @@ namespace ExtraUtilities::Lua::Environment
 
 	GetViewportOverlaysEnabledFn ResolveGetViewportOverlaysEnabled()
 	{
-		static GetViewportOverlaysEnabledFn fn = []()
-		{
-			HMODULE ogreMain = GetModuleHandleA("OgreMain.dll");
-			if (ogreMain == nullptr)
-			{
-				return static_cast<GetViewportOverlaysEnabledFn>(nullptr);
-			}
-
-			return reinterpret_cast<GetViewportOverlaysEnabledFn>(
-				GetProcAddress(ogreMain, "?getOverlaysEnabled@Viewport@Ogre@@QBE_NXZ"));
-		}();
-
-		return fn;
+		static constinit OgreProc<GetViewportOverlaysEnabledFn> fn{ "?getOverlaysEnabled@Viewport@Ogre@@QBE_NXZ" };
+		return fn.Get();
 	}
 
 	SetViewportOverlaysEnabledFn ResolveSetViewportOverlaysEnabled()
 	{
-		static SetViewportOverlaysEnabledFn fn = []()
-		{
-			HMODULE ogreMain = GetModuleHandleA("OgreMain.dll");
-			if (ogreMain == nullptr)
-			{
-				return static_cast<SetViewportOverlaysEnabledFn>(nullptr);
-			}
-
-			return reinterpret_cast<SetViewportOverlaysEnabledFn>(
-				GetProcAddress(ogreMain, "?setOverlaysEnabled@Viewport@Ogre@@QAEX_N@Z"));
-		}();
-
-		return fn;
+		static constinit OgreProc<SetViewportOverlaysEnabledFn> fn{ "?setOverlaysEnabled@Viewport@Ogre@@QAEX_N@Z" };
+		return fn.Get();
 	}
 
 	bool TryGetViewportOverlaysEnabled(void* viewport, bool& outEnabled)

@@ -65,15 +65,14 @@ namespace ExtraUtilities::Lua::Overlay
 		ElementOverrides ResolveElementOverrides()
 		{
 			ElementOverrides overrides;
-			HMODULE ogreOverlay = GetOgreOverlayModule();
-			if (ogreOverlay == nullptr)
+			if (GetOgreOverlayModule() == nullptr)
 			{
 				return overrides;
 			}
 
-			const auto resolve = [ogreOverlay](const char* name)
+			const auto resolve = [](const char* name)
 			{
-				return reinterpret_cast<const void*>(GetProcAddress(ogreOverlay, name));
+				return ResolveOgreProc<const void*>(OgreModule::Overlay, name);
 			};
 
 			overrides.textAreaVftable = resolve("??_7TextAreaOverlayElement@Ogre@@6BStringInterface@1@@");

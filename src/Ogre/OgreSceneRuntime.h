@@ -19,6 +19,7 @@
 #pragma once
 
 #include "bzr.h"
+#include "Ogre/OgreProc.h"
 
 #include <Windows.h>
 
@@ -42,23 +43,13 @@ namespace ExtraUtilities::Lua::Environment
 		};
 		bool TryGetViewportMaterialScheme(void* viewport, std::string& outScheme);
 		bool TrySetViewportMaterialScheme(void* viewport, const std::string& scheme);
-		HMODULE GetOgreMainModule();
 		ActiveViewportSet GetActiveViewports();
+		using ExtraUtilities::OgreDll::OgreModule;
+		using ExtraUtilities::OgreDll::OgreProc;
+		using ExtraUtilities::OgreDll::ResolveOgreProc;
 	}
 
 	using namespace Detail;
-
-		template<typename T>
-		T ResolveOgreProc(const char* name)
-		{
-			HMODULE ogreMain = GetOgreMainModule();
-			if (ogreMain == nullptr)
-			{
-				return nullptr;
-			}
-
-			return reinterpret_cast<T>(GetProcAddress(ogreMain, name));
-		}
 
 		struct OgreQuaternionValue
 		{
