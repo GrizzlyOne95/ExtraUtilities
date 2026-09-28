@@ -24,7 +24,7 @@
 
 --- @class ExuAnimationCapabilities
 --- @field gameObjectTarget boolean
---- @field localFirstPersonTarget boolean False until the `aspilo_fp` ownership/resolver path is validated live.
+--- @field localFirstPersonTarget boolean True when either the optional OpenShim resolver or EXU's native BZR resolver is available.
 --- @field managedClock boolean False while Redux/Ogre remains responsible for animation time advancement.
 --- @field nativeAdvancement "unvalidated"|string
 --- @field firstPersonStatus string
@@ -38,10 +38,10 @@ local animation = {}
 --- @return ExuAnimationTarget
 function animation.Target(h) end
 
---- Resolves the local first-person pilot entity (`aspilo_fp`) through OpenShim as an
---- animation target. The Ogre pointer is re-resolved on every operation and never
---- cached; operations on this target fail closed when OpenShim or the entity is
---- unavailable. See Docs/ANIMATION_API.md.
+--- Resolves the local first-person pilot entity (`aspilo_fp`) as an animation
+--- target. OpenShim remains the preferred resolver when installed; otherwise EXU
+--- resolves the current Person render bridge directly. The Ogre pointer is
+--- re-resolved on every operation and never cached. See Docs/ANIMATION_API.md.
 --- @return ExuAnimationTarget
 function animation.TargetLocalFirstPerson() end
 
