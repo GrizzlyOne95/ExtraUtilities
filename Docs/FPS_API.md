@@ -149,6 +149,67 @@ module already owns that exact entry, the seam fails closed and
 entry through the same foreign-overwrite-safe patch path as other EXU native
 patches.
 
+## Pilot FSM timing trace (read-only)
+
+The seam can also record an opt-in timing trace of local `Person::Simulate`
+calls. It exists to **measure** the stock crouch transitions before anything
+tries to change them: how long native states 1 and 3 last, whether that
+matches the clip lengths, and when the animation handle returns to `-1`
+relative to the state change. It writes nothing to the game.
+
+```lua
+exu.fps.StartPilotTrace()          -- or StartPilotTrace({ changesOnly = true })
+-- ... select and deselect a sniper weapon a few times ...
+local trace = exu.fps.GetPilotTrace()
+exu.fps.StopPilotTrace()
+
+for name, d in pairs(trace.dwell) do
+    if d.count > 0 then
+        print(name, d.count, d.min, d.mean, d.max, d.lastCalls)
+    end
+end
+for _, s in ipairs(trace.samples) do
+    print(s.call, s.dt, s.time,
+        s.beforeNativeState, s.afterNativeState,
+        s.beforeAnimationIndex, s.afterAnimationIndex,
+        s.beforeAnimationHandle, s.afterAnimationHandle)
+end
+```
+
+Semantics:
+
+- **Off by default** and off again in every new mission/Lua state. Starting
+  discards earlier data; stopping keeps it readable. `StartPilotTrace`
+  returns whether the seam is active, i.e. whether samples can arrive at all.
+  Unknown option keys are an error.
+- **Samples** are a ring of the newest 256 local calls (`capacity`), oldest
+  first. `call` numbers local calls since the trace started, so gaps show
+  where `changesOnly` skipped calls. `dt` is the raw `Person::Simulate`
+  argument; `time` is the trace clock (sum of finite, positive `dt`) at the
+  end of that call. `GetPilotTrace(limit)` returns only the newest `limit`
+  samples.
+- **Dwell** is kept separately from the ring, so it survives wrapping. For
+  each native state 0-3 it is the sum of `dt` over the calls that *started*
+  in that state, up to and including the call that left it, so it is exact to
+  one simulation step. Only visits whose entry and exit were both observed
+  count; a visit already in progress at start, or interrupted (for example by
+  entering a vehicle), is dropped rather than reported short.
+- The dwell clock is `Person::Simulate`'s `dt`, not wall time or
+  `GetTime()`. If the two ever disagree, that disagreement is itself a
+  finding.
+- The hook is the only writer. Lua reads through a sequence lock, and
+  `GetPilotTrace` returns `nil` rather than a torn snapshot in the unlikely
+  case the hook rewrote the data during every read attempt. Whether
+  `Person::Simulate` runs on the Lua thread is still unproven, so the trace
+  does not assume it.
+- Cost when off is one relaxed atomic load per local call, after the
+  snapshots the seam already takes.
+
+What this does **not** do: it does not establish stock durations by itself.
+Record a dated capture under `Docs/Research/` (several cycles, both
+transitions, and the matching `exu.fps.GetInfo("stand2Kneel").length` /
+`"kneel2stand"`) before treating any number as the stock behavior.
+
 ## Pilot animation policy (stock only)
 
 Above the seam sits a mission-scoped policy that will eventually let a mod

@@ -24,6 +24,7 @@
 #include "Game/PilotFsmIntercept.h"
 #include "Game/PilotState.h"
 #include "Game/PilotStateSemantics.h"
+#include "Game/PilotTrace.h"
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
 #include "Util/Logging.h"
@@ -825,6 +826,149 @@ namespace ExtraUtilities::Lua::AnimationApi
 			return 1;
 		}
 
+		int FpsStartPilotTrace(lua_State* L)
+		{
+			bool changesOnly = false;
+			if (!lua_isnoneornil(L, 1))
+			{
+				luaL_checktype(L, 1, LUA_TTABLE);
+
+				// Strict: a misspelt option must not silently record the wrong thing.
+				lua_pushnil(L);
+				while (lua_next(L, 1) != 0)
+				{
+					if (lua_type(L, -2) != LUA_TSTRING ||
+						std::strcmp(lua_tostring(L, -2), "changesOnly") != 0)
+					{
+						return luaL_argerror(L, 1, "unknown pilot trace option (expected only changesOnly)");
+					}
+					lua_pop(L, 1);
+				}
+
+				lua_getfield(L, 1, "changesOnly");
+				if (!lua_isnil(L, -1))
+				{
+					changesOnly = CheckBool(L, -1);
+				}
+				lua_pop(L, 1);
+			}
+
+			PilotFsmIntercept::StartTrace(changesOnly);
+			lua_pushboolean(L, PilotFsmIntercept::IsActive() ? 1 : 0);
+			return 1;
+		}
+
+		int FpsStopPilotTrace(lua_State* /*L*/)
+		{
+			PilotFsmIntercept::StopTrace();
+			return 0;
+		}
+
+		// Field names match GetPilotInterceptStatus's before/after fields.
+		void PushTraceFrame(
+			lua_State* L,
+			const PilotTrace::Frame& frame,
+			const char* stateKey,
+			const char* indexKey,
+			const char* handleKey)
+		{
+			lua_pushinteger(L, static_cast<lua_Integer>(frame.nativeState));
+			lua_setfield(L, -2, stateKey);
+			lua_pushinteger(L, static_cast<lua_Integer>(frame.animationIndex));
+			lua_setfield(L, -2, indexKey);
+			lua_pushinteger(L, static_cast<lua_Integer>(frame.animationHandle));
+			lua_setfield(L, -2, handleKey);
+		}
+
+		int FpsGetPilotTrace(lua_State* L)
+		{
+			std::size_t limit = PilotTrace::kCapacity;
+			if (!lua_isnoneornil(L, 1))
+			{
+				const lua_Number requested = luaL_checknumber(L, 1);
+				if (!(requested >= 1.0) || requested != std::floor(requested))
+				{
+					return luaL_argerror(L, 1, "sample limit must be a positive integer");
+				}
+				if (requested < static_cast<lua_Number>(PilotTrace::kCapacity))
+				{
+					limit = static_cast<std::size_t>(requested);
+				}
+			}
+
+			PilotTrace::Snapshot snapshot{};
+			if (!PilotFsmIntercept::ReadTrace(snapshot))
+			{
+				lua_pushnil(L);
+				return 1;
+			}
+
+			lua_settop(L, 0);
+			lua_createtable(L, 0, 9);
+
+			lua_pushboolean(L, snapshot.enabled ? 1 : 0);
+			lua_setfield(L, -2, "enabled");
+			lua_pushboolean(L, snapshot.changesOnly ? 1 : 0);
+			lua_setfield(L, -2, "changesOnly");
+			lua_pushinteger(L, static_cast<lua_Integer>(PilotTrace::kCapacity));
+			lua_setfield(L, -2, "capacity");
+			lua_pushinteger(L, static_cast<lua_Integer>(snapshot.localCalls));
+			lua_setfield(L, -2, "localCalls");
+			lua_pushinteger(L, static_cast<lua_Integer>(snapshot.recorded));
+			lua_setfield(L, -2, "recorded");
+			lua_pushnumber(L, static_cast<lua_Number>(snapshot.time));
+			lua_setfield(L, -2, "time");
+
+			const std::size_t count = snapshot.sampleCount < limit ? snapshot.sampleCount : limit;
+			const std::size_t first = snapshot.sampleCount - count;
+			lua_createtable(L, static_cast<int>(count), 0);
+			for (std::size_t i = 0; i < count; ++i)
+			{
+				const PilotTrace::Sample& sample = snapshot.samples[first + i];
+				lua_createtable(L, 0, 9);
+				lua_pushinteger(L, static_cast<lua_Integer>(sample.call));
+				lua_setfield(L, -2, "call");
+				lua_pushnumber(L, static_cast<lua_Number>(sample.dt));
+				lua_setfield(L, -2, "dt");
+				lua_pushnumber(L, static_cast<lua_Number>(sample.time));
+				lua_setfield(L, -2, "time");
+				PushTraceFrame(L, sample.before,
+					"beforeNativeState", "beforeAnimationIndex", "beforeAnimationHandle");
+				PushTraceFrame(L, sample.after,
+					"afterNativeState", "afterAnimationIndex", "afterAnimationHandle");
+				lua_rawseti(L, -2, static_cast<int>(i + 1));
+			}
+			lua_setfield(L, -2, "samples");
+
+			lua_createtable(L, 0, static_cast<int>(PilotTrace::kDwellStateCount));
+			for (std::uint32_t nativeState = 0; nativeState < PilotTrace::kDwellStateCount; ++nativeState)
+			{
+				const PilotTrace::Dwell& dwell = snapshot.dwell[nativeState];
+				lua_createtable(L, 0, 7);
+				lua_pushinteger(L, static_cast<lua_Integer>(nativeState));
+				lua_setfield(L, -2, "nativeState");
+				lua_pushinteger(L, static_cast<lua_Integer>(dwell.count));
+				lua_setfield(L, -2, "count");
+				if (dwell.count > 0)
+				{
+					lua_pushnumber(L, static_cast<lua_Number>(dwell.last));
+					lua_setfield(L, -2, "last");
+					lua_pushnumber(L, static_cast<lua_Number>(dwell.min));
+					lua_setfield(L, -2, "min");
+					lua_pushnumber(L, static_cast<lua_Number>(dwell.max));
+					lua_setfield(L, -2, "max");
+					lua_pushnumber(L, static_cast<lua_Number>(dwell.total / dwell.count));
+					lua_setfield(L, -2, "mean");
+					lua_pushinteger(L, static_cast<lua_Integer>(dwell.lastCalls));
+					lua_setfield(L, -2, "lastCalls");
+				}
+				lua_setfield(L, -2, PilotState::SemanticStateName(nativeState));
+			}
+			lua_setfield(L, -2, "dwell");
+
+			return 1;
+		}
+
 		int FpsIsAvailable(lua_State* L)
 		{
 			Detail::Target target{};
@@ -924,6 +1068,9 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{ "GetPilotState", &FpsGetPilotState },
 			{ "GetPilotAnimationProfile", &FpsGetPilotAnimationProfile },
 			{ "GetPilotInterceptStatus", &FpsGetPilotInterceptStatus },
+			{ "StartPilotTrace", &FpsStartPilotTrace },
+			{ "StopPilotTrace", &FpsStopPilotTrace },
+			{ "GetPilotTrace", &FpsGetPilotTrace },
 			{ "IsCrouched", &FpsIsCrouched },
 			{ "IsGrounded", &FpsIsGrounded },
 			{ "IsSniperSelected", &FpsIsSniperSelected },

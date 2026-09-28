@@ -40,6 +40,43 @@
 --- @field beforeAnimationHandle integer?
 --- @field afterAnimationHandle integer?
 
+--- @class ExuPilotTraceOptions
+--- @field changesOnly boolean? Sample only calls whose native state, animation index, or animation handle changed. The clock and dwell times still include every call. Default false.
+
+--- One local Person::Simulate call.
+--- @class ExuPilotTraceSample
+--- @field call integer Local calls since the trace started, counting this one (1-based).
+--- @field dt number dt exactly as passed to Person::Simulate.
+--- @field time number Trace clock (sum of valid dt since the trace started) at the end of this call.
+--- @field beforeNativeState integer
+--- @field afterNativeState integer
+--- @field beforeAnimationIndex integer
+--- @field afterAnimationIndex integer
+--- @field beforeAnimationHandle integer
+--- @field afterAnimationHandle integer
+
+--- How long one native FSM state lasted: the sum of dt over the calls that
+--- started in the state, up to and including the call that left it. Only
+--- visits whose entry and exit were both observed are counted.
+--- @class ExuPilotTraceDwell
+--- @field nativeState integer
+--- @field count integer Complete visits observed.
+--- @field last number? Seconds; present when count > 0.
+--- @field min number?
+--- @field max number?
+--- @field mean number?
+--- @field lastCalls integer? Local calls in the last complete visit.
+
+--- @class ExuPilotTrace
+--- @field enabled boolean
+--- @field changesOnly boolean
+--- @field capacity integer Maximum samples held; older samples are overwritten.
+--- @field localCalls integer Local calls seen since the trace started.
+--- @field recorded integer Samples written since the trace started (may exceed capacity).
+--- @field time number Trace clock in seconds.
+--- @field samples ExuPilotTraceSample[] Oldest first.
+--- @field dwell table<"standing"|"enteringCrouch"|"crouched"|"exitingCrouch", ExuPilotTraceDwell>
+
 --- @class ExuPilotPolicySlot
 --- @field mode "stock"|string "stock" means the native Person::Simulate behavior for this slot is untouched. It is the only mode this version can represent.
 --- @field nativeState integer? Native `Person+0x228` value the slot corresponds to. Present for stand/enterCrouch/crouched/exitCrouch (0-3); absent for jump/land, which are animation selections whose native conditions are not yet traced.
@@ -93,6 +130,27 @@ function fps.GetPilotAnimationProfile() end
 --- @nodiscard
 --- @return ExuPilotInterceptStatus
 function fps.GetPilotInterceptStatus() end
+
+--- Starts (or restarts) the read-only pilot FSM timing trace, discarding any
+--- earlier trace data. The trace is off by default, off again in every new
+--- mission/Lua state, and writes nothing to the game. Unknown option keys are
+--- an error. Returns whether the interception seam is active, i.e. whether
+--- samples can actually arrive.
+--- @param options ExuPilotTraceOptions?
+--- @return boolean seamActive
+function fps.StartPilotTrace(options) end
+
+--- Stops recording. Recorded data stays readable until the next start or the
+--- end of the mission/Lua state.
+function fps.StopPilotTrace() end
+
+--- Returns the timing trace: at most `limit` of the newest samples (default:
+--- all held) plus per-state dwell times. Returns nil only if the native
+--- writer kept rewriting the data during every read attempt; retry later.
+--- @nodiscard
+--- @param limit integer? Positive integer.
+--- @return ExuPilotTrace|nil
+function fps.GetPilotTrace(limit) end
 
 --- Returns true only for the fully crouched native FSM state (state 2).
 --- Entering/exiting crouch return false; unavailable pilot state returns nil.

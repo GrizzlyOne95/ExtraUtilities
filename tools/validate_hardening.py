@@ -322,6 +322,16 @@ def check_hardening_markers() -> None:
         inc for inc in pilot_policy_includes
         if inc.startswith(("Ogre/", "Patches/", "Util/")) or inc in ("bzr.h", "BasicPatch.h", "Hook.h", "Windows.h", "lua.hpp")
     ]
+    # The timing trace is written from inside Person::Simulate, so it must
+    # stay engine-free and allocation-free, and it must not survive into the
+    # next Lua state.
+    pilot_trace_h = read("src/Game/PilotTrace.h")
+    pilot_trace_includes = re.findall(r'^\s*#include\s+[<"]([^>"]+)[>"]', pilot_trace_h, re.M)
+    pilot_trace_impure = [
+        inc for inc in pilot_trace_includes
+        if not inc.startswith(("atomic", "cmath", "cstddef", "cstdint"))
+    ]
+    pilot_intercept = read("src/Game/PilotFsmIntercept.cpp")
 
     required = [
         ("Hook move deletion", "Hook(Hook&&) = delete;" in hook),
@@ -344,6 +354,12 @@ def check_hardening_markers() -> None:
             "pilot animation policy reset at Lua-state init and mission reset",
             "PilotAnimationPolicy::ResetMissionState();" in read("src/luaexport.cpp")
             and "PilotAnimationPolicy::ResetMissionState();" in read("src/PublicAPI.cpp"),
+        ),
+        ("pilot timing trace stays engine-free", not pilot_trace_impure),
+        (
+            "pilot timing trace reset with the seam stats",
+            re.search(r"void ResetStats\(\) noexcept\s*\{[^}]*g_trace\.Reset\(\);", pilot_intercept) is not None
+            and "PilotFsmIntercept::ResetStats();" in read("src/luaexport.cpp"),
         ),
     ]
     for label, ok in required:
