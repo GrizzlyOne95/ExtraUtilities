@@ -265,7 +265,20 @@ Not exposed, deliberately:
 
 - **No setter.** A `SetPilotAnimationProfile` that accepted overrides which
   cannot yet be applied would silently mislead mods, so nothing writable is
-  exposed until the first override is real.
+  exposed until the first override is real. Its rules are already settled and
+  host-tested (`src/Game/PilotAnimationProfile.h`):
+  - Slot keys are exactly the names above (`stand`, `enterCrouch`,
+    `crouched`, `exitCrouch`, `jump`, `land`).
+  - Unknown keys are an error, both slot keys and fields inside a slot, as is
+    any field this build cannot apply. The error says "not supported by this
+    EXU build" in that case, so a mod can tell an older EXU from a typo. Check
+    `GetCapabilities().pilotAnimationOverrides` before relying on overrides.
+  - A profile replaces the whole policy; omitted slots and fields are stock.
+  - Planned fields: `mode` (`"stock"`/`"substitute"`), `animation`
+    (required with `"substitute"`), `completion`
+    (`"stock"`/`"animation"`/`"duration"`/`"manual"`, `enterCrouch` and
+    `exitCrouch` only), and `duration` (seconds, required with
+    `completion = "duration"`).
 - **No stock durations.** Only the animation-handle wait in native states 1
   and 3 is proven; the numeric transition-duration constants have not been
   located. The profile therefore reports no duration, and existing Ogre clip
