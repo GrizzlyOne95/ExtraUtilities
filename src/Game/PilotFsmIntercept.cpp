@@ -80,6 +80,11 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 			}
 		}
 
+		// ABI bridge: stock Person::Simulate is __thiscall, so Person* arrives in
+		// ECX and dt is the single stack argument. An x86 __fastcall wrapper
+		// consumes ECX/EDX as its first two parameters, leaving dt in exactly the
+		// same stack slot and using the same callee-pop size (ret 4). The entry
+		// push/ret transfer therefore does not need a naked assembly adapter.
 		void __fastcall PersonSimulateObserveHook(
 			void* person,
 			void* /*edx*/,
