@@ -34,11 +34,71 @@ Inspect capabilities/status:
 ```lua
 local caps = exu.fps.GetCapabilities()
 print(caps.localFirstPersonTarget)
+print(caps.pilotStateInspection)
 print(caps.firstPersonStatus)
 ```
 
 This is the same capability table returned by
-`exu.animation.GetCapabilities()`.
+`exu.animation.GetCapabilities()`. `pilotStateInspection=true` reports that
+the read-only native Person snapshot API is compiled in. It is distinct from
+`localFirstPersonTarget`, which reports whether the presentation target backend
+is available.
+
+## Read-only pilot FSM state
+
+`exu.fps.GetPilotState()` reads the current local on-foot `Person` directly
+from Redux and returns a one-operation snapshot. It does not install a hook,
+change the FSM, cache the `Person*`, or modify multiplayer/gameplay state.
+
+```lua
+local pilot = exu.fps.GetPilotState()
+if pilot then
+    print(pilot.state)
+    print(pilot.nativeState)
+    print(pilot.grounded)
+    print(pilot.sniperSelected)
+    print(pilot.animationIndex, pilot.animationName)
+end
+```
+
+The semantic crouch states correspond to the verified native
+`Person+0x228` FSM:
+
+| Native | Semantic state | Meaning |
+| ---: | --- | --- |
+| 0 | `standing` | base state; also owns ordinary locomotion and airborne animation selection |
+| 1 | `enteringCrouch` | `stand2Kneel` transition |
+| 2 | `crouched` | sniper/crouch hold |
+| 3 | `exitingCrouch` | `kneel2stand` transition |
+
+Additional raw evidence is exposed for diagnostics: `animationIndex`
+(`Person+0x2A8`), `animationHandle` (`+0x2AC`), the grounded flag from
+`*(Person+0x230)+0x114 & 0x80`, and the Carrier selected-weapon mask.
+
+`sniperSelected` scans every selected live Carrier weapon using the same
+native class path used by `Person::Simulate`: weapon `+0x08` →
+WeaponClass signature `+0x0C`; `0x534E4950` is `SNIP`. The
+`selectedWeaponSlot/signature/ODF` fields describe the first selected slot
+that currently contains a live weapon, while `sniperSelected` considers all
+selected live slots.
+
+Only animation indices whose clip identities are already proven are given a
+name: 0 `stand2Kneel`, 1 `kneel2stand`, 2 `idle`, 3
+`fireRecoilSniper`, 10 `landParachute`, and 11 `jump`. Other indices
+still return the raw `animationIndex` but leave `animationName=nil` rather
+than guessing the directional locomotion mapping.
+
+Convenience probes are derived from that same native snapshot:
+
+```lua
+local crouched = exu.fps.IsCrouched()
+local grounded = exu.fps.IsGrounded()
+local sniper = exu.fps.IsSniperSelected()
+```
+
+They return `nil` when no readable local on-foot `Person` exists.
+`IsCrouched()` is intentionally strict: only native state 2 is true; states
+1 and 3 are transitions.
 
 Enumerate all current viewmodel animations:
 
@@ -100,15 +160,15 @@ specific branches.
 This facade is presentation-only. It does not override Battlezone Redux's
 `Person` animation finite-state machine.
 
-In particular, these calls do **not** yet provide semantic controls such as:
+Read-only FSM inspection is now available, but the facade still does **not**
+provide semantic writes such as:
 
 ```lua
 exu.fps.SetCrouched(true)
-exu.fps.GetPilotState()
 exu.fps.SetPilotAnimationProfile({...})
 ```
 
-Those require the later Person-FSM work. Playing or seeking an Ogre animation
+Those require the later Person-FSM interception work. Playing or seeking an Ogre animation
 alone does not stop `Person::Simulate` from choosing another animation on a
 later update.
 
