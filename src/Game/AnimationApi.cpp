@@ -293,6 +293,14 @@ namespace ExtraUtilities::Lua::AnimationApi
 			}
 		}
 
+		void PrependLocalFirstPersonTarget(lua_State* L)
+		{
+			lua_createtable(L, 0, 1);
+			lua_pushstring(L, "localFirstPerson");
+			lua_setfield(L, -2, "kind");
+			lua_insert(L, 1);
+		}
+
 		int Target(lua_State* L)
 		{
 			const BZR::handle handle = CheckHandle(L, 1);
@@ -556,6 +564,65 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_pushboolean(L, applied ? 1 : 0);
 			return 1;
 		}
+
+		int FpsIsAvailable(lua_State* L)
+		{
+			Detail::Target target{};
+			target.kind = Detail::TargetKind::LocalFirstPerson;
+			const bool available = Detail::IsTargetSupported(target) &&
+				Detail::ResolveTargetEntity(target) != nullptr;
+			lua_settop(L, 0);
+			lua_pushboolean(L, available ? 1 : 0);
+			return 1;
+		}
+
+		int FpsGetCapabilities(lua_State* L)
+		{
+			lua_settop(L, 0);
+			return GetCapabilities(L);
+		}
+
+		int FpsListAnimations(lua_State* L)
+		{
+			PrependLocalFirstPersonTarget(L);
+			return List(L);
+		}
+
+		int FpsHasAnimation(lua_State* L)
+		{
+			PrependLocalFirstPersonTarget(L);
+			return Has(L);
+		}
+
+		int FpsGetInfo(lua_State* L)
+		{
+			PrependLocalFirstPersonTarget(L);
+			return GetInfo(L);
+		}
+
+		int FpsPlay(lua_State* L)
+		{
+			PrependLocalFirstPersonTarget(L);
+			return Play(L);
+		}
+
+		int FpsStop(lua_State* L)
+		{
+			PrependLocalFirstPersonTarget(L);
+			return Stop(L);
+		}
+
+		int FpsRestart(lua_State* L)
+		{
+			PrependLocalFirstPersonTarget(L);
+			return Restart(L);
+		}
+
+		int FpsSeek(lua_State* L)
+		{
+			PrependLocalFirstPersonTarget(L);
+			return Seek(L);
+		}
 	}
 
 	void Install(lua_State* L)
@@ -591,11 +658,28 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{ nullptr, nullptr },
 		};
 
+		static const luaL_Reg fpsFunctions[] = {
+			{ "IsAvailable", &FpsIsAvailable },
+			{ "GetCapabilities", &FpsGetCapabilities },
+			{ "ListAnimations", &FpsListAnimations },
+			{ "HasAnimation", &FpsHasAnimation },
+			{ "GetInfo", &FpsGetInfo },
+			{ "Play", &FpsPlay },
+			{ "Stop", &FpsStop },
+			{ "Restart", &FpsRestart },
+			{ "Seek", &FpsSeek },
+			{ nullptr, nullptr },
+		};
+
 		lua_newtable(L);
 		RegisterFunctions(L, nullptr, functions);
 		lua_setfield(L, -2, "animation");
+
+		lua_newtable(L);
+		RegisterFunctions(L, nullptr, fpsFunctions);
+		lua_setfield(L, -2, "fps");
 		lua_settop(L, originalTop);
 
-		Logging::LogMessage("exu: installed high-level animation API (gameObject + standalone/OpenShim local-first-person targets)");
+		Logging::LogMessage("exu: installed high-level animation API (gameObject + standalone/OpenShim local-first-person targets) and local first-person facade");
 	}
 }
