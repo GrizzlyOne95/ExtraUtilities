@@ -240,6 +240,7 @@
     <ClInclude Include="src\InlinePatch.h" />
     <ClInclude Include="src\Util\IO.h" />
     <ClInclude Include="src\Patches\KillMessages.h" />
+    <ClInclude Include="src\LuaCppBarrier.h" />
     <ClInclude Include="src\LuaHelpers.h" />
     <ClInclude Include="src\LuaState.h" />
     <ClInclude Include="src\OpenShimBridge.h" />
@@ -294,6 +295,7 @@
     <ClInclude Include="src\Util\SavePathPolicy.h" />
     <ClInclude Include="src\Util\OS.h" />
     <ClInclude Include="src\Util\RuntimeGate.h" />
+    <ClInclude Include="src\Util\SehGuard.h" />
     <ClInclude Include="src\Util\SignatureResolver.h" />
     <ClInclude Include="src\Util\StorageApi.h" />
     <ClInclude Include="src\Util\StorageCodec.h" />

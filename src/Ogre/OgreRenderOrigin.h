@@ -11,6 +11,7 @@
 #pragma once
 
 #include "bzr.h"
+#include "Util/SehGuard.h"
 
 #include <Windows.h>
 
@@ -32,7 +33,7 @@ namespace ExtraUtilities::OgreRenderSpace
 			outOrigin = *reinterpret_cast<const BZR::VECTOR_3D*>(BZR::Ogre::worldRenderOriginAddress);
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			if (outExceptionCode != nullptr)
 			{

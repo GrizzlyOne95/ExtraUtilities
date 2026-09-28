@@ -19,6 +19,7 @@
 #include "OgreMaterialRuntime.h"
 
 #include "Util/Logging.h"
+#include "Util/SehGuard.h"
 
 #include <Windows.h>
 
@@ -630,7 +631,7 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
-		bool TryResolveMaterial(
+		bool TryResolveMaterialSeh(
 			const std::string& materialName,
 			const std::string& resourceGroup,
 			::Ogre::Material*& outMaterial)
@@ -639,11 +640,41 @@ namespace ExtraUtilities::Lua::GameObject
 			{
 				return TryResolveMaterialCpp(materialName, resourceGroup, outMaterial);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault(
 					"[EXU::Material] ResolveMaterial crashed material=%s group=%s code=0x%08X",
 					materialName.c_str(),
+					resourceGroup.c_str(),
+					GetExceptionCode());
+				outMaterial = nullptr;
+				return false;
+			}
+		}
+
+		bool TryResolveMaterial(
+			const std::string& materialName,
+			const std::string& resourceGroup,
+			::Ogre::Material*& outMaterial)
+		{
+			return Seh::CatchCpp("TryResolveMaterial", [&] { return TryResolveMaterialSeh(materialName, resourceGroup, outMaterial); }, [&] { outMaterial = nullptr; return false; });
+		}
+
+		bool TryCloneMaterialSeh(
+			const MaterialHandle& sourceMaterial,
+			const std::string& cloneName,
+			const std::string& resourceGroup,
+			::Ogre::Material*& outMaterial)
+		{
+			__try
+			{
+				return TryCloneMaterialCpp(sourceMaterial, cloneName, resourceGroup, outMaterial);
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				LogMaterialFault(
+					"[EXU::Material] CloneMaterial crashed clone=%s group=%s code=0x%08X",
+					cloneName.c_str(),
 					resourceGroup.c_str(),
 					GetExceptionCode());
 				outMaterial = nullptr;
@@ -657,23 +688,10 @@ namespace ExtraUtilities::Lua::GameObject
 			const std::string& resourceGroup,
 			::Ogre::Material*& outMaterial)
 		{
-			__try
-			{
-				return TryCloneMaterialCpp(sourceMaterial, cloneName, resourceGroup, outMaterial);
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				LogMaterialFault(
-					"[EXU::Material] CloneMaterial crashed clone=%s group=%s code=0x%08X",
-					cloneName.c_str(),
-					resourceGroup.c_str(),
-					GetExceptionCode());
-				outMaterial = nullptr;
-				return false;
-			}
+			return Seh::CatchCpp("TryCloneMaterial", [&] { return TryCloneMaterialSeh(sourceMaterial, cloneName, resourceGroup, outMaterial); }, [&] { outMaterial = nullptr; return false; });
 		}
 
-		bool TryResolveMaterialPass(
+		bool TryResolveMaterialPassSeh(
 			const std::string& materialName,
 			const std::string& resourceGroup,
 			int techniqueIndex,
@@ -684,7 +702,7 @@ namespace ExtraUtilities::Lua::GameObject
 			{
 				return TryResolveMaterialPassCpp(materialName, resourceGroup, techniqueIndex, passIndex, outHandle);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault(
 					"[EXU::Material] ResolveMaterialPass crashed material=%s technique=%d pass=%d code=0x%08X",
@@ -697,7 +715,17 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
-		bool TryCollectMaterialTintPasses(
+		bool TryResolveMaterialPass(
+			const std::string& materialName,
+			const std::string& resourceGroup,
+			int techniqueIndex,
+			int passIndex,
+			MaterialPassHandle& outHandle)
+		{
+			return Seh::CatchCpp("TryResolveMaterialPass", [&] { return TryResolveMaterialPassSeh(materialName, resourceGroup, techniqueIndex, passIndex, outHandle); }, [&] { outHandle = {}; return false; });
+		}
+
+		bool TryCollectMaterialTintPassesSeh(
 			const std::string& materialName,
 			const std::string& resourceGroup,
 			int passIndex,
@@ -713,7 +741,7 @@ namespace ExtraUtilities::Lua::GameObject
 					includeGlowScheme,
 					outPasses);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault(
 					"[EXU::Material] CollectMaterialTintPasses crashed material=%s pass=%d code=0x%08X",
@@ -724,7 +752,17 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
-		bool TryResolveMaterialTextureUnit(
+		bool TryCollectMaterialTintPasses(
+			const std::string& materialName,
+			const std::string& resourceGroup,
+			int passIndex,
+			bool includeGlowScheme,
+			std::vector<::Ogre::Pass*>& outPasses)
+		{
+			return Seh::CatchCpp("TryCollectMaterialTintPasses", [&] { return TryCollectMaterialTintPassesSeh(materialName, resourceGroup, passIndex, includeGlowScheme, outPasses); }, false);
+		}
+
+		bool TryResolveMaterialTextureUnitSeh(
 			const std::string& materialName,
 			const std::string& resourceGroup,
 			int techniqueIndex,
@@ -742,7 +780,7 @@ namespace ExtraUtilities::Lua::GameObject
 					textureUnitIndex,
 					outHandle);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault(
 					"[EXU::Material] ResolveMaterialTextureUnit crashed material=%s technique=%d pass=%d unit=%d code=0x%08X",
@@ -756,13 +794,24 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
-		bool TrySetMaterialTextureName(::Ogre::TextureUnitState* textureUnit, const std::string& textureName)
+		bool TryResolveMaterialTextureUnit(
+			const std::string& materialName,
+			const std::string& resourceGroup,
+			int techniqueIndex,
+			int passIndex,
+			int textureUnitIndex,
+			MaterialTextureUnitHandle& outHandle)
+		{
+			return Seh::CatchCpp("TryResolveMaterialTextureUnit", [&] { return TryResolveMaterialTextureUnitSeh(materialName, resourceGroup, techniqueIndex, passIndex, textureUnitIndex, outHandle); }, [&] { outHandle = {}; return false; });
+		}
+
+		bool TrySetMaterialTextureNameSeh(::Ogre::TextureUnitState* textureUnit, const std::string& textureName)
 		{
 			__try
 			{
 				return ::Ogre::SetTextureUnitStateTextureName(textureUnit, textureName);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault(
 					"[EXU::Material] SetTextureUnitStateTextureName crashed textureUnit=%p texture=%s code=0x%08X",
@@ -773,13 +822,18 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
-		bool TrySetMaterialTextureScroll(::Ogre::TextureUnitState* textureUnit, float u, float v)
+		bool TrySetMaterialTextureName(::Ogre::TextureUnitState* textureUnit, const std::string& textureName)
+		{
+			return Seh::CatchCpp("TrySetMaterialTextureName", [&] { return TrySetMaterialTextureNameSeh(textureUnit, textureName); }, false);
+		}
+
+		bool TrySetMaterialTextureScrollSeh(::Ogre::TextureUnitState* textureUnit, float u, float v)
 		{
 			__try
 			{
 				return ::Ogre::SetTextureUnitStateTextureScroll(textureUnit, u, v);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault(
 					"[EXU::Material] SetTextureScroll crashed textureUnit=%p u=%g v=%g code=0x%08X",
@@ -791,13 +845,18 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
-		bool TrySetMaterialTextureRotate(::Ogre::TextureUnitState* textureUnit, float radians)
+		bool TrySetMaterialTextureScroll(::Ogre::TextureUnitState* textureUnit, float u, float v)
+		{
+			return Seh::CatchCpp("TrySetMaterialTextureScroll", [&] { return TrySetMaterialTextureScrollSeh(textureUnit, u, v); }, false);
+		}
+
+		bool TrySetMaterialTextureRotateSeh(::Ogre::TextureUnitState* textureUnit, float radians)
 		{
 			__try
 			{
 				return ::Ogre::SetTextureUnitStateTextureRotate(textureUnit, radians);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault(
 					"[EXU::Material] SetTextureRotate crashed textureUnit=%p radians=%g code=0x%08X",
@@ -808,13 +867,18 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
-		bool TrySetMaterialTextureScrollAnimation(::Ogre::TextureUnitState* textureUnit, float uSpeed, float vSpeed)
+		bool TrySetMaterialTextureRotate(::Ogre::TextureUnitState* textureUnit, float radians)
+		{
+			return Seh::CatchCpp("TrySetMaterialTextureRotate", [&] { return TrySetMaterialTextureRotateSeh(textureUnit, radians); }, false);
+		}
+
+		bool TrySetMaterialTextureScrollAnimationSeh(::Ogre::TextureUnitState* textureUnit, float uSpeed, float vSpeed)
 		{
 			__try
 			{
 				return ::Ogre::SetTextureUnitStateScrollAnimation(textureUnit, uSpeed, vSpeed);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault(
 					"[EXU::Material] SetScrollAnimation crashed textureUnit=%p uSpeed=%g vSpeed=%g code=0x%08X",
@@ -826,13 +890,18 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
-		bool TrySetMaterialTextureRotateAnimation(::Ogre::TextureUnitState* textureUnit, float speed)
+		bool TrySetMaterialTextureScrollAnimation(::Ogre::TextureUnitState* textureUnit, float uSpeed, float vSpeed)
+		{
+			return Seh::CatchCpp("TrySetMaterialTextureScrollAnimation", [&] { return TrySetMaterialTextureScrollAnimationSeh(textureUnit, uSpeed, vSpeed); }, false);
+		}
+
+		bool TrySetMaterialTextureRotateAnimationSeh(::Ogre::TextureUnitState* textureUnit, float speed)
 		{
 			__try
 			{
 				return ::Ogre::SetTextureUnitStateRotateAnimation(textureUnit, speed);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault(
 					"[EXU::Material] SetRotateAnimation crashed textureUnit=%p speed=%g code=0x%08X",
@@ -841,6 +910,11 @@ namespace ExtraUtilities::Lua::GameObject
 					GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TrySetMaterialTextureRotateAnimation(::Ogre::TextureUnitState* textureUnit, float speed)
+		{
+			return Seh::CatchCpp("TrySetMaterialTextureRotateAnimation", [&] { return TrySetMaterialTextureRotateAnimationSeh(textureUnit, speed); }, false);
 		}
 
 		ExtraUtilities::Ogre::Color ToExuColor(const ::Ogre::ColourValue& color)
@@ -853,13 +927,13 @@ namespace ExtraUtilities::Lua::GameObject
 			return { color.r, color.g, color.b, color.a };
 		}
 
-		bool TryGetPassAmbient(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
+		bool TryGetPassAmbientSeh(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
 		{
 			__try
 			{
 				return TryGetPassAmbientCpp(pass, outColor);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault("[EXU::Material] GetPassAmbient crashed pass=%p code=0x%08X", pass, GetExceptionCode());
 				outColor = {};
@@ -867,13 +941,18 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
-		bool TryGetPassDiffuse(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
+		bool TryGetPassAmbient(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
+		{
+			return Seh::CatchCpp("TryGetPassAmbient", [&] { return TryGetPassAmbientSeh(pass, outColor); }, [&] { outColor = {}; return false; });
+		}
+
+		bool TryGetPassDiffuseSeh(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
 		{
 			__try
 			{
 				return TryGetPassDiffuseCpp(pass, outColor);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault("[EXU::Material] GetPassDiffuse crashed pass=%p code=0x%08X", pass, GetExceptionCode());
 				outColor = {};
@@ -881,13 +960,18 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
-		bool TryGetPassSpecular(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
+		bool TryGetPassDiffuse(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
+		{
+			return Seh::CatchCpp("TryGetPassDiffuse", [&] { return TryGetPassDiffuseSeh(pass, outColor); }, [&] { outColor = {}; return false; });
+		}
+
+		bool TryGetPassSpecularSeh(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
 		{
 			__try
 			{
 				return TryGetPassSpecularCpp(pass, outColor);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault("[EXU::Material] GetPassSpecular crashed pass=%p code=0x%08X", pass, GetExceptionCode());
 				outColor = {};
@@ -895,13 +979,18 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
-		bool TryGetPassSelfIllumination(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
+		bool TryGetPassSpecular(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
+		{
+			return Seh::CatchCpp("TryGetPassSpecular", [&] { return TryGetPassSpecularSeh(pass, outColor); }, [&] { outColor = {}; return false; });
+		}
+
+		bool TryGetPassSelfIlluminationSeh(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
 		{
 			__try
 			{
 				return TryGetPassSelfIlluminationCpp(pass, outColor);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault("[EXU::Material] GetPassSelfIllumination crashed pass=%p code=0x%08X", pass, GetExceptionCode());
 				outColor = {};
@@ -909,56 +998,81 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
-		bool TrySetPassAmbient(::Ogre::Pass* pass, const ::Ogre::ColourValue& color)
+		bool TryGetPassSelfIllumination(::Ogre::Pass* pass, ::Ogre::ColourValue& outColor)
+		{
+			return Seh::CatchCpp("TryGetPassSelfIllumination", [&] { return TryGetPassSelfIlluminationSeh(pass, outColor); }, [&] { outColor = {}; return false; });
+		}
+
+		bool TrySetPassAmbientSeh(::Ogre::Pass* pass, const ::Ogre::ColourValue& color)
 		{
 			__try
 			{
 				return TrySetPassAmbientCpp(pass, color);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault("[EXU::Material] SetPassAmbient crashed pass=%p code=0x%08X", pass, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetPassDiffuse(::Ogre::Pass* pass, const ::Ogre::ColourValue& color)
+		bool TrySetPassAmbient(::Ogre::Pass* pass, const ::Ogre::ColourValue& color)
+		{
+			return Seh::CatchCpp("TrySetPassAmbient", [&] { return TrySetPassAmbientSeh(pass, color); }, false);
+		}
+
+		bool TrySetPassDiffuseSeh(::Ogre::Pass* pass, const ::Ogre::ColourValue& color)
 		{
 			__try
 			{
 				return TrySetPassDiffuseCpp(pass, color);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault("[EXU::Material] SetPassDiffuse crashed pass=%p code=0x%08X", pass, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetPassSpecular(::Ogre::Pass* pass, const ::Ogre::ColourValue& color)
+		bool TrySetPassDiffuse(::Ogre::Pass* pass, const ::Ogre::ColourValue& color)
+		{
+			return Seh::CatchCpp("TrySetPassDiffuse", [&] { return TrySetPassDiffuseSeh(pass, color); }, false);
+		}
+
+		bool TrySetPassSpecularSeh(::Ogre::Pass* pass, const ::Ogre::ColourValue& color)
 		{
 			__try
 			{
 				return TrySetPassSpecularCpp(pass, color);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault("[EXU::Material] SetPassSpecular crashed pass=%p code=0x%08X", pass, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetPassSelfIllumination(::Ogre::Pass* pass, const ::Ogre::ColourValue& color)
+		bool TrySetPassSpecular(::Ogre::Pass* pass, const ::Ogre::ColourValue& color)
+		{
+			return Seh::CatchCpp("TrySetPassSpecular", [&] { return TrySetPassSpecularSeh(pass, color); }, false);
+		}
+
+		bool TrySetPassSelfIlluminationSeh(::Ogre::Pass* pass, const ::Ogre::ColourValue& color)
 		{
 			__try
 			{
 				return TrySetPassSelfIlluminationCpp(pass, color);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault("[EXU::Material] SetPassSelfIllumination crashed pass=%p code=0x%08X", pass, GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TrySetPassSelfIllumination(::Ogre::Pass* pass, const ::Ogre::ColourValue& color)
+		{
+			return Seh::CatchCpp("TrySetPassSelfIllumination", [&] { return TrySetPassSelfIlluminationSeh(pass, color); }, false);
 		}
 	}
 

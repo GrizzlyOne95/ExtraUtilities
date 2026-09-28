@@ -43,7 +43,9 @@ namespace ExtraUtilities::Lua::GameObject
 			return true;
 		}
 
-		std::string CheckOptionalResourceGroup(lua_State* L, int idx)
+		// Returns a pointer into the Lua stack (or a literal), so no C++ object
+		// is live if the check raises.
+		const char* CheckOptionalResourceGroup(lua_State* L, int idx)
 		{
 			if (lua_isnoneornil(L, idx))
 			{
@@ -142,7 +144,7 @@ namespace ExtraUtilities::Lua::GameObject
 	int SetMaterialName(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-		std::string materialName = luaL_checkstring(L, 2);
+		const char* const materialName = luaL_checkstring(L, 2);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
 		{
@@ -152,12 +154,12 @@ namespace ExtraUtilities::Lua::GameObject
 		if (lua_type(L, 3) == LUA_TNUMBER)
 		{
 			void* subEntity = GetSubEntity(L, entity, 3);
-			std::string resourceGroup = CheckOptionalResourceGroup(L, 4);
+			const char* const resourceGroup = CheckOptionalResourceGroup(L, 4);
 			TrySetMaterialNameSubEntity(subEntity, materialName, resourceGroup);
 			return 0;
 		}
 
-		std::string resourceGroup = CheckOptionalResourceGroup(L, 3);
+		const char* const resourceGroup = CheckOptionalResourceGroup(L, 3);
 		TrySetMaterialNameEntity(entity, materialName, resourceGroup);
 		return 0;
 	}
@@ -165,14 +167,14 @@ namespace ExtraUtilities::Lua::GameObject
 	int SetEntityMaterial(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-		std::string materialName = luaL_checkstring(L, 2);
+		const char* const materialName = luaL_checkstring(L, 2);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
 		{
 			return 0;
 		}
 
-		std::string resourceGroup = CheckOptionalResourceGroup(L, 3);
+		const char* const resourceGroup = CheckOptionalResourceGroup(L, 3);
 		TrySetMaterialNameEntity(entity, materialName, resourceGroup);
 		return 0;
 	}
@@ -181,7 +183,7 @@ namespace ExtraUtilities::Lua::GameObject
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		luaL_checkinteger(L, 2);
-		std::string materialName = luaL_checkstring(L, 3);
+		const char* const materialName = luaL_checkstring(L, 3);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
 		{
@@ -189,15 +191,17 @@ namespace ExtraUtilities::Lua::GameObject
 		}
 
 		void* subEntity = GetSubEntity(L, entity, 2);
-		std::string resourceGroup = CheckOptionalResourceGroup(L, 4);
+		const char* const resourceGroup = CheckOptionalResourceGroup(L, 4);
 		TrySetMaterialNameSubEntity(subEntity, materialName, resourceGroup);
 		return 0;
 	}
 
 	int MaterialExists(lua_State* L)
 	{
-		std::string materialName = luaL_checkstring(L, 1);
-		std::string resourceGroup = CheckOptionalResourceGroup(L, 2);
+		const std::string_view materialNameArg = luaL_checkstring(L, 1);
+		const std::string_view resourceGroupArg = CheckOptionalResourceGroup(L, 2);
+		const std::string materialName(materialNameArg);
+		const std::string resourceGroup(resourceGroupArg);
 		::Ogre::Material* material = nullptr;
 		lua_pushboolean(L, TryResolveMaterial(materialName, resourceGroup, material) ? 1 : 0);
 		return 1;
@@ -205,9 +209,12 @@ namespace ExtraUtilities::Lua::GameObject
 
 		int CloneMaterial(lua_State* L)
 		{
-			std::string sourceMaterial = luaL_checkstring(L, 1);
-			std::string cloneName = luaL_checkstring(L, 2);
-			std::string resourceGroup = CheckOptionalResourceGroup(L, 3);
+			const std::string_view sourceMaterialArg = luaL_checkstring(L, 1);
+			const std::string_view cloneNameArg = luaL_checkstring(L, 2);
+			const std::string_view resourceGroupArg = CheckOptionalResourceGroup(L, 3);
+			const std::string sourceMaterial(sourceMaterialArg);
+			const std::string cloneName(cloneNameArg);
+			const std::string resourceGroup(resourceGroupArg);
 
 			::Ogre::Material* source = nullptr;
 			MaterialHandle sourceShared{};
@@ -224,10 +231,12 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int GetMaterialPassColors(lua_State* L)
 	{
-		std::string materialName = luaL_checkstring(L, 1);
+		const std::string_view materialNameArg = luaL_checkstring(L, 1);
 		int techniqueIndex = luaL_optint(L, 2, 0);
 		int passIndex = luaL_optint(L, 3, 0);
-		std::string resourceGroup = CheckOptionalResourceGroup(L, 4);
+		const std::string_view resourceGroupArg = CheckOptionalResourceGroup(L, 4);
+		const std::string materialName(materialNameArg);
+		const std::string resourceGroup(resourceGroupArg);
 
 		MaterialPassHandle handle;
 		if (!TryResolveMaterialPass(materialName, resourceGroup, techniqueIndex, passIndex, handle))
@@ -264,12 +273,15 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetMaterialTexture(lua_State* L)
 	{
-		std::string materialName = luaL_checkstring(L, 1);
-		std::string textureName = luaL_checkstring(L, 2);
+		const std::string_view materialNameArg = luaL_checkstring(L, 1);
+		const std::string_view textureNameArg = luaL_checkstring(L, 2);
 		int techniqueIndex = luaL_optint(L, 3, 0);
 		int passIndex = luaL_optint(L, 4, 0);
 		int textureUnitIndex = luaL_optint(L, 5, 0);
-		std::string resourceGroup = CheckOptionalResourceGroup(L, 6);
+		const std::string_view resourceGroupArg = CheckOptionalResourceGroup(L, 6);
+		const std::string materialName(materialNameArg);
+		const std::string textureName(textureNameArg);
+		const std::string resourceGroup(resourceGroupArg);
 
 		MaterialTextureUnitHandle handle;
 		if (!TryResolveMaterialTextureUnit(
@@ -304,13 +316,15 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetMaterialTextureScroll(lua_State* L)
 	{
-		std::string materialName = luaL_checkstring(L, 1);
+		const std::string_view materialNameArg = luaL_checkstring(L, 1);
 		float u = static_cast<float>(luaL_checknumber(L, 2));
 		float v = static_cast<float>(luaL_checknumber(L, 3));
 		int techniqueIndex = luaL_optint(L, 4, 0);
 		int passIndex = luaL_optint(L, 5, 0);
 		int textureUnitIndex = luaL_optint(L, 6, 0);
-		std::string resourceGroup = CheckOptionalResourceGroup(L, 7);
+		const std::string_view resourceGroupArg = CheckOptionalResourceGroup(L, 7);
+		const std::string materialName(materialNameArg);
+		const std::string resourceGroup(resourceGroupArg);
 
 		MaterialTextureUnitHandle handle;
 		if (!TryResolveMaterialTextureUnit(
@@ -343,12 +357,14 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetMaterialTextureRotate(lua_State* L)
 	{
-		std::string materialName = luaL_checkstring(L, 1);
+		const std::string_view materialNameArg = luaL_checkstring(L, 1);
 		float radians = static_cast<float>(luaL_checknumber(L, 2));
 		int techniqueIndex = luaL_optint(L, 3, 0);
 		int passIndex = luaL_optint(L, 4, 0);
 		int textureUnitIndex = luaL_optint(L, 5, 0);
-		std::string resourceGroup = CheckOptionalResourceGroup(L, 6);
+		const std::string_view resourceGroupArg = CheckOptionalResourceGroup(L, 6);
+		const std::string materialName(materialNameArg);
+		const std::string resourceGroup(resourceGroupArg);
 
 		MaterialTextureUnitHandle handle;
 		if (!TryResolveMaterialTextureUnit(
@@ -381,13 +397,15 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetMaterialTextureScrollAnimation(lua_State* L)
 	{
-		std::string materialName = luaL_checkstring(L, 1);
+		const std::string_view materialNameArg = luaL_checkstring(L, 1);
 		float uSpeed = static_cast<float>(luaL_checknumber(L, 2));
 		float vSpeed = static_cast<float>(luaL_checknumber(L, 3));
 		int techniqueIndex = luaL_optint(L, 4, 0);
 		int passIndex = luaL_optint(L, 5, 0);
 		int textureUnitIndex = luaL_optint(L, 6, 0);
-		std::string resourceGroup = CheckOptionalResourceGroup(L, 7);
+		const std::string_view resourceGroupArg = CheckOptionalResourceGroup(L, 7);
+		const std::string materialName(materialNameArg);
+		const std::string resourceGroup(resourceGroupArg);
 
 		MaterialTextureUnitHandle handle;
 		if (!TryResolveMaterialTextureUnit(
@@ -420,12 +438,14 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetMaterialTextureRotateAnimation(lua_State* L)
 	{
-		std::string materialName = luaL_checkstring(L, 1);
+		const std::string_view materialNameArg = luaL_checkstring(L, 1);
 		float speed = static_cast<float>(luaL_checknumber(L, 2));
 		int techniqueIndex = luaL_optint(L, 3, 0);
 		int passIndex = luaL_optint(L, 4, 0);
 		int textureUnitIndex = luaL_optint(L, 5, 0);
-		std::string resourceGroup = CheckOptionalResourceGroup(L, 6);
+		const std::string_view resourceGroupArg = CheckOptionalResourceGroup(L, 6);
+		const std::string materialName(materialNameArg);
+		const std::string resourceGroup(resourceGroupArg);
 
 		MaterialTextureUnitHandle handle;
 		if (!TryResolveMaterialTextureUnit(
@@ -458,12 +478,28 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetMaterialPassColors(lua_State* L)
 	{
-		std::string materialName = luaL_checkstring(L, 1);
+		const std::string_view materialNameArg = luaL_checkstring(L, 1);
 		luaL_checktype(L, 2, LUA_TTABLE);
 		int techniqueIndex = luaL_optint(L, 3, 0);
 		int passIndex = luaL_optint(L, 4, 0);
-		std::string resourceGroup = CheckOptionalResourceGroup(L, 5);
+		const std::string_view resourceGroupArg = CheckOptionalResourceGroup(L, 5);
 		bool includeGlowScheme = lua_toboolean(L, 6) != 0;
+
+		// Every colour field is read (and can raise) before any std::string or
+		// std::vector exists, so a bad field cannot leak them.
+		::Ogre::ColourValue ambient{};
+		::Ogre::ColourValue diffuse{};
+		::Ogre::ColourValue specular{};
+		::Ogre::ColourValue emissive{};
+		const bool hasAmbient = ReadOptionalPassColorField(L, 2, "ambient", ambient);
+		const bool hasDiffuse = ReadOptionalPassColorField(L, 2, "diffuse", diffuse);
+		const bool hasSpecular = ReadOptionalPassColorField(L, 2, "specular", specular);
+		const bool hasEmissive = ReadOptionalPassColorField(L, 2, "emissive", emissive)
+			|| ReadOptionalPassColorField(L, 2, "selfIllumination", emissive)
+			|| ReadOptionalPassColorField(L, 2, "selfillumination", emissive);
+
+		const std::string materialName(materialNameArg);
+		const std::string resourceGroup(resourceGroupArg);
 
 		// techniqueIndex -1 targets every technique (passIndex -1 every pass)
 		// so tints survive the viewport scheme swaps done by the lighting
@@ -494,39 +530,35 @@ namespace ExtraUtilities::Lua::GameObject
 		}
 
 		bool success = true;
-		::Ogre::ColourValue color{};
-
-		if (ReadOptionalPassColorField(L, 2, "ambient", color))
+		if (hasAmbient)
 		{
 			for (auto* pass : passes)
 			{
-				success = TrySetPassAmbient(pass, color) && success;
+				success = TrySetPassAmbient(pass, ambient) && success;
 			}
 		}
 
-		if (ReadOptionalPassColorField(L, 2, "diffuse", color))
+		if (hasDiffuse)
 		{
 			for (auto* pass : passes)
 			{
-				success = TrySetPassDiffuse(pass, color) && success;
+				success = TrySetPassDiffuse(pass, diffuse) && success;
 			}
 		}
 
-		if (ReadOptionalPassColorField(L, 2, "specular", color))
+		if (hasSpecular)
 		{
 			for (auto* pass : passes)
 			{
-				success = TrySetPassSpecular(pass, color) && success;
+				success = TrySetPassSpecular(pass, specular) && success;
 			}
 		}
 
-		if (ReadOptionalPassColorField(L, 2, "emissive", color)
-			|| ReadOptionalPassColorField(L, 2, "selfIllumination", color)
-			|| ReadOptionalPassColorField(L, 2, "selfillumination", color))
+		if (hasEmissive)
 		{
 			for (auto* pass : passes)
 			{
-				success = TrySetPassSelfIllumination(pass, color) && success;
+				success = TrySetPassSelfIllumination(pass, emissive) && success;
 			}
 		}
 

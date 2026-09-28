@@ -317,6 +317,9 @@
     <ClInclude Include="src\Util\Logging.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Util\SehGuard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\Util\RuntimeGate.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
@@ -378,6 +381,9 @@
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Exports.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\LuaCppBarrier.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\LuaHelpers.h">

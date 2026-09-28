@@ -28,6 +28,7 @@
 #include "Ogre/Ogre.h"
 #include "Ogre/OgreOverlayShim.h"
 #include "Game/game_state.h"
+#include "Util/SehGuard.h"
 
 #include <Windows.h>
 
@@ -51,7 +52,7 @@ namespace ExtraUtilities::Lua::Overlay
 	{
 		::Ogre::OverlayManager* GetOverlayManager();
 
-		::Ogre::Overlay* FindOverlay(const std::string& name)
+		::Ogre::Overlay* FindOverlaySeh(const std::string& name)
 		{
 			::Ogre::OverlayManager* manager = GetOverlayManager();
 			if (manager == nullptr)
@@ -63,13 +64,18 @@ namespace ExtraUtilities::Lua::Overlay
 			{
 				return manager->getByName(name);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return nullptr;
 			}
 		}
 
-		::Ogre::OverlayElement* FindOverlayElement(const std::string& name)
+		::Ogre::Overlay* FindOverlay(const std::string& name)
+		{
+			return Seh::CatchCpp("FindOverlay", [&] { return FindOverlaySeh(name); }, nullptr);
+		}
+
+		::Ogre::OverlayElement* FindOverlayElementSeh(const std::string& name)
 		{
 			::Ogre::OverlayManager* manager = GetOverlayManager();
 			if (manager == nullptr)
@@ -85,10 +91,15 @@ namespace ExtraUtilities::Lua::Overlay
 				}
 				return manager->getOverlayElement(name, false);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return nullptr;
 			}
+		}
+
+		::Ogre::OverlayElement* FindOverlayElement(const std::string& name)
+		{
+			return Seh::CatchCpp("FindOverlayElement", [&] { return FindOverlayElementSeh(name); }, nullptr);
 		}
 
 		::Ogre::OverlayContainer* FindOverlayContainer(const std::string& name)
@@ -231,7 +242,7 @@ namespace ExtraUtilities::Lua::Overlay
 			overlayRuntimeFontScriptPath.clear();
 		}
 
-		bool TryDestroyOverlayByName(::Ogre::OverlayManager* manager, const std::string& name, bool& outDestroyed)
+		bool TryDestroyOverlayByNameSeh(::Ogre::OverlayManager* manager, const std::string& name, bool& outDestroyed)
 		{
 			outDestroyed = false;
 			if (manager == nullptr)
@@ -250,14 +261,19 @@ namespace ExtraUtilities::Lua::Overlay
 				outDestroyed = true;
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				Logging::LogMessage("[EXU::Overlay] destroy overlay crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TryDestroyOverlayElementByName(::Ogre::OverlayManager* manager, const std::string& name, bool& outDestroyed)
+		bool TryDestroyOverlayByName(::Ogre::OverlayManager* manager, const std::string& name, bool& outDestroyed)
+		{
+			return Seh::CatchCpp("TryDestroyOverlayByName", [&] { return TryDestroyOverlayByNameSeh(manager, name, outDestroyed); }, false);
+		}
+
+		bool TryDestroyOverlayElementByNameSeh(::Ogre::OverlayManager* manager, const std::string& name, bool& outDestroyed)
 		{
 			outDestroyed = false;
 			if (manager == nullptr)
@@ -276,11 +292,16 @@ namespace ExtraUtilities::Lua::Overlay
 				outDestroyed = true;
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				Logging::LogMessage("[EXU::Overlay] destroy overlay element crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TryDestroyOverlayElementByName(::Ogre::OverlayManager* manager, const std::string& name, bool& outDestroyed)
+		{
+			return Seh::CatchCpp("TryDestroyOverlayElementByName", [&] { return TryDestroyOverlayElementByNameSeh(manager, name, outDestroyed); }, false);
 		}
 
 		bool ResetOverlaySupportInternal(const char* reason)
@@ -552,12 +573,13 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int SetOverlayZOrder(lua_State* L)
 	{
-		const std::string name = luaL_checkstring(L, 1);
+		const char* const nameArg = luaL_checkstring(L, 1);
 		const int zOrder = static_cast<int>(luaL_checkinteger(L, 2));
 		if (zOrder < 0 || zOrder > 650)
 		{
 			return luaL_argerror(L, 2, "z-order must be between 0 and 650");
 		}
+		const std::string name(nameArg);
 
 		::Ogre::Overlay* overlay = FindOverlay(name);
 		if (overlay == nullptr)
@@ -571,7 +593,7 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int SetOverlayScroll(lua_State* L)
 	{
-		const std::string name = luaL_checkstring(L, 1);
+		const char* const nameArg = luaL_checkstring(L, 1);
 		const float x = static_cast<float>(luaL_checknumber(L, 2));
 		const float y = static_cast<float>(luaL_checknumber(L, 3));
 		if (!std::isfinite(x))
@@ -582,6 +604,7 @@ namespace ExtraUtilities::Lua::Overlay
 		{
 			return luaL_argerror(L, 3, "scroll y must be finite");
 		}
+		const std::string name(nameArg);
 
 		::Ogre::Overlay* overlay = FindOverlay(name);
 		if (overlay == nullptr)
@@ -595,8 +618,9 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int CreateOverlayElement(lua_State* L)
 	{
-		const std::string typeName = luaL_checkstring(L, 1);
+		const char* const typeNameArg = luaL_checkstring(L, 1);
 		const std::string instanceName = luaL_checkstring(L, 2);
+		const std::string typeName(typeNameArg);
 		::Ogre::OverlayManager* manager = GetOverlayManager();
 		if (manager == nullptr)
 		{
@@ -672,8 +696,9 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int AddOverlay2D(lua_State* L)
 	{
-		const std::string overlayName = luaL_checkstring(L, 1);
+		const char* const overlayNameArg = luaL_checkstring(L, 1);
 		const std::string containerName = luaL_checkstring(L, 2);
+		const std::string overlayName(overlayNameArg);
 
 		::Ogre::Overlay* overlay = FindOverlay(overlayName);
 		::Ogre::OverlayContainer* container = FindOverlayContainer(containerName);
@@ -700,8 +725,9 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int RemoveOverlay2D(lua_State* L)
 	{
-		const std::string overlayName = luaL_checkstring(L, 1);
+		const char* const overlayNameArg = luaL_checkstring(L, 1);
 		const std::string containerName = luaL_checkstring(L, 2);
+		const std::string overlayName(overlayNameArg);
 
 		::Ogre::Overlay* overlay = FindOverlay(overlayName);
 		::Ogre::OverlayContainer* container = FindOverlayContainer(containerName);
@@ -716,8 +742,9 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int AddOverlayElementChild(lua_State* L)
 	{
-		const std::string parentName = luaL_checkstring(L, 1);
+		const char* const parentNameArg = luaL_checkstring(L, 1);
 		const std::string childName = luaL_checkstring(L, 2);
+		const std::string parentName(parentNameArg);
 
 		::Ogre::OverlayContainer* parent = FindOverlayContainer(parentName);
 		::Ogre::OverlayElement* child = FindOverlayElement(childName);
@@ -740,8 +767,9 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int RemoveOverlayElementChild(lua_State* L)
 	{
-		const std::string parentName = luaL_checkstring(L, 1);
+		const char* const parentNameArg = luaL_checkstring(L, 1);
 		const std::string childName = luaL_checkstring(L, 2);
+		const std::string parentName(parentNameArg);
 
 		::Ogre::OverlayContainer* parent = FindOverlayContainer(parentName);
 		if (parent == nullptr)
@@ -791,12 +819,13 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int SetOverlayMetricsMode(lua_State* L)
 	{
-		const std::string name = luaL_checkstring(L, 1);
+		const char* const nameArg = luaL_checkstring(L, 1);
 		const int mode = static_cast<int>(luaL_checkinteger(L, 2));
 		if (mode < static_cast<int>(::Ogre::GMM_RELATIVE) || mode > static_cast<int>(::Ogre::GMM_RELATIVE_ASPECT_ADJUSTED))
 		{
 			return luaL_argerror(L, 2, "metrics mode must be a valid exu.OVERLAY_METRICS value");
 		}
+		const std::string name(nameArg);
 
 		::Ogre::OverlayElement* element = FindOverlayElement(name);
 		if (element == nullptr)
@@ -810,7 +839,7 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int SetOverlayPosition(lua_State* L)
 	{
-		const std::string name = luaL_checkstring(L, 1);
+		const char* const nameArg = luaL_checkstring(L, 1);
 		const float left = static_cast<float>(luaL_checknumber(L, 2));
 		const float top = static_cast<float>(luaL_checknumber(L, 3));
 		if (!std::isfinite(left))
@@ -821,6 +850,7 @@ namespace ExtraUtilities::Lua::Overlay
 		{
 			return luaL_argerror(L, 3, "top must be finite");
 		}
+		const std::string name(nameArg);
 
 		::Ogre::OverlayElement* element = FindOverlayElement(name);
 		if (element == nullptr)
@@ -834,7 +864,7 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int SetOverlayDimensions(lua_State* L)
 	{
-		const std::string name = luaL_checkstring(L, 1);
+		const char* const nameArg = luaL_checkstring(L, 1);
 		const float width = static_cast<float>(luaL_checknumber(L, 2));
 		const float height = static_cast<float>(luaL_checknumber(L, 3));
 		if (!std::isfinite(width))
@@ -845,6 +875,7 @@ namespace ExtraUtilities::Lua::Overlay
 		{
 			return luaL_argerror(L, 3, "height must be finite");
 		}
+		const std::string name(nameArg);
 
 		::Ogre::OverlayElement* element = FindOverlayElement(name);
 		if (element == nullptr)
@@ -858,8 +889,9 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int SetOverlayMaterial(lua_State* L)
 	{
-		const std::string name = luaL_checkstring(L, 1);
+		const char* const nameArg = luaL_checkstring(L, 1);
 		const std::string materialName = luaL_checkstring(L, 2);
+		const std::string name(nameArg);
 
 		::Ogre::OverlayElement* element = FindOverlayElement(name);
 		if (element == nullptr)
@@ -888,13 +920,20 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int SetOverlayParameter(lua_State* L)
 	{
-		const std::string elementName = luaL_checkstring(L, 1);
-		const std::string parameterName = luaL_checkstring(L, 2);
-		std::string parameterValue;
-		if (!TryGetOverlayParameterValue(L, 3, parameterValue))
+		const char* const elementNameArg = luaL_checkstring(L, 1);
+		const char* const parameterNameArg = luaL_checkstring(L, 2);
+		const int valueType = lua_type(L, 3);
+		if (!(valueType == LUA_TSTRING || valueType == LUA_TBOOLEAN ||
+				(valueType == LUA_TNUMBER && std::isfinite(static_cast<double>(lua_tonumber(L, 3))))))
 		{
 			return luaL_argerror(L, 3, "parameter value must be a finite number, boolean, or string");
 		}
+
+		// No Lua error below: the value was checked above.
+		std::string parameterValue;
+		TryGetOverlayParameterValue(L, 3, parameterValue);
+		const std::string elementName(elementNameArg);
+		const std::string parameterName(parameterNameArg);
 
 		::Ogre::OverlayElement* element = FindOverlayElement(elementName);
 		if (element == nullptr)
@@ -910,12 +949,13 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int SetOverlayColor(lua_State* L)
 	{
-		const std::string name = luaL_checkstring(L, 1);
+		const char* const nameArg = luaL_checkstring(L, 1);
 		const ExtraUtilities::Ogre::Color color = CheckColorOrSingles(L, 2);
 		if (!IsFiniteColor(color))
 		{
 			return luaL_argerror(L, 2, "color components must be finite");
 		}
+		const std::string name(nameArg);
 
 		::Ogre::OverlayElement* element = FindOverlayElement(name);
 		if (element == nullptr)
@@ -930,8 +970,10 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int SetOverlayCaption(lua_State* L)
 	{
-		const std::string name = luaL_checkstring(L, 1);
-		const std::string text = luaL_checkstring(L, 2);
+		const char* const nameArg = luaL_checkstring(L, 1);
+		const char* const textArg = luaL_checkstring(L, 2);
+		const std::string name(nameArg);
+		const std::string text(textArg);
 
 		::Ogre::OverlayElement* element = FindOverlayElement(name);
 		if (element == nullptr)
@@ -950,8 +992,10 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int SetOverlayTextFont(lua_State* L)
 	{
-		const std::string name = luaL_checkstring(L, 1);
-		const std::string fontName = luaL_checkstring(L, 2);
+		const char* const nameArg = luaL_checkstring(L, 1);
+		const char* const fontNameArg = luaL_checkstring(L, 2);
+		const std::string name(nameArg);
+		const std::string fontName(fontNameArg);
 
 		::Ogre::OverlayElement* element = FindOverlayElement(name);
 		if (element == nullptr)
@@ -1011,12 +1055,13 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int SetOverlayTextColor(lua_State* L)
 	{
-		const std::string name = luaL_checkstring(L, 1);
+		const char* const nameArg = luaL_checkstring(L, 1);
 		const ExtraUtilities::Ogre::Color color = CheckColorOrSingles(L, 2);
 		if (!IsFiniteColor(color))
 		{
 			return luaL_argerror(L, 2, "color components must be finite");
 		}
+		const std::string name(nameArg);
 
 		::Ogre::OverlayElement* element = FindOverlayElement(name);
 		if (element == nullptr)
@@ -1044,12 +1089,13 @@ namespace ExtraUtilities::Lua::Overlay
 
 	int SetOverlayTextCharHeight(lua_State* L)
 	{
-		const std::string name = luaL_checkstring(L, 1);
+		const char* const nameArg = luaL_checkstring(L, 1);
 		const float charHeight = static_cast<float>(luaL_checknumber(L, 2));
 		if (!std::isfinite(charHeight))
 		{
 			return luaL_argerror(L, 2, "char height must be finite");
 		}
+		const std::string name(nameArg);
 
 		::Ogre::OverlayElement* element = FindOverlayElement(name);
 		if (element == nullptr)

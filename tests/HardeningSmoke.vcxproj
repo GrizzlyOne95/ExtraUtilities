@@ -39,7 +39,7 @@
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <TreatWarningAsError>true</TreatWarningAsError>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions);WIN32_LEAN_AND_MEAN</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\src;$(ProjectDir)..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

@@ -17,6 +17,7 @@
 */
 
 #include "GameObjectInternal.h"
+#include "Util/SehGuard.h"
 
 // Entity render, light and animation API: the renderable-entity and light
 // lookups on a GameObject, the exported animation bridge and their bindings.
@@ -65,7 +66,7 @@ namespace ExtraUtilities::Lua::GameObject
 			{
 				light = obj->GetLight();
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault("[EXU::Light] Ogre light lookup crashed obj=%p code=0x%08X", obj, GetExceptionCode());
 				return nullptr;
@@ -116,7 +117,7 @@ namespace ExtraUtilities::Lua::GameObject
 			{
 				entity = obj->GetOgreEntity();
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault("[EXU::Material] Ogre pointer lookup crashed obj=%p code=0x%08X", obj, GetExceptionCode());
 				return nullptr;
@@ -720,7 +721,7 @@ namespace ExtraUtilities::Lua::GameObject
 	int SetEntityAnimationEnabled(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-		std::string animationName = luaL_checkstring(L, 2);
+		const char* const animationName = luaL_checkstring(L, 2);
 		bool enabled = CheckBool(L, 3);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
@@ -738,7 +739,7 @@ namespace ExtraUtilities::Lua::GameObject
 	int SetEntityAnimationLoop(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-		std::string animationName = luaL_checkstring(L, 2);
+		const char* const animationName = luaL_checkstring(L, 2);
 		bool loop = CheckBool(L, 3);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
@@ -756,7 +757,7 @@ namespace ExtraUtilities::Lua::GameObject
 	int SetEntityAnimationWeight(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-		std::string animationName = luaL_checkstring(L, 2);
+		const char* const animationName = luaL_checkstring(L, 2);
 		float weight = static_cast<float>(luaL_checknumber(L, 3));
 		if (!std::isfinite(weight))
 		{
@@ -779,7 +780,7 @@ namespace ExtraUtilities::Lua::GameObject
 	int SetEntityAnimationTime(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-		std::string animationName = luaL_checkstring(L, 2);
+		const char* const animationName = luaL_checkstring(L, 2);
 		float timePosition = static_cast<float>(luaL_checknumber(L, 3));
 		if (!std::isfinite(timePosition))
 		{
