@@ -148,6 +148,13 @@
     <ClCompile Include="src\Game\Environment.cpp" />
     <ClCompile Include="src\Game\RenderEffects.cpp" />
     <ClCompile Include="src\Game\GameObject.cpp" />
+    <ClCompile Include="src\Ogre\OgreEntityRuntime.cpp" />
+    <ClCompile Include="src\Ogre\OgreMaterialRuntime.cpp" />
+    <ClCompile Include="src\Game\EntityRenderApi.cpp" />
+    <ClCompile Include="src\Game\MaterialApi.cpp" />
+    <ClCompile Include="src\Game\TerrainTrn.cpp" />
+    <ClCompile Include="src\Game\AiInspection.cpp" />
+    <ClCompile Include="src\Game\GameObjectHandle.cpp" />
     <ClCompile Include="src\Game\game_state.cpp" />
     <ClCompile Include="src\Patches\GlobalTurbo.cpp" />
     <ClCompile Include="src\Util\GraphicsOptions.cpp" />
@@ -202,6 +209,9 @@
     <ClInclude Include="include\ExtraUtils.h" />
     <ClInclude Include="src\Exports.h" />
     <ClInclude Include="src\Game\GameObject.h" />
+    <ClInclude Include="src\Ogre\OgreEntityRuntime.h" />
+    <ClInclude Include="src\Ogre\OgreMaterialRuntime.h" />
+    <ClInclude Include="src\Game\GameObjectInternal.h" />
     <ClInclude Include="src\Game\game_state.h" />
     <ClInclude Include="src\Patches\GlobalTurbo.h" />
     <ClInclude Include="src\Util\GraphicsOptions.h" />
