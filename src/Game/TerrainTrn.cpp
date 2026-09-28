@@ -19,6 +19,7 @@
 #include "GameObjectInternal.h"
 
 #include "Util/AsciiString.h"
+#include "Util/ModulePath.h"
 
 // Terrain TRN discovery and the [Atlases] MaterialName parser behind
 // GetTerrainMaterialName and SetTerrainTextureSet.
@@ -119,18 +120,6 @@ namespace ExtraUtilities::Lua::GameObject
 			paths.push_back(path);
 		}
 
-		std::filesystem::path GetMainModuleDirectory()
-		{
-			char modulePath[MAX_PATH] = {};
-			const DWORD length = GetModuleFileNameA(nullptr, modulePath, static_cast<DWORD>(std::size(modulePath)));
-			if (length == 0 || length >= std::size(modulePath))
-			{
-				return {};
-			}
-
-			return std::filesystem::path(modulePath).parent_path();
-		}
-
 		bool TryCallLuaStringFunction(lua_State* L, const char* functionName, std::string& outValue)
 		{
 			StackGuard guard(L);
@@ -228,7 +217,7 @@ namespace ExtraUtilities::Lua::GameObject
 				requestedPath += ".trn";
 			}
 
-			const std::filesystem::path gameRoot = GetMainModuleDirectory();
+			const std::filesystem::path gameRoot = ModulePath::GetGameRootDirectory();
 			std::vector<std::filesystem::path> candidates;
 			std::unordered_set<std::string> seen;
 
