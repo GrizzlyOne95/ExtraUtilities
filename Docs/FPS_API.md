@@ -35,6 +35,7 @@ Inspect capabilities/status:
 local caps = exu.fps.GetCapabilities()
 print(caps.localFirstPersonTarget)
 print(caps.pilotStateInspection)
+print(caps.pilotFsmIntercept)
 print(caps.firstPersonStatus)
 ```
 
@@ -42,13 +43,15 @@ This is the same capability table returned by
 `exu.animation.GetCapabilities()`. `pilotStateInspection=true` reports that
 the read-only native Person snapshot API is compiled in. It is distinct from
 `localFirstPersonTarget`, which reports whether the presentation target backend
-is available.
+is available. `pilotFsmIntercept=true` means the verified observe-only
+`Person::Simulate` entry detour is active.
 
 ## Read-only pilot FSM state
 
 `exu.fps.GetPilotState()` reads the current local on-foot `Person` directly
-from Redux and returns a one-operation snapshot. It does not install a hook,
-change the FSM, cache the `Person*`, or modify multiplayer/gameplay state.
+from Redux and returns a one-operation snapshot. The snapshot call itself does
+not depend on the interception seam, cache the `Person*`, or modify
+multiplayer/gameplay state.
 
 ```lua
 local pilot = exu.fps.GetPilotState()
@@ -99,6 +102,46 @@ local sniper = exu.fps.IsSniperSelected()
 They return `nil` when no readable local on-foot `Person` exists.
 `IsCrouched()` is intentionally strict: only native state 2 is true; states
 1 and 3 are transitions.
+
+
+## Observe-only Person::Simulate interception seam
+
+EXU now has a verified x86 function-entry detour at the qualified Redux
+2.2.301 `Person::Simulate` entry. The first ten stock bytes are complete,
+relocation-free prologue instructions; EXU copies them into an executable
+trampoline and resumes at the first untouched instruction.
+
+This work chunk is deliberately **observe-only**. The hook performs:
+
+1. a cheap check that the simulated `Person*` is the current local user;
+2. a pre-stock state snapshot for that local Person;
+3. the original `Person::Simulate(person, dt)` trampoline call;
+4. a post-stock snapshot and diagnostic counters.
+
+There are no FSM writes, animation substitutions, duration overrides, skipped
+stock branches, or Lua callbacks from inside `Person::Simulate`.
+
+The seam can be qualified in-game without log spam:
+
+```lua
+local hook = exu.fps.GetPilotInterceptStatus()
+print(hook.installed, hook.active, hook.observeOnly)
+print(hook.calls, hook.localCalls)
+print(hook.stateChanges, hook.animationChanges)
+print(hook.beforeState, hook.afterState)
+```
+
+`calls` includes every native Person object that reaches the shared function;
+`localCalls` increments only when that exact `Person*` is also the current
+`p_userObject`. Thus AI/remote Person simulation remains on the stock path
+without being mistaken for the local pilot.
+
+The entry patch uses a byte-verified preimage and the normal EXU
+`BasicPatch` lifecycle. If the qualified prologue is not present or another
+module already owns that exact entry, the seam fails closed and
+`pilotFsmIntercept` remains false. Mission/Lua-state teardown restores the
+entry through the same foreign-overwrite-safe patch path as other EXU native
+patches.
 
 Enumerate all current viewmodel animations:
 
@@ -168,7 +211,8 @@ exu.fps.SetCrouched(true)
 exu.fps.SetPilotAnimationProfile({...})
 ```
 
-Those require the later Person-FSM interception work. Playing or seeking an Ogre animation
+Those require the next policy layer on top of the now-established interception
+seam. Playing or seeking an Ogre animation
 alone does not stop `Person::Simulate` from choosing another animation on a
 later update.
 

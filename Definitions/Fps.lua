@@ -19,6 +19,26 @@
 --- @field selectedWeaponSignatureText string? Four-character printable form of the signature.
 --- @field selectedWeaponOdf string? Weapon-class ODF for `selectedWeaponSlot`.
 
+--- @class ExuPilotInterceptStatus
+--- @field installed boolean True when the verified trampoline is prepared.
+--- @field active boolean True when the Person::Simulate entry currently points at EXU's observe-only hook.
+--- @field observeOnly boolean True for this work chunk; no FSM policy writes are performed.
+--- @field hasLocalSample boolean True after a local on-foot Person has completed at least one intercepted Simulate call.
+--- @field calls integer Total intercepted Person::Simulate calls, including non-local Person objects.
+--- @field localCalls integer Intercepted calls where the simulated Person was exactly the current local user object.
+--- @field stateChanges integer Local calls whose native FSM state changed across the stock Simulate call.
+--- @field animationChanges integer Local calls whose animation index or handle changed across the stock Simulate call.
+--- @field beforeNativeState integer?
+--- @field afterNativeState integer?
+--- @field beforeState string?
+--- @field afterState string?
+--- @field beforeAnimationIndex integer?
+--- @field afterAnimationIndex integer?
+--- @field beforeAnimationName string?
+--- @field afterAnimationName string?
+--- @field beforeAnimationHandle integer?
+--- @field afterAnimationHandle integer?
+
 --- @class ExuFpsApi
 local fps = {}
 
@@ -41,6 +61,13 @@ function fps.GetCapabilities() end
 --- @nodiscard
 --- @return ExuPilotState|nil
 function fps.GetPilotState() end
+
+--- Returns diagnostics for EXU's verified Person::Simulate interception seam.
+--- The seam is observe-only in this version: it calls the stock trampoline
+--- unchanged and records only local pre/post state transitions.
+--- @nodiscard
+--- @return ExuPilotInterceptStatus
+function fps.GetPilotInterceptStatus() end
 
 --- Returns true only for the fully crouched native FSM state (state 2).
 --- Entering/exiting crouch return false; unavailable pilot state returns nil.

@@ -469,7 +469,10 @@
         "note": "Pattern is the whole function, unique in GOG 2.2.301 .text (verified 2026-09-27).",
         "pattern_kind": "code"
       },
-      "serialOffset": { "value": "0x15C", "description": "Offset of the live-object serial in a GameObject arena slot; 0 means the slot is free. Compared against handle & 0xFFFFF." },
+      "serialOffset": {
+        "value": "0x15C",
+        "description": "Offset of the live-object serial in a GameObject arena slot; 0 means the slot is free. Compared against handle & 0xFFFFF."
+      },
       "SetAsUser": {
         "address": "0x004DB930",
         "type": "function: void __thiscall(GameObject*)",
@@ -700,10 +703,30 @@
         "description": "Screen-space Y centre of the cockpit radar wireframe (see cockpitWireframeCenterX). Formerly catalogued as commandPanelBottom.",
         "pattern": null
       },
-      "edgeMinX": { "address": "0x00917388", "type": "float*", "description": "Edge path X minimum bound.", "pattern": null },
-      "edgeMaxX": { "address": "0x0091738C", "type": "float*", "description": "Edge path X maximum bound.", "pattern": null },
-      "edgeMinZ": { "address": "0x00917390", "type": "float*", "description": "Edge path Z minimum bound.", "pattern": null },
-      "edgeMaxZ": { "address": "0x00917394", "type": "float*", "description": "Edge path Z maximum bound.", "pattern": null },
+      "edgeMinX": {
+        "address": "0x00917388",
+        "type": "float*",
+        "description": "Edge path X minimum bound.",
+        "pattern": null
+      },
+      "edgeMaxX": {
+        "address": "0x0091738C",
+        "type": "float*",
+        "description": "Edge path X maximum bound.",
+        "pattern": null
+      },
+      "edgeMinZ": {
+        "address": "0x00917390",
+        "type": "float*",
+        "description": "Edge path Z minimum bound.",
+        "pattern": null
+      },
+      "edgeMaxZ": {
+        "address": "0x00917394",
+        "type": "float*",
+        "description": "Edge path Z maximum bound.",
+        "pattern": null
+      },
       "RefreshCockpitWireframeAnchor": {
         "address": "0x00404CF0",
         "type": "function: void __cdecl()",
@@ -1126,6 +1149,16 @@
         "pattern": "C8 25 8A 00 0F 2F 45 AC 76 0C",
         "pattern_kind": "code",
         "note": "Pattern starts at the operand (inside the movss), verified unique in GOG 2.2.301 executable sections 2026-09-27. The InlinePatch expected bytes C8 25 8A 00 check the operand."
+      }
+    },
+    "PersonRuntime": {
+      "PersonSimulate": {
+        "address": "0x0059D340",
+        "type": "function: void __thiscall(Person*, float)",
+        "description": "Local/all-Person simulation entry. Owns the on-foot pilot animation FSM at Person+0x228 and invokes the WORLD and first-person Ogre animation apply helpers.",
+        "pattern": "55 8B EC 6A FF 68 D6 C1 84 00 64 A1 00 00 00 00 50 81 EC E8 06 00 00",
+        "pattern_kind": "code",
+        "note": "GOG Redux 2.2.301 Person::Simulate, re-derived from the shipped executable during the jump-sniping and pilot-animation investigations. The first 10 bytes are reloc-free stack/SEH-frame setup and are the only bytes stolen by EXU's entry detour."
       }
     }
   }

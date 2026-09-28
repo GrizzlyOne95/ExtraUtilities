@@ -12,7 +12,9 @@ It deliberately sits above the existing low-level functions (`HasEntityAnimation
 
 - EXU never stores `Ogre::Entity*` or `Ogre::AnimationState*` between calls.
 - Every operation reuses the existing SEH-guarded GameObject/Ogre resolver.
-- No new executable patch or frame hook is installed by this API.
+- The presentation API itself installs no animation-evaluation hook. EXU's separate
+  `exu.fps` logical-pilot layer may expose an observe-only `Person::Simulate`
+  seam; it does not change these Ogre animation semantics.
 - Redux/Ogre remains responsible for animation evaluation and time advancement.
 - Unsupported or temporarily unavailable targets fail closed.
 - `TargetLocalFirstPerson()` resolves the dedicated pilot FP target afresh for every operation. OpenShim remains preferred when installed; standalone EXU falls back to the validated Redux `Person` render-bridge path. Neither EXU nor Lua caches its Ogre pointer.
@@ -120,9 +122,15 @@ Current expected values:
 caps.gameObjectTarget == true
 caps.localFirstPersonTarget == true -- with OpenShim or EXU's native supported-build resolver
 caps.animationInventory == true
+caps.pilotStateInspection == true
+caps.pilotFsmIntercept == true -- when the verified observe-only entry detour is active
 caps.managedClock == false
 caps.nativeAdvancement == "unvalidated"
 ```
+
+`pilotStateInspection` and `pilotFsmIntercept` describe the logical pilot/FSM
+tooling used by `exu.fps`; they are independent of whether the first-person
+Ogre target is currently resolvable.
 
 `nativeAdvancement` remains `unvalidated` until the stock `Play`/`Stop`/`Seek` runtime matrix is captured. Target qualification proves that the FP entity is independently controllable, but does not by itself prove every public operation's playback semantics.
 

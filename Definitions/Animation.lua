@@ -27,6 +27,7 @@
 --- @field localFirstPersonTarget boolean True when either the optional OpenShim resolver or EXU's native BZR resolver is available.
 --- @field animationInventory boolean True when `List` is available.
 --- @field pilotStateInspection boolean True when the read-only local Person FSM snapshot API is compiled in.
+--- @field pilotFsmIntercept boolean True when the verified observe-only Person::Simulate entry detour is active.
 --- @field managedClock boolean False while Redux/Ogre remains responsible for animation time advancement.
 --- @field nativeAdvancement "unvalidated"|string
 --- @field firstPersonStatus string
