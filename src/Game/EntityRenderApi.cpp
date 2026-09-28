@@ -721,7 +721,7 @@ namespace ExtraUtilities::Lua::GameObject
 	int SetEntityAnimationEnabled(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-		std::string animationName = luaL_checkstring(L, 2);
+		const char* const animationName = luaL_checkstring(L, 2);
 		bool enabled = CheckBool(L, 3);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
@@ -739,7 +739,7 @@ namespace ExtraUtilities::Lua::GameObject
 	int SetEntityAnimationLoop(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-		std::string animationName = luaL_checkstring(L, 2);
+		const char* const animationName = luaL_checkstring(L, 2);
 		bool loop = CheckBool(L, 3);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
@@ -757,7 +757,7 @@ namespace ExtraUtilities::Lua::GameObject
 	int SetEntityAnimationWeight(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-		std::string animationName = luaL_checkstring(L, 2);
+		const char* const animationName = luaL_checkstring(L, 2);
 		float weight = static_cast<float>(luaL_checknumber(L, 3));
 		if (!std::isfinite(weight))
 		{
@@ -780,7 +780,7 @@ namespace ExtraUtilities::Lua::GameObject
 	int SetEntityAnimationTime(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-		std::string animationName = luaL_checkstring(L, 2);
+		const char* const animationName = luaL_checkstring(L, 2);
 		float timePosition = static_cast<float>(luaL_checknumber(L, 3));
 		if (!std::isfinite(timePosition))
 		{

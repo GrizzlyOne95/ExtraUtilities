@@ -942,24 +942,30 @@ namespace ExtraUtilities::Lua::GameObject
 			return 1;
 		}
 
-		PolymorphicObjectInfo processInfo{};
-		if (!TryGetObjectTypeInfo(aiProcess, processInfo))
+		// The type info (strings and a vector) is scoped so it is gone before
+		// PushVectorField, which calls the script's SetVector and can raise.
+		bool isScavenger = false;
 		{
-			lua_pushnil(L);
-			return 1;
+			PolymorphicObjectInfo processInfo{};
+			if (!TryGetObjectTypeInfo(aiProcess, processInfo))
+			{
+				lua_pushnil(L);
+				return 1;
+			}
+
+			lua_createtable(L, 0, 16);
+			lua_pushlightuserdata(L, aiProcess);
+			lua_setfield(L, -2, "process");
+			lua_pushstring(L, processInfo.typeName.c_str());
+			lua_setfield(L, -2, "typeName");
+			lua_pushstring(L, processInfo.rawTypeName.c_str());
+			lua_setfield(L, -2, "rawTypeName");
+			PushStringArray(L, processInfo.hierarchy);
+			lua_setfield(L, -2, "hierarchy");
+			isScavenger = TypeMatches(processInfo, "ScavengerProcess");
 		}
 
-		lua_createtable(L, 0, 16);
-		lua_pushlightuserdata(L, aiProcess);
-		lua_setfield(L, -2, "process");
-		lua_pushstring(L, processInfo.typeName.c_str());
-		lua_setfield(L, -2, "typeName");
-		lua_pushstring(L, processInfo.rawTypeName.c_str());
-		lua_setfield(L, -2, "rawTypeName");
-		PushStringArray(L, processInfo.hierarchy);
-		lua_setfield(L, -2, "hierarchy");
-
-		if (TypeMatches(processInfo, "ScavengerProcess"))
+		if (isScavenger)
 		{
 			const auto* scav = reinterpret_cast<const ScavengerProcessLayout*>(aiProcess);
 			lua_pushinteger(L, scav->curState);
@@ -1080,23 +1086,28 @@ namespace ExtraUtilities::Lua::GameObject
 			return 1;
 		}
 
-		PolymorphicObjectInfo taskInfo{};
-		if (!TryFindBestAiTask(aiProcess, scanBytes, taskInfo))
+		// Scoped: PushVectorField below calls the script's SetVector and can
+		// raise, which would skip the type info's destructors.
+		const UnitTaskLayout* task = nullptr;
 		{
-			lua_pushnil(L);
-			return 1;
-		}
+			PolymorphicObjectInfo taskInfo{};
+			if (!TryFindBestAiTask(aiProcess, scanBytes, taskInfo))
+			{
+				lua_pushnil(L);
+				return 1;
+			}
 
-		const auto* task = reinterpret_cast<const UnitTaskLayout*>(taskInfo.object);
-		lua_createtable(L, 0, 24);
-		lua_pushlightuserdata(L, taskInfo.object);
-		lua_setfield(L, -2, "task");
-		lua_pushstring(L, taskInfo.typeName.c_str());
-		lua_setfield(L, -2, "typeName");
-		lua_pushstring(L, taskInfo.rawTypeName.c_str());
-		lua_setfield(L, -2, "rawTypeName");
-		PushStringArray(L, taskInfo.hierarchy);
-		lua_setfield(L, -2, "hierarchy");
+			task = reinterpret_cast<const UnitTaskLayout*>(taskInfo.object);
+			lua_createtable(L, 0, 24);
+			lua_pushlightuserdata(L, taskInfo.object);
+			lua_setfield(L, -2, "task");
+			lua_pushstring(L, taskInfo.typeName.c_str());
+			lua_setfield(L, -2, "typeName");
+			lua_pushstring(L, taskInfo.rawTypeName.c_str());
+			lua_setfield(L, -2, "rawTypeName");
+			PushStringArray(L, taskInfo.hierarchy);
+			lua_setfield(L, -2, "hierarchy");
+		}
 		lua_pushinteger(L, task->curState);
 		lua_setfield(L, -2, "curState");
 		lua_pushinteger(L, task->nextState);
@@ -1354,23 +1365,28 @@ namespace ExtraUtilities::Lua::GameObject
 			return 1;
 		}
 
-		PolymorphicObjectInfo taskInfo{};
-		if (!TryFindBestAiTask(aiProcess, scanBytes, taskInfo, "RecycleTask"))
+		// Scoped: PushVectorField below calls the script's SetVector and can
+		// raise, which would skip the type info's destructors.
+		const RecycleTaskLayout* recycleTask = nullptr;
 		{
-			lua_pushnil(L);
-			return 1;
-		}
+			PolymorphicObjectInfo taskInfo{};
+			if (!TryFindBestAiTask(aiProcess, scanBytes, taskInfo, "RecycleTask"))
+			{
+				lua_pushnil(L);
+				return 1;
+			}
 
-		const auto* recycleTask = reinterpret_cast<const RecycleTaskLayout*>(taskInfo.object);
-		lua_createtable(L, 0, 20);
-		lua_pushlightuserdata(L, taskInfo.object);
-		lua_setfield(L, -2, "task");
-		lua_pushstring(L, taskInfo.typeName.c_str());
-		lua_setfield(L, -2, "typeName");
-		lua_pushstring(L, taskInfo.rawTypeName.c_str());
-		lua_setfield(L, -2, "rawTypeName");
-		PushStringArray(L, taskInfo.hierarchy);
-		lua_setfield(L, -2, "hierarchy");
+			recycleTask = reinterpret_cast<const RecycleTaskLayout*>(taskInfo.object);
+			lua_createtable(L, 0, 20);
+			lua_pushlightuserdata(L, taskInfo.object);
+			lua_setfield(L, -2, "task");
+			lua_pushstring(L, taskInfo.typeName.c_str());
+			lua_setfield(L, -2, "typeName");
+			lua_pushstring(L, taskInfo.rawTypeName.c_str());
+			lua_setfield(L, -2, "rawTypeName");
+			PushStringArray(L, taskInfo.hierarchy);
+			lua_setfield(L, -2, "hierarchy");
+		}
 		lua_pushinteger(L, recycleTask->curState);
 		lua_setfield(L, -2, "curState");
 		lua_pushinteger(L, recycleTask->nextState);
@@ -1391,14 +1407,16 @@ namespace ExtraUtilities::Lua::GameObject
 		}
 		PushObjectPointerField(L, "me", recycleTask->me);
 		PushObjectPointerField(L, "subtask", recycleTask->subtask);
-		void* subtaskVtable = nullptr;
-		std::string subtaskRawTypeName;
-		MsvcRttiClassHierarchyDescriptor* subtaskClassDescriptor = nullptr;
-		if (TryGetPolymorphicMetadata(recycleTask->subtask, subtaskVtable, subtaskRawTypeName, subtaskClassDescriptor))
 		{
-			const std::string subtaskTypeName = NormalizeMsvcTypeName(subtaskRawTypeName);
-			lua_pushstring(L, subtaskTypeName.c_str());
-			lua_setfield(L, -2, "subtaskTypeName");
+			void* subtaskVtable = nullptr;
+			std::string subtaskRawTypeName;
+			MsvcRttiClassHierarchyDescriptor* subtaskClassDescriptor = nullptr;
+			if (TryGetPolymorphicMetadata(recycleTask->subtask, subtaskVtable, subtaskRawTypeName, subtaskClassDescriptor))
+			{
+				const std::string subtaskTypeName = NormalizeMsvcTypeName(subtaskRawTypeName);
+				lua_pushstring(L, subtaskTypeName.c_str());
+				lua_setfield(L, -2, "subtaskTypeName");
+			}
 		}
 		PushVectorField(L, "lastScrap", recycleTask->lastScrap);
 		PushHandleField(L, "scrapHandle", recycleTask->scrapHandle);

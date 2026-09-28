@@ -458,10 +458,11 @@ namespace ExtraUtilities::Lua::Environment
 			return 1;
 		}
 
-		const std::string materialName = luaL_checkstring(L, 1);
+		const char* const materialNameArg = luaL_checkstring(L, 1);
 		const float distance = static_cast<float>(luaL_optnumber(L, 2, 5000.0));
 		const bool drawFirst = lua_gettop(L) < 3 || lua_toboolean(L, 3) != 0;
 		const std::string resourceGroup = CheckOptionalSkyResourceGroup(L, 4);
+		const std::string materialName(materialNameArg);
 
 		lua_pushboolean(L, TrySetSkyBox(sceneManager, materialName, distance, drawFirst, resourceGroup) ? 1 : 0);
 		return 1;
@@ -508,7 +509,7 @@ namespace ExtraUtilities::Lua::Environment
 			return 1;
 		}
 
-		const std::string materialName = luaL_checkstring(L, 1);
+		const char* const materialNameArg = luaL_checkstring(L, 1);
 		const float curvature = static_cast<float>(luaL_optnumber(L, 2, 10.0));
 		const float tiling = static_cast<float>(luaL_optnumber(L, 3, 8.0));
 		const float distance = static_cast<float>(luaL_optnumber(L, 4, 4000.0));
@@ -517,6 +518,7 @@ namespace ExtraUtilities::Lua::Environment
 		const int ysegments = luaL_optint(L, 7, 16);
 		const int ysegmentsKeep = luaL_optint(L, 8, -1);
 		const std::string resourceGroup = CheckOptionalSkyResourceGroup(L, 9);
+		const std::string materialName(materialNameArg);
 
 		lua_pushboolean(L, TrySetSkyDome(
 			sceneManager,
@@ -573,7 +575,7 @@ namespace ExtraUtilities::Lua::Environment
 			return 1;
 		}
 
-		const std::string materialName = luaL_checkstring(L, 1);
+		const char* const materialNameArg = luaL_checkstring(L, 1);
 		OgrePlaneValue plane{};
 		TryReadSkyPlane(L, 2, plane);
 		const float scale = static_cast<float>(luaL_optnumber(L, 3, 1000.0));
@@ -583,6 +585,7 @@ namespace ExtraUtilities::Lua::Environment
 		const int xsegments = luaL_optint(L, 7, 1);
 		const int ysegments = luaL_optint(L, 8, 1);
 		const std::string resourceGroup = CheckOptionalSkyResourceGroup(L, 9);
+		const std::string materialName(materialNameArg);
 
 		lua_pushboolean(L, TrySetSkyPlane(
 			sceneManager,

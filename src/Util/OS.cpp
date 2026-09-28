@@ -977,8 +977,11 @@ namespace ExtraUtilities::Lua::OS
 			return 2;
 		}
 
-		std::string filename;
+		// Every argument check that can raise a Lua error runs before any
+		// std::string exists; the longjmp would skip their destructors.
 		int slot = 0;
+		const char* rawPath = nullptr;
+		size_t rawPathLength = 0;
 		if (lua_type(L, 1) == LUA_TNUMBER)
 		{
 			slot = static_cast<int>(luaL_checkinteger(L, 1));
@@ -986,17 +989,57 @@ namespace ExtraUtilities::Lua::OS
 			{
 				return luaL_error(L, "SaveGame slot must be in range 1-10");
 			}
+		}
+		else
+		{
+			rawPath = luaL_checklstring(L, 1, &rawPathLength);
+		}
 
+		int saveType = 0;
+		const char* rawDescription = nullptr;
+		size_t rawDescriptionLength = 0;
+		const int top = lua_gettop(L);
+		if (top >= 2)
+		{
+			const int arg2Type = lua_type(L, 2);
+			if (arg2Type == LUA_TNUMBER)
+			{
+				saveType = static_cast<int>(lua_tointeger(L, 2));
+			}
+			else if (arg2Type == LUA_TSTRING)
+			{
+				rawDescription = lua_tolstring(L, 2, &rawDescriptionLength);
+			}
+			else if (arg2Type != LUA_TNIL && arg2Type != LUA_TNONE)
+			{
+				return luaL_error(L, "SaveGame second argument must be a saveType number or description string");
+			}
+		}
+
+		if (top >= 3)
+		{
+			const int arg3Type = lua_type(L, 3);
+			if (arg3Type == LUA_TSTRING)
+			{
+				rawDescription = lua_tolstring(L, 3, &rawDescriptionLength);
+			}
+			else if (arg3Type != LUA_TNIL && arg3Type != LUA_TNONE)
+			{
+				return luaL_error(L, "SaveGame third argument must be a description string");
+			}
+		}
+
+		std::string filename;
+		if (rawPath == nullptr)
+		{
 			filename = BuildSlotSavePath(slot);
 		}
 		else
 		{
-			size_t length = 0;
-			const char* rawPath = luaL_checklstring(L, 1, &length);
-			auto resolved = ResolveScriptSavePath(std::string_view(rawPath, length));
+			auto resolved = ResolveScriptSavePath(std::string_view(rawPath, rawPathLength));
 			if (!resolved.ok)
 			{
-				LogNativeSave("[EXU::SaveGame] rejected save path {}: {}", std::string_view(rawPath, length), resolved.error);
+				LogNativeSave("[EXU::SaveGame] rejected save path {}: {}", std::string_view(rawPath, rawPathLength), resolved.error);
 				lua_pushboolean(L, 0);
 				lua_pushstring(L, resolved.error);
 				return 2;
@@ -1011,41 +1054,10 @@ namespace ExtraUtilities::Lua::OS
 			return 2;
 		}
 
-		int saveType = 0;
 		std::string description;
-		const int top = lua_gettop(L);
-		if (top >= 2)
+		if (rawDescription != nullptr)
 		{
-			const int arg2Type = lua_type(L, 2);
-			if (arg2Type == LUA_TNUMBER)
-			{
-				saveType = static_cast<int>(lua_tointeger(L, 2));
-			}
-			else if (arg2Type == LUA_TSTRING)
-			{
-				size_t length = 0;
-				const char* rawDescription = lua_tolstring(L, 2, &length);
-				description.assign(rawDescription, length);
-			}
-			else if (arg2Type != LUA_TNIL && arg2Type != LUA_TNONE)
-			{
-				return luaL_error(L, "SaveGame second argument must be a saveType number or description string");
-			}
-		}
-
-		if (top >= 3)
-		{
-			const int arg3Type = lua_type(L, 3);
-			if (arg3Type == LUA_TSTRING)
-			{
-				size_t length = 0;
-				const char* rawDescription = lua_tolstring(L, 3, &length);
-				description.assign(rawDescription, length);
-			}
-			else if (arg3Type != LUA_TNIL && arg3Type != LUA_TNONE)
-			{
-				return luaL_error(L, "SaveGame third argument must be a description string");
-			}
+			description.assign(rawDescription, rawDescriptionLength);
 		}
 
 		description = TrimAsciiWhitespace(description);
