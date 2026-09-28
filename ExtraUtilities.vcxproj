@@ -284,6 +284,7 @@
     <ClInclude Include="src\Util\FiniteCheck.h" />
     <ClInclude Include="src\Util\AsciiString.h" />
     <ClInclude Include="src\Util\ModulePath.h" />
+    <ClInclude Include="src\Util\MsvcRtti.h" />
     <ClInclude Include="src\Util\BzrBuildProfile.generated.h" />
     <ClInclude Include="src\Util\Logging.h" />
     <ClInclude Include="src\Util\NativeSaveFlag.h" />
