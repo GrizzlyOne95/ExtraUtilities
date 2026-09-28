@@ -340,9 +340,10 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_setfield(L, -2, "pilotStateInspection");
 			lua_pushboolean(L, PilotFsmIntercept::IsActive() ? 1 : 0);
 			lua_setfield(L, -2, "pilotFsmIntercept");
-			// Reports what this build can apply, not the current policy: the pilot
-			// animation policy only represents stock pass-through today.
-			lua_pushboolean(L, 0);
+			// Reports what this build can apply, not the current policy. Driven by
+			// the same constant the profile validator and SetActive enforce.
+			lua_pushboolean(L,
+				PilotAnimationPolicy::HasOverrideSupport(PilotAnimationPolicy::kBuildSupport) ? 1 : 0);
 			lua_setfield(L, -2, "pilotAnimationOverrides");
 			lua_pushboolean(L, 0);
 			lua_setfield(L, -2, "managedClock");

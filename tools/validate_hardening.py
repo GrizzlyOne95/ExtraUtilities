@@ -315,9 +315,10 @@ def check_hardening_markers() -> None:
     add_scrap = read("src/Patches/AddScrapCallback.cpp")
     pilot_policy_h = read("src/Game/PilotAnimationPolicy.h")
     pilot_policy_cpp = read("src/Game/PilotAnimationPolicy.cpp")
+    pilot_profile_h = read("src/Game/PilotAnimationProfile.h")
     # The pilot animation policy owns "what should happen" and must stay pure
     # data: any engine, patch, Ogre, or Lua access belongs to the seam, not here.
-    pilot_policy_includes = re.findall(r'^\s*#include\s+[<"]([^>"]+)[>"]', pilot_policy_h + pilot_policy_cpp, re.M)
+    pilot_policy_includes = re.findall(r'^\s*#include\s+[<"]([^>"]+)[>"]', pilot_policy_h + pilot_policy_cpp + pilot_profile_h, re.M)
     pilot_policy_impure = [
         inc for inc in pilot_policy_includes
         if inc.startswith(("Ogre/", "Patches/", "Util/")) or inc in ("bzr.h", "BasicPatch.h", "Hook.h", "Windows.h", "lua.hpp")
@@ -356,6 +357,14 @@ def check_hardening_markers() -> None:
             and "PilotAnimationPolicy::ResetMissionState();" in read("src/PublicAPI.cpp"),
         ),
         ("pilot timing trace stays engine-free", not pilot_trace_impure),
+        # Overrides become applicable only by widening kBuildSupport, and the
+        # Lua capability must follow that constant rather than a literal.
+        ("pilot override support starts empty", "constexpr Support kBuildSupport{};" in pilot_policy_h),
+        (
+            "pilot override capability follows kBuildSupport",
+            "HasOverrideSupport(PilotAnimationPolicy::kBuildSupport)" in read("src/Game/AnimationApi.cpp"),
+        ),
+        ("pilot policy refuses unsupported policies", "if (!IsSupported(policy, kBuildSupport))" in pilot_policy_cpp),
         (
             "pilot timing trace reset with the seam stats",
             re.search(r"void ResetStats\(\) noexcept\s*\{[^}]*g_trace\.Reset\(\);", pilot_intercept) is not None
