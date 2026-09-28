@@ -28,6 +28,7 @@
 --- @field animationInventory boolean True when `List` is available.
 --- @field pilotStateInspection boolean True when the read-only local Person FSM snapshot API is compiled in.
 --- @field pilotFsmIntercept boolean True when the verified observe-only Person::Simulate entry detour is active.
+--- @field pilotAnimationOverrides boolean False: this build only represents the stock pilot animation policy and cannot apply an override.
 --- @field managedClock boolean False while Redux/Ogre remains responsible for animation time advancement.
 --- @field nativeAdvancement "unvalidated"|string
 --- @field firstPersonStatus string

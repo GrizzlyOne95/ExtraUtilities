@@ -19,6 +19,7 @@
 #include "Game/AnimationApi.h"
 
 #include "Game/GameObject.h"
+#include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotFsmIntercept.h"
 #include "Game/PilotState.h"
 #include "Game/PilotStateSemantics.h"
@@ -314,7 +315,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 		int GetCapabilities(lua_State* L)
 		{
-			lua_createtable(L, 0, 8);
+			lua_createtable(L, 0, 9);
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "gameObjectTarget");
 			const bool hasFpBridge = OpenShimBridge::HasLocalFirstPersonEntityBridge();
@@ -326,6 +327,10 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_setfield(L, -2, "pilotStateInspection");
 			lua_pushboolean(L, PilotFsmIntercept::IsActive() ? 1 : 0);
 			lua_setfield(L, -2, "pilotFsmIntercept");
+			// Reports what this build can apply, not the current policy: the pilot
+			// animation policy only represents stock pass-through today.
+			lua_pushboolean(L, 0);
+			lua_setfield(L, -2, "pilotAnimationOverrides");
 			lua_pushboolean(L, 0);
 			lua_setfield(L, -2, "managedClock");
 			lua_pushstring(L, "unvalidated");
@@ -692,13 +697,53 @@ namespace ExtraUtilities::Lua::AnimationApi
 			return 1;
 		}
 
+		// Effective pilot animation profile, read-only. Needs no runtime gate: it
+		// describes EXU's own mission-scoped policy, not engine memory.
+		int FpsGetPilotAnimationProfile(lua_State* L)
+		{
+			const PilotAnimationPolicy::Policy policy = PilotAnimationPolicy::GetActive();
+
+			lua_settop(L, 0);
+			lua_createtable(L, 0, static_cast<int>(PilotAnimationPolicy::kSlotCount));
+
+			constexpr PilotAnimationPolicy::Slot slots[] = {
+				PilotAnimationPolicy::Slot::Stand,
+				PilotAnimationPolicy::Slot::EnterCrouch,
+				PilotAnimationPolicy::Slot::Crouched,
+				PilotAnimationPolicy::Slot::ExitCrouch,
+				PilotAnimationPolicy::Slot::Jump,
+				PilotAnimationPolicy::Slot::Land,
+			};
+			static_assert(
+				sizeof(slots) / sizeof(slots[0]) == PilotAnimationPolicy::kSlotCount,
+				"the profile read-back must list every policy slot");
+
+			for (const PilotAnimationPolicy::Slot slot : slots)
+			{
+				lua_createtable(L, 0, 2);
+
+				lua_pushstring(L, PilotAnimationPolicy::ModeName(policy.At(slot).mode));
+				lua_setfield(L, -2, "mode");
+
+				const std::int32_t nativeState = PilotAnimationPolicy::NativeStateForSlot(slot);
+				if (nativeState >= 0)
+				{
+					lua_pushinteger(L, static_cast<lua_Integer>(nativeState));
+					lua_setfield(L, -2, "nativeState");
+				}
+
+				lua_setfield(L, -2, PilotAnimationPolicy::SlotName(slot));
+			}
+			return 1;
+		}
+
 		int FpsGetPilotInterceptStatus(lua_State* L)
 		{
 			PilotFsmIntercept::Stats stats{};
 			PilotFsmIntercept::GetStats(stats);
 
 			lua_settop(L, 0);
-			lua_createtable(L, 0, 20);
+			lua_createtable(L, 0, 21);
 
 			lua_pushboolean(L, stats.installed ? 1 : 0);
 			lua_setfield(L, -2, "installed");
@@ -717,6 +762,12 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_setfield(L, -2, "stateChanges");
 			lua_pushinteger(L, static_cast<lua_Integer>(stats.animationChanges));
 			lua_setfield(L, -2, "animationChanges");
+
+			if (stats.hasPolicyDecision)
+			{
+				lua_pushstring(L, PilotAnimationPolicy::DecisionName(stats.lastPolicyDecision));
+				lua_setfield(L, -2, "policyDecision");
+			}
 
 			if (stats.hasLocalSample)
 			{
@@ -852,6 +903,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{ "IsAvailable", &FpsIsAvailable },
 			{ "GetCapabilities", &FpsGetCapabilities },
 			{ "GetPilotState", &FpsGetPilotState },
+			{ "GetPilotAnimationProfile", &FpsGetPilotAnimationProfile },
 			{ "GetPilotInterceptStatus", &FpsGetPilotInterceptStatus },
 			{ "IsCrouched", &FpsIsCrouched },
 			{ "IsGrounded", &FpsIsGrounded },
