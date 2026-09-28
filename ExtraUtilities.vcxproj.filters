@@ -66,6 +66,9 @@
     <ClCompile Include="src\Game\AnimationApi.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Game\FirstPersonTarget.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Game\ContinuityApi.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
@@ -240,6 +243,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\AnimationApi.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\FirstPersonTarget.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\ContinuityApi.h">
