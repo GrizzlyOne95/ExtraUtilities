@@ -36,6 +36,22 @@ if info then
 end
 ```
 
+Enumerate the target's complete current animation inventory:
+
+```lua
+local states = exu.animation.List(player)
+if states then
+    for _, state in ipairs(states) do
+        print(state.name, state.length, state.enabled, state.timePosition)
+    end
+end
+```
+
+`List` returns the same metadata shape as `GetInfo` for each state and sorts
+the snapshot by animation name for deterministic script/tool output. It returns
+`nil` when the target cannot be resolved or Ogre enumeration fails; a valid
+entity with no animation states returns an empty table.
+
 Stop or seek:
 
 ```lua
@@ -87,6 +103,7 @@ Current expected values:
 ```lua
 caps.gameObjectTarget == true
 caps.localFirstPersonTarget == true -- when the required OpenShim export is installed
+caps.animationInventory == true
 caps.managedClock == false
 caps.nativeAdvancement == "unvalidated"
 ```
@@ -106,6 +123,18 @@ The public path is now qualified on GOG Redux 2.2.301 with matching isolated Rel
 - A synchronized first-person capture showed the FP half-kneel pose; Shift+F3 during the same FP-only hold showed the external WORLD pilot still standing.
 
 This proves stock `Play`, `Stop`, and `Seek` through the complete Lua → EXU → OpenShim tracker → Ogre `AnimationState` path. It does not prove autonomous native advancement of an externally selected clip, so `managedClock` remains `false` and `nativeAdvancement` remains `"unvalidated"`.
+
+## Animation inventory implementation
+
+`List` snapshots Ogre's `AnimationStateSet` through the vendored Ogre 1.10
+ABI rather than guessing internal STL/container offsets. The iterator work is
+isolated in a C++14 bridge, matching EXU's existing native Ogre bridge strategy.
+The snapshot contains only names and one-operation state pointers; metadata is
+then read through EXU's existing guarded animation getters and no Ogre pointer
+is retained after the public call returns.
+
+This is deliberately read-only. Enumerating states does not enable, seek,
+weight, or otherwise mutate them.
 
 ## Why there is no speed control yet
 
