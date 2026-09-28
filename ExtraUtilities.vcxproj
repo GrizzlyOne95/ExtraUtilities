@@ -237,6 +237,7 @@
     <ClInclude Include="src\Game\PilotState.h" />
     <ClInclude Include="src\Game\PilotStateSemantics.h" />
     <ClInclude Include="src\Game\PilotFsmIntercept.h" />
+    <ClInclude Include="src\Game\PilotTrace.h" />
     <ClInclude Include="src\EntryDetour32.h" />
     <ClInclude Include="src\Ogre\OgreEntityRuntime.h" />
     <ClInclude Include="src\Ogre\OgreMaterialRuntime.h" />
