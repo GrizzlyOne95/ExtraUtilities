@@ -10,34 +10,50 @@
 
 #include "Game/PilotAnimationPolicy.h"
 
+// Not used by the DLL until SetPilotAnimationProfile exists; included so the
+// MSVC build compiles the validator now rather than first meeting it then.
+#include "Game/PilotAnimationProfile.h"
+
 namespace ExtraUtilities::Lua::PilotAnimationPolicy
 {
 	namespace
 	{
-		// Mission lifetime. Constant-initialised (see the static_assert in the
-		// header), so DllMain runs no code for it.
-		//
-		// Only ResetMissionState() writes it, and today that only ever stores the
-		// stock default, so a reader can never observe anything but stock. The
-		// first writer that stores a non-stock policy must also settle how the
-		// Person::Simulate hook and Lua share it (for example publishing an
-		// immutable snapshot); this plain object deliberately does not pretend to
-		// be that mechanism.
-		Policy g_activePolicy{};
+		// Mission lifetime. Constant-initialised, so DllMain runs no code for it.
+		PolicyPublisher g_active;
+
+		Policy ReadActiveOrStock() noexcept
+		{
+			Policy policy{};
+			if (!g_active.TryRead(policy))
+			{
+				return Policy{};
+			}
+			return policy;
+		}
 	}
 
 	void ResetMissionState() noexcept
 	{
-		g_activePolicy = Policy{};
+		g_active.Publish(Policy{});
+	}
+
+	bool SetActive(const Policy& policy) noexcept
+	{
+		if (!IsSupported(policy, kBuildSupport))
+		{
+			return false;
+		}
+		g_active.Publish(policy);
+		return true;
 	}
 
 	Policy GetActive() noexcept
 	{
-		return g_activePolicy;
+		return ReadActiveOrStock();
 	}
 
 	Decision EvaluateActive(std::uint32_t nativeState) noexcept
 	{
-		return Evaluate(g_activePolicy, nativeState);
+		return Evaluate(ReadActiveOrStock(), nativeState);
 	}
 }

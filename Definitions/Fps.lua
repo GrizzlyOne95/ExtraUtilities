@@ -78,7 +78,7 @@
 --- @field dwell table<"standing"|"enteringCrouch"|"crouched"|"exitingCrouch", ExuPilotTraceDwell>
 
 --- @class ExuPilotPolicySlot
---- @field mode "stock"|string "stock" means the native Person::Simulate behavior for this slot is untouched. It is the only mode this version can represent.
+--- @field mode "stock"|string "stock" means the native Person::Simulate behavior for this slot is untouched. It is the only mode this build can apply (`GetCapabilities().pilotAnimationOverrides` is false).
 --- @field nativeState integer? Native `Person+0x228` value the slot corresponds to. Present for stand/enterCrouch/crouched/exitCrouch (0-3); absent for jump/land, which are animation selections whose native conditions are not yet traced.
 
 --- Effective pilot animation profile. Read-only; one entry per policy slot.
