@@ -223,9 +223,24 @@ def catalog_address_entries(node: object, prefix: str = ""):
             yield from catalog_address_entries(value, path)
 
 
+# The only files in src/ that may spell engine addresses as literals: both are
+# generated from exu.json (and the build profile) and checked in CI with
+# --check, so the catalog stays the single source of truth.
+GENERATED_ADDRESS_HEADERS = {
+    "src/Util/EngineAddresses.generated.h",
+    "src/Util/BzrBuildProfile.generated.h",
+}
+
+# Lua5.1-BZR is C and cannot include the generated C++ header; its one engine
+# address must match the catalog instead.
+LUA_DUMMYNODE_DEFINE_RE = re.compile(r"#define\s+dummynode\s+\(\(Node\s*\*\)\s*0[xX]([0-9A-Fa-f]+)\)")
+
+
 def check_engine_address_census() -> None:
-    """Every engine-range literal in src/ must be catalogued in exu.json, and
-    every catalogued signature must be a well-formed IDA-style pattern."""
+    """src/ may not spell an engine-range literal anywhere except the generated
+    headers: feature code names addresses through EngineAddresses, which is
+    generated from exu.json. Every catalogued signature must also be a
+    well-formed IDA-style pattern."""
     catalog = json.loads(read("exu.json"))
     catalogued: set[int] = set()
     patterns = 0
@@ -245,28 +260,49 @@ def check_engine_address_census() -> None:
             fail(f"exu.json entry {path} needs pattern_kind 'code' or 'reference'")
         patterns += 1
 
-    missing: list[str] = []
-    literals = 0
+    for generated in GENERATED_ADDRESS_HEADERS:
+        if not (ROOT / generated).is_file():
+            fail(f"generated address header is missing: {generated}")
+
+    raw: list[str] = []
+    scanned = 0
     for path in sorted((ROOT / "src").rglob("*")):
-        if path.suffix.lower() not in (".c", ".cpp", ".h", ".hpp") or path.name.endswith(".generated.h"):
+        relative = path.relative_to(ROOT).as_posix()
+        if path.suffix.lower() not in (".c", ".cpp", ".h", ".hpp") or relative in GENERATED_ADDRESS_HEADERS:
             continue
+        scanned += 1
         source = path.read_text(encoding="utf-8", errors="replace")
         code = COMMENT_OR_STRING_RE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), source)
         for match in HEX_LITERAL_RE.finditer(code):
             value = int(match.group(1), 16)
             if not ENGINE_ADDRESS_MIN <= value <= ENGINE_ADDRESS_MAX or value in ENGINE_LITERAL_ALLOWLIST:
                 continue
-            literals += 1
-            if value not in catalogued:
-                line = code.count("\n", 0, match.start()) + 1
-                missing.append(f"{path.relative_to(ROOT).as_posix()}:{line}: 0x{value:08X}")
+            line = code.count("\n", 0, match.start()) + 1
+            if value in catalogued:
+                hint = "use its EngineAddresses name"
+            else:
+                hint = "catalogue it in exu.json, regenerate the header, and use its EngineAddresses name"
+            raw.append(f"{relative}:{line}: 0x{value:08X} ({hint})")
 
-    if missing:
-        print("Engine-range literals in src/ missing from exu.json (catalogue them, or allowlist a non-address constant with a reason):")
-        for entry in missing:
+    if raw:
+        print(
+            "Engine-range literals in src/ outside the generated headers (addresses come from exu.json through "
+            "src/Util/EngineAddresses.generated.h; allowlist a non-address constant with a reason):"
+        )
+        for entry in raw:
             print(f"  - {entry}")
         raise SystemExit(1)
-    print(f"Engine address census OK: {literals} engine-range literals in src/ are catalogued; {patterns} catalog patterns well-formed")
+
+    ltable = read("Lua5.1-BZR/src/ltable.c")
+    define = LUA_DUMMYNODE_DEFINE_RE.search(ltable)
+    dummynode = resolve_catalog_path(catalog, "Lua.dummynode")
+    if not define or int(define.group(1), 16) != int(dummynode["address"], 16):
+        fail("Lua5.1-BZR/src/ltable.c dummynode must match exu.json Lua.dummynode")
+
+    print(
+        f"Engine address census OK: no engine-range literals in {scanned} src/ files outside the generated headers; "
+        f"ltable.c dummynode matches the catalog; {patterns} catalog patterns well-formed"
+    )
 
 
 def check_hardening_markers() -> None:

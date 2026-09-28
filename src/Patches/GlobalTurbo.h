@@ -19,6 +19,7 @@
 #pragma once
 
 #include "bzr.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <lua.hpp>
 
@@ -30,14 +31,14 @@ namespace ExtraUtilities::Patch
 	// Hovercraft AI turbo decision (see TurboGate.h for the instructions).
 	// Hook site: the thunk in TurboGateThunk.h runs once per unit, before the
 	// two compares, and sets the floats their operands read.
-	constexpr uintptr_t turboPatchBeginAddr = 0x00601C92;
+	constexpr uintptr_t turboPatchBeginAddr = EngineAddresses::Turbo::TurboPatchBegin;
 
 	// disp32 of 'comiss xmm0, [tolerance]' at 0x00601CA0. Stock value 1.0f.
-	constexpr uintptr_t turboToleranceOperandAddr = 0x00601CA3;
+	constexpr uintptr_t turboToleranceOperandAddr = EngineAddresses::Turbo::TurboToleranceOperand;
 
 	// disp32 of 'movss xmm0, [gateLimit]' at 0x00601CA9, which feeds the
 	// compare in front of the final 'jbe' that vetoes turbo. Stock value 0.8f.
-	constexpr uintptr_t turboGateOperandAddr = 0x00601CAD;
+	constexpr uintptr_t turboGateOperandAddr = EngineAddresses::Turbo::TurboGateOperand;
 
 	inline bool globalTurboEnabled = false;
 

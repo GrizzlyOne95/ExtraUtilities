@@ -19,6 +19,7 @@
 #pragma once
 
 #include "bzr.h"
+#include "OgreProc.h"
 #include "OgreSceneManagerShim.h"
 #include "Scanner.h"
 
@@ -80,7 +81,8 @@ namespace ExtraUtilities::Ogre
 	inline Scanner terrain_masterlight(BZR::Ogre::terrain_masterlight, BasicScanner::Restore::DISABLED);
 	inline Scanner sceneManager(BZR::Ogre::sceneManagerStructure, { BZR::Ogre::sceneManagerOffset }, BasicScanner::Restore::DISABLED);
 
-	// OgreMain entry points, resolved by mangled export name on first use.
+	// OgreMain entry points, resolved by mangled export name on first use
+	// (OgreProc.h).
 	// They used to be fixed offsets from OgreMain's base with no check that the
 	// DLL was the build they were taken from; a missing export now makes the
 	// call a no-op returning a default value instead of a jump into arbitrary
@@ -96,21 +98,13 @@ namespace ExtraUtilities::Ogre
 		using Fn = R(__thiscall*)(Args...);
 
 		constexpr explicit OgreExport(const char* mangledName) noexcept
-			: m_name(mangledName)
+			: m_proc(mangledName)
 		{
 		}
 
 		Fn Get() const noexcept
 		{
-			if (!m_resolved)
-			{
-				if (HMODULE ogreMain = GetModuleHandleA("OgreMain.dll"))
-				{
-					m_fn = reinterpret_cast<Fn>(GetProcAddress(ogreMain, m_name));
-					m_resolved = true;
-				}
-			}
-			return m_fn;
+			return m_proc.Get();
 		}
 
 		explicit operator bool() const noexcept
@@ -141,9 +135,7 @@ namespace ExtraUtilities::Ogre
 		}
 
 	private:
-		const char* m_name;
-		mutable Fn m_fn = nullptr;
-		mutable bool m_resolved = false;
+		OgreDll::OgreProc<Fn> m_proc;
 	};
 
 	using _GetAmbientLight = Color*(__thiscall*)(void*);

@@ -18,6 +18,7 @@
 
 #include "Game/AnimationApi.h"
 
+#include "Game/FirstPersonTarget.h"
 #include "Game/GameObject.h"
 #include "Game/PilotFsmIntercept.h"
 #include "Game/PilotState.h"
@@ -68,7 +69,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{
 				if (target.kind == TargetKind::GameObject)
 					return target.handle != 0;
-				return OpenShimBridge::HasLocalFirstPersonEntityBridge();
+				return OpenShimBridge::HasLocalFirstPersonEntityBridge() ||
+					FirstPersonTarget::IsNativeResolverAvailable();
 			}
 
 			void* ResolveTargetEntity(const Target& target, std::uint64_t* generation = nullptr)
@@ -79,11 +81,20 @@ namespace ExtraUtilities::Lua::AnimationApi
 					return target.handle ? GameObject::ResolveAnimationEntity(target.handle) : nullptr;
 
 				void* entity = nullptr;
-				std::uint64_t resolvedGeneration = 0;
-				if (!OpenShimBridge::ResolveLocalFirstPersonEntity(entity, resolvedGeneration))
+				if (OpenShimBridge::HasLocalFirstPersonEntityBridge())
+				{
+					std::uint64_t resolvedGeneration = 0;
+					if (!OpenShimBridge::ResolveLocalFirstPersonEntity(entity, resolvedGeneration))
+						return nullptr;
+					if (generation)
+						*generation = resolvedGeneration;
+					return entity;
+				}
+
+				// Standalone EXU path: resolve the dedicated FP entity directly from
+				// the live local Person render bridge. No Ogre pointer is retained.
+				if (!FirstPersonTarget::ResolveNativeLocalFirstPersonEntity(entity))
 					return nullptr;
-				if (generation)
-					*generation = resolvedGeneration;
 				return entity;
 			}
 
@@ -318,7 +329,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "gameObjectTarget");
 			const bool hasFpBridge = OpenShimBridge::HasLocalFirstPersonEntityBridge();
-			lua_pushboolean(L, hasFpBridge ? 1 : 0);
+			const bool hasNativeFpResolver = FirstPersonTarget::IsNativeResolverAvailable();
+			lua_pushboolean(L, (hasFpBridge || hasNativeFpResolver) ? 1 : 0);
 			lua_setfield(L, -2, "localFirstPersonTarget");
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "animationInventory");
@@ -330,7 +342,14 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_setfield(L, -2, "managedClock");
 			lua_pushstring(L, "unvalidated");
 			lua_setfield(L, -2, "nativeAdvancement");
-			lua_pushstring(L, hasFpBridge ? "stock control proven-runtime via OpenShim resolver" : "OpenShim resolver unavailable");
+			const char* firstPersonStatus = hasFpBridge
+				? (hasNativeFpResolver
+					? "OpenShim resolver active; EXU native fallback available"
+					: "stock control proven-runtime via OpenShim resolver")
+				: (hasNativeFpResolver
+					? "EXU native resolver available; standalone runtime qualification pending"
+					: "first-person resolver unavailable");
+			lua_pushstring(L, firstPersonStatus);
 			lua_setfield(L, -2, "firstPersonStatus");
 			return 1;
 		}
@@ -875,6 +894,6 @@ namespace ExtraUtilities::Lua::AnimationApi
 		lua_setfield(L, -2, "fps");
 		lua_settop(L, originalTop);
 
-		Logging::LogMessage("exu: installed high-level animation API and local first-person facade");
+		Logging::LogMessage("exu: installed high-level animation API (gameObject + standalone/OpenShim local-first-person targets) and local first-person facade");
 	}
 }
