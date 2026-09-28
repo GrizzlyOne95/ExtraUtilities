@@ -176,6 +176,7 @@
     <ClCompile Include="src\Game\Steam.cpp" />
     <ClCompile Include="src\StockExtensions.cpp" />
     <ClCompile Include="src\Patches\UnitVo.cpp" />
+    <ClCompile Include="src\Patches\AiHudBridges.cpp" />
     <ClCompile Include="src\Patches\WeaponMask.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -234,6 +235,7 @@
     <ClInclude Include="src\Game\Steam.h" />
     <ClInclude Include="src\StockExtensions.h" />
     <ClInclude Include="src\Patches\UnitVo.h" />
+    <ClInclude Include="src\Patches\AiHudBridges.h" />
     <ClInclude Include="src\Patches\WeaponMask.h" />
     <ClInclude Include="src\Game\AnimationApi.h" />
     <ClInclude Include="src\Game\ContinuityApi.h" />
