@@ -133,6 +133,86 @@ namespace
 		const auto result = ResolveSavePath("Save/x.sav", "Z:/home/user/bzr", roots);
 		Expect(result.ok && result.path == "Z:\\home\\user\\bzr\\Save\\x.sav", "forward-slash roots resolve");
 	}
+
+	// The engine's save directory, as its startup routine builds it:
+	// _getcwd() + "\save".
+	const std::string kEngineSave = kGame + "\\save";
+
+	void ExpectSlot(std::string_view directory, int slot, const std::string& expected)
+	{
+		const auto result = BuildSlotSavePath(directory, slot);
+		Expect(result.ok, "slot " + std::to_string(slot) + " in " + std::string(directory) + " is accepted");
+		Expect(result.path == expected, "slot path " + result.path + ", expected " + expected);
+	}
+
+	void ExpectSlotRejected(std::string_view directory, int slot, const std::string& label)
+	{
+		const auto result = BuildSlotSavePath(directory, slot);
+		Expect(!result.ok && result.error != nullptr && result.path.empty(), "slot path rejected: " + label);
+	}
+
+	void TestSlotPathsComeFromTheEngineSaveDirectory()
+	{
+		ExpectSlot(kEngineSave, 1, kEngineSave + "\\game1.sav");
+		ExpectSlot(kEngineSave, 10, kEngineSave + "\\game10.sav");
+		// Launched from somewhere other than the exe directory: the engine
+		// saves under its startup directory, and so does EXU.
+		ExpectSlot("D:\\Launch\\save", 3, "D:\\Launch\\save\\game3.sav");
+		// Wine/Proton separators and a trailing separator normalise the same way.
+		ExpectSlot("Z:/home/user/bzr/save/", 4, "Z:\\home\\user\\bzr\\save\\game4.sav");
+		ExpectSlot("C:\\Games\\BZ\\.\\x\\..\\save", 5, "C:\\Games\\BZ\\save\\game5.sav");
+	}
+
+	void TestSlotPathsFailClosed()
+	{
+		ExpectSlotRejected("", 1, "empty directory");
+		ExpectSlotRejected(kEngineSave, 0, "slot 0");
+		ExpectSlotRejected(kEngineSave, 11, "slot 11");
+		ExpectSlotRejected(kEngineSave, -1, "negative slot");
+		ExpectSlotRejected("save", 1, "relative directory");
+		ExpectSlotRejected("\\save", 1, "rooted directory without a drive");
+		ExpectSlotRejected("C:save", 1, "drive-relative directory");
+		ExpectSlotRejected("\\\\server\\share\\save", 1, "UNC directory");
+		ExpectSlotRejected("\\\\?\\C:\\Games\\save", 1, "device-namespace directory");
+		ExpectSlotRejected("C:\\", 1, "drive root");
+		ExpectSlotRejected("C:\\..\\save", 1, "directory above the drive root");
+		ExpectSlotRejected("C:\\Games\\con\\save", 1, "reserved device name");
+		ExpectSlotRejected("C:\\Games\\save:stream", 1, "alternate data stream");
+		ExpectSlotRejected(std::string_view("C:\\Games\0\\save", 14), 1, "embedded NUL");
+	}
+
+	void TestEngineBufferMustBeTerminated()
+	{
+		const char buffer[16] = "C:\\BZ\\save";
+		Expect(TerminatedString(buffer, sizeof(buffer)) == "C:\\BZ\\save", "a terminated buffer reads to its NUL");
+
+		const char unterminated[4] = { 'C', ':', '\\', 'x' };
+		Expect(TerminatedString(unterminated, sizeof(unterminated)).empty(), "an unterminated buffer reads as empty");
+		Expect(TerminatedString(nullptr, 16).empty(), "a null buffer reads as empty");
+
+		const char unset[4] = {};
+		Expect(TerminatedString(unset, sizeof(unset)).empty(), "an unset buffer reads as empty");
+		ExpectSlotRejected(TerminatedString(unset, sizeof(unset)), 1, "unset engine buffer");
+		Expect(ENGINE_SAVE_DIRECTORY_CAPACITY == 0x1000, "engine save directory capacity matches the catalog");
+	}
+
+	void TestEngineSaveDirectoryIsAnAllowedDirectory()
+	{
+		// Script paths may also land in the engine's own save directory when it
+		// is neither "<exe dir>\Save" nor "<cwd>\Save".
+		const std::vector<std::string> directories{ kGame + "\\Save", "D:\\Launch\\save" };
+		const auto engine = ResolveSavePathInDirectories("D:\\Launch\\save\\x.sav", kGame, directories);
+		Expect(engine.ok && engine.path == "D:\\Launch\\save\\x.sav", "the engine save directory is allowed");
+
+		const auto outside = ResolveSavePathInDirectories("D:\\Launch\\x.sav", kGame, directories);
+		Expect(!outside.ok, "the engine save directory's parent is not");
+
+		const auto itself = ResolveSavePathInDirectories("D:\\Launch\\save", kGame, directories);
+		Expect(!itself.ok, "the directory itself is not a file");
+
+		const auto roots = SaveDirectoriesOf({ kGame, "", "relative", "C:" });
+		Expect(roots.size() == 1 && roots[0] == kGame + "\\Save", "only absolute roots produce Save directories");
+	}
 }
 
 int main()
@@ -144,6 +224,10 @@ int main()
 	TestEitherRootIsAllowed();
 	TestMissingRootFailsClosed();
 	TestForwardSlashRootsWork();
+	TestSlotPathsComeFromTheEngineSaveDirectory();
+	TestSlotPathsFailClosed();
+	TestEngineBufferMustBeTerminated();
+	TestEngineSaveDirectoryIsAnAllowedDirectory();
 
 	return HostTest::Finish("save path");
 }
