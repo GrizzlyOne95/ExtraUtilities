@@ -20,6 +20,7 @@
 #include "Game/EnvironmentLog.h"
 
 #include "Ogre/Ogre.h"
+#include "Util/SehGuard.h"
 
 namespace ExtraUtilities::Lua::Environment
 {
@@ -108,7 +109,7 @@ namespace ExtraUtilities::Lua::Environment
 			return fn;
 		}
 
-		bool TryGetRootSingleton(void*& outRoot)
+		bool TryGetRootSingletonSeh(void*& outRoot)
 		{
 			outRoot = nullptr;
 			const auto fn = ResolveGetRootSingleton();
@@ -122,14 +123,19 @@ namespace ExtraUtilities::Lua::Environment
 				outRoot = fn();
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Viewport] Root::getSingletonPtr crashed code=0x%08X", GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TryGetRootRenderSystem(void* root, void*& outRenderSystem)
+		bool TryGetRootSingleton(void*& outRoot)
+		{
+			return Seh::CatchCpp("TryGetRootSingleton", [&] { return TryGetRootSingletonSeh(outRoot); }, false);
+		}
+
+		bool TryGetRootRenderSystemSeh(void* root, void*& outRenderSystem)
 		{
 			outRenderSystem = nullptr;
 			if (root == nullptr)
@@ -148,14 +154,19 @@ namespace ExtraUtilities::Lua::Environment
 				outRenderSystem = fn(root);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Viewport] Root::getRenderSystem crashed root=%p code=0x%08X", root, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TryGetRenderSystemViewport(void* renderSystem, void*& outViewport)
+		bool TryGetRootRenderSystem(void* root, void*& outRenderSystem)
+		{
+			return Seh::CatchCpp("TryGetRootRenderSystem", [&] { return TryGetRootRenderSystemSeh(root, outRenderSystem); }, false);
+		}
+
+		bool TryGetRenderSystemViewportSeh(void* renderSystem, void*& outViewport)
 		{
 			outViewport = nullptr;
 			if (renderSystem == nullptr)
@@ -174,11 +185,16 @@ namespace ExtraUtilities::Lua::Environment
 				outViewport = fn(renderSystem);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Viewport] RenderSystem::_getViewport crashed renderSystem=%p code=0x%08X", renderSystem, GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TryGetRenderSystemViewport(void* renderSystem, void*& outViewport)
+		{
+			return Seh::CatchCpp("TryGetRenderSystemViewport", [&] { return TryGetRenderSystemViewportSeh(renderSystem, outViewport); }, false);
 		}
 
 		void* GetRenderSystemCurrentViewport()
@@ -204,7 +220,7 @@ namespace ExtraUtilities::Lua::Environment
 			return viewport;
 		}
 
-		void* GetSceneManagerCurrentViewport()
+		void* GetSceneManagerCurrentViewportSeh()
 		{
 			auto* sceneManager = Ogre::sceneManager.Read();
 			if (sceneManager == nullptr)
@@ -216,11 +232,16 @@ namespace ExtraUtilities::Lua::Environment
 			{
 				return Ogre::GetCurrentViewport(sceneManager);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Viewport] get current viewport crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 				return nullptr;
 			}
+		}
+
+		void* GetSceneManagerCurrentViewport()
+		{
+			return Seh::CatchCpp("GetSceneManagerCurrentViewport", [&] { return GetSceneManagerCurrentViewportSeh(); }, nullptr);
 		}
 
 		void AppendViewportIfUnique(ActiveViewportSet& set, void* viewport)
@@ -247,7 +268,7 @@ namespace ExtraUtilities::Lua::Environment
 
 	namespace Detail
 	{
-		bool TryGetViewportMaterialScheme(void* viewport, std::string& outScheme)
+		bool TryGetViewportMaterialSchemeSeh(void* viewport, std::string& outScheme)
 		{
 			outScheme.clear();
 			if (viewport == nullptr)
@@ -261,7 +282,7 @@ namespace ExtraUtilities::Lua::Environment
 				outScheme = layout->materialSchemeName;
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault(
 					"[EXU::Viewport] get material scheme crashed viewport=%p code=0x%08X",
@@ -271,7 +292,12 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 
-		bool TrySetViewportMaterialScheme(void* viewport, const std::string& scheme)
+		bool TryGetViewportMaterialScheme(void* viewport, std::string& outScheme)
+		{
+			return Seh::CatchCpp("TryGetViewportMaterialScheme", [&] { return TryGetViewportMaterialSchemeSeh(viewport, outScheme); }, false);
+		}
+
+		bool TrySetViewportMaterialSchemeSeh(void* viewport, const std::string& scheme)
 		{
 			if (viewport == nullptr)
 			{
@@ -284,7 +310,7 @@ namespace ExtraUtilities::Lua::Environment
 				layout->materialSchemeName = scheme;
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault(
 					"[EXU::Viewport] set material scheme crashed viewport=%p target=%s code=0x%08X",
@@ -293,6 +319,11 @@ namespace ExtraUtilities::Lua::Environment
 					GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TrySetViewportMaterialScheme(void* viewport, const std::string& scheme)
+		{
+			return Seh::CatchCpp("TrySetViewportMaterialScheme", [&] { return TrySetViewportMaterialSchemeSeh(viewport, scheme); }, false);
 		}
 
 		HMODULE GetOgreMainModule()
@@ -401,7 +432,7 @@ namespace ExtraUtilities::Lua::Environment
 		return fn;
 	}
 
-	bool TryGetViewportOverlaysEnabled(void* viewport, bool& outEnabled)
+	bool TryGetViewportOverlaysEnabledSeh(void* viewport, bool& outEnabled)
 	{
 		outEnabled = false;
 		if (viewport == nullptr)
@@ -421,14 +452,19 @@ namespace ExtraUtilities::Lua::Environment
 			outEnabled = fn(viewport);
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::Viewport] getOverlaysEnabled crashed viewport=%p code=0x%08X", viewport, GetExceptionCode());
 			return false;
 		}
 	}
 
-	bool TrySetViewportOverlaysEnabled(void* viewport, bool enabled)
+	bool TryGetViewportOverlaysEnabled(void* viewport, bool& outEnabled)
+	{
+		return Seh::CatchCpp("TryGetViewportOverlaysEnabled", [&] { return TryGetViewportOverlaysEnabledSeh(viewport, outEnabled); }, false);
+	}
+
+	bool TrySetViewportOverlaysEnabledSeh(void* viewport, bool enabled)
 	{
 		if (viewport == nullptr)
 		{
@@ -447,11 +483,16 @@ namespace ExtraUtilities::Lua::Environment
 			fn(viewport, enabled);
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::Viewport] setOverlaysEnabled crashed viewport=%p enabled=%d code=0x%08X", viewport, enabled ? 1 : 0, GetExceptionCode());
 			return false;
 		}
+	}
+
+	bool TrySetViewportOverlaysEnabled(void* viewport, bool enabled)
+	{
+		return Seh::CatchCpp("TrySetViewportOverlaysEnabled", [&] { return TrySetViewportOverlaysEnabledSeh(viewport, enabled); }, false);
 	}
 
 	bool TryRefreshViewport(void* viewport)

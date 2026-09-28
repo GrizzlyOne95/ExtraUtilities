@@ -22,6 +22,7 @@
 #include "Util/Logging.h"
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
+#include "Util/SehGuard.h"
 
 #include <algorithm>
 #include <array>
@@ -603,7 +604,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 				return (rects[kCommandMenuButtonCount - 1].bottom - first.top) >= 200;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 			}
 
@@ -646,7 +647,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 			}
 
@@ -765,7 +766,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 			}
 

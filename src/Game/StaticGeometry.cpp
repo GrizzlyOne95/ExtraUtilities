@@ -19,6 +19,7 @@
 #include "Ogre/OgreRenderSpace.h"
 #include "Util/Logging.h"
 #include "bzr.h"
+#include "Util/SehGuard.h"
 
 #include <Windows.h>
 
@@ -224,7 +225,7 @@ namespace ExtraUtilities::Lua::StaticGeometry
 				outOrigin.z = origin[2];
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return false;
 			}

@@ -19,10 +19,12 @@
 #include "BasicPatch.h"
 #include "Hook.h"
 #include "InlinePatch.h"
+#include "LuaCppBarrier.h"
 #include "Patches/TurboGateThunk.h"
 #include "Scanner.h"
 #include "bzr.h"
 #include "Util/BuildValidation.h"
+#include "Util/SehGuard.h"
 #include "Util/SignatureResolver.h"
 
 #include <Windows.h>
@@ -30,6 +32,8 @@
 #include <array>
 #include <cstdint>
 #include <iostream>
+#include <stdexcept>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -120,6 +124,80 @@ static void __declspec(naked) DriveTurboThunk()
 		popad
 		ret
 	}
+}
+
+// Exception layering (Util/SehGuard.h, LuaCppBarrier.h). A C++ exception must
+// pass through an SEH shell untouched and be caught, and destroyed, by the C++
+// layer above it; an access violation must still be handled by the shell.
+static int g_liveThrownObjects = 0;
+static bool g_shellHandlerRan = false;
+static volatile uintptr_t g_faultAddress = 0;
+
+namespace
+{
+	struct CountedError : std::runtime_error
+	{
+		CountedError() : std::runtime_error("counted failure") { ++g_liveThrownObjects; }
+		CountedError(const CountedError& other) : std::runtime_error(other) { ++g_liveThrownObjects; }
+		~CountedError() override { --g_liveThrownObjects; }
+	};
+}
+
+// Conditional on a volatile so the optimiser cannot prove the callers'
+// following code unreachable (C4702 under /WX).
+static volatile bool g_throwEnabled = true;
+
+static __declspec(noinline) void ThrowCountedError()
+{
+	if (g_throwEnabled)
+	{
+		throw CountedError();
+	}
+}
+
+static __declspec(noinline) void WriteThroughNull()
+{
+	*reinterpret_cast<volatile int*>(g_faultAddress) = 1;
+}
+
+// An SEH shell as the converted Try* helpers are written.
+static __declspec(noinline) bool ShellAroundThrow()
+{
+	__try
+	{
+		ThrowCountedError();
+		return true;
+	}
+	__except (Seh::Filter(GetExceptionCode()))
+	{
+		g_shellHandlerRan = true;
+		return false;
+	}
+}
+
+static __declspec(noinline) bool ShellAroundFault()
+{
+	__try
+	{
+		WriteThroughNull();
+		return true;
+	}
+	__except (Seh::Filter(GetExceptionCode()))
+	{
+		g_shellHandlerRan = true;
+		return false;
+	}
+}
+
+static int ThrowingLuaFunction(lua_State*)
+{
+	ThrowCountedError();
+	return 0;
+}
+
+static int PlainLuaFunction(lua_State*)
+{
+	return 3;
 }
 
 namespace
@@ -379,6 +457,62 @@ int main()
 	ok &= Check(g_probeCarry == 1, "turbo thunk did not restore EFLAGS");
 	ok &= Check(g_probeFrameDepth == 0x80, "turbo thunk unbalanced esp or changed ebp");
 	ok &= Check((g_probeEnvAfter[8] | (g_probeEnvAfter[9] << 8)) == 0xFFFF, "turbo thunk left a value on the x87 stack");
+
+	static_assert(Seh::Filter(Seh::kMsvcCppExceptionCode) == EXCEPTION_CONTINUE_SEARCH);
+	static_assert(Seh::Filter(EXCEPTION_STACK_OVERFLOW) == EXCEPTION_CONTINUE_SEARCH);
+	static_assert(Seh::Filter(EXCEPTION_ACCESS_VIOLATION) == EXCEPTION_EXECUTE_HANDLER);
+	static_assert(Seh::Filter(EXCEPTION_INT_DIVIDE_BY_ZERO) == EXCEPTION_EXECUTE_HANDLER);
+	{
+		// C++ exception: the shell's filter passes it on, CatchCpp catches it,
+		// returns the fallback, and the thrown object is destroyed.
+		g_shellHandlerRan = false;
+		bool reachedCatch = false;
+		bool fallbackResult = true;
+		try
+		{
+			fallbackResult = Seh::CatchCpp("smoke", [] { return ShellAroundThrow(); }, [&] { reachedCatch = true; return false; });
+		}
+		catch (...)
+		{
+			ok &= Check(false, "C++ exception escaped Seh::CatchCpp");
+		}
+		ok &= Check(!g_shellHandlerRan, "SEH shell swallowed a C++ exception");
+		ok &= Check(reachedCatch && !fallbackResult, "Seh::CatchCpp did not return the fallback after a C++ exception");
+		ok &= Check(g_liveThrownObjects == 0, "C++ exception object leaked through the SEH shell");
+
+		// Access violation: still handled by the shell itself.
+		g_shellHandlerRan = false;
+		const bool faulted = Seh::CatchCpp("smoke", [] { return ShellAroundFault(); }, true);
+		ok &= Check(g_shellHandlerRan && !faulted, "SEH shell did not handle an access violation");
+
+		// Seh::Guard: a fault reaches onFault with its code; a C++ exception
+		// does not, and is destroyed.
+		unsigned long faultCode = 0;
+		const bool guardedFault = Seh::Guard("smoke", [] { WriteThroughNull(); }, [&](unsigned long code) { faultCode = code; });
+		ok &= Check(!guardedFault && faultCode == EXCEPTION_ACCESS_VIOLATION, "Seh::Guard did not report an access violation");
+
+		bool onFaultRan = false;
+		const bool guardedThrow = Seh::Guard("smoke", [] { ThrowCountedError(); }, [&](unsigned long) { onFaultRan = true; });
+		ok &= Check(!guardedThrow && !onFaultRan, "Seh::Guard treated a C++ exception as a fault");
+		ok &= Check(g_liveThrownObjects == 0, "Seh::Guard leaked a C++ exception object");
+
+		bool ran = false;
+		ok &= Check(Seh::Guard("smoke", [&] { ran = true; }) && ran, "Seh::Guard failed a body that completed");
+
+		// Lua boundary: the barrier turns a C++ exception into an error message
+		// (raised as a Lua error by its caller) and passes results through.
+		char message[512] = {};
+		int results = 0;
+		lua_State* const noState = nullptr;
+		ok &= Check(
+			!Lua::Detail::CallCatchingCpp(noState, &ThrowingLuaFunction, results, message, sizeof(message)) &&
+				std::string(message).find("counted failure") != std::string::npos,
+			"Lua C++ barrier did not catch and describe a C++ exception");
+		ok &= Check(g_liveThrownObjects == 0, "Lua C++ barrier leaked a C++ exception object");
+		ok &= Check(
+			Lua::Detail::CallCatchingCpp(noState, &PlainLuaFunction, results, message, sizeof(message)) && results == 3,
+			"Lua C++ barrier changed a binding's result count");
+	}
 
 	const std::array<uint8_t, 8> bytes{ 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80 };
 	const std::array<uint8_t, 3> pattern{ 0x30, 0x00, 0x50 };

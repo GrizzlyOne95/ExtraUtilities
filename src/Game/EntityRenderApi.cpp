@@ -17,6 +17,7 @@
 */
 
 #include "GameObjectInternal.h"
+#include "Util/SehGuard.h"
 
 // Entity render, light and animation API: the renderable-entity and light
 // lookups on a GameObject, the exported animation bridge and their bindings.
@@ -65,7 +66,7 @@ namespace ExtraUtilities::Lua::GameObject
 			{
 				light = obj->GetLight();
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault("[EXU::Light] Ogre light lookup crashed obj=%p code=0x%08X", obj, GetExceptionCode());
 				return nullptr;
@@ -116,7 +117,7 @@ namespace ExtraUtilities::Lua::GameObject
 			{
 				entity = obj->GetOgreEntity();
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault("[EXU::Material] Ogre pointer lookup crashed obj=%p code=0x%08X", obj, GetExceptionCode());
 				return nullptr;

@@ -21,6 +21,7 @@
 #include "Hook.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
+#include "LuaCppBarrier.h"
 
 namespace ExtraUtilities::Patch
 {
@@ -105,7 +106,7 @@ namespace ExtraUtilities::Patch
 
 		StackGuard guard(L);
 		BulletInitArgs args{ odf, shooter, transform, ordnanceHandle };
-		const int status = lua_cpcall(L, &ProtectedBulletInit, &args);
+		const int status = lua_cpcall(L, &Lua::CppBarrier<&ProtectedBulletInit>, &args);
 		if (status != 0)
 		{
 			LuaCheckStatus(status, L, "Extra Utilities BulletInit error:\n%s");

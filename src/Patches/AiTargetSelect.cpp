@@ -34,6 +34,7 @@
 #include "LuaHelpers.h"
 #include "LuaState.h"
 #include "Util/Logging.h"
+#include "Util/SehGuard.h"
 
 #include <Windows.h>
 
@@ -276,7 +277,7 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 				std::memcpy(&outRelative, site + 1, sizeof(outRelative));
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return false;
 			}
@@ -371,7 +372,7 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 				buffer[bufferLen - 1] = '\0';
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return false;
 			}
@@ -384,7 +385,7 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 				outValue = *reinterpret_cast<const uintptr_t*>(slotVa);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return false;
 			}
@@ -398,7 +399,20 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 					reinterpret_cast<uint8_t*>(process) + kProcessOwnerOffset);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return false;
+			}
+		}
+
+		bool TryGetHandleForObjectSeh(BZR::GameObject* object, BZR::handle* outHandle)
+		{
+			__try
+			{
+				*outHandle = BZR::GameObject::GetHandle(object);
+				return *outHandle != 0;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return false;
 			}
@@ -406,20 +420,12 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 
 		bool TryGetHandleForObject(BZR::GameObject* object, BZR::handle* outHandle)
 		{
-			__try
-			{
-				*outHandle = BZR::GameObject::GetHandle(object);
-				return *outHandle != 0;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				return false;
-			}
+			return Seh::CatchCpp("TryGetHandleForObject", [&] { return TryGetHandleForObjectSeh(object, outHandle); }, false);
 		}
 
 		// A handle returned from Lua is only accepted when the object it maps to
 		// round-trips back to the same handle; anything else is ignored.
-		bool TryResolveHandle(BZR::handle h, BZR::GameObject** outObject)
+		bool TryResolveHandleSeh(BZR::handle h, BZR::GameObject** outObject)
 		{
 			__try
 			{
@@ -435,13 +441,18 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 				*outObject = object;
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return false;
 			}
 		}
 
-		bool TryGetHorizontalDistanceSq(BZR::GameObject* first,
+		bool TryResolveHandle(BZR::handle h, BZR::GameObject** outObject)
+		{
+			return Seh::CatchCpp("TryResolveHandle", [&] { return TryResolveHandleSeh(h, outObject); }, false);
+		}
+
+		bool TryGetHorizontalDistanceSqSeh(BZR::GameObject* first,
 		                                BZR::GameObject* second,
 		                                float& outDistanceSq)
 		{
@@ -461,10 +472,17 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 				outDistanceSq = (dx * dx) + (dz * dz);
 				return std::isfinite(outDistanceSq);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return false;
 			}
+		}
+
+		bool TryGetHorizontalDistanceSq(BZR::GameObject* first,
+		                                BZR::GameObject* second,
+		                                float& outDistanceSq)
+		{
+			return Seh::CatchCpp("TryGetHorizontalDistanceSq", [&] { return TryGetHorizontalDistanceSqSeh(first, second, outDistanceSq); }, false);
 		}
 
 		BZR::GameObject* Dispatch(void* process, float* rangeLimit, ChooseAttackTargetFn original)

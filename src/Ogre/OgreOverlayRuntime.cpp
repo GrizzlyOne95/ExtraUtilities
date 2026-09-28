@@ -20,6 +20,7 @@
 
 #include "Ogre/Ogre.h"
 #include "Util/Logging.h"
+#include "Util/SehGuard.h"
 
 #include <cstdlib>
 
@@ -167,16 +168,12 @@ namespace ExtraUtilities::Lua::Overlay
 
 		bool TryAddRenderQueueListenerWithSeh(void* sceneManager, void* overlaySystem, AddRenderQueueListenerFn addListener)
 		{
-			__try
-			{
-				addListener(sceneManager, overlaySystem);
-				return true;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				Logging::LogMessage("[EXU::Overlay] addRenderQueueListener crashed sceneManager=%p overlaySystem=%p code=0x%08X", sceneManager, overlaySystem, GetExceptionCode());
-				return false;
-			}
+			return Seh::Guard(
+				"addRenderQueueListener",
+				[&] { addListener(sceneManager, overlaySystem); },
+				[&](unsigned long exceptionCode) {
+					Logging::LogMessage("[EXU::Overlay] addRenderQueueListener crashed sceneManager=%p overlaySystem=%p code=0x%08X", sceneManager, overlaySystem, exceptionCode);
+				});
 		}
 
 		RemoveRenderQueueListenerFn ResolveRemoveRenderQueueListener()
@@ -237,7 +234,7 @@ namespace ExtraUtilities::Lua::Overlay
 			{
 				sceneManager = ExtraUtilities::Ogre::sceneManager.Read();
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				Logging::LogMessage("[EXU::Overlay] scene manager lookup crashed code=0x%08X", GetExceptionCode());
 				return nullptr;
@@ -264,19 +261,21 @@ namespace ExtraUtilities::Lua::Overlay
 			}
 
 			std::memset(storage, 0, kOverlaySystemAllocSize);
-			__try
+			const bool constructed = Seh::Guard(
+				"OverlaySystem ctor",
+				[&] { ctor(storage); },
+				[&](unsigned long exceptionCode) {
+					Logging::LogMessage("[EXU::Overlay] OverlaySystem ctor crashed storage=%p code=0x%08X", storage, exceptionCode);
+				});
+			if (!constructed)
 			{
-				ctor(storage);
-				outOverlaySystem = storage;
-				Logging::LogMessage("[EXU::Overlay] OverlaySystem constructed instance=%p", outOverlaySystem);
-				return true;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				Logging::LogMessage("[EXU::Overlay] OverlaySystem ctor crashed storage=%p code=0x%08X", storage, GetExceptionCode());
 				std::free(storage);
 				return false;
 			}
+
+			outOverlaySystem = storage;
+			Logging::LogMessage("[EXU::Overlay] OverlaySystem constructed instance=%p", outOverlaySystem);
+			return true;
 		}
 
 		bool TryAttachOverlaySystemToSceneManager(void* sceneManager, void* overlaySystem)
@@ -335,14 +334,18 @@ namespace ExtraUtilities::Lua::Overlay
 					continue;
 				}
 
-				__try
+				const bool detached = Seh::Guard(
+					"removeRenderQueueListener",
+					[&] { removeListener(sceneManager, overlaySystem); },
+					[&](unsigned long exceptionCode) {
+						Logging::LogMessage("[EXU::Overlay] removeRenderQueueListener crashed sceneManager=%p overlaySystem=%p code=0x%08X", sceneManager, overlaySystem, exceptionCode);
+					});
+				if (detached)
 				{
-					removeListener(sceneManager, overlaySystem);
 					Logging::LogMessage("[EXU::Overlay] OverlaySystem detached sceneManager=%p overlaySystem=%p", sceneManager, overlaySystem);
 				}
-				__except (EXCEPTION_EXECUTE_HANDLER)
+				else
 				{
-					Logging::LogMessage("[EXU::Overlay] removeRenderQueueListener crashed sceneManager=%p overlaySystem=%p code=0x%08X", sceneManager, overlaySystem, GetExceptionCode());
 					allDetached = false;
 				}
 			}
@@ -368,20 +371,20 @@ namespace ExtraUtilities::Lua::Overlay
 			void* instance = overlaySystemInstance;
 			overlaySystemInstance = nullptr;
 
-			__try
+			if (Seh::Guard(
+					"OverlaySystem dtor",
+					[&] { dtor(instance); },
+					[&](unsigned long exceptionCode) {
+						Logging::LogMessage("[EXU::Overlay] OverlaySystem dtor crashed instance=%p code=0x%08X", instance, exceptionCode);
+					}))
 			{
-				dtor(instance);
 				Logging::LogMessage("[EXU::Overlay] OverlaySystem destroyed instance=%p", instance);
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				Logging::LogMessage("[EXU::Overlay] OverlaySystem dtor crashed instance=%p code=0x%08X", instance, GetExceptionCode());
 			}
 
 			std::free(instance);
 		}
 
-		bool TrySetViewportOverlaysEnabled(void* viewport, bool enabled)
+		bool TrySetViewportOverlaysEnabledSeh(void* viewport, bool enabled)
 		{
 			if (viewport == nullptr)
 			{
@@ -400,11 +403,16 @@ namespace ExtraUtilities::Lua::Overlay
 				fn(viewport, enabled);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				Logging::LogMessage("[EXU::Overlay] setOverlaysEnabled crashed viewport=%p enabled=%d code=0x%08X", viewport, enabled ? 1 : 0, GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TrySetViewportOverlaysEnabled(void* viewport, bool enabled)
+		{
+			return Seh::CatchCpp("TrySetViewportOverlaysEnabled", [&] { return TrySetViewportOverlaysEnabledSeh(viewport, enabled); }, false);
 		}
 	}
 
@@ -419,20 +427,25 @@ namespace ExtraUtilities::Lua::Overlay
 			return ogreOverlay;
 		}
 
-		::Ogre::OverlayManager* GetOverlayManagerRaw()
+		::Ogre::OverlayManager* GetOverlayManagerRawSeh()
 		{
 			__try
 			{
 				return ::Ogre::OverlayManager::getSingletonPtr();
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return nullptr;
 			}
 		}
 
+		::Ogre::OverlayManager* GetOverlayManagerRaw()
+		{
+			return Seh::CatchCpp("GetOverlayManagerRaw", [&] { return GetOverlayManagerRawSeh(); }, nullptr);
+		}
+
 		// Lookup that never creates overlay support; safe from hook context.
-		::Ogre::Overlay* FindExistingOverlay(const std::string& name)
+		::Ogre::Overlay* FindExistingOverlaySeh(const std::string& name)
 		{
 			::Ogre::OverlayManager* manager = GetOverlayManagerRaw();
 			if (manager == nullptr)
@@ -444,13 +457,18 @@ namespace ExtraUtilities::Lua::Overlay
 			{
 				return manager->getByName(name);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return nullptr;
 			}
 		}
 
-		bool TryGetRootSingleton(void*& outRoot)
+		::Ogre::Overlay* FindExistingOverlay(const std::string& name)
+		{
+			return Seh::CatchCpp("FindExistingOverlay", [&] { return FindExistingOverlaySeh(name); }, nullptr);
+		}
+
+		bool TryGetRootSingletonSeh(void*& outRoot)
 		{
 			outRoot = nullptr;
 			const auto fn = ResolveGetRootSingleton();
@@ -464,11 +482,16 @@ namespace ExtraUtilities::Lua::Overlay
 				outRoot = fn();
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				Logging::LogMessage("[EXU::Overlay] Root::getSingletonPtr crashed code=0x%08X", GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TryGetRootSingleton(void*& outRoot)
+		{
+			return Seh::CatchCpp("TryGetRootSingleton", [&] { return TryGetRootSingletonSeh(outRoot); }, false);
 		}
 
 		void EnsureOverlaySupport()
@@ -501,7 +524,7 @@ namespace ExtraUtilities::Lua::Overlay
 			}
 		}
 
-		bool TryGetRootRenderSystem(void* root, void*& outRenderSystem)
+		bool TryGetRootRenderSystemSeh(void* root, void*& outRenderSystem)
 		{
 			outRenderSystem = nullptr;
 			if (root == nullptr)
@@ -520,14 +543,19 @@ namespace ExtraUtilities::Lua::Overlay
 				outRenderSystem = fn(root);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				Logging::LogMessage("[EXU::Overlay] Root::getRenderSystem crashed root=%p code=0x%08X", root, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TryGetRenderSystemSharedListener(void*& outSharedListener)
+		bool TryGetRootRenderSystem(void* root, void*& outRenderSystem)
+		{
+			return Seh::CatchCpp("TryGetRootRenderSystem", [&] { return TryGetRootRenderSystemSeh(root, outRenderSystem); }, false);
+		}
+
+		bool TryGetRenderSystemSharedListenerSeh(void*& outSharedListener)
 		{
 			outSharedListener = nullptr;
 			const auto fn = ResolveGetRenderSystemSharedListener();
@@ -541,14 +569,19 @@ namespace ExtraUtilities::Lua::Overlay
 				outSharedListener = fn();
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				Logging::LogMessage("[EXU::Overlay] RenderSystem::getSharedListener crashed code=0x%08X", GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TryGetRenderSystemViewport(void* renderSystem, void*& outViewport)
+		bool TryGetRenderSystemSharedListener(void*& outSharedListener)
+		{
+			return Seh::CatchCpp("TryGetRenderSystemSharedListener", [&] { return TryGetRenderSystemSharedListenerSeh(outSharedListener); }, false);
+		}
+
+		bool TryGetRenderSystemViewportSeh(void* renderSystem, void*& outViewport)
 		{
 			outViewport = nullptr;
 			if (renderSystem == nullptr)
@@ -567,14 +600,19 @@ namespace ExtraUtilities::Lua::Overlay
 				outViewport = fn(renderSystem);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				Logging::LogMessage("[EXU::Overlay] RenderSystem::_getViewport crashed renderSystem=%p code=0x%08X", renderSystem, GetExceptionCode());
 				return false;
 			}
 		}
 
-		void* GetCurrentViewportForOverlay()
+		bool TryGetRenderSystemViewport(void* renderSystem, void*& outViewport)
+		{
+			return Seh::CatchCpp("TryGetRenderSystemViewport", [&] { return TryGetRenderSystemViewportSeh(renderSystem, outViewport); }, false);
+		}
+
+		void* GetCurrentViewportForOverlaySeh()
 		{
 			void* sceneManager = GetSceneManagerForOverlay();
 			if (sceneManager == nullptr)
@@ -586,14 +624,19 @@ namespace ExtraUtilities::Lua::Overlay
 			{
 				return ExtraUtilities::Ogre::GetCurrentViewport(sceneManager);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				Logging::LogMessage("[EXU::Overlay] current viewport lookup crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 				return nullptr;
 			}
 		}
 
-		bool TryGetViewportOverlaysEnabled(void* viewport, bool& outEnabled)
+		void* GetCurrentViewportForOverlay()
+		{
+			return Seh::CatchCpp("GetCurrentViewportForOverlay", [&] { return GetCurrentViewportForOverlaySeh(); }, nullptr);
+		}
+
+		bool TryGetViewportOverlaysEnabledSeh(void* viewport, bool& outEnabled)
 		{
 			outEnabled = false;
 			if (viewport == nullptr)
@@ -613,12 +656,17 @@ namespace ExtraUtilities::Lua::Overlay
 				outEnabled = fn(viewport);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				Logging::LogMessage("[EXU::Overlay] getOverlaysEnabled crashed viewport=%p code=0x%08X", viewport, GetExceptionCode());
 				outEnabled = false;
 				return false;
 			}
+		}
+
+		bool TryGetViewportOverlaysEnabled(void* viewport, bool& outEnabled)
+		{
+			return Seh::CatchCpp("TryGetViewportOverlaysEnabled", [&] { return TryGetViewportOverlaysEnabledSeh(viewport, outEnabled); }, [&] { outEnabled = false; return false; });
 		}
 	}
 }

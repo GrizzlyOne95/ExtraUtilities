@@ -21,6 +21,7 @@
 
 #include "Ogre/Ogre.h"
 #include "Util/Logging.h"
+#include "Util/SehGuard.h"
 
 #include <Windows.h>
 
@@ -104,7 +105,7 @@ namespace ExtraUtilities::Lua::Overlay
 			{
 				return *reinterpret_cast<const void* const*>(element);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return nullptr;
 			}
@@ -239,7 +240,7 @@ namespace ExtraUtilities::Lua::Overlay
 			return true;
 		}
 
-		bool TryCallPanelSetTransparent(::Ogre::PanelOverlayElement* element, bool transparent, unsigned int& outExceptionCode)
+		bool TryCallPanelSetTransparentSeh(::Ogre::PanelOverlayElement* element, bool transparent, unsigned int& outExceptionCode)
 		{
 			outExceptionCode = 0;
 			using Fn = void(__thiscall*)(void*, bool);
@@ -266,14 +267,19 @@ namespace ExtraUtilities::Lua::Overlay
 				fn(element, transparent);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
 		}
 
-		bool TryCallPanelSetTiling(::Ogre::PanelOverlayElement* element, float x, float y, unsigned short layer, unsigned int& outExceptionCode)
+		bool TryCallPanelSetTransparent(::Ogre::PanelOverlayElement* element, bool transparent, unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp("TryCallPanelSetTransparent", [&] { return TryCallPanelSetTransparentSeh(element, transparent, outExceptionCode); }, [&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
+		}
+
+		bool TryCallPanelSetTilingSeh(::Ogre::PanelOverlayElement* element, float x, float y, unsigned short layer, unsigned int& outExceptionCode)
 		{
 			outExceptionCode = 0;
 			using Fn = void(__thiscall*)(void*, float, float, unsigned short);
@@ -300,14 +306,19 @@ namespace ExtraUtilities::Lua::Overlay
 				fn(element, x, y, layer);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
 		}
 
-		bool TryCallPanelSetUV(::Ogre::PanelOverlayElement* element, float u1, float v1, float u2, float v2, unsigned int& outExceptionCode)
+		bool TryCallPanelSetTiling(::Ogre::PanelOverlayElement* element, float x, float y, unsigned short layer, unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp("TryCallPanelSetTiling", [&] { return TryCallPanelSetTilingSeh(element, x, y, layer, outExceptionCode); }, [&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
+		}
+
+		bool TryCallPanelSetUVSeh(::Ogre::PanelOverlayElement* element, float u1, float v1, float u2, float v2, unsigned int& outExceptionCode)
 		{
 			outExceptionCode = 0;
 			using Fn = void(__thiscall*)(void*, float, float, float, float);
@@ -334,14 +345,19 @@ namespace ExtraUtilities::Lua::Overlay
 				fn(element, u1, v1, u2, v2);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
 		}
 
-		bool TryCallBorderPanelSetBorderSize1(::Ogre::BorderPanelOverlayElement* element, float size, unsigned int& outExceptionCode)
+		bool TryCallPanelSetUV(::Ogre::PanelOverlayElement* element, float u1, float v1, float u2, float v2, unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp("TryCallPanelSetUV", [&] { return TryCallPanelSetUVSeh(element, u1, v1, u2, v2, outExceptionCode); }, [&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
+		}
+
+		bool TryCallBorderPanelSetBorderSize1Seh(::Ogre::BorderPanelOverlayElement* element, float size, unsigned int& outExceptionCode)
 		{
 			outExceptionCode = 0;
 			using Fn = void(__thiscall*)(void*, float);
@@ -368,14 +384,19 @@ namespace ExtraUtilities::Lua::Overlay
 				fn(element, size);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
 		}
 
-		bool TryCallBorderPanelSetBorderSize2(::Ogre::BorderPanelOverlayElement* element, float sides, float topBottom, unsigned int& outExceptionCode)
+		bool TryCallBorderPanelSetBorderSize1(::Ogre::BorderPanelOverlayElement* element, float size, unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp("TryCallBorderPanelSetBorderSize1", [&] { return TryCallBorderPanelSetBorderSize1Seh(element, size, outExceptionCode); }, [&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
+		}
+
+		bool TryCallBorderPanelSetBorderSize2Seh(::Ogre::BorderPanelOverlayElement* element, float sides, float topBottom, unsigned int& outExceptionCode)
 		{
 			outExceptionCode = 0;
 			using Fn = void(__thiscall*)(void*, float, float);
@@ -402,14 +423,19 @@ namespace ExtraUtilities::Lua::Overlay
 				fn(element, sides, topBottom);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
 		}
 
-		bool TryCallBorderPanelSetBorderSize4(
+		bool TryCallBorderPanelSetBorderSize2(::Ogre::BorderPanelOverlayElement* element, float sides, float topBottom, unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp("TryCallBorderPanelSetBorderSize2", [&] { return TryCallBorderPanelSetBorderSize2Seh(element, sides, topBottom, outExceptionCode); }, [&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
+		}
+
+		bool TryCallBorderPanelSetBorderSize4Seh(
 			::Ogre::BorderPanelOverlayElement* element,
 			float left,
 			float right,
@@ -442,14 +468,25 @@ namespace ExtraUtilities::Lua::Overlay
 				fn(element, left, right, top, bottom);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
 		}
 
-		bool TryCallBorderPanelSetBorderMaterial(
+		bool TryCallBorderPanelSetBorderSize4(
+			::Ogre::BorderPanelOverlayElement* element,
+			float left,
+			float right,
+			float top,
+			float bottom,
+			unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp("TryCallBorderPanelSetBorderSize4", [&] { return TryCallBorderPanelSetBorderSize4Seh(element, left, right, top, bottom, outExceptionCode); }, [&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
+		}
+
+		bool TryCallBorderPanelSetBorderMaterialSeh(
 			::Ogre::BorderPanelOverlayElement* element,
 			const std::string& materialName,
 			unsigned int& outExceptionCode)
@@ -479,14 +516,22 @@ namespace ExtraUtilities::Lua::Overlay
 				fn(element, materialName);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
 		}
 
-		bool TryCallTextAreaSetAlignment(
+		bool TryCallBorderPanelSetBorderMaterial(
+			::Ogre::BorderPanelOverlayElement* element,
+			const std::string& materialName,
+			unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp("TryCallBorderPanelSetBorderMaterial", [&] { return TryCallBorderPanelSetBorderMaterialSeh(element, materialName, outExceptionCode); }, [&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
+		}
+
+		bool TryCallTextAreaSetAlignmentSeh(
 			::Ogre::TextAreaOverlayElement* element,
 			::Ogre::TextAreaOverlayElement::Alignment alignment,
 			unsigned int& outExceptionCode)
@@ -516,14 +561,22 @@ namespace ExtraUtilities::Lua::Overlay
 				fn(element, alignment);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
 		}
 
-		bool TryCallTextAreaSetSpaceWidth(::Ogre::TextAreaOverlayElement* element, float width, unsigned int& outExceptionCode)
+		bool TryCallTextAreaSetAlignment(
+			::Ogre::TextAreaOverlayElement* element,
+			::Ogre::TextAreaOverlayElement::Alignment alignment,
+			unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp("TryCallTextAreaSetAlignment", [&] { return TryCallTextAreaSetAlignmentSeh(element, alignment, outExceptionCode); }, [&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
+		}
+
+		bool TryCallTextAreaSetSpaceWidthSeh(::Ogre::TextAreaOverlayElement* element, float width, unsigned int& outExceptionCode)
 		{
 			outExceptionCode = 0;
 			using Fn = void(__thiscall*)(void*, float);
@@ -550,14 +603,19 @@ namespace ExtraUtilities::Lua::Overlay
 				fn(element, width);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
 		}
 
-		bool TryCallTextAreaSetColourTop(
+		bool TryCallTextAreaSetSpaceWidth(::Ogre::TextAreaOverlayElement* element, float width, unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp("TryCallTextAreaSetSpaceWidth", [&] { return TryCallTextAreaSetSpaceWidthSeh(element, width, outExceptionCode); }, [&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
+		}
+
+		bool TryCallTextAreaSetColourTopSeh(
 			::Ogre::TextAreaOverlayElement* element,
 			const ::Ogre::ColourValue& color,
 			unsigned int& outExceptionCode)
@@ -587,14 +645,22 @@ namespace ExtraUtilities::Lua::Overlay
 				fn(element, color);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
 		}
 
-		bool TryCallTextAreaSetColourBottom(
+		bool TryCallTextAreaSetColourTop(
+			::Ogre::TextAreaOverlayElement* element,
+			const ::Ogre::ColourValue& color,
+			unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp("TryCallTextAreaSetColourTop", [&] { return TryCallTextAreaSetColourTopSeh(element, color, outExceptionCode); }, [&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
+		}
+
+		bool TryCallTextAreaSetColourBottomSeh(
 			::Ogre::TextAreaOverlayElement* element,
 			const ::Ogre::ColourValue& color,
 			unsigned int& outExceptionCode)
@@ -624,11 +690,19 @@ namespace ExtraUtilities::Lua::Overlay
 				fn(element, color);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
+		}
+
+		bool TryCallTextAreaSetColourBottom(
+			::Ogre::TextAreaOverlayElement* element,
+			const ::Ogre::ColourValue& color,
+			unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp("TryCallTextAreaSetColourBottom", [&] { return TryCallTextAreaSetColourBottomSeh(element, color, outExceptionCode); }, [&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
 		}
 	}
 
@@ -722,7 +796,7 @@ namespace ExtraUtilities::Lua::Overlay
 			element->::Ogre::OverlayElement::setColour(colour);
 		}
 
-		bool TryCallSetOverlayParameter(
+		bool TryCallSetOverlayParameterSeh(
 			bool(__thiscall* setParameter)(void*, const std::string&, const std::string&),
 			::Ogre::OverlayElement* element,
 			const std::string& name,
@@ -738,14 +812,28 @@ namespace ExtraUtilities::Lua::Overlay
 				outSuccess = setParameter(element, name, value);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
 		}
 
-		bool TryShowOverlay(::Ogre::Overlay* overlay, unsigned int& outExceptionCode)
+		bool TryCallSetOverlayParameter(
+			bool(__thiscall* setParameter)(void*, const std::string&, const std::string&),
+			::Ogre::OverlayElement* element,
+			const std::string& name,
+			const std::string& value,
+			bool& outSuccess,
+			unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp(
+				"TryCallSetOverlayParameter",
+				[&] { return TryCallSetOverlayParameterSeh(setParameter, element, name, value, outSuccess, outExceptionCode); },
+				[&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
+		}
+
+		bool TryShowOverlaySeh(::Ogre::Overlay* overlay, unsigned int& outExceptionCode)
 		{
 			outExceptionCode = 0;
 
@@ -754,14 +842,19 @@ namespace ExtraUtilities::Lua::Overlay
 				overlay->show();
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
 		}
 
-		bool TryHideOverlay(::Ogre::Overlay* overlay, unsigned int& outExceptionCode)
+		bool TryShowOverlay(::Ogre::Overlay* overlay, unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp("TryShowOverlay", [&] { return TryShowOverlaySeh(overlay, outExceptionCode); }, [&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
+		}
+
+		bool TryHideOverlaySeh(::Ogre::Overlay* overlay, unsigned int& outExceptionCode)
 		{
 			outExceptionCode = 0;
 
@@ -770,11 +863,16 @@ namespace ExtraUtilities::Lua::Overlay
 				overlay->hide();
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
+		}
+
+		bool TryHideOverlay(::Ogre::Overlay* overlay, unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp("TryHideOverlay", [&] { return TryHideOverlaySeh(overlay, outExceptionCode); }, [&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
 		}
 
 		ElementKind GetKnownElementKind(const std::string& elementName)

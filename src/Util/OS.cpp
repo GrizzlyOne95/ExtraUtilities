@@ -22,6 +22,7 @@
 #include "NativeSaveFlag.h"
 #include "SavePathPolicy.h"
 #include "RuntimeGate.h"
+#include "Util/SehGuard.h"
 
 #include <algorithm>
 #include <array>
@@ -567,7 +568,7 @@ namespace ExtraUtilities::Lua::OS
 				LogNativeSave("[EXU::SaveGame] resolved missionSave flag at 0x{:08X}", flagAddress);
 				return cached;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return nullptr;
 			}
@@ -619,7 +620,7 @@ namespace ExtraUtilities::Lua::OS
 				cached.saveFlag = saveFlag;
 				cached.commandLineSwitch = commandLineSwitch;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return {};
 			}
@@ -770,6 +771,63 @@ namespace ExtraUtilities::Lua::OS
 			return nullptr;
 		}
 
+		// Puts the save flags back after a failed save. Raw memory writes only.
+		void RestoreSaveFlags(MissionSaveFlag missionSaveFlag, uint8_t previous, volatile uint8_t* binarySaveFlag, uint8_t previousBinary) noexcept
+		{
+			__try
+			{
+				if (binarySaveFlag != nullptr)
+				{
+					*binarySaveFlag = previousBinary;
+				}
+				if (missionSaveFlag != nullptr)
+				{
+					*missionSaveFlag = previous;
+				}
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+			}
+		}
+
+		// SEH shell for the direct save. outFlagsSet tells the caller whether
+		// the flags were changed (and so need restoring) before a C++
+		// exception left the engine.
+		bool InvokeNativeNormalSaveGameSeh(
+			NativeSaveGameFn saveGame,
+			MissionSaveFlag missionSaveFlag,
+			const BinarySaveState& binarySave,
+			char* filename,
+			int saveType,
+			bool& wroteBinary,
+			DWORD& exceptionCode,
+			uint8_t& previous,
+			uint8_t& previousBinary,
+			bool& outFlagsSet)
+		{
+			__try
+			{
+				previous = *missionSaveFlag;
+				previousBinary = *binarySave.saveFlag;
+				wroteBinary = *binarySave.commandLineSwitch != 0;
+				outFlagsSet = true;
+				*missionSaveFlag = 0;
+				*binarySave.saveFlag = wroteBinary ? 1 : 0;
+				const bool saved = saveGame(filename, saveType);
+				*binarySave.saveFlag = previousBinary;
+				*missionSaveFlag = previous;
+				return saved;
+			}
+			__except (Seh::Filter(GetExceptionCode(), exceptionCode))
+			{
+				if (outFlagsSet)
+				{
+					RestoreSaveFlags(missionSaveFlag, previous, binarySave.saveFlag, previousBinary);
+				}
+				return false;
+			}
+		}
+
 		bool InvokeNativeNormalSaveGame(
 			NativeSaveGameFn saveGame,
 			MissionSaveFlag missionSaveFlag,
@@ -804,28 +862,47 @@ namespace ExtraUtilities::Lua::OS
 			// was written as text.
 			uint8_t previous = 0;
 			uint8_t previousBinary = 0;
+			bool flagsSet = false;
+			return Seh::CatchCpp(
+				"InvokeNativeNormalSaveGame",
+				[&] {
+					return InvokeNativeNormalSaveGameSeh(
+						saveGame, missionSaveFlag, binarySave, filename, saveType, wroteBinary, exceptionCode, previous, previousBinary, flagsSet);
+				},
+				[&] {
+					exceptionCode = Seh::kMsvcCppExceptionCode;
+					if (flagsSet)
+					{
+						RestoreSaveFlags(missionSaveFlag, previous, binarySave.saveFlag, previousBinary);
+					}
+					return false;
+				});
+		}
+
+		bool InvokeNativeSaveShellGameSeh(
+			NativeSaveShellGameFn saveShellGame,
+			MissionSaveFlag missionSaveFlag,
+			int slot,
+			const char* description,
+			DWORD& exceptionCode,
+			uint8_t& previous)
+		{
 			__try
 			{
-				previous = *missionSaveFlag;
-				previousBinary = *binarySave.saveFlag;
-				wroteBinary = *binarySave.commandLineSwitch != 0;
-				*missionSaveFlag = 0;
-				*binarySave.saveFlag = wroteBinary ? 1 : 0;
-				const bool saved = saveGame(filename, saveType);
-				*binarySave.saveFlag = previousBinary;
-				*missionSaveFlag = previous;
-				return saved;
-			}
-			__except (exceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
-			{
-				__try
+				if (missionSaveFlag != nullptr)
 				{
-					*binarySave.saveFlag = previousBinary;
+					previous = *missionSaveFlag;
+				}
+				const bool saved = saveShellGame(slot, description);
+				if (missionSaveFlag != nullptr)
+				{
 					*missionSaveFlag = previous;
 				}
-				__except (EXCEPTION_EXECUTE_HANDLER)
-				{
-				}
+				return saved;
+			}
+			__except (Seh::Filter(GetExceptionCode(), exceptionCode))
+			{
+				RestoreSaveFlags(missionSaveFlag, previous, nullptr, 0);
 				return false;
 			}
 		}
@@ -841,34 +918,17 @@ namespace ExtraUtilities::Lua::OS
 		{
 			exceptionCode = 0;
 
+			// previous is read before the engine can throw, so restoring it
+			// after a C++ exception is always correct.
 			uint8_t previous = 0;
-			__try
-			{
-				if (missionSaveFlag != nullptr)
-				{
-					previous = *missionSaveFlag;
-				}
-				const bool saved = saveShellGame(slot, description);
-				if (missionSaveFlag != nullptr)
-				{
-					*missionSaveFlag = previous;
-				}
-				return saved;
-			}
-			__except (exceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
-			{
-				__try
-				{
-					if (missionSaveFlag != nullptr)
-					{
-						*missionSaveFlag = previous;
-					}
-				}
-				__except (EXCEPTION_EXECUTE_HANDLER)
-				{
-				}
-				return false;
-			}
+			return Seh::CatchCpp(
+				"InvokeNativeSaveShellGame",
+				[&] { return InvokeNativeSaveShellGameSeh(saveShellGame, missionSaveFlag, slot, description, exceptionCode, previous); },
+				[&] {
+					exceptionCode = Seh::kMsvcCppExceptionCode;
+					RestoreSaveFlags(missionSaveFlag, previous, nullptr, 0);
+					return false;
+				});
 		}
 	}
 

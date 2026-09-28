@@ -29,6 +29,7 @@
 #include "Util/Logging.h"
 #include "Util/RuntimeGate.h"
 #include "LuaHelpers.h"
+#include "LuaCppBarrier.h"
 #include "LuaState.h"
 #include "OpenShimBridge.h"
 #include "Patches.h"
@@ -212,7 +213,7 @@ namespace ExtraUtilities::Lua
 
 				patch.originalRef = luaL_ref(L, LUA_REGISTRYINDEX);
 				lua_pushinteger(L, patch.originalRef);
-				lua_pushcclosure(L, PatchedSanitizedStockStringFunction, 1);
+				lua_pushcclosure(L, &CppBarrier<&PatchedSanitizedStockStringFunction>, 1);
 				lua_setglobal(L, patch.name);
 			}
 		}
@@ -262,7 +263,7 @@ namespace ExtraUtilities::Lua
 		int PatchedObjectiveObjects(lua_State* L)
 		{
 			lua_pushinteger(L, 0);
-			lua_pushcclosure(L, PatchedObjectiveObjectsNext, 1);
+			lua_pushcclosure(L, &CppBarrier<&PatchedObjectiveObjectsNext>, 1);
 			return 1;
 		}
 
@@ -288,13 +289,13 @@ namespace ExtraUtilities::Lua
 			}
 			g_originalSetObjectiveOffRef = luaL_ref(L, LUA_REGISTRYINDEX);
 
-			lua_pushcfunction(L, PatchedSetObjectiveOn);
+			lua_pushcfunction(L, &CppBarrier<&PatchedSetObjectiveOn>);
 			lua_setglobal(L, "SetObjectiveOn");
 
-			lua_pushcfunction(L, PatchedSetObjectiveOff);
+			lua_pushcfunction(L, &CppBarrier<&PatchedSetObjectiveOff>);
 			lua_setglobal(L, "SetObjectiveOff");
 
-			lua_pushcfunction(L, PatchedObjectiveObjects);
+			lua_pushcfunction(L, &CppBarrier<&PatchedObjectiveObjects>);
 			lua_setglobal(L, "ObjectiveObjects");
 
 			Logging::LogMessage("exu: patched stock ObjectiveObjects iterator");
@@ -1011,7 +1012,8 @@ namespace ExtraUtilities::Lua
 			return luaL_error(L, "Extra Utilities does not support this Battlezone 98 Redux build (Lua core mismatch)");
 		}
 
-		luaL_register(L, "exu", exuExports);
+		// Every binding runs behind the C++ exception barrier (LuaCppBarrier.h).
+		RegisterFunctions(L, "exu", exuExports);
 		Init(L);
 
 		if (!announced)

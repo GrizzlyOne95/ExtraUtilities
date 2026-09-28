@@ -17,6 +17,7 @@
 */
 
 #include "game_state.h"
+#include "Util/SehGuard.h"
 
 #include <Windows.h>
 #include <cstdint>
@@ -113,7 +114,7 @@ namespace ExtraUtilities
 				outState.gameUiOpen = outState.pauseMenuOpen || shellUiOpen;
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outState = {};
 				return false;
