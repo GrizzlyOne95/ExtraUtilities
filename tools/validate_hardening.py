@@ -76,9 +76,10 @@ def require_parity(label: str, definitions_path: str, runtime: set[str], definit
 
 
 SUB_API_TABLES = (
-    ("exu.animation", "src/Game/AnimationApi.cpp", "Definitions/Animation.lua", "animation"),
-    ("exu.storage", "src/Util/StorageApi.cpp", "Definitions/Storage.lua", "storage"),
-    ("exu.continuity", "src/Game/ContinuityApi.cpp", "Definitions/Continuity.lua", "continuity"),
+    ("exu.animation", "src/Game/AnimationApi.cpp", "Definitions/Animation.lua", "animation", "luaL_Reg functions[] = {"),
+    ("exu.fps", "src/Game/AnimationApi.cpp", "Definitions/Fps.lua", "fps", "luaL_Reg fpsFunctions[] = {"),
+    ("exu.storage", "src/Util/StorageApi.cpp", "Definitions/Storage.lua", "storage", "luaL_Reg functions[] = {"),
+    ("exu.continuity", "src/Game/ContinuityApi.cpp", "Definitions/Continuity.lua", "continuity", "luaL_Reg functions[] = {"),
 )
 
 
@@ -87,8 +88,8 @@ def check_api_parity() -> None:
     require_parity("exu", "Definitions/ExtraUtils.lua", runtime, documented_names("Definitions/ExtraUtils.lua", "exu"))
     total = len(runtime)
 
-    for label, source, definitions_path, table in SUB_API_TABLES:
-        sub_runtime = registered_names(source, "luaL_Reg functions[] = {")
+    for label, source, definitions_path, table, start_marker in SUB_API_TABLES:
+        sub_runtime = registered_names(source, start_marker)
         require_parity(label, definitions_path, sub_runtime, documented_names(definitions_path, table))
         total += len(sub_runtime)
 
