@@ -11,6 +11,7 @@
 #include "Game/PilotFsmIntercept.h"
 
 #include "EntryDetour32.h"
+#include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotState.h"
 #include "Util/Logging.h"
 #include "Util/RuntimeGate.h"
@@ -50,6 +51,9 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 		std::atomic<std::uint32_t> g_stateChanges{ 0 };
 		std::atomic<std::uint32_t> g_animationChanges{ 0 };
 		std::atomic<bool> g_hasLocalSample{ false };
+		std::atomic<bool> g_hasPolicyDecision{ false };
+		std::atomic<std::uint8_t> g_lastPolicyDecision{
+			static_cast<std::uint8_t>(PilotAnimationPolicy::Decision::PassThrough) };
 		std::atomic<std::uint32_t> g_lastBeforeState{ 0 };
 		std::atomic<std::uint32_t> g_lastAfterState{ 0 };
 		std::atomic<std::int32_t> g_lastBeforeAnimation{ -1 };
@@ -97,6 +101,14 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 			if (isLocal)
 			{
 				g_localCalls.fetch_add(1, std::memory_order_relaxed);
+
+				// Consulted before stock runs so an override has a defined ordering
+				// point relative to the native state it would replace. Only
+				// pass-through exists, so nothing below branches on the result.
+				g_lastPolicyDecision.store(
+					static_cast<std::uint8_t>(PilotAnimationPolicy::EvaluateActive(before.nativeState)),
+					std::memory_order_relaxed);
+				g_hasPolicyDecision.store(true, std::memory_order_relaxed);
 			}
 
 			// Install prepares the trampoline and publishes this pointer before
@@ -225,6 +237,10 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 		g_stateChanges.store(0, std::memory_order_relaxed);
 		g_animationChanges.store(0, std::memory_order_relaxed);
 		g_hasLocalSample.store(false, std::memory_order_relaxed);
+		g_hasPolicyDecision.store(false, std::memory_order_relaxed);
+		g_lastPolicyDecision.store(
+			static_cast<std::uint8_t>(PilotAnimationPolicy::Decision::PassThrough),
+			std::memory_order_relaxed);
 		g_lastBeforeState.store(0, std::memory_order_relaxed);
 		g_lastAfterState.store(0, std::memory_order_relaxed);
 		g_lastBeforeAnimation.store(-1, std::memory_order_relaxed);
@@ -240,6 +256,7 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 		outStats.active = IsActive();
 		outStats.observeOnly = true;
 		outStats.hasLocalSample = g_hasLocalSample.load(std::memory_order_relaxed);
+		outStats.hasPolicyDecision = g_hasPolicyDecision.load(std::memory_order_relaxed);
 		outStats.calls = g_calls.load(std::memory_order_relaxed);
 		outStats.localCalls = g_localCalls.load(std::memory_order_relaxed);
 		outStats.stateChanges = g_stateChanges.load(std::memory_order_relaxed);
@@ -252,5 +269,7 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 			g_lastBeforeAnimationHandle.load(std::memory_order_relaxed);
 		outStats.lastAfterAnimationHandle =
 			g_lastAfterAnimationHandle.load(std::memory_order_relaxed);
+		outStats.lastPolicyDecision = static_cast<PilotAnimationPolicy::Decision>(
+			g_lastPolicyDecision.load(std::memory_order_relaxed));
 	}
 }

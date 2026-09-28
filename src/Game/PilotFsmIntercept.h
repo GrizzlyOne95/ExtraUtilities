@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include "Game/PilotAnimationPolicy.h"
+
 #include <cstdint>
 
 namespace ExtraUtilities::Lua::PilotFsmIntercept
@@ -20,6 +22,7 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 		bool active = false;
 		bool observeOnly = true;
 		bool hasLocalSample = false;
+		bool hasPolicyDecision = false;
 
 		std::uint32_t calls = 0;
 		std::uint32_t localCalls = 0;
@@ -32,11 +35,18 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 		std::int32_t lastAfterAnimation = -1;
 		std::int32_t lastBeforeAnimationHandle = -1;
 		std::int32_t lastAfterAnimationHandle = -1;
+
+		// What the mission-scoped pilot animation policy told the seam to do for
+		// the most recent local call. Only meaningful when hasPolicyDecision.
+		PilotAnimationPolicy::Decision lastPolicyDecision =
+			PilotAnimationPolicy::Decision::PassThrough;
 	};
 
 	// Installs/activates the verified Person::Simulate entry detour. The hook is
-	// observe-only in this work chunk: it always calls the stock trampoline and
-	// performs no native writes before or after it.
+	// observe-only in this work chunk: it consults the mission-scoped pilot
+	// animation policy (which can only answer "pass through" today), always
+	// calls the stock trampoline, and performs no native writes before or after
+	// it.
 	bool Install() noexcept;
 
 	bool IsInstalled() noexcept;
