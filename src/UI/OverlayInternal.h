@@ -70,6 +70,9 @@ namespace ExtraUtilities::Lua::Overlay
 		extern bool overlaySuppressionActive;
 		extern volatile long overlayMissionSimulationState;
 		void EnsureOverlayRuntimeFont();
+		const char* GetOverlayRuntimeFontName() noexcept;
+		bool RegisterOverlayFontDirectory(const char* directory, unsigned int& outParsedScripts);
+		void ClearRegisteredOverlayFontDirectories() noexcept;
 		void SyncOverlayVisibilityState(const std::string& name, OverlayVisibilityState& visibilityState, const char* reason);
 		void RefreshOverlaySuppressionState(const char* reason, bool synchronizeVisibility = true);
 		void ForgetMissionShowRequests();
