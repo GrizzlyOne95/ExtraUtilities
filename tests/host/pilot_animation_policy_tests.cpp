@@ -12,6 +12,18 @@
 #include <initializer_list>
 #include <string>
 
+namespace
+{
+	// memcpy rather than strcpy: tests/host/run_msvc.cmd builds with /WX, where
+	// strcpy is a C4996 deprecation error.
+	void SetAnimation(
+		ExtraUtilities::Lua::PilotAnimationPolicy::TransitionPolicy& entry,
+		const char* name)
+	{
+		std::memcpy(entry.animation, name, std::strlen(name) + 1);
+	}
+}
+
 int main()
 {
 	using namespace ExtraUtilities::Lua::PilotAnimationPolicy;
@@ -145,7 +157,7 @@ int main()
 	{
 		Policy substitute{};
 		substitute.slots[static_cast<std::size_t>(Slot::EnterCrouch)].mode = Mode::Substitute;
-		std::strcpy(substitute.slots[static_cast<std::size_t>(Slot::EnterCrouch)].animation, "myKneel");
+		SetAnimation(substitute.slots[static_cast<std::size_t>(Slot::EnterCrouch)], "myKneel");
 		HostTest::Expect(!IsStockOnly(substitute), "a substitute slot is not stock-only");
 		HostTest::Expect(!IsSupported(substitute, kBuildSupport), "substitute is unsupported by this build");
 		HostTest::Expect(!SetActive(substitute), "SetActive refuses an unsupported substitute");
@@ -194,7 +206,7 @@ int main()
 
 		Policy published{};
 		published.slots[static_cast<std::size_t>(Slot::Land)].mode = Mode::Substitute;
-		std::strcpy(published.slots[static_cast<std::size_t>(Slot::Land)].animation, "flare");
+		SetAnimation(published.slots[static_cast<std::size_t>(Slot::Land)], "flare");
 		publisher.Publish(published);
 		HostTest::Expect(publisher.TryRead(read), "published policy is readable");
 		HostTest::Expect(read.At(Slot::Land).mode == Mode::Substitute &&
