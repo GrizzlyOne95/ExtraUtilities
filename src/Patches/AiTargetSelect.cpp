@@ -30,11 +30,14 @@
 #include "AiTargetSelect.h"
 
 #include "bzr.h"
+#include "Game/GameObjectHandle.h"
+#include "Util/MsvcRtti.h"
 #include "InlinePatch.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
 #include "Util/Logging.h"
 #include "Util/SehGuard.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <Windows.h>
 
@@ -56,13 +59,13 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 
 		// Validated 2026-07-12 against GOG battlezone98redux.exe (image base 0x400000).
 		constexpr uintptr_t kSlotByteOffset = 0xE4; // vtable slot 57
-		constexpr uintptr_t kSharedImplAddr = 0x00583500; // OffensiveProcess::ChooseAttackTarget
-		constexpr uintptr_t kScoutImplAddr  = 0x00614020; // ScoutProcess::ChooseAttackTarget
+		constexpr uintptr_t kSharedImplAddr = EngineAddresses::AiTargetSelect::OffensiveProcess_ChooseAttackTarget; // OffensiveProcess::ChooseAttackTarget
+		constexpr uintptr_t kScoutImplAddr  = EngineAddresses::AiTargetSelect::ScoutProcess_ChooseAttackTarget; // ScoutProcess::ChooseAttackTarget
 
 		// Offset of the searching GameObject inside the process, taken from the
 		// verified disassembly of both implementations (mov edx,[ecx+0x34]).
 		constexpr uintptr_t kProcessOwnerOffset = 0x34;
-		constexpr uintptr_t kVectorMagnitudeAddr = 0x00462070;
+		constexpr uintptr_t kVectorMagnitudeAddr = EngineAddresses::AiTargetSelect::VectorMagnitude;
 
 		// These are the six distance evaluations inside the two stock target
 		// searches. Replacing only their call destinations lets us adjust the
@@ -78,8 +81,8 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 		};
 
 		ScoreCallPatch g_scoreCalls[] = {
-			{ 0x004634A5, 0 }, { 0x00463593, 1 }, { 0x00463670, 2 },
-			{ 0x00463A46, 0 }, { 0x00463B34, 1 }, { 0x00463C11, 2 },
+			{ EngineAddresses::AiTargetSelect::ScoreCall0, 0 }, { EngineAddresses::AiTargetSelect::ScoreCall1, 1 }, { EngineAddresses::AiTargetSelect::ScoreCall2, 2 },
+			{ EngineAddresses::AiTargetSelect::ScoreCall3, 0 }, { EngineAddresses::AiTargetSelect::ScoreCall4, 1 }, { EngineAddresses::AiTargetSelect::ScoreCall5, 2 },
 		};
 
 		BZR::GameObject* __fastcall HookShared(void* process, void* edx, float* rangeLimit);
@@ -97,18 +100,19 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 		};
 
 		SlotPatch g_slots[] = {
-			{ ".?AVWingmanProcess@@",    0x0088A6EC, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
-			{ ".?AVRocketTankProcess@@", 0x0088A5C0, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
-			{ ".?AVTankProcess@@",       0x0088AB9C, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
-			{ ".?AVBomberProcess@@",     0x0088B178, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
-			{ ".?AVScoutProcess@@",      0x0088AF98, kScoutImplAddr,  reinterpret_cast<void*>(&HookScout),  nullptr },
+			{ ".?AVWingmanProcess@@",    EngineAddresses::AiTargetSelect::WingmanProcess_vftable, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
+			{ ".?AVRocketTankProcess@@", EngineAddresses::AiTargetSelect::RocketTankProcess_vftable, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
+			{ ".?AVTankProcess@@",       EngineAddresses::AiTargetSelect::TankProcess_vftable, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
+			{ ".?AVBomberProcess@@",     EngineAddresses::AiTargetSelect::BomberProcess_vftable, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
+			{ ".?AVScoutProcess@@",      EngineAddresses::AiTargetSelect::ScoutProcess_vftable, kScoutImplAddr,  reinterpret_cast<void*>(&HookScout),  nullptr },
 		};
 
 		bool g_inCallback = false;
 		bool g_inScoreCallback = false;
 		int g_scoreSearchDepth = 0;
 
-		bool TryGetHandleForObject(BZR::GameObject* object, BZR::handle* outHandle);
+		using Lua::GameObject::Detail::TryGetHandleFromObject;
+		using Lua::GameObject::Detail::TryResolveHandleValue;
 
 		float DispatchScore(const float* vector,
 		                    BZR::GameObject* owner,
@@ -141,8 +145,8 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 
 			BZR::handle ownerHandle = 0;
 			BZR::handle candidateHandle = 0;
-			if (!TryGetHandleForObject(owner, &ownerHandle) ||
-				!TryGetHandleForObject(candidate, &candidateHandle))
+			if (!TryGetHandleFromObject(owner, ownerHandle) ||
+				!TryGetHandleFromObject(candidate, candidateHandle))
 			{
 				return baseDistanceSq;
 			}
@@ -358,9 +362,8 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 		{
 			__try
 			{
-				const uintptr_t col = *reinterpret_cast<const uintptr_t*>(vftableVa - 4);
-				const uintptr_t typeDescriptor = *reinterpret_cast<const uintptr_t*>(col + 0x0C);
-				const char* name = reinterpret_cast<const char*>(typeDescriptor + 8);
+				const auto* vftable = reinterpret_cast<const MsvcRtti::CompleteObjectLocator* const*>(vftableVa);
+				const char* name = vftable[-1]->pTypeDescriptor->name;
 				for (size_t i = 0; i + 1 < bufferLen; ++i)
 				{
 					buffer[i] = name[i];
@@ -403,53 +406,6 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 			{
 				return false;
 			}
-		}
-
-		bool TryGetHandleForObjectSeh(BZR::GameObject* object, BZR::handle* outHandle)
-		{
-			__try
-			{
-				*outHandle = BZR::GameObject::GetHandle(object);
-				return *outHandle != 0;
-			}
-			__except (Seh::Filter(GetExceptionCode()))
-			{
-				return false;
-			}
-		}
-
-		bool TryGetHandleForObject(BZR::GameObject* object, BZR::handle* outHandle)
-		{
-			return Seh::CatchCpp("TryGetHandleForObject", [&] { return TryGetHandleForObjectSeh(object, outHandle); }, false);
-		}
-
-		// A handle returned from Lua is only accepted when the object it maps to
-		// round-trips back to the same handle; anything else is ignored.
-		bool TryResolveHandleSeh(BZR::handle h, BZR::GameObject** outObject)
-		{
-			__try
-			{
-				BZR::GameObject* object = BZR::GameObject::GetObj(h);
-				if (object == nullptr)
-				{
-					return false;
-				}
-				if (BZR::GameObject::GetHandle(object) != h)
-				{
-					return false;
-				}
-				*outObject = object;
-				return true;
-			}
-			__except (Seh::Filter(GetExceptionCode()))
-			{
-				return false;
-			}
-		}
-
-		bool TryResolveHandle(BZR::handle h, BZR::GameObject** outObject)
-		{
-			return Seh::CatchCpp("TryResolveHandle", [&] { return TryResolveHandleSeh(h, outObject); }, false);
 		}
 
 		bool TryGetHorizontalDistanceSqSeh(BZR::GameObject* first,
@@ -523,13 +479,13 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 			BZR::GameObject* owner = nullptr;
 			BZR::handle ownerHandle = 0;
 			if (!TryGetProcessOwner(process, &owner) || owner == nullptr ||
-				!TryGetHandleForObject(owner, &ownerHandle))
+				!TryGetHandleFromObject(owner, ownerHandle))
 			{
 				return candidate;
 			}
 
 			BZR::handle candidateHandle = 0;
-			if (candidate != nullptr && !TryGetHandleForObject(candidate, &candidateHandle))
+			if (candidate != nullptr && !TryGetHandleFromObject(candidate, candidateHandle))
 			{
 				return candidate;
 			}
@@ -583,8 +539,11 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 			{
 				const BZR::handle overrideHandle =
 					reinterpret_cast<BZR::handle>(lua_touserdata(L, -1));
+				// Only a handle whose object round-trips back to the same
+				// handle is accepted; anything else is ignored.
+				BZR::handle resolvedHandle = 0;
 				BZR::GameObject* overrideObject = nullptr;
-				if (overrideHandle != 0 && TryResolveHandle(overrideHandle, &overrideObject))
+				if (TryResolveHandleValue(overrideHandle, resolvedHandle, overrideObject))
 				{
 					result = overrideObject;
 				}
