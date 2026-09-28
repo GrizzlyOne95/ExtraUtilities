@@ -50,7 +50,7 @@ namespace ExtraUtilities::Lua::Patches
 
 		OpenShimSetUnderAttackAlertModeFn ResolveUnderAttackAlertBridge()
 		{
-			static constinit OpenShimBridge::LatchedExport<OpenShimSetUnderAttackAlertModeFn> bridge{
+			static constinit OpenShimBridge::CachedExport<OpenShimSetUnderAttackAlertModeFn> bridge{
 				"OpenShimSetUnderAttackAlertMode",
 				"[EXU::UnitVo] OpenShim under-attack alert bridge unavailable" };
 			return bridge.Get();
@@ -58,7 +58,7 @@ namespace ExtraUtilities::Lua::Patches
 
 		OpenShimSetTargetReticlePopupModeFn ResolveTargetReticlePopupBridge()
 		{
-			static constinit OpenShimBridge::LatchedExport<OpenShimSetTargetReticlePopupModeFn> bridge{
+			static constinit OpenShimBridge::CachedExport<OpenShimSetTargetReticlePopupModeFn> bridge{
 				"OpenShimSetTargetReticlePopupMode",
 				"[EXU::UnitVo] OpenShim target reticle popup bridge unavailable" };
 			return bridge.Get();
@@ -66,7 +66,7 @@ namespace ExtraUtilities::Lua::Patches
 
 		OpenShimSetBomberAiRangeEnabledFn ResolveBomberAiRangeBridge()
 		{
-			static constinit OpenShimBridge::LatchedExport<OpenShimSetBomberAiRangeEnabledFn> bridge{
+			static constinit OpenShimBridge::CachedExport<OpenShimSetBomberAiRangeEnabledFn> bridge{
 				"OpenShimSetBomberAiRangeEnabled",
 				"[EXU::UnitVo] OpenShim bomber AI range bridge unavailable" };
 			return bridge.Get();
@@ -74,7 +74,7 @@ namespace ExtraUtilities::Lua::Patches
 
 		OpenShimSetHowitzerVolleyEnabledFn ResolveHowitzerVolleyBridge()
 		{
-			static constinit OpenShimBridge::LatchedExport<OpenShimSetHowitzerVolleyEnabledFn> bridge{
+			static constinit OpenShimBridge::CachedExport<OpenShimSetHowitzerVolleyEnabledFn> bridge{
 				"OpenShimSetHowitzerVolleyEnabled",
 				"[EXU::UnitVo] OpenShim howitzer volley bridge unavailable" };
 			return bridge.Get();
@@ -82,7 +82,7 @@ namespace ExtraUtilities::Lua::Patches
 
 		OpenShimSetWeaponMaskCarrierBiasEnabledFn ResolveWeaponMaskCarrierBiasBridge()
 		{
-			static constinit OpenShimBridge::LatchedExport<OpenShimSetWeaponMaskCarrierBiasEnabledFn> bridge{
+			static constinit OpenShimBridge::CachedExport<OpenShimSetWeaponMaskCarrierBiasEnabledFn> bridge{
 				"OpenShimSetWeaponMaskCarrierBiasEnabled",
 				"[EXU::UnitVo] OpenShim weapon-mask carrier bias bridge unavailable" };
 			return bridge.Get();
@@ -90,7 +90,7 @@ namespace ExtraUtilities::Lua::Patches
 
         OpenShimSetAiOdfGameplayTuningEnabledFn ResolveAiOdfGameplayTuningBridge()
         {
-            static constinit OpenShimBridge::LatchedExport<OpenShimSetAiOdfGameplayTuningEnabledFn> bridge{
+            static constinit OpenShimBridge::CachedExport<OpenShimSetAiOdfGameplayTuningEnabledFn> bridge{
                 "OpenShimSetAiOdfGameplayTuningEnabled",
                 "[EXU::UnitVo] OpenShim AI ODF gameplay tuning bridge unavailable" };
             return bridge.Get();
@@ -98,7 +98,7 @@ namespace ExtraUtilities::Lua::Patches
 
         OpenShimSetAiUnitTuningFn ResolveAiUnitTuningSetBridge()
         {
-            static constinit OpenShimBridge::LatchedExport<OpenShimSetAiUnitTuningFn> bridge{
+            static constinit OpenShimBridge::CachedExport<OpenShimSetAiUnitTuningFn> bridge{
                 "OpenShimSetAiUnitTuning",
                 "[EXU::UnitVo] OpenShim per-unit AI tuning bridge unavailable" };
             return bridge.Get();
@@ -106,21 +106,21 @@ namespace ExtraUtilities::Lua::Patches
 
         OpenShimSetAiUnitTuningV2Fn ResolveAiUnitTuningSetV2Bridge()
         {
-            static constinit OpenShimBridge::LatchedExport<OpenShimSetAiUnitTuningV2Fn> bridge{
+            static constinit OpenShimBridge::CachedExport<OpenShimSetAiUnitTuningV2Fn> bridge{
                 "OpenShimSetAiUnitTuningV2" };
             return bridge.Get();
         }
 
         OpenShimSetAiUnitTuningV3Fn ResolveAiUnitTuningSetV3Bridge()
         {
-            static constinit OpenShimBridge::LatchedExport<OpenShimSetAiUnitTuningV3Fn> bridge{
+            static constinit OpenShimBridge::CachedExport<OpenShimSetAiUnitTuningV3Fn> bridge{
                 "OpenShimSetAiUnitTuningV3" };
             return bridge.Get();
         }
 
         OpenShimClearAiUnitTuningFn ResolveAiUnitTuningClearBridge()
         {
-            static constinit OpenShimBridge::LatchedExport<OpenShimClearAiUnitTuningFn> bridge{
+            static constinit OpenShimBridge::CachedExport<OpenShimClearAiUnitTuningFn> bridge{
                 "OpenShimClearAiUnitTuning",
                 "[EXU::UnitVo] OpenShim per-unit AI tuning clear bridge unavailable" };
             return bridge.Get();
@@ -128,7 +128,7 @@ namespace ExtraUtilities::Lua::Patches
 
         OpenShimClearAllAiUnitTuningFn ResolveAiUnitTuningClearAllBridge()
         {
-            static constinit OpenShimBridge::LatchedExport<OpenShimClearAllAiUnitTuningFn> bridge{
+            static constinit OpenShimBridge::CachedExport<OpenShimClearAllAiUnitTuningFn> bridge{
                 "OpenShimClearAllAiUnitTuning",
                 "[EXU::UnitVo] OpenShim per-unit AI tuning clear-all bridge unavailable" };
             return bridge.Get();
@@ -136,7 +136,7 @@ namespace ExtraUtilities::Lua::Patches
 
         OpenShimSetTurretAimPitchEnabledFn ResolveTurretAimPitchBridge()
         {
-            static constinit OpenShimBridge::LatchedExport<OpenShimSetTurretAimPitchEnabledFn> bridge{
+            static constinit OpenShimBridge::CachedExport<OpenShimSetTurretAimPitchEnabledFn> bridge{
                 "OpenShimSetTurretAimPitchEnabled",
                 "[EXU::UnitVo] OpenShim turret aim pitch bridge unavailable" };
             return bridge.Get();
@@ -144,7 +144,7 @@ namespace ExtraUtilities::Lua::Patches
 
         OpenShimSetAttackRevealEnabledFn ResolveAttackRevealBridge()
         {
-            static constinit OpenShimBridge::LatchedExport<OpenShimSetAttackRevealEnabledFn> bridge{
+            static constinit OpenShimBridge::CachedExport<OpenShimSetAttackRevealEnabledFn> bridge{
                 "OpenShimSetAttackRevealEnabled",
                 "[EXU::UnitVo] OpenShim attack reveal bridge unavailable" };
             return bridge.Get();
@@ -152,7 +152,7 @@ namespace ExtraUtilities::Lua::Patches
 
         OpenShimSetJumpSnipeCrouchEnabledFn ResolveJumpSnipeCrouchBridge()
         {
-            static constinit OpenShimBridge::LatchedExport<OpenShimSetJumpSnipeCrouchEnabledFn> bridge{
+            static constinit OpenShimBridge::CachedExport<OpenShimSetJumpSnipeCrouchEnabledFn> bridge{
                 "OpenShimSetJumpSnipeCrouchEnabled",
                 "[EXU::UnitVo] OpenShim jump-snipe crouch bridge unavailable" };
             return bridge.Get();
@@ -160,7 +160,7 @@ namespace ExtraUtilities::Lua::Patches
 
 		OpenShimResetMissionHookOverridesFn ResolveMissionHookResetBridge()
 		{
-			static constinit OpenShimBridge::LatchedExport<OpenShimResetMissionHookOverridesFn> bridge{
+			static constinit OpenShimBridge::CachedExport<OpenShimResetMissionHookOverridesFn> bridge{
 				"OpenShimResetMissionHookOverrides",
 				"[EXU::UnitVo] OpenShim mission-hook reset bridge unavailable" };
 			return bridge.Get();
