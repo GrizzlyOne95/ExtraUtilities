@@ -20,6 +20,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import re
 import struct
 import tempfile
 import unittest
@@ -315,6 +316,68 @@ class CatalogModeTests(unittest.TestCase):
             with contextlib.redirect_stdout(io.StringIO()):
                 code = q.main([str(plain), "--catalog", "--profile", str(root / "profile.json")])
             self.assertEqual(code, 0)
+
+
+# The rows of tests/host/pattern_parity_cases.inc, which
+# tests/host/pattern_parity_tests.cpp also checks against the C++ matchers.
+PARITY_CASES_PATH = Path(__file__).resolve().parents[1] / "tests" / "host" / "pattern_parity_cases.inc"
+PARITY_CASE_RE = re.compile(
+    r'^PARITY_CASE\(\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\)\s*$',
+    re.MULTILINE,
+)
+
+
+def load_parity_cases() -> list[tuple[str, str, str, list[int]]]:
+    text = PARITY_CASES_PATH.read_text(encoding="utf-8")
+    rows = PARITY_CASE_RE.findall(text)
+    declared = sum(1 for line in text.splitlines() if line.startswith("PARITY_CASE("))
+    if len(rows) != declared:
+        raise AssertionError(f"{declared - len(rows)} PARITY_CASE row(s) in {PARITY_CASES_PATH.name} do not parse")
+    return [
+        (name, pattern, haystack, [int(value) for value in offsets.split(",")] if offsets else [])
+        for name, pattern, haystack, offsets in rows
+    ]
+
+
+class PatternParityTests(unittest.TestCase):
+    """The qualifier must accept exactly what the DLL's PatternMatch.h accepts."""
+
+    BASE = 0x00400000
+
+    def image_for(self, name: str, data: bytes) -> q.PEImage:
+        # One executable section that is exactly the haystack, so there is no
+        # file-alignment padding for a trailing wildcard to match into.
+        section = q.Section(".text", 0, len(data), 0, len(data), q.IMAGE_SCN_MEM_EXECUTE)
+        return q.PEImage(path=Path(name), data=data, machine=q.IMAGE_FILE_MACHINE_I386,
+                         timestamp=0, image_base=self.BASE, sections=[section])
+
+    def state(self, image: q.PEImage, name: str, pattern: str, mode: str) -> str:
+        anchor = {"name": name, "source": "inline", "pattern": pattern, "match": mode}
+        if mode == "expected_va":
+            anchor["expected_va"] = hex(self.BASE)
+        return q.qualify_anchor(image, anchor, {})["state"]
+
+    def test_fixtures_are_present(self):
+        self.assertGreaterEqual(len(load_parity_cases()), 20)
+
+    def test_python_qualifier_agrees_with_fixtures(self):
+        for name, pattern, haystack, expected in load_parity_cases():
+            with self.subTest(name):
+                image = self.image_for(name, bytes.fromhex(haystack))
+                matches = image.find_pattern(q.parse_ida_pattern(pattern), executable_only=True)
+                self.assertEqual([va - self.BASE for va in matches], expected)
+
+                # BuildValidation: UniqueExecutable needs exactly one match and
+                # fails closed on an ambiguous signature.
+                unique = {0: "MISSING", 1: "MATCH"}.get(len(expected), "AMBIGUOUS")
+                self.assertEqual(self.state(image, name, pattern, "unique_executable"), unique)
+                self.assertEqual(self.state(image, name, pattern, "executable_contains"),
+                                 "MATCH" if expected else "MISSING")
+                if 0 in expected:
+                    at_zero = "MATCH"
+                else:
+                    at_zero = {0: "MISSING", 1: "RELOCATED"}.get(len(expected), "AMBIGUOUS")
+                self.assertEqual(self.state(image, name, pattern, "expected_va"), at_zero)
 
 
 if __name__ == "__main__":
