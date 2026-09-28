@@ -23,6 +23,7 @@
 #include "OpenShimBridge.h"
 #include "Util/Logging.h"
 #include "Util/RuntimeGate.h"
+#include "Util/SignatureResolver.h"
 #include "bzr.h"
 
 #include <Windows.h>
@@ -63,13 +64,6 @@ namespace ExtraUtilities::Patch
 
 	namespace
 	{
-		struct ExecutableSection
-		{
-			const uint8_t* address = nullptr;
-			size_t size = 0;
-			std::string name;
-		};
-
 		struct UnitVoQueueItem
 		{
 			char name[16];
@@ -137,93 +131,6 @@ namespace ExtraUtilities::Patch
 			return address >= start && address < start + nt->OptionalHeader.SizeOfImage;
 		}
 
-		std::vector<ExecutableSection> GetExecutableSections()
-		{
-			std::vector<ExecutableSection> sections;
-
-			HMODULE module = GetModuleHandleA("Battlezone98Redux.exe");
-			if (module == nullptr)
-			{
-				module = GetModuleHandleA(nullptr);
-			}
-
-			if (module == nullptr)
-			{
-				return sections;
-			}
-
-			auto* const base = reinterpret_cast<const uint8_t*>(module);
-			auto* const dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
-			if (dos->e_magic != IMAGE_DOS_SIGNATURE)
-			{
-				return sections;
-			}
-
-			auto* const nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
-			if (nt->Signature != IMAGE_NT_SIGNATURE)
-			{
-				return sections;
-			}
-
-			auto* section = IMAGE_FIRST_SECTION(nt);
-			for (WORD index = 0; index < nt->FileHeader.NumberOfSections; ++index, ++section)
-			{
-				if ((section->Characteristics & IMAGE_SCN_MEM_EXECUTE) == 0)
-				{
-					continue;
-				}
-
-				const size_t size = section->Misc.VirtualSize > section->SizeOfRawData
-					? static_cast<size_t>(section->Misc.VirtualSize)
-					: static_cast<size_t>(section->SizeOfRawData);
-				if (size == 0)
-				{
-					continue;
-				}
-
-				char sectionName[9]{};
-				std::memcpy(sectionName, section->Name, sizeof(section->Name));
-
-				sections.push_back({
-					base + section->VirtualAddress,
-					size,
-					sectionName
-				});
-			}
-
-			return sections;
-		}
-
-		const uint8_t* FindPattern(const uint8_t* start, size_t size, const auto& pattern)
-		{
-			if (start == nullptr || size < pattern.size())
-			{
-				return nullptr;
-			}
-
-			const size_t lastOffset = size - pattern.size();
-			for (size_t offset = 0; offset <= lastOffset; ++offset)
-			{
-				bool matched = true;
-				for (size_t index = 0; index < pattern.size(); ++index)
-				{
-					const int expected = pattern[index];
-					if (expected >= 0 && start[offset + index] != static_cast<uint8_t>(expected))
-					{
-						matched = false;
-						break;
-					}
-				}
-
-				if (matched)
-				{
-					return start + offset;
-				}
-			}
-
-			return nullptr;
-		}
-
 		uintptr_t ResolveRelativeCallTarget(uintptr_t callSite, const char* label)
 		{
 			if (callSite == 0)
@@ -252,7 +159,7 @@ namespace ExtraUtilities::Patch
 
 		uintptr_t ResolveCallSite(const auto& pattern, size_t callOffset, const char* label)
 		{
-			const auto sections = GetExecutableSections();
+			const auto sections = SignatureResolver::GetExecutableSections(GetModuleHandleA(nullptr));
 			if (sections.empty())
 			{
 				Logging::LogMessage("[EXU::UnitVo] failed to enumerate executable sections for %s", label);
@@ -261,7 +168,7 @@ namespace ExtraUtilities::Patch
 
 			for (const auto& section : sections)
 			{
-				const auto* match = FindPattern(section.address, section.size, pattern);
+				const auto* match = SignatureResolver::FindPattern(section.address, section.size, pattern);
 				if (match == nullptr)
 				{
 					continue;
