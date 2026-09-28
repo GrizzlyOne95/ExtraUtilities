@@ -87,7 +87,7 @@ namespace ExtraUtilities::Lua::PilotState
 			}
 		}
 
-		bool CaptureSeh(Snapshot& out) noexcept
+		bool CaptureSeh(const void* expectedPerson, Snapshot& out) noexcept
 		{
 			out = {};
 
@@ -101,7 +101,9 @@ namespace ExtraUtilities::Lua::PilotState
 				}
 
 				void* const person = *userObjectSlot;
-				if (person == nullptr || !IsPersonObjectSeh(person))
+				if (person == nullptr ||
+					(expectedPerson != nullptr && person != expectedPerson) ||
+					!IsPersonObjectSeh(person))
 				{
 					return false;
 				}
@@ -216,6 +218,17 @@ namespace ExtraUtilities::Lua::PilotState
 			return false;
 		}
 
-		return CaptureSeh(outSnapshot);
+		return CaptureSeh(nullptr, outSnapshot);
+	}
+
+	bool CaptureIfCurrent(const void* candidate, Snapshot& outSnapshot) noexcept
+	{
+		outSnapshot = {};
+		if (candidate == nullptr || !RuntimeGate::IsSupported())
+		{
+			return false;
+		}
+
+		return CaptureSeh(candidate, outSnapshot);
 	}
 }
