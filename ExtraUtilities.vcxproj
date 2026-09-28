@@ -146,6 +146,15 @@
     <ClCompile Include="src\dllmain.cpp" />
     <ClCompile Include="src\Patches\EngineFlameColor.cpp" />
     <ClCompile Include="src\Game\Environment.cpp" />
+    <ClCompile Include="src\Ogre\OgreParticleAbi.cpp" />
+    <ClCompile Include="src\Ogre\OgreSceneRuntime.cpp" />
+    <ClCompile Include="src\Game\SceneDebug.cpp" />
+    <ClCompile Include="src\Game\ViewportLightingMode.cpp" />
+    <ClCompile Include="src\Game\ParticleBindings.cpp" />
+    <ClCompile Include="src\Game\ParticleRuntime.cpp" />
+    <ClCompile Include="src\Game\EnvironmentSky.cpp" />
+    <ClCompile Include="src\Game\EnvironmentLighting.cpp" />
+    <ClCompile Include="src\Game\EnvironmentLog.cpp" />
     <ClCompile Include="src\Game\RenderEffects.cpp" />
     <ClCompile Include="src\Game\GameObject.cpp" />
     <ClCompile Include="src\Ogre\OgreEntityRuntime.cpp" />
@@ -206,6 +215,10 @@
     <ClInclude Include="src\UI\ControlPanel.h" />
     <ClInclude Include="src\Patches\EngineFlameColor.h" />
     <ClInclude Include="src\Game\Environment.h" />
+    <ClInclude Include="src\Ogre\OgreParticleAbi.h" />
+    <ClInclude Include="src\Ogre\OgreSceneRuntime.h" />
+    <ClInclude Include="src\Game\EnvironmentLog.h" />
+    <ClInclude Include="src\Game\EnvironmentInternal.h" />
     <ClInclude Include="include\ExtraUtils.h" />
     <ClInclude Include="src\Exports.h" />
     <ClInclude Include="src\Game\GameObject.h" />
