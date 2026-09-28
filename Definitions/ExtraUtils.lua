@@ -1307,10 +1307,27 @@ function exu.SetOverlayColor(name, color) end
 function exu.SetOverlayCaption(name, text) end
 
 --- Sets the font name of a text area created through `CreateOverlayElement("TextArea", ...)`.
+---
+--- `"CRBZoneOverlayFont"` is EXU's default overlay font (the name is kept for Campaign Reimagined
+--- compatibility). EXU builds it on first use from `CRBZoneOverlay.fontdef` or `BZONE.ttf`, found first in
+--- directories registered with `exu.AddOverlayFontDirectory`, then in an `OverlayFont` folder next to EXU,
+--- the game root, `addon`, `mods`, `packaged_mods` or the Steam Workshop content folder; with none of those
+--- it is built from the stock `bzfont.dds`. Any other name must already be a loaded Ogre font, for example
+--- one defined by a `.fontdef` in a registered directory.
 --- @param name string
 --- @param fontName string
---- @return boolean success True when the font was bound successfully.
+--- @return boolean success True when the font was bound successfully; false for an unknown font name.
 function exu.SetOverlayTextFont(name, fontName) end
+
+--- Registers a directory of overlay font assets for this mission (cleared when the mission's Lua state closes).
+--- `directory` is absolute or relative to the game root. The directory, and an `OverlayFont` folder inside it,
+--- are searched before EXU's built-in locations for the default font's assets; call it before the first
+--- `SetOverlayTextFont`, since the default font is built once per game session. Every other `.fontdef` in the
+--- directory is parsed, so the fonts it defines can be bound by name with `exu.SetOverlayTextFont`.
+--- @param directory string
+--- @return boolean registered false when the path is not an existing directory or Ogre rejected it
+--- @return integer parsedScripts number of font scripts parsed from the directory
+function exu.AddOverlayFontDirectory(directory) end
 
 --- Sets the top and bottom text colors of a text area created through `CreateOverlayElement("TextArea", ...)`.
 --- Can take either four number parameters or a color table.
@@ -2055,10 +2072,11 @@ function exu.GetOrdnanceAttribute(ordnanceHandle, attribute) end
 function exu.GetCoeffBallistic() end
 
 --- Sets the global ballistic coefficient.
----
---- Multiplayer remarks: this is clientside, it should be set to the same value on ALL clients
---- if you changed it at any point.
+--- In multiplayer this is local to each machine: every peer's mission script must make the same call,
+--- or mortar trajectories differ between peers. EXU restores the pre-mission value when the mission's
+--- Lua state closes. Raises an error for a non-finite value.
 --- @param coeff number
+--- @return boolean applied false on an unqualified game build
 function exu.SetCoeffBallistic(coeff) end
 
 --- OS

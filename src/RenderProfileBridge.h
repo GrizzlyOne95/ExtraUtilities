@@ -76,15 +76,19 @@ namespace ExtraUtilities::RenderProfileBridge
 	using GetCapabilitiesFn = DWORD(WINAPI*)();
 	using SupportsFn = BOOL(WINAPI*)(DWORD);
 
-	inline bool HasRenderProfileApi() noexcept
-	{
-		return OpenShimBridge::HasExport("OpenShimRequestRenderProfile");
-	}
-
 	inline std::uint32_t ApiVersion() noexcept
 	{
 		const auto fn = OpenShimBridge::Resolve<GetApiVersionFn>("OpenShimGetRenderApiVersion");
 		return fn ? fn() : 0u;
+	}
+
+	// A live provider can still lack this family when winmm.dll is newer than
+	// plugins\openshim.dll; the thunk then returns 0, which is AppliedLive for
+	// OpenShimRequestRenderProfile. The version export shipped in the same
+	// OpenShim change and is never 0 when implemented, so it is the probe.
+	inline bool HasRenderProfileApi() noexcept
+	{
+		return OpenShimBridge::HasExport("OpenShimRequestRenderProfile") && ApiVersion() != 0u;
 	}
 
 	// Forwards a content render-profile request to OpenShim. Returns false
@@ -93,7 +97,7 @@ namespace ExtraUtilities::RenderProfileBridge
 	inline bool Forward(Request request) noexcept
 	{
 		const auto fn = OpenShimBridge::Resolve<RequestFn>("OpenShimRequestRenderProfile");
-		if (!fn)
+		if (!fn || ApiVersion() == 0u)
 		{
 			return false;
 		}

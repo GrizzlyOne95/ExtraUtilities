@@ -52,6 +52,7 @@ namespace ExtraUtilities::Lua::Overlay
 	int SetOverlayColor(lua_State* L);
 	int SetOverlayCaption(lua_State* L);
 	int SetOverlayTextFont(lua_State* L);
+	int AddOverlayFontDirectory(lua_State* L);
 	int SetOverlayTextColor(lua_State* L);
 	int SetOverlayTextCharHeight(lua_State* L);
 }

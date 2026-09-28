@@ -398,6 +398,7 @@ namespace ExtraUtilities::Lua::Overlay
 			knownElements.clear();
 			overlayVisibilityStates.clear();
 		}
+		ClearRegisteredOverlayFontDirectories();
 		DestroyOverlayPauseHooks();
 	}
 
@@ -982,10 +983,23 @@ namespace ExtraUtilities::Lua::Overlay
 			return 1;
 		}
 
+		// Only EXU's default font depends on the runtime font assets; any other
+		// font is bound when Ogre already knows it (for example one defined by
+		// a script registered through AddOverlayFontDirectory). Checking first
+		// keeps a missing name from clearing the element's current font.
 		EnsureOverlayRuntimeFont();
-		if (!overlayRuntimeFontReady)
+		if (fontName == GetOverlayRuntimeFontName())
 		{
-			Logging::LogMessage("[EXU::Overlay] SetOverlayTextFont skipped name=%s font=%s runtimeFontReady=0", name.c_str(), fontName.c_str());
+			if (!overlayRuntimeFontReady)
+			{
+				Logging::LogMessage("[EXU::Overlay] SetOverlayTextFont skipped name=%s font=%s runtimeFontReady=0", name.c_str(), fontName.c_str());
+				lua_pushboolean(L, 0);
+				return 1;
+			}
+		}
+		else if (!Native::TryHasFontResource(fontName.c_str(), nullptr))
+		{
+			Logging::LogMessage("[EXU::Overlay] SetOverlayTextFont skipped name=%s font=%s reason=unknown-font", name.c_str(), fontName.c_str());
 			lua_pushboolean(L, 0);
 			return 1;
 		}
@@ -997,6 +1011,16 @@ namespace ExtraUtilities::Lua::Overlay
 		}
 		lua_pushboolean(L, success ? 1 : 0);
 		return 1;
+	}
+
+	int AddOverlayFontDirectory(lua_State* L)
+	{
+		const char* directory = luaL_checkstring(L, 1);
+		unsigned int parsedScripts = 0;
+		const bool registered = RegisterOverlayFontDirectory(directory, parsedScripts);
+		lua_pushboolean(L, registered ? 1 : 0);
+		lua_pushinteger(L, static_cast<lua_Integer>(parsedScripts));
+		return 2;
 	}
 
 	int SetOverlayTextColor(lua_State* L)
