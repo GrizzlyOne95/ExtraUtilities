@@ -5288,12 +5288,7 @@ namespace ExtraUtilities::Lua::GameObject
 		lua_pushnumber(L, task->shotSpeedInv);
 		lua_setfield(L, -2, "shotSpeedInv");
 
-		bool turboEnabled = false;
-		if (Patch::setTurboUnits.contains(h))
-		{
-			turboEnabled = Patch::setTurboUnits.at(h);
-		}
-		lua_pushboolean(L, turboEnabled);
+		lua_pushboolean(L, Patch::GetUnitTurboOverride(h));
 		lua_setfield(L, -2, "turbo");
 
 		return 1;
@@ -5430,7 +5425,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 		if (request.hasTurbo)
 		{
-			Patch::setTurboUnits[h] = request.turbo;
+			Patch::SetUnitTurboOverride(h, request.turbo);
 		}
 
 		if (Logging::IsDebugLoggingEnabled())
