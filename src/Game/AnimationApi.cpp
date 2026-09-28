@@ -182,7 +182,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 					lua_pushnil(L);
 					return 1;
 				}
-				lua_createtable(L, 0, 6);
+				lua_createtable(L, 0, 5);
 				lua_pushboolean(L, info.enabled ? 1 : 0);
 				lua_setfield(L, -2, "enabled");
 				lua_pushboolean(L, info.loop ? 1 : 0);
@@ -303,7 +303,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 		int GetCapabilities(lua_State* L)
 		{
-			lua_createtable(L, 0, 5);
+			lua_createtable(L, 0, 6);
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "gameObjectTarget");
 			const bool hasFpBridge = OpenShimBridge::HasLocalFirstPersonEntityBridge();
