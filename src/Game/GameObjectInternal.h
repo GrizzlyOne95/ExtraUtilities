@@ -22,6 +22,7 @@
 #include "Ogre/OgreEntityRuntime.h"
 
 #include "GameObject.h"
+#include "GameObjectHandle.h"
 
 #include "Patches/GlobalTurbo.h"
 #include "Util/Logging.h"
@@ -184,8 +185,6 @@ namespace ExtraUtilities::Lua::GameObject
 		bool TryReadUInt32Field(void* base, uint32_t offset, uint32_t& outValue);
 		bool TryInterpretFloat(uint32_t rawValue, float& outValue);
 		bool IsReadablePointer(const void* pointer);
-		bool TryResolveHandleValue(uint32_t rawValue, BZR::handle& outHandle, BZR::GameObject*& outObject);
-		bool TryGetHandleFromObject(BZR::GameObject* obj, BZR::handle& outHandle);
 		bool TryGetClassLabelFromLua(lua_State* L, BZR::handle h, std::string& outClassLabel);
 		void* GetRenderableEntity(BZR::GameObject* obj);
 		void* GetRenderableEntity(BZR::handle h);

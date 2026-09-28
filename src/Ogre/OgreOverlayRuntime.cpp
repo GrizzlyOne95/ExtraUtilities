@@ -40,129 +40,46 @@ namespace ExtraUtilities::Lua::Overlay
 		using GetRootRenderSystemFn = void*(__thiscall*)(void*);
 		using GetRenderSystemSharedListenerFn = void*(*)();
 		using GetRenderSystemViewportFn = void*(__thiscall*)(void*);
-		HMODULE GetOgreMainModule()
-		{
-			static HMODULE ogreMain = GetModuleHandleA("OgreMain.dll");
-			return ogreMain;
-		}
-
 		GetViewportOverlaysEnabledFn ResolveGetViewportOverlaysEnabled()
 		{
-			static GetViewportOverlaysEnabledFn fn = []()
-			{
-				HMODULE ogreMain = GetOgreMainModule();
-				if (ogreMain == nullptr)
-				{
-					return static_cast<GetViewportOverlaysEnabledFn>(nullptr);
-				}
-
-				return reinterpret_cast<GetViewportOverlaysEnabledFn>(
-					GetProcAddress(ogreMain, "?getOverlaysEnabled@Viewport@Ogre@@QBE_NXZ"));
-			}();
-
-			return fn;
+			static constinit OgreProc<GetViewportOverlaysEnabledFn> fn{ "?getOverlaysEnabled@Viewport@Ogre@@QBE_NXZ" };
+			return fn.Get();
 		}
 
 		SetViewportOverlaysEnabledFn ResolveSetViewportOverlaysEnabled()
 		{
-			static SetViewportOverlaysEnabledFn fn = []()
-			{
-				HMODULE ogreMain = GetOgreMainModule();
-				if (ogreMain == nullptr)
-				{
-					return static_cast<SetViewportOverlaysEnabledFn>(nullptr);
-				}
-
-				return reinterpret_cast<SetViewportOverlaysEnabledFn>(
-					GetProcAddress(ogreMain, "?setOverlaysEnabled@Viewport@Ogre@@QAEX_N@Z"));
-			}();
-
-			return fn;
+			static constinit OgreProc<SetViewportOverlaysEnabledFn> fn{ "?setOverlaysEnabled@Viewport@Ogre@@QAEX_N@Z" };
+			return fn.Get();
 		}
 
 		GetRootSingletonFn ResolveGetRootSingleton()
 		{
-			static GetRootSingletonFn fn = []()
-			{
-				HMODULE ogreMain = GetOgreMainModule();
-				if (ogreMain == nullptr)
-				{
-					return static_cast<GetRootSingletonFn>(nullptr);
-				}
-
-				return reinterpret_cast<GetRootSingletonFn>(
-					GetProcAddress(ogreMain, "?getSingletonPtr@Root@Ogre@@SAPAV12@XZ"));
-			}();
-
-			return fn;
+			static constinit OgreProc<GetRootSingletonFn> fn{ "?getSingletonPtr@Root@Ogre@@SAPAV12@XZ" };
+			return fn.Get();
 		}
 
 		GetRootRenderSystemFn ResolveGetRootRenderSystem()
 		{
-			static GetRootRenderSystemFn fn = []()
-			{
-				HMODULE ogreMain = GetOgreMainModule();
-				if (ogreMain == nullptr)
-				{
-					return static_cast<GetRootRenderSystemFn>(nullptr);
-				}
-
-				return reinterpret_cast<GetRootRenderSystemFn>(
-					GetProcAddress(ogreMain, "?getRenderSystem@Root@Ogre@@QAEPAVRenderSystem@2@XZ"));
-			}();
-
-			return fn;
+			static constinit OgreProc<GetRootRenderSystemFn> fn{ "?getRenderSystem@Root@Ogre@@QAEPAVRenderSystem@2@XZ" };
+			return fn.Get();
 		}
 
 		GetRenderSystemSharedListenerFn ResolveGetRenderSystemSharedListener()
 		{
-			static GetRenderSystemSharedListenerFn fn = []()
-			{
-				HMODULE ogreMain = GetOgreMainModule();
-				if (ogreMain == nullptr)
-				{
-					return static_cast<GetRenderSystemSharedListenerFn>(nullptr);
-				}
-
-				return reinterpret_cast<GetRenderSystemSharedListenerFn>(
-					GetProcAddress(ogreMain, "?getSharedListener@RenderSystem@Ogre@@SAPAVListener@12@XZ"));
-			}();
-
-			return fn;
+			static constinit OgreProc<GetRenderSystemSharedListenerFn> fn{ "?getSharedListener@RenderSystem@Ogre@@SAPAVListener@12@XZ" };
+			return fn.Get();
 		}
 
 		GetRenderSystemViewportFn ResolveGetRenderSystemViewport()
 		{
-			static GetRenderSystemViewportFn fn = []()
-			{
-				HMODULE ogreMain = GetOgreMainModule();
-				if (ogreMain == nullptr)
-				{
-					return static_cast<GetRenderSystemViewportFn>(nullptr);
-				}
-
-				return reinterpret_cast<GetRenderSystemViewportFn>(
-					GetProcAddress(ogreMain, "?_getViewport@RenderSystem@Ogre@@UAEPAVViewport@2@XZ"));
-			}();
-
-			return fn;
+			static constinit OgreProc<GetRenderSystemViewportFn> fn{ "?_getViewport@RenderSystem@Ogre@@UAEPAVViewport@2@XZ" };
+			return fn.Get();
 		}
 
 		AddRenderQueueListenerFn ResolveAddRenderQueueListener()
 		{
-			static AddRenderQueueListenerFn fn = []()
-			{
-				HMODULE ogreMain = GetOgreMainModule();
-				if (ogreMain == nullptr)
-				{
-					return static_cast<AddRenderQueueListenerFn>(nullptr);
-				}
-
-				return reinterpret_cast<AddRenderQueueListenerFn>(
-					GetProcAddress(ogreMain, "?addRenderQueueListener@SceneManager@Ogre@@UAEXPAVRenderQueueListener@2@@Z"));
-			}();
-
-			return fn;
+			static constinit OgreProc<AddRenderQueueListenerFn> fn{ "?addRenderQueueListener@SceneManager@Ogre@@UAEXPAVRenderQueueListener@2@@Z" };
+			return fn.Get();
 		}
 
 		bool TryAddRenderQueueListenerWithSeh(void* sceneManager, void* overlaySystem, AddRenderQueueListenerFn addListener)
@@ -181,53 +98,20 @@ namespace ExtraUtilities::Lua::Overlay
 
 		RemoveRenderQueueListenerFn ResolveRemoveRenderQueueListener()
 		{
-			static RemoveRenderQueueListenerFn fn = []()
-			{
-				HMODULE ogreMain = GetOgreMainModule();
-				if (ogreMain == nullptr)
-				{
-					return static_cast<RemoveRenderQueueListenerFn>(nullptr);
-				}
-
-				return reinterpret_cast<RemoveRenderQueueListenerFn>(
-					GetProcAddress(ogreMain, "?removeRenderQueueListener@SceneManager@Ogre@@UAEXPAVRenderQueueListener@2@@Z"));
-			}();
-
-			return fn;
+			static constinit OgreProc<RemoveRenderQueueListenerFn> fn{ "?removeRenderQueueListener@SceneManager@Ogre@@UAEXPAVRenderQueueListener@2@@Z" };
+			return fn.Get();
 		}
 
 		OverlaySystemCtorFn ResolveOverlaySystemCtor()
 		{
-			static OverlaySystemCtorFn fn = []()
-			{
-				HMODULE ogreOverlay = GetOgreOverlayModule();
-				if (ogreOverlay == nullptr)
-				{
-					return static_cast<OverlaySystemCtorFn>(nullptr);
-				}
-
-				return reinterpret_cast<OverlaySystemCtorFn>(
-					GetProcAddress(ogreOverlay, "??0OverlaySystem@Ogre@@QAE@XZ"));
-			}();
-
-			return fn;
+			static constinit OgreProc<OverlaySystemCtorFn> fn{ OgreModule::Overlay, "??0OverlaySystem@Ogre@@QAE@XZ" };
+			return fn.Get();
 		}
 
 		OverlaySystemDtorFn ResolveOverlaySystemDtor()
 		{
-			static OverlaySystemDtorFn fn = []()
-			{
-				HMODULE ogreOverlay = GetOgreOverlayModule();
-				if (ogreOverlay == nullptr)
-				{
-					return static_cast<OverlaySystemDtorFn>(nullptr);
-				}
-
-				return reinterpret_cast<OverlaySystemDtorFn>(
-					GetProcAddress(ogreOverlay, "??1OverlaySystem@Ogre@@UAE@XZ"));
-			}();
-
-			return fn;
+			static constinit OgreProc<OverlaySystemDtorFn> fn{ OgreModule::Overlay, "??1OverlaySystem@Ogre@@UAE@XZ" };
+			return fn.Get();
 		}
 
 		void* GetSceneManagerForOverlay()
@@ -412,12 +296,6 @@ namespace ExtraUtilities::Lua::Overlay
 	{
 		std::unordered_set<void*> attachedOverlaySceneManagers;
 		void* overlaySystemInstance = nullptr;
-
-		HMODULE GetOgreOverlayModule()
-		{
-			static HMODULE ogreOverlay = GetModuleHandleA("OgreOverlay.dll");
-			return ogreOverlay;
-		}
 
 		::Ogre::OverlayManager* GetOverlayManagerRaw()
 		{
