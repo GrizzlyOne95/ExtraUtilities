@@ -26,9 +26,14 @@
 
 #include "Util/RuntimeGate.h"
 #include "Util/Vec3.h"
+#include "Util/EngineAddresses.generated.h"
 
 namespace BZR
 {
+	// Engine addresses come from exu.json through the generated header;
+	// tools/validate_hardening.py rejects raw engine literals in src/.
+	namespace EngineAddresses = ::ExtraUtilities::EngineAddresses;
+
 	// Typedefs
 	using handle = unsigned int; // internally handles are unsigned ints
 
@@ -131,12 +136,12 @@ namespace BZR
 
 	namespace Camera
 	{
-		inline auto View_Record_MainCam = (BZR_Camera*)0x008EAAE0;
+		inline auto View_Record_MainCam = (BZR_Camera*)EngineAddresses::Camera::View_Record_MainCam;
 
-		inline auto zoomFactorFPP = (float*)0x008EAD10;
-		inline auto zoomFactorTPP = (float*)0x008EAB10;
-		inline auto maxZoomFactor = (float*)0x008A2688;
-		inline auto minZoomFactor = (float*)0x008A25FC;
+		inline auto zoomFactorFPP = (float*)EngineAddresses::Camera::zoomFactorFPP;
+		inline auto zoomFactorTPP = (float*)EngineAddresses::Camera::zoomFactorTPP;
+		inline auto maxZoomFactor = (float*)EngineAddresses::Camera::maxZoomFactor;
+		inline auto minZoomFactor = (float*)EngineAddresses::Camera::minZoomFactor;
 
 		enum View
 		{
@@ -160,49 +165,49 @@ namespace BZR
 			TERRAIN_EDIT = 0x2A // CTRL+E
 		};
 
-		inline auto currentView = (int*)0x02CECEA0;
+		inline auto currentView = (int*)EngineAddresses::Camera::currentView;
 
 		using _Set_View = void (__cdecl*) (tagENTITY*, int); // 2nd param is an enum
-		inline _Set_View Set_View = (_Set_View)0x0061D120;
+		inline _Set_View Set_View = (_Set_View)EngineAddresses::Camera::Set_View;
 	}
 	using _Matrix_Inverse = void (__cdecl*) (MAT_3D* returnStoragePointer, MAT_3D* matToInverse);
-	inline _Matrix_Inverse Matrix_Inverse = (_Matrix_Inverse)0x008203F0;
+	inline _Matrix_Inverse Matrix_Inverse = (_Matrix_Inverse)EngineAddresses::Math::Matrix_Inverse;
 
 	using _Vector_Unrotate = void (__cdecl*)(VECTOR_3D* returnStoragePointer, VECTOR_3D* inputVector, MAT_3D* perspectiveMatrix);
-	inline _Vector_Unrotate Vector_Unrotate = (_Vector_Unrotate)0x00440300;
+	inline _Vector_Unrotate Vector_Unrotate = (_Vector_Unrotate)EngineAddresses::Math::Vector_Unrotate;
 
 	namespace Cheats
 	{
-		constexpr uintptr_t InfiniteAmmoAddr = 0x004A7709;
-		constexpr uintptr_t InfiniteScrapAddr = 0x005E10D7;
-		constexpr uintptr_t WeaponMaskCaptureAddr = 0x0060A8C6;
+		constexpr uintptr_t InfiniteAmmoAddr = EngineAddresses::Cheats::InfiniteAmmoHook;
+		constexpr uintptr_t InfiniteScrapAddr = EngineAddresses::Cheats::InfiniteScrapHook;
+		constexpr uintptr_t WeaponMaskCaptureAddr = EngineAddresses::Cheats::WeaponMaskCaptureHook;
 	}
 
 	class ControlPanel
 	{
 	public:
-		static inline auto p_controlPanel = (ControlPanel*)0x00978E20;
+		static inline auto p_controlPanel = (ControlPanel*)EngineAddresses::ControlPanel::p_controlPanel;
 
 		using _SelectOne = void(__thiscall*)(ControlPanel*, GameObject*);
-		static inline _SelectOne SelectOne = (_SelectOne)0x004A6CD0;
+		static inline _SelectOne SelectOne = (_SelectOne)EngineAddresses::ControlPanel::SelectOne;
 
 		using _SelectNone = void(__thiscall*)(ControlPanel*);
-		static inline _SelectNone SelectNone = (_SelectNone)0x004A6D50;
+		static inline _SelectNone SelectNone = (_SelectNone)EngineAddresses::ControlPanel::SelectNone;
 
 		using _SelectAdd = void(__thiscall*)(ControlPanel*, GameObject*);
-		static inline _SelectAdd SelectAdd = (_SelectAdd)0x004a6c70;
+		static inline _SelectAdd SelectAdd = (_SelectAdd)EngineAddresses::ControlPanel::SelectAdd;
 	};
 
 	namespace Environment
 	{
-		inline auto gravityVector = (VECTOR_3D*)0x00871A80;
-		inline auto timeOfDay = (int*)0x02CD94E4;
+		inline auto gravityVector = (VECTOR_3D*)EngineAddresses::Environment::gravityVector;
+		inline auto timeOfDay = (int*)EngineAddresses::Environment::timeOfDay;
 
 		using _SetTimeOfDay = void(__cdecl*)(int hourOfDay);
-		inline _SetTimeOfDay SetTimeOfDay = (_SetTimeOfDay)0x0068A230;
+		inline _SetTimeOfDay SetTimeOfDay = (_SetTimeOfDay)EngineAddresses::Environment::SetTimeOfDay;
 
 		using _RefreshTerrainMasterLight = void(__cdecl*)();
-		inline _RefreshTerrainMasterLight RefreshTerrainMasterLight = (_RefreshTerrainMasterLight)0x0067E0E0;
+		inline _RefreshTerrainMasterLight RefreshTerrainMasterLight = (_RefreshTerrainMasterLight)EngineAddresses::Environment::RefreshTerrainMasterLight;
 	}
 
 	namespace Ogre
@@ -211,7 +216,7 @@ namespace BZR
 		// (x - origin.x, y - origin.y, -z - origin.z) before rendering them.
 		// Confirmed independently in OpenShim's chunk and multiplayer-flag render
 		// paths for the supported Redux executable.
-		inline constexpr uintptr_t worldRenderOriginAddress = 0x025F8E4C;
+		inline constexpr uintptr_t worldRenderOriginAddress = EngineAddresses::Ogre::worldRenderOrigin;
 	}
 
 	struct EULER {
@@ -233,14 +238,14 @@ namespace BZR
 	{
 	public:
 		using _GetHandle = handle(__thiscall*)(GameObject*);
-		static inline _GetHandle GetHandle = (_GetHandle)(0x00462380);
+		static inline _GetHandle GetHandle = (_GetHandle)(EngineAddresses::GameObject::GetHandle);
 
 		// The object arena and handle check mirror the engine's own lookup
 		// (GameObject.GetObjByHandle in exu.json): slot (h >> 20) & 0xFFF of a
 		// static 0x400-byte-per-slot table, live only while the slot's serial
 		// at +0x15C equals the handle's low 20 bits. A serial of 0 is a free
 		// slot (GetHandle returns 0 for it).
-		static constexpr uintptr_t kArenaBase = 0x0260DB20;
+		static constexpr uintptr_t kArenaBase = EngineAddresses::GameObject::GetObj_base;
 		static constexpr uintptr_t kArenaSlotSize = 0x400;
 		static constexpr uint32_t kArenaSlotCount = 0x1000;
 		static constexpr uintptr_t kSerialOffset = 0x15C;
@@ -289,14 +294,14 @@ namespace BZR
 		}
 
 		using _SetAsUser = void(__thiscall*)(GameObject*);
-		static inline _SetAsUser SetAsUser = (_SetAsUser)0x004DB930;
+		static inline _SetAsUser SetAsUser = (_SetAsUser)EngineAddresses::GameObject::SetAsUser;
 
 		// Use this to determine if you are in game since player will become null
 		// after exiting a map
-		static inline auto p_userObject = (void*)0x00917AFC;
+		static inline auto p_userObject = (void*)EngineAddresses::GameObject::p_userObject;
 
 		// the naming is based off the 1.5 pdb, the inconsistency is intentional
-		static inline auto user_entity_ptr = (tagENTITY**)0x00920c78;
+		static inline auto user_entity_ptr = (tagENTITY**)EngineAddresses::GameObject::user_entity_ptr;
 
 		uintptr_t vftableAttachable;
 		uint8_t padding_1[0x14];
@@ -374,24 +379,24 @@ namespace BZR
 
 	namespace GraphicsOptions
 	{
-		inline auto isFullscreen = (bool*)0x009183B8;
-		inline auto uiScaling = (int*)0x008E77A8;
+		inline auto isFullscreen = (bool*)EngineAddresses::GraphicsOptions::isFullscreen;
+		inline auto uiScaling = (int*)EngineAddresses::GraphicsOptions::uiScaling;
 	}
 
 	namespace Multiplayer
 	{
-		inline auto isNetGame = (bool*)0x00917f7b;
+		inline auto isNetGame = (bool*)EngineAddresses::Multiplayer::isNetGame;
 
 		// Real life counter, does not update the scoreboard in real time however
-		inline auto lives = (int*)0x008E8D04;
+		inline auto lives = (int*)EngineAddresses::Multiplayer::lives;
 
-		inline auto myNetID = (uint8_t*)0x009180D4; // ID that's used with Send() and Receive()
+		inline auto myNetID = (uint8_t*)EngineAddresses::Multiplayer::myNetID; // ID that's used with Send() and Receive()
 
-		inline auto showScoreboard = (bool*)0x02A17494;
+		inline auto showScoreboard = (bool*)EngineAddresses::Multiplayer::showScoreboard;
 
 		// Call this function to update the scoreboard with the current life count
 		using _UpdateLives = void(*)(void);
-		inline _UpdateLives UpdateLives = (_UpdateLives)0x006260f0;
+		inline _UpdateLives UpdateLives = (_UpdateLives)EngineAddresses::Multiplayer::UpdateLives;
 	}
 
 	class OBJ76
@@ -406,9 +411,9 @@ namespace BZR
 	namespace Ogre
 	{
 		// Absolute address
-		inline auto terrain_masterlight = (void**)0x00920CA0; // pointer to the sun light object
+		inline auto terrain_masterlight = (void**)EngineAddresses::Ogre::terrain_masterlight; // pointer to the sun light object
 
-		inline auto sceneManagerStructure = (void**)0x00920EA0; // base of some ogre structure that leads to scene manager
+		inline auto sceneManagerStructure = (void**)EngineAddresses::Ogre::sceneManagerStructure; // base of some ogre structure that leads to scene manager
 		constexpr uintptr_t sceneManagerOffset = 0x08;
 	}
 
@@ -450,8 +455,8 @@ namespace BZR
 		uint8_t padding_3;
 		ParticleRenderClass* renderClass;
 	
-		static constexpr uintptr_t OrdnanceClassList = 0x009C915C;
-		static inline _Build Build = (_Build)0x00586ff0;
+		static constexpr uintptr_t OrdnanceClassList = EngineAddresses::Ordnance::OrdnanceClassList;
+		static inline _Build Build = (_Build)EngineAddresses::Ordnance::Build;
 	};
 
 #pragma pack(push, 1)
@@ -492,53 +497,53 @@ namespace BZR
 		OBJ76* owner;
 		int32_t ownerHandle;
 
-		static inline auto coeffBallistic = (float*)0x008A2858;
+		static inline auto coeffBallistic = (float*)EngineAddresses::Ordnance::coeffBallistic;
 	};
 #pragma pack(pop)
 
 	namespace PlayOption
 	{
-		inline auto userProfilePtr = (void*)0x0094672C;
+		inline auto userProfilePtr = (void*)EngineAddresses::PlayOption::userProfilePtr;
 		inline uint8_t playOptionOffset = 0x30;
 
-		inline auto difficulty = (uint8_t*)0x25CFA1C;
+		inline auto difficulty = (uint8_t*)EngineAddresses::PlayOption::difficulty;
 	}
 
 	namespace Satellite
 	{
-		inline auto state = (bool*)0x008E8F9C; // old value bugged in MP 0x00917AF8
-		inline auto cursorPos = (VECTOR_3D*)0x009C9194;
-		inline auto camPos = (VECTOR_3D*)0x009C91B4;
-		inline auto clickPos = (VECTOR_3D*)0x009C9188;
-		inline auto panSpeed = (float*)0x009C91D0;
-		inline auto minZoom = (float*)0x00872400;
-		inline auto maxZoom = (float*)0x008723F4;
-		inline auto zoom = (float*)0x009C91B0;
+		inline auto state = (bool*)EngineAddresses::Satellite::state; // old value bugged in MP 0x00917AF8
+		inline auto cursorPos = (VECTOR_3D*)EngineAddresses::Satellite::cursorPos;
+		inline auto camPos = (VECTOR_3D*)EngineAddresses::Satellite::camPos;
+		inline auto clickPos = (VECTOR_3D*)EngineAddresses::Satellite::clickPos;
+		inline auto panSpeed = (float*)EngineAddresses::Satellite::panSpeed;
+		inline auto minZoom = (float*)EngineAddresses::Satellite::minZoom;
+		inline auto maxZoom = (float*)EngineAddresses::Satellite::maxZoom;
+		inline auto zoom = (float*)EngineAddresses::Satellite::zoom;
 	}
 
 	namespace SoundOptions
 	{
-		inline auto soundStruct1 = (uint8_t*)0x0094672C; // this points to the music *display* value
+		inline auto soundStruct1 = (uint8_t*)EngineAddresses::SoundOptions::soundStruct1; // this points to the music *display* value
 		inline uint8_t musicOffset = 0x2A;
 	}
 
 	namespace Steam
 	{
-		inline auto steam64 = (uint64_t*)0x0260B1D0;
+		inline auto steam64 = (uint64_t*)EngineAddresses::Steam::steam64;
 	}
 
 	namespace Radar
 	{
-		inline auto state = (uint8_t*)0x008EAAAC;
-		inline auto scale = (float*)0x008E77B0;
-		inline auto cockpitWireframeProjectionBase = (float*)0x008E7754;
-		inline auto radarLeft = (int*)0x008E77A8;
-		inline auto radarBottom = (int*)0x008E77AC;
+		inline auto state = (uint8_t*)EngineAddresses::Radar::state;
+		inline auto scale = (float*)EngineAddresses::Radar::scale;
+		inline auto cockpitWireframeProjectionBase = (float*)EngineAddresses::Radar::cockpitWireframeProjectionBase;
+		inline auto radarLeft = (int*)EngineAddresses::Radar::radarLeft;
+		inline auto radarBottom = (int*)EngineAddresses::Radar::radarBottom;
 		// Screen-space centre of the cockpit radar wireframe: the world origin
 		// (player) projects exactly onto this point (see 0x00493330, which adds
 		// centerX and subtracts from centerY).
-		inline auto cockpitWireframeCenterX = (int*)0x008E7924;
-		inline auto cockpitWireframeCenterY = (int*)0x008E7928;
+		inline auto cockpitWireframeCenterX = (int*)EngineAddresses::Radar::cockpitWireframeCenterX;
+		inline auto cockpitWireframeCenterY = (int*)EngineAddresses::Radar::cockpitWireframeCenterY;
 
 		struct EdgePathPoint
 		{
@@ -555,25 +560,25 @@ namespace BZR
 
 		// Recomputes the radar left anchor from the current cockpit projection base.
 		using _RefreshCockpitWireframeAnchor = void(__cdecl*)();
-		inline _RefreshCockpitWireframeAnchor RefreshCockpitWireframeAnchor = (_RefreshCockpitWireframeAnchor)0x00404CF0;
+		inline _RefreshCockpitWireframeAnchor RefreshCockpitWireframeAnchor = (_RefreshCockpitWireframeAnchor)EngineAddresses::Radar::RefreshCockpitWireframeAnchor;
 
 		// Recalculates radar and command panel placement after HUD sizing changes.
 		using _RefreshLayout = void(__cdecl*)(int screenHeight);
-		inline _RefreshLayout RefreshLayout = (_RefreshLayout)0x00492EC0;
+		inline _RefreshLayout RefreshLayout = (_RefreshLayout)EngineAddresses::Radar::RefreshLayout;
 
 		using _FindNamedPath = RuntimePath* (__cdecl*)(const char* name);
-		inline _FindNamedPath FindNamedPath = (_FindNamedPath)0x00460FC0;
+		inline _FindNamedPath FindNamedPath = (_FindNamedPath)EngineAddresses::Radar::FindNamedPath;
 
 		using _RefreshEdgePathBounds = void(__thiscall*)(void* self);
-		inline _RefreshEdgePathBounds RefreshEdgePathBounds = (_RefreshEdgePathBounds)0x0046AF20;
+		inline _RefreshEdgePathBounds RefreshEdgePathBounds = (_RefreshEdgePathBounds)EngineAddresses::Radar::RefreshEdgePathBounds;
 	}
 
 	namespace Reticle
 	{
-		inline auto angle = (float*)0x025CE714;
-		inline auto position = (VECTOR_3D*)0x025CE79C;
-		inline auto range = (float*)0x00886B20;
-		inline auto object = (int*)0x00979F40;
-		inline auto matrix = (MAT_3D*)0x025CE6F8;
+		inline auto angle = (float*)EngineAddresses::Reticle::angle;
+		inline auto position = (VECTOR_3D*)EngineAddresses::Reticle::position;
+		inline auto range = (float*)EngineAddresses::Reticle::range;
+		inline auto object = (int*)EngineAddresses::Reticle::object;
+		inline auto matrix = (MAT_3D*)EngineAddresses::Reticle::matrix;
 	}
 }

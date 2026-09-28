@@ -280,6 +280,7 @@
     <ClInclude Include="src\Patches\ShotConvergenceMath.h" />
     <ClInclude Include="src\Util\BuildValidation.h" />
     <ClInclude Include="src\Util\BzrBuildProfile.generated.h" />
+    <ClInclude Include="src\Util\EngineAddresses.generated.h" />
     <ClInclude Include="src\Util\Logging.h" />
     <ClInclude Include="src\Util\NativeSaveFlag.h" />
     <ClInclude Include="src\Util\PatternMatch.h" />

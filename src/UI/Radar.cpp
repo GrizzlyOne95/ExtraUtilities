@@ -22,6 +22,7 @@
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
 #include "Util/Logging.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <cmath>
 #include <cstdint>
@@ -230,8 +231,8 @@ namespace ExtraUtilities::Lua::Radar
 		// The engine re-runs RefreshLayout when it (re)builds the cockpit HUD,
 		// which would restore the misaligned native layout, so both of its
 		// call sites are retargeted at the concentric wrapper above.
-		constexpr uintptr_t kRefreshLayoutCallSites[] = { 0x0049325F, 0x0049405B };
-		constexpr uintptr_t kRefreshLayoutEntry = 0x00492EC0;
+		constexpr uintptr_t kRefreshLayoutCallSites[] = { EngineAddresses::Radar::RefreshLayoutCallSite0, EngineAddresses::Radar::RefreshLayoutCallSite1 };
+		constexpr uintptr_t kRefreshLayoutEntry = EngineAddresses::Radar::RefreshLayout;
 
 		void InstallRefreshLayoutCallSiteHooks()
 		{

@@ -4,7 +4,7 @@
   "$comment3": "Patterns are IDA-style byte sequences (?? = wildcard byte). Where no pattern has",
   "$comment3b": "been derived the field is null and a 'note' says why.",
   "$comment3c": "pattern_kind 'code': the pattern starts at 'address' (functions, hook and patch sites). pattern_kind 'reference': the pattern is a unique instruction sequence elsewhere that contains the address bytes (data globals, vftables, strings); 'note' names the matching instruction.",
-  "$comment4": "Verify with: python tools/qualify_bzr_build.py <exe> --catalog. tools/validate_hardening.py fails when src/ uses an engine-range literal that is not catalogued here.",
+  "$comment4": "Verify with: python tools/qualify_bzr_build.py <exe> --catalog. Feature code names these addresses through src/Util/EngineAddresses.generated.h (python tools/generate_engine_addresses.py; --check in CI); tools/validate_hardening.py fails when src/ spells an engine-range literal anywhere else.",
   "$comment4b": "Derive new signatures from the GOG executable; the Steam executable is SteamStub-packed.",
   "target": {
     "game": "Battlezone 98 Redux",
@@ -688,16 +688,16 @@
         "description": "Float base for command panel horizontal positioning.",
         "pattern": null
       },
-      "commandPanelLeft": {
+      "cockpitWireframeCenterX": {
         "address": "0x008E7924",
         "type": "int*",
-        "description": "Computed left pixel position for the command panel.",
+        "description": "Screen-space X centre of the cockpit radar wireframe: the world origin (player) projects onto this point (0x00493330 adds centerX and subtracts from centerY). Formerly catalogued as commandPanelLeft; bzr.h has always used it as the wireframe centre.",
         "pattern": null
       },
-      "commandPanelBottom": {
+      "cockpitWireframeCenterY": {
         "address": "0x008E7928",
         "type": "int*",
-        "description": "Bottom pixel position for the command panel.",
+        "description": "Screen-space Y centre of the cockpit radar wireframe (see cockpitWireframeCenterX). Formerly catalogued as commandPanelBottom.",
         "pattern": null
       },
       "edgeMinX": { "address": "0x00917388", "type": "float*", "description": "Edge path X minimum bound.", "pattern": null },
@@ -868,10 +868,42 @@
       "saveGameDesc": {
         "address": "0x008E86D8",
         "type": "char[] (save description buffer)",
-        "description": "Save-game description buffer. IsSaveShellGameCandidate in src/Util/OS.cpp embeds this address in the byte pattern C7 45 ?? D8 86 8E 00 to recognise SaveShellGame.",
+        "description": "Save-game description buffer. IsSaveShellGameCandidate in src/Util/OS.cpp builds the byte pattern C7 45 ?? <address> from this entry to recognise SaveShellGame.",
         "pattern": "C7 45 94 D8 86 8E 00",
         "pattern_kind": "reference",
         "note": "Reference pattern: matches 'mov dword ptr [ebp - 0x6c], 0x8e86d8' at 0x004FDC99, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "saveDirectory": {
+        "address": "0x02CEEFE0",
+        "type": "char[0x1000] (engine save directory)",
+        "description": "The engine's save directory. The startup routine (0x00618FF0, called from WinMain) fills it once with _getcwd() + \"\\save\", before any Lua runs, and nothing writes it afterwards. SaveShellGame builds <saveDirectory>\\game<slot>.sav from it and SaveGame creates it before writing. src/Util/OS.cpp reads it (behind the runtime build gate) to build exu.SaveGame slot paths; SavePathPolicy.h's BuildSlotSavePath fails closed when it is empty, unterminated or not an absolute drive path.",
+        "pattern": "68 E0 EF CE 02 E8 ?? ?? ?? ?? 83 C4 04 0F B6 05 B7 73 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'push 0x2ceefe0; call <ensure directory>; add esp, 4; movzx eax, byte ptr [missionSave]' in SaveGame at 0x004FD1A8, verified unique in GOG 2.2.301 executable sections 2026-09-28. The next global the executable references is 0x02CEFFE0, so the buffer is 0x1000 bytes."
+      },
+      "missionSave": {
+        "address": "0x009173B7",
+        "type": "uint8_t* (bool; decoded at runtime, verification entry)",
+        "description": "The engine's missionSave flag. src/Util/OS.cpp does not use this constant: it decodes the address from the resolved SaveGame body (NativeSaveFlag.h ReadMissionSaveFlagAddress, the movzx at SaveGame+37) and fails closed if the decode drifts. Catalogued so qualification reports when that instruction moves.",
+        "pattern": "83 C4 04 0F B6 05 B7 73 91 00 85 C0 0F 84 ?? ?? ?? ?? 6A 2E",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'add esp, 4; movzx eax, byte ptr [0x9173b7]; test eax, eax; je ...; push 0x2e' in SaveGame at 0x004FD1B2, verified unique in GOG 2.2.301 executable sections 2026-09-28. The operand sits at SaveGame+40, where ReadMissionSaveFlagAddress reads it."
+      },
+      "binarySave": {
+        "address": "0x009173B6",
+        "type": "uint8_t* (bool; decoded at runtime, verification entry)",
+        "description": "The byte SaveGame reads to choose the binary writer. src/Util/OS.cpp does not use this constant: FindBinarySaveAddresses decodes it from SaveShellGame and requires it to be missionSave - 1.",
+        "pattern": "8A 55 8C 88 15 B6 73 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dl, byte ptr [ebp - 0x74]; mov byte ptr [0x9173b6], dl' in SaveShellGame at 0x004FDD58, verified unique in GOG 2.2.301 executable sections 2026-09-28."
+      },
+      "binarySaveSwitch": {
+        "address": "0x008EAAB4",
+        "type": "int32_t* (-binarysave option; decoded at runtime, verification entry)",
+        "description": "The -binarysave command-line option. src/Util/OS.cpp does not use this constant: FindBinarySaveAddresses decodes it from SaveShellGame's 'mov byte ptr [missionSave], 0; cmp dword ptr [switch], 0' sequence.",
+        "pattern": "C6 05 B7 73 91 00 00 83 3D B4 AA 8E 00 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov byte ptr [0x9173b7], 0; cmp dword ptr [0x8eaab4], 0' in SaveShellGame at 0x004FDD38, verified unique in GOG 2.2.301 executable sections 2026-09-28 (the cmp alone also appears at 0x004FBF14)."
       }
     },
     "AiTargetSelect": {
