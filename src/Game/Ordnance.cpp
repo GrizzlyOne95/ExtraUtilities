@@ -20,6 +20,7 @@
 #include "Ordnance.h"
 #include "Util/MsvcRtti.h"
 #include "Util/SignatureResolver.h"
+#include "Util/SehGuard.h"
 
 #include <lua.hpp>
 
@@ -106,7 +107,7 @@ namespace ExtraUtilities::Lua::Ordnance
 				}
 				return false;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return false;
 			}
@@ -174,7 +175,7 @@ namespace ExtraUtilities::Lua::Ordnance
 					return false;
 				}
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return false;
 			}
@@ -223,7 +224,7 @@ namespace ExtraUtilities::Lua::Ordnance
 				}
 				return nullptr;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return nullptr;
 			}

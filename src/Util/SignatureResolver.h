@@ -11,6 +11,7 @@
 #pragma once
 
 #include "Util/PatternMatch.h"
+#include "Util/SehGuard.h"
 
 #include <Windows.h>
 
@@ -118,7 +119,7 @@ namespace ExtraUtilities::SignatureResolver
 		{
 			return std::memcmp(reinterpret_cast<const void*>(address), expected, length) == 0;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			return false;
 		}

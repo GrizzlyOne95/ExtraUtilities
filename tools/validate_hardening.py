@@ -337,9 +337,11 @@ def check_hardening_markers() -> None:
     ]
     luaexport = read("src/luaexport.cpp")
     lua_check = luaexport.find("BuildValidation::IsLuaCoreCompatible()")
-    register = luaexport.find('luaL_register(L, "exu"')
+    # RegisterFunctions (LuaCppBarrier.h) is luaL_register behind the C++
+    # exception barrier; it creates the exu table the same way.
+    register = luaexport.find('RegisterFunctions(L, "exu"')
     if lua_check < 0 or register < 0 or lua_check > register:
-        fail("luaopen_exu must check the Lua dummynode anchor before luaL_register creates any table")
+        fail("luaopen_exu must check the Lua dummynode anchor before RegisterFunctions creates any table")
 
     # Static initializers run inside DllMain on every mission load. Signature
     # scans and resolution belong in Init.
@@ -410,6 +412,41 @@ def check_shared_bzr_docs() -> None:
     print(f"Shared BZR docs OK: {len(SHARED_BZR_DOCS)} documents match the pinned shared copies")
 
 
+BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.S)
+EXCEPT_RE = re.compile(r"__except\s*\(")
+LUA_PUSH_RE = re.compile(r"\b(lua_pushcfunction|lua_pushcclosure|lua_cpcall)\s*\(\s*L\s*,\s*([^,)]+)")
+
+
+def check_exception_barriers() -> None:
+    """P1-15: every __except uses the shared filter (C++ exceptions and stack
+    overflow pass through), and every function handed to Lua runs behind the
+    C++ exception barrier."""
+    excepts = 0
+    pushes = 0
+    for path in sorted((ROOT / "src").rglob("*")):
+        if path.suffix not in (".cpp", ".h"):
+            continue
+        rel = path.relative_to(ROOT).as_posix()
+        source = LINE_COMMENT_RE.sub("", BLOCK_COMMENT_RE.sub("", path.read_text(encoding="utf-8")))
+        for match in EXCEPT_RE.finditer(source):
+            excepts += 1
+            filter_text = source[match.end():match.end() + 80]
+            if not re.match(r"\s*(?:ExtraUtilities::)?(?:Seh::)?Filter\(", filter_text):
+                line = source.count("\n", 0, match.start()) + 1
+                fail(f"{rel}:{line}: __except must use Seh::Filter (Util/SehGuard.h)")
+        if rel != "src/LuaCppBarrier.h" and re.search(r"\bluaL_(register|openlib)\s*\(", source):
+            fail(f"{rel}: register Lua functions with RegisterFunctions (LuaCppBarrier.h), not luaL_register")
+        for match in LUA_PUSH_RE.finditer(source):
+            if rel == "src/LuaCppBarrier.h":
+                continue
+            pushes += 1
+            target = match.group(2).strip()
+            if not re.match(r"&(?:Lua::)?CppBarrier<", target):
+                line = source.count("\n", 0, match.start()) + 1
+                fail(f"{rel}:{line}: {match.group(1)} must pass a CppBarrier<> function, not {target}")
+    print(f"Exception barriers OK: {excepts} __except filters, {pushes} individually pushed Lua functions")
+
+
 def main() -> None:
     check_api_parity()
     check_shared_bzr_docs()
@@ -418,6 +455,7 @@ def main() -> None:
     check_engine_address_census()
     check_hardening_markers()
     check_patch_preimages()
+    check_exception_barriers()
     print("All EXU hardening validation checks passed.")
 
 

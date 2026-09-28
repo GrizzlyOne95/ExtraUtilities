@@ -17,6 +17,7 @@
 */
 
 #include "GameObjectInternal.h"
+#include "Util/SehGuard.h"
 
 #include "Util/MsvcRtti.h"
 
@@ -96,7 +97,7 @@ namespace ExtraUtilities::Lua::GameObject
 				outName.assign(rawName, length);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outName.clear();
 				return false;
@@ -188,7 +189,7 @@ namespace ExtraUtilities::Lua::GameObject
 					{
 						(void)classDescriptor->numBaseClasses;
 					}
-					__except (EXCEPTION_EXECUTE_HANDLER)
+					__except (Seh::Filter(GetExceptionCode()))
 					{
 						classDescriptor = nullptr;
 					}
@@ -197,7 +198,7 @@ namespace ExtraUtilities::Lua::GameObject
 				outVtable = vtable;
 				outClassDescriptor = classDescriptor;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outVtable = nullptr;
 				outRawTypeName.clear();
@@ -248,7 +249,7 @@ namespace ExtraUtilities::Lua::GameObject
 					return false;
 				}
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outRawTypeName.clear();
 				return false;
@@ -283,7 +284,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 				return outCount != 0;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outCount = 0;
 				return false;
@@ -798,23 +799,22 @@ namespace ExtraUtilities::Lua::GameObject
 	int GetAiProcess(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-		__try
+		void* aiProcess = nullptr;
+		Seh::Guard(
+			"GetAiProcess",
+			[&] {
+				BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+				aiProcess = obj != nullptr ? obj->aiProcess : nullptr;
+			},
+			[&](unsigned long exceptionCode) { LogMaterialFault("[EXU::GetAiProcess] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), exceptionCode); });
+
+		if (aiProcess == nullptr)
 		{
-			BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-			void* aiProcess = obj != nullptr ? obj->aiProcess : nullptr;
-			if (aiProcess == nullptr)
-			{
-				lua_pushnil(L);
-			}
-			else
-			{
-				lua_pushlightuserdata(L, aiProcess);
-			}
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-			LogMaterialFault("[EXU::GetAiProcess] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
 			lua_pushnil(L);
+		}
+		else
+		{
+			lua_pushlightuserdata(L, aiProcess);
 		}
 		return 1;
 	}
@@ -910,24 +910,30 @@ namespace ExtraUtilities::Lua::GameObject
 			return 1;
 		}
 
-		PolymorphicObjectInfo processInfo{};
-		if (!TryGetObjectTypeInfo(aiProcess, processInfo))
+		// The type info (strings and a vector) is scoped so it is gone before
+		// PushVectorField, which calls the script's SetVector and can raise.
+		bool isScavenger = false;
 		{
-			lua_pushnil(L);
-			return 1;
+			PolymorphicObjectInfo processInfo{};
+			if (!TryGetObjectTypeInfo(aiProcess, processInfo))
+			{
+				lua_pushnil(L);
+				return 1;
+			}
+
+			lua_createtable(L, 0, 16);
+			lua_pushlightuserdata(L, aiProcess);
+			lua_setfield(L, -2, "process");
+			lua_pushstring(L, processInfo.typeName.c_str());
+			lua_setfield(L, -2, "typeName");
+			lua_pushstring(L, processInfo.rawTypeName.c_str());
+			lua_setfield(L, -2, "rawTypeName");
+			PushStringArray(L, processInfo.hierarchy);
+			lua_setfield(L, -2, "hierarchy");
+			isScavenger = TypeMatches(processInfo, "ScavengerProcess");
 		}
 
-		lua_createtable(L, 0, 16);
-		lua_pushlightuserdata(L, aiProcess);
-		lua_setfield(L, -2, "process");
-		lua_pushstring(L, processInfo.typeName.c_str());
-		lua_setfield(L, -2, "typeName");
-		lua_pushstring(L, processInfo.rawTypeName.c_str());
-		lua_setfield(L, -2, "rawTypeName");
-		PushStringArray(L, processInfo.hierarchy);
-		lua_setfield(L, -2, "hierarchy");
-
-		if (TypeMatches(processInfo, "ScavengerProcess"))
+		if (isScavenger)
 		{
 			const auto* scav = reinterpret_cast<const ScavengerProcessLayout*>(aiProcess);
 			lua_pushinteger(L, scav->curState);
@@ -1048,23 +1054,28 @@ namespace ExtraUtilities::Lua::GameObject
 			return 1;
 		}
 
-		PolymorphicObjectInfo taskInfo{};
-		if (!TryFindBestAiTask(aiProcess, scanBytes, taskInfo))
+		// Scoped: PushVectorField below calls the script's SetVector and can
+		// raise, which would skip the type info's destructors.
+		const UnitTaskLayout* task = nullptr;
 		{
-			lua_pushnil(L);
-			return 1;
-		}
+			PolymorphicObjectInfo taskInfo{};
+			if (!TryFindBestAiTask(aiProcess, scanBytes, taskInfo))
+			{
+				lua_pushnil(L);
+				return 1;
+			}
 
-		const auto* task = reinterpret_cast<const UnitTaskLayout*>(taskInfo.object);
-		lua_createtable(L, 0, 24);
-		lua_pushlightuserdata(L, taskInfo.object);
-		lua_setfield(L, -2, "task");
-		lua_pushstring(L, taskInfo.typeName.c_str());
-		lua_setfield(L, -2, "typeName");
-		lua_pushstring(L, taskInfo.rawTypeName.c_str());
-		lua_setfield(L, -2, "rawTypeName");
-		PushStringArray(L, taskInfo.hierarchy);
-		lua_setfield(L, -2, "hierarchy");
+			task = reinterpret_cast<const UnitTaskLayout*>(taskInfo.object);
+			lua_createtable(L, 0, 24);
+			lua_pushlightuserdata(L, taskInfo.object);
+			lua_setfield(L, -2, "task");
+			lua_pushstring(L, taskInfo.typeName.c_str());
+			lua_setfield(L, -2, "typeName");
+			lua_pushstring(L, taskInfo.rawTypeName.c_str());
+			lua_setfield(L, -2, "rawTypeName");
+			PushStringArray(L, taskInfo.hierarchy);
+			lua_setfield(L, -2, "hierarchy");
+		}
 		lua_pushinteger(L, task->curState);
 		lua_setfield(L, -2, "curState");
 		lua_pushinteger(L, task->nextState);
@@ -1185,7 +1196,7 @@ namespace ExtraUtilities::Lua::GameObject
 				if (request.hasGotoDir) task->gotoDir = request.gotoDir;
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return false;
 			}
@@ -1322,23 +1333,28 @@ namespace ExtraUtilities::Lua::GameObject
 			return 1;
 		}
 
-		PolymorphicObjectInfo taskInfo{};
-		if (!TryFindBestAiTask(aiProcess, scanBytes, taskInfo, "RecycleTask"))
+		// Scoped: PushVectorField below calls the script's SetVector and can
+		// raise, which would skip the type info's destructors.
+		const RecycleTaskLayout* recycleTask = nullptr;
 		{
-			lua_pushnil(L);
-			return 1;
-		}
+			PolymorphicObjectInfo taskInfo{};
+			if (!TryFindBestAiTask(aiProcess, scanBytes, taskInfo, "RecycleTask"))
+			{
+				lua_pushnil(L);
+				return 1;
+			}
 
-		const auto* recycleTask = reinterpret_cast<const RecycleTaskLayout*>(taskInfo.object);
-		lua_createtable(L, 0, 20);
-		lua_pushlightuserdata(L, taskInfo.object);
-		lua_setfield(L, -2, "task");
-		lua_pushstring(L, taskInfo.typeName.c_str());
-		lua_setfield(L, -2, "typeName");
-		lua_pushstring(L, taskInfo.rawTypeName.c_str());
-		lua_setfield(L, -2, "rawTypeName");
-		PushStringArray(L, taskInfo.hierarchy);
-		lua_setfield(L, -2, "hierarchy");
+			recycleTask = reinterpret_cast<const RecycleTaskLayout*>(taskInfo.object);
+			lua_createtable(L, 0, 20);
+			lua_pushlightuserdata(L, taskInfo.object);
+			lua_setfield(L, -2, "task");
+			lua_pushstring(L, taskInfo.typeName.c_str());
+			lua_setfield(L, -2, "typeName");
+			lua_pushstring(L, taskInfo.rawTypeName.c_str());
+			lua_setfield(L, -2, "rawTypeName");
+			PushStringArray(L, taskInfo.hierarchy);
+			lua_setfield(L, -2, "hierarchy");
+		}
 		lua_pushinteger(L, recycleTask->curState);
 		lua_setfield(L, -2, "curState");
 		lua_pushinteger(L, recycleTask->nextState);
@@ -1359,14 +1375,16 @@ namespace ExtraUtilities::Lua::GameObject
 		}
 		PushObjectPointerField(L, "me", recycleTask->me);
 		PushObjectPointerField(L, "subtask", recycleTask->subtask);
-		void* subtaskVtable = nullptr;
-		std::string subtaskRawTypeName;
-		MsvcRttiClassHierarchyDescriptor* subtaskClassDescriptor = nullptr;
-		if (TryGetPolymorphicMetadata(recycleTask->subtask, subtaskVtable, subtaskRawTypeName, subtaskClassDescriptor))
 		{
-			const std::string subtaskTypeName = NormalizeMsvcTypeName(subtaskRawTypeName);
-			lua_pushstring(L, subtaskTypeName.c_str());
-			lua_setfield(L, -2, "subtaskTypeName");
+			void* subtaskVtable = nullptr;
+			std::string subtaskRawTypeName;
+			MsvcRttiClassHierarchyDescriptor* subtaskClassDescriptor = nullptr;
+			if (TryGetPolymorphicMetadata(recycleTask->subtask, subtaskVtable, subtaskRawTypeName, subtaskClassDescriptor))
+			{
+				const std::string subtaskTypeName = NormalizeMsvcTypeName(subtaskRawTypeName);
+				lua_pushstring(L, subtaskTypeName.c_str());
+				lua_setfield(L, -2, "subtaskTypeName");
+			}
 		}
 		PushVectorField(L, "lastScrap", recycleTask->lastScrap);
 		PushHandleField(L, "scrapHandle", recycleTask->scrapHandle);
