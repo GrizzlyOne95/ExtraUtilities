@@ -21,6 +21,7 @@
 
 #include "Hook.h"
 #include "LuaHelpers.h"
+#include "Util/FiniteCheck.h"
 #include "Util/Logging.h"
 #include "Util/SignatureResolver.h"
 #include "Ogre/OgreNativeFontBridge.h"
@@ -101,13 +102,7 @@ namespace ExtraUtilities::Lua::Overlay
 			return reinterpret_cast<::Ogre::OverlayContainer*>(FindOverlayElement(name));
 		}
 
-		bool IsFiniteColor(const ExtraUtilities::Ogre::Color& color)
-		{
-			return std::isfinite(color.r)
-				&& std::isfinite(color.g)
-				&& std::isfinite(color.b)
-				&& std::isfinite(color.a);
-		}
+		using FiniteCheck::IsFiniteColor;
 
 		const char* DescribeOptionalBool(bool available, bool value)
 		{

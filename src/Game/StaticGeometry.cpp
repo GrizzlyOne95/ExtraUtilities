@@ -17,6 +17,7 @@
 #include "LuaHelpers.h"
 #include "Ogre/Ogre.h"
 #include "Ogre/OgreRenderSpace.h"
+#include "Util/FiniteCheck.h"
 #include "Util/Logging.h"
 #include "bzr.h"
 
@@ -195,10 +196,7 @@ namespace ExtraUtilities::Lua::StaticGeometry
 			return fn;
 		}
 
-		bool IsFinite(float value)
-		{
-			return std::isfinite(value);
-		}
+		using FiniteCheck::IsFiniteScalar;
 
 		// Redux recentres the Ogre render world around a per-map origin and
 		// mirrors Z, so Lua's simulation coordinates are NOT render coordinates.
@@ -353,7 +351,7 @@ namespace ExtraUtilities::Lua::StaticGeometry
 			};
 			for (const float value : values)
 			{
-				if (!IsFinite(value))
+				if (!IsFiniteScalar(value))
 				{
 					luaL_error(L, "StaticGeometry instance values must be finite");
 				}
@@ -380,16 +378,16 @@ namespace ExtraUtilities::Lua::StaticGeometry
 			options.castShadows = ReadBoolField(L, tableIndex, "castShadows", false);
 			options.visible = ReadBoolField(L, tableIndex, "visible", true);
 
-			if (!IsFinite(options.regionDimensions.x) ||
-				!IsFinite(options.regionDimensions.y) ||
-				!IsFinite(options.regionDimensions.z) ||
+			if (!IsFiniteScalar(options.regionDimensions.x) ||
+				!IsFiniteScalar(options.regionDimensions.y) ||
+				!IsFiniteScalar(options.regionDimensions.z) ||
 				options.regionDimensions.x <= 0.0f ||
 				options.regionDimensions.y <= 0.0f ||
 				options.regionDimensions.z <= 0.0f)
 			{
 				luaL_argerror(L, tableIndex, "regionDimensions must contain finite positive values");
 			}
-			if (!IsFinite(options.renderingDistance) || options.renderingDistance < 0.0f)
+			if (!IsFiniteScalar(options.renderingDistance) || options.renderingDistance < 0.0f)
 			{
 				luaL_argerror(L, tableIndex, "renderingDistance must be finite and non-negative");
 			}
@@ -523,7 +521,7 @@ namespace ExtraUtilities::Lua::StaticGeometry
 		// cannot be drawn.
 		OgreVector3Value renderOrigin{};
 		if (!TryReadWorldRenderOrigin(renderOrigin) ||
-			!IsFinite(renderOrigin.x) || !IsFinite(renderOrigin.y) || !IsFinite(renderOrigin.z))
+			!IsFiniteScalar(renderOrigin.x) || !IsFiniteScalar(renderOrigin.y) || !IsFiniteScalar(renderOrigin.z))
 		{
 			return PushFailure(L, "Redux render origin is unavailable");
 		}
