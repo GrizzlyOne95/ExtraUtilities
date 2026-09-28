@@ -13,6 +13,7 @@
 #include "EntryDetour32.h"
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotState.h"
+#include "Game/PilotTrace.h"
 #include "Util/Logging.h"
 #include "Util/RuntimeGate.h"
 #include "bzr.h"
@@ -60,6 +61,19 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 		std::atomic<std::int32_t> g_lastAfterAnimation{ -1 };
 		std::atomic<std::int32_t> g_lastBeforeAnimationHandle{ -1 };
 		std::atomic<std::int32_t> g_lastAfterAnimationHandle{ -1 };
+
+		// Opt-in timing trace. Only this hook writes it; Lua starts, stops, and
+		// reads it (see PilotTrace.h for the threading contract).
+		PilotTrace::Recorder g_trace;
+
+		PilotTrace::Frame ToTraceFrame(const PilotState::Snapshot& snapshot) noexcept
+		{
+			PilotTrace::Frame frame{};
+			frame.nativeState = snapshot.nativeState;
+			frame.animationIndex = snapshot.animationIndex;
+			frame.animationHandle = snapshot.animationHandle;
+			return frame;
+		}
 
 		void RecordLocalPair(
 			const PilotState::Snapshot& before,
@@ -129,6 +143,7 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 				if (PilotState::CaptureIfCurrent(person, after))
 				{
 					RecordLocalPair(before, after);
+					g_trace.Record(dt, ToTraceFrame(before), ToTraceFrame(after));
 				}
 			}
 		}
@@ -247,6 +262,7 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 		g_lastAfterAnimation.store(-1, std::memory_order_relaxed);
 		g_lastBeforeAnimationHandle.store(-1, std::memory_order_relaxed);
 		g_lastAfterAnimationHandle.store(-1, std::memory_order_relaxed);
+		g_trace.Reset();
 	}
 
 	void GetStats(Stats& outStats) noexcept
@@ -271,5 +287,20 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 			g_lastAfterAnimationHandle.load(std::memory_order_relaxed);
 		outStats.lastPolicyDecision = static_cast<PilotAnimationPolicy::Decision>(
 			g_lastPolicyDecision.load(std::memory_order_relaxed));
+	}
+
+	void StartTrace(bool changesOnly) noexcept
+	{
+		g_trace.Start(changesOnly);
+	}
+
+	void StopTrace() noexcept
+	{
+		g_trace.Stop();
+	}
+
+	bool ReadTrace(PilotTrace::Snapshot& outSnapshot) noexcept
+	{
+		return g_trace.Read(outSnapshot);
 	}
 }

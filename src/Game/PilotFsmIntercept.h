@@ -11,6 +11,7 @@
 #pragma once
 
 #include "Game/PilotAnimationPolicy.h"
+#include "Game/PilotTrace.h"
 
 #include <cstdint>
 
@@ -56,6 +57,14 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 	// alive. Called explicitly from the Lua-state shutdown path.
 	void Shutdown() noexcept;
 
+	// Also resets the timing trace: it is off, and empty, in every new Lua state.
 	void ResetStats() noexcept;
 	void GetStats(Stats& outStats) noexcept;
+
+	// Opt-in, read-only timing trace of local Person::Simulate calls. Starting
+	// discards earlier data; stopping keeps it readable. Records nothing while
+	// the seam is inactive. Read fails only on a repeatedly torn read.
+	void StartTrace(bool changesOnly) noexcept;
+	void StopTrace() noexcept;
+	bool ReadTrace(PilotTrace::Snapshot& outSnapshot) noexcept;
 }

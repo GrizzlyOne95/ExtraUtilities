@@ -158,6 +158,39 @@ error("This is a definition file, use require(\"exu\")")
 --- @field beforeAnimationHandle integer?
 --- @field afterAnimationHandle integer?
 
+--- @class PilotTraceOptions
+--- @field changesOnly boolean?
+
+--- @class PilotTraceSample
+--- @field call integer
+--- @field dt number
+--- @field time number
+--- @field beforeNativeState integer
+--- @field afterNativeState integer
+--- @field beforeAnimationIndex integer
+--- @field afterAnimationIndex integer
+--- @field beforeAnimationHandle integer
+--- @field afterAnimationHandle integer
+
+--- @class PilotTraceDwell
+--- @field nativeState integer
+--- @field count integer
+--- @field last number?
+--- @field min number?
+--- @field max number?
+--- @field mean number?
+--- @field lastCalls integer?
+
+--- @class PilotTrace
+--- @field enabled boolean
+--- @field changesOnly boolean
+--- @field capacity integer
+--- @field localCalls integer
+--- @field recorded integer
+--- @field time number
+--- @field samples PilotTraceSample[]
+--- @field dwell table<"standing"|"enteringCrouch"|"crouched"|"exitingCrouch", PilotTraceDwell>
+
 --- @class PilotPolicySlotInfo
 --- @field mode "stock"|string
 --- @field nativeState integer?
@@ -176,6 +209,9 @@ error("This is a definition file, use require(\"exu\")")
 --- @field GetPilotState fun(): PilotStateInfo?
 --- @field GetPilotAnimationProfile fun(): PilotAnimationProfile
 --- @field GetPilotInterceptStatus fun(): PilotInterceptStatus
+--- @field StartPilotTrace fun(options?: PilotTraceOptions): boolean
+--- @field StopPilotTrace fun()
+--- @field GetPilotTrace fun(limit?: integer): PilotTrace?
 --- @field IsCrouched fun(): boolean?
 --- @field IsGrounded fun(): boolean?
 --- @field IsSniperSelected fun(): boolean?
