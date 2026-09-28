@@ -30,6 +30,7 @@
 #include "AiTargetSelect.h"
 
 #include "bzr.h"
+#include "Game/GameObjectHandle.h"
 #include "InlinePatch.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
@@ -107,7 +108,8 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 		bool g_inScoreCallback = false;
 		int g_scoreSearchDepth = 0;
 
-		bool TryGetHandleForObject(BZR::GameObject* object, BZR::handle* outHandle);
+		using Lua::GameObject::Detail::TryGetHandleFromObject;
+		using Lua::GameObject::Detail::TryResolveHandleValue;
 
 		float DispatchScore(const float* vector,
 		                    BZR::GameObject* owner,
@@ -140,8 +142,8 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 
 			BZR::handle ownerHandle = 0;
 			BZR::handle candidateHandle = 0;
-			if (!TryGetHandleForObject(owner, &ownerHandle) ||
-				!TryGetHandleForObject(candidate, &candidateHandle))
+			if (!TryGetHandleFromObject(owner, ownerHandle) ||
+				!TryGetHandleFromObject(candidate, candidateHandle))
 			{
 				return baseDistanceSq;
 			}
@@ -404,43 +406,6 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 			}
 		}
 
-		bool TryGetHandleForObject(BZR::GameObject* object, BZR::handle* outHandle)
-		{
-			__try
-			{
-				*outHandle = BZR::GameObject::GetHandle(object);
-				return *outHandle != 0;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				return false;
-			}
-		}
-
-		// A handle returned from Lua is only accepted when the object it maps to
-		// round-trips back to the same handle; anything else is ignored.
-		bool TryResolveHandle(BZR::handle h, BZR::GameObject** outObject)
-		{
-			__try
-			{
-				BZR::GameObject* object = BZR::GameObject::GetObj(h);
-				if (object == nullptr)
-				{
-					return false;
-				}
-				if (BZR::GameObject::GetHandle(object) != h)
-				{
-					return false;
-				}
-				*outObject = object;
-				return true;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				return false;
-			}
-		}
-
 		bool TryGetHorizontalDistanceSq(BZR::GameObject* first,
 		                                BZR::GameObject* second,
 		                                float& outDistanceSq)
@@ -505,13 +470,13 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 			BZR::GameObject* owner = nullptr;
 			BZR::handle ownerHandle = 0;
 			if (!TryGetProcessOwner(process, &owner) || owner == nullptr ||
-				!TryGetHandleForObject(owner, &ownerHandle))
+				!TryGetHandleFromObject(owner, ownerHandle))
 			{
 				return candidate;
 			}
 
 			BZR::handle candidateHandle = 0;
-			if (candidate != nullptr && !TryGetHandleForObject(candidate, &candidateHandle))
+			if (candidate != nullptr && !TryGetHandleFromObject(candidate, candidateHandle))
 			{
 				return candidate;
 			}
@@ -565,8 +530,11 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 			{
 				const BZR::handle overrideHandle =
 					reinterpret_cast<BZR::handle>(lua_touserdata(L, -1));
+				// Only a handle whose object round-trips back to the same
+				// handle is accepted; anything else is ignored.
+				BZR::handle resolvedHandle = 0;
 				BZR::GameObject* overrideObject = nullptr;
-				if (overrideHandle != 0 && TryResolveHandle(overrideHandle, &overrideObject))
+				if (TryResolveHandleValue(overrideHandle, resolvedHandle, overrideObject))
 				{
 					result = overrideObject;
 				}

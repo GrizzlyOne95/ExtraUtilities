@@ -229,6 +229,7 @@
     <ClInclude Include="src\Ogre\OgreEntityRuntime.h" />
     <ClInclude Include="src\Ogre\OgreMaterialRuntime.h" />
     <ClInclude Include="src\Game\GameObjectInternal.h" />
+    <ClInclude Include="src\Game\GameObjectHandle.h" />
     <ClInclude Include="src\Game\game_state.h" />
     <ClInclude Include="src\Patches\GlobalTurbo.h" />
     <ClInclude Include="src\Patches\TurboGate.h" />

@@ -398,6 +398,9 @@
     <ClInclude Include="src\Game\GameObjectInternal.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
+    <ClInclude Include="src\Game\GameObjectHandle.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
     <ClInclude Include="src\Game\game_state.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
