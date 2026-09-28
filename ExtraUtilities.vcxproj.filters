@@ -141,6 +141,9 @@
     <ClCompile Include="src\Patches\UnitVo.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
+    <ClCompile Include="src\Patches\AiHudBridges.cpp">
+      <Filter>Source Files\Patches</Filter>
+    </ClCompile>
     <ClCompile Include="src\UI\Renderer.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
@@ -357,6 +360,9 @@
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="src\Patches\UnitVo.h">
+      <Filter>Header Files\Patches</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Patches\AiHudBridges.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="src\Patches\WeaponMask.h">
