@@ -2,6 +2,23 @@
 --- Local first-person/pilot animation convenience API for Extra Utilities.
 --- This file augments Definitions/ExtraUtils.lua; it is editor metadata only.
 
+--- @class ExuPilotState
+--- @field available boolean
+--- @field state "standing"|"enteringCrouch"|"crouched"|"exitingCrouch"|"unknown"
+--- @field nativeState integer Raw `Person+0x228` FSM value.
+--- @field transition boolean True only for enter/exit crouch states 1 and 3.
+--- @field crouched boolean True only when the native FSM is fully in state 2.
+--- @field grounded boolean Native ground-contact bit from the Person vehicle/control object.
+--- @field sniperSelected boolean True when any selected live weapon has class signature `SNIP`.
+--- @field animationIndex integer Raw `Person+0x2A8` animation index.
+--- @field animationName string? Known stock name for proven indices 0,1,2,3,10,11; nil for unmapped indices.
+--- @field animationHandle integer Raw `Person+0x2AC` animation handle; stock transition states wait for -1.
+--- @field selectedWeaponMask integer Native Carrier selected-mask bits.
+--- @field selectedWeaponSlot integer? First selected slot that currently contains a live weapon.
+--- @field selectedWeaponSignature integer? Class signature for `selectedWeaponSlot`.
+--- @field selectedWeaponSignatureText string? Four-character printable form of the signature.
+--- @field selectedWeaponOdf string? Weapon-class ODF for `selectedWeaponSlot`.
+
 --- @class ExuFpsApi
 local fps = {}
 
@@ -17,6 +34,31 @@ function fps.IsAvailable() end
 --- @nodiscard
 --- @return ExuAnimationCapabilities
 function fps.GetCapabilities() end
+
+--- Returns a read-only snapshot of the current local on-foot Person animation
+--- FSM and its inputs. Returns nil when the current user object is not a Person
+--- or the qualified native read fails.
+--- @nodiscard
+--- @return ExuPilotState|nil
+function fps.GetPilotState() end
+
+--- Returns true only for the fully crouched native FSM state (state 2).
+--- Entering/exiting crouch return false; unavailable pilot state returns nil.
+--- @nodiscard
+--- @return boolean|nil
+function fps.IsCrouched() end
+
+--- Returns the native grounded flag for the current local Person, or nil when
+--- no readable local Person exists.
+--- @nodiscard
+--- @return boolean|nil
+function fps.IsGrounded() end
+
+--- Returns whether any selected live weapon is a sniper-class weapon (SNIP),
+--- or nil when no readable local Person exists.
+--- @nodiscard
+--- @return boolean|nil
+function fps.IsSniperSelected() end
 
 --- Returns a deterministic name-sorted snapshot of every Ogre AnimationState
 --- exposed by the current local first-person target. Returns nil when the
