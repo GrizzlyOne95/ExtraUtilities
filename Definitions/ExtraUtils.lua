@@ -2129,6 +2129,7 @@ function exu.GetGlobalTurbo() end
 
 --- Sets the state of the global turbo mode patch.
 --- In multiplayer this is local to each machine: every peer's mission script must make the same call.
+--- Returns false when enabling fails because the turbo hooks are not installed (unsupported build or site already patched).
 --- @param state boolean
 --- @return boolean applied
 function exu.SetGlobalTurbo(state) end
@@ -2140,7 +2141,9 @@ function exu.SetGlobalTurbo(state) end
 function exu.GetUnitTurbo(h) end
 
 --- Sets turbo for an individual unit that overrides the global setting.
+--- `false` is an override too: that unit keeps stock turbo behaviour even while global turbo is on.
 --- In multiplayer this is local to each machine: every peer's mission script must make the same call.
+--- Returns false for a dead handle, or when enabling fails because the turbo hooks are not installed.
 --- @param h Handle
 --- @param state boolean
 --- @return boolean applied

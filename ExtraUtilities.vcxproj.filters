@@ -332,6 +332,12 @@
     <ClInclude Include="src\Patches\GlobalTurbo.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
+    <ClInclude Include="src\Patches\TurboGate.h">
+      <Filter>Header Files\Patches</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Patches\TurboGateThunk.h">
+      <Filter>Header Files\Patches</Filter>
+    </ClInclude>
     <ClInclude Include="src\Game\Steam.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
