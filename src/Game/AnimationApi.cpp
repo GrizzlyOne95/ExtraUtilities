@@ -30,6 +30,7 @@
 #include <cmath>
 #include <cstring>
 #include <string>
+#include <vector>
 
 namespace ExtraUtilities::Lua::AnimationApi
 {
@@ -226,6 +227,39 @@ namespace ExtraUtilities::Lua::AnimationApi
 				return GameObject::SetAnimationTime(entity, name, timePosition);
 			}
 
+			void PushAnimationSnapshot(lua_State* L, const Target& target, const GameObject::EntityAnimationSnapshot& snapshot)
+			{
+				lua_createtable(L, 0, 9);
+				lua_pushlstring(L, snapshot.name.data(), snapshot.name.size());
+				lua_setfield(L, -2, "name");
+				lua_pushstring(L, TargetKindName(target.kind));
+				lua_setfield(L, -2, "targetKind");
+				lua_pushboolean(L, snapshot.info.enabled ? 1 : 0);
+				lua_setfield(L, -2, "enabled");
+				lua_pushboolean(L, snapshot.info.loop ? 1 : 0);
+				lua_setfield(L, -2, "loop");
+				lua_pushnumber(L, snapshot.info.weight);
+				lua_setfield(L, -2, "weight");
+				lua_pushnumber(L, snapshot.info.timePosition);
+				lua_setfield(L, -2, "timePosition");
+				lua_pushnumber(L, snapshot.info.length);
+				lua_setfield(L, -2, "length");
+
+				const float normalizedTime = snapshot.info.length > 0.0f
+					? snapshot.info.timePosition / snapshot.info.length
+					: 0.0f;
+				lua_pushnumber(L, normalizedTime);
+				lua_setfield(L, -2, "normalizedTime");
+				lua_pushboolean(
+					L,
+					(!snapshot.info.loop &&
+						snapshot.info.length > 0.0f &&
+						snapshot.info.timePosition >= snapshot.info.length)
+						? 1
+						: 0);
+				lua_setfield(L, -2, "atEnd");
+			}
+
 			void AddDerivedInfo(lua_State* L, const Target& target, const std::string& name)
 			{
 				if (!lua_istable(L, -1))
@@ -280,13 +314,15 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 		int GetCapabilities(lua_State* L)
 		{
-			lua_createtable(L, 0, 5);
+			lua_createtable(L, 0, 6);
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "gameObjectTarget");
 			const bool hasFpBridge = OpenShimBridge::HasLocalFirstPersonEntityBridge();
 			const bool hasNativeFpResolver = FirstPersonTarget::IsNativeResolverAvailable();
 			lua_pushboolean(L, (hasFpBridge || hasNativeFpResolver) ? 1 : 0);
 			lua_setfield(L, -2, "localFirstPersonTarget");
+			lua_pushboolean(L, 1);
+			lua_setfield(L, -2, "animationInventory");
 			lua_pushboolean(L, 0);
 			lua_setfield(L, -2, "managedClock");
 			lua_pushstring(L, "unvalidated");
@@ -338,6 +374,36 @@ namespace ExtraUtilities::Lua::AnimationApi
 				return 1;
 			}
 			Detail::AddDerivedInfo(L, target, name);
+			return 1;
+		}
+
+		int List(lua_State* L)
+		{
+			const Detail::Target target = Detail::ReadTarget(L, 1);
+			void* entity = Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
+			if (!entity)
+			{
+				lua_settop(L, 0);
+				lua_pushnil(L);
+				return 1;
+			}
+
+			std::vector<GameObject::EntityAnimationSnapshot> inventory;
+			if (!GameObject::GetAnimationInventory(entity, inventory))
+			{
+				lua_settop(L, 0);
+				lua_pushnil(L);
+				return 1;
+			}
+
+			lua_settop(L, 0);
+			lua_createtable(L, static_cast<int>(inventory.size()), 0);
+			int index = 1;
+			for (const GameObject::EntityAnimationSnapshot& snapshot : inventory)
+			{
+				Detail::PushAnimationSnapshot(L, target, snapshot);
+				lua_rawseti(L, -2, index++);
+			}
 			return 1;
 		}
 
@@ -514,6 +580,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{ "GetCapabilities", &GetCapabilities },
 			{ "Has", &Has },
 			{ "GetInfo", &GetInfo },
+			{ "List", &List },
 			{ "Play", &Play },
 			{ "Stop", &Stop },
 			{ "Restart", &Restart },
