@@ -17,7 +17,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <limits>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -25,6 +24,8 @@
 namespace ExtraUtilities
 {
 	// x86 function-entry detour with a reloc-free stolen-byte trampoline.
+	// Entry and trampoline return use absolute "push imm32; ret" transfers so
+	// large-address-aware 32-bit layouts do not depend on rel32 reachability.
 	//
 	// The caller is responsible for choosing a detour length that ends on an
 	// instruction boundary and contains no relative/control-transfer instruction
@@ -37,26 +38,6 @@ namespace ExtraUtilities
 		const void* m_hook = nullptr;
 		void* m_trampoline = nullptr;
 
-		static bool TryRel32(
-			std::uintptr_t instructionAddress,
-			std::uintptr_t targetAddress,
-			std::int32_t& outDisplacement) noexcept
-		{
-			const std::int64_t next =
-				static_cast<std::int64_t>(instructionAddress) + 5;
-			const std::int64_t displacement =
-				static_cast<std::int64_t>(targetAddress) - next;
-			if (displacement < (std::numeric_limits<std::int32_t>::min)() ||
-				displacement > (std::numeric_limits<std::int32_t>::max)())
-			{
-				outDisplacement = 0;
-				return false;
-			}
-
-			outDisplacement = static_cast<std::int32_t>(displacement);
-			return true;
-		}
-
 		bool EnsureTrampoline() noexcept
 		{
 #if !defined(_M_IX86)
@@ -67,12 +48,12 @@ namespace ExtraUtilities
 			{
 				return true;
 			}
-			if (!CanPatch() || m_length < 5 || m_originalBytes.size() != m_length)
+			if (!CanPatch() || m_length < 6 || m_originalBytes.size() != m_length)
 			{
 				return false;
 			}
 
-			const std::size_t trampolineSize = m_length + 5;
+			const std::size_t trampolineSize = m_length + 6;
 			auto* trampoline = static_cast<std::uint8_t*>(
 				VirtualAlloc(nullptr, trampolineSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
 			if (trampoline == nullptr)
@@ -83,19 +64,14 @@ namespace ExtraUtilities
 
 			std::memcpy(trampoline, m_originalBytes.data(), m_length);
 
-			const std::uintptr_t jumpAddress =
-				reinterpret_cast<std::uintptr_t>(trampoline + m_length);
-			const std::uintptr_t resumeAddress = m_address + m_length;
-			std::int32_t resumeDisplacement = 0;
-			if (!TryRel32(jumpAddress, resumeAddress, resumeDisplacement))
-			{
-				VirtualFree(trampoline, 0, MEM_RELEASE);
-				LogPatchIssue("entry-detour trampoline resume is outside rel32 range", m_address, m_length);
-				return false;
-			}
-
-			trampoline[m_length] = 0xE9;
-			std::memcpy(trampoline + m_length + 1, &resumeDisplacement, sizeof(resumeDisplacement));
+			// Absolute transfer: push resumeAddress; ret. Net stack delta is zero,
+			// registers/EFLAGS are preserved, and unlike E9 this works even when a
+			// large-address-aware process places the trampoline over 2 GiB away.
+			const std::uint32_t resumeAddress =
+				static_cast<std::uint32_t>(m_address + m_length);
+			trampoline[m_length] = 0x68;
+			std::memcpy(trampoline + m_length + 1, &resumeAddress, sizeof(resumeAddress));
+			trampoline[m_length + 5] = 0xC3;
 
 			DWORD previousProtect = 0;
 			if (!VirtualProtect(trampoline, trampolineSize, PAGE_EXECUTE_READ, &previousProtect))
@@ -113,22 +89,12 @@ namespace ExtraUtilities
 
 		void DoPatch() override
 		{
-			if (!CanPatch() || !ValidatePreimage() || m_hook == nullptr || m_length < 5)
+			if (!CanPatch() || !ValidatePreimage() || m_hook == nullptr || m_length < 6)
 			{
 				return;
 			}
 			if (!EnsureTrampoline())
 			{
-				return;
-			}
-
-			std::int32_t hookDisplacement = 0;
-			if (!TryRel32(
-				m_address,
-				reinterpret_cast<std::uintptr_t>(m_hook),
-				hookDisplacement))
-			{
-				LogPatchIssue("entry-detour hook is outside rel32 range", m_address, m_length);
 				return;
 			}
 
@@ -141,8 +107,11 @@ namespace ExtraUtilities
 			}
 
 			std::memset(target, NOP, m_length);
-			target[0] = 0xE9;
-			std::memcpy(target + 1, &hookDisplacement, sizeof(hookDisplacement));
+			const std::uint32_t hookAddress =
+				static_cast<std::uint32_t>(reinterpret_cast<std::uintptr_t>(m_hook));
+			target[0] = 0x68;
+			std::memcpy(target + 1, &hookAddress, sizeof(hookAddress));
+			target[5] = 0xC3;
 			FlushPatchedRange();
 
 			if (!VirtualProtect(target, m_length, previousProtect, &dummyProtect))
@@ -177,9 +146,9 @@ namespace ExtraUtilities
 				m_requestedStatus = Status::INACTIVE;
 				return;
 			}
-			if (m_length < 5)
+			if (m_length < 6)
 			{
-				LogPatchIssue("refusing to install undersized entry detour", m_address, m_length);
+				LogPatchIssue("refusing to install entry detour shorter than push/ret transfer", m_address, m_length);
 				m_status = Status::INACTIVE;
 				m_requestedStatus = Status::INACTIVE;
 				return;
