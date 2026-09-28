@@ -45,6 +45,18 @@
     <ClCompile Include="src\UI\Overlay.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Ogre\OgreOverlayElementOps.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Ogre\OgreOverlayRuntime.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\OverlaySuppression.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\OverlayFontAssets.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\PublicAPI.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
@@ -210,6 +222,15 @@
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Overlay.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreOverlayElementOps.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreOverlayRuntime.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\OverlayInternal.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Util\BuildValidation.h">
