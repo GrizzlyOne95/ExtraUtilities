@@ -301,7 +301,7 @@ int main()
 	*finalValue = 7;
 	{
 		Scanner<int> gated(reinterpret_cast<int*>(root), { 0, 0 }, BasicScanner::Restore::DISABLED);
-		gated.Write(5);
+		ok &= Check(!gated.Write(5), "Scanner::Write reported success with the runtime build gate closed");
 		ok &= Check(*finalValue == 7, "Scanner wrote with the runtime build gate closed");
 	}
 	RuntimeGate::SetSupported(true);
@@ -313,7 +313,7 @@ int main()
 		Scanner<int> scanner(reinterpret_cast<int*>(root), { 0, 0 }, BasicScanner::Restore::ENABLED);
 		ok &= Check(scanner.Get() == finalValue, "scanner resolved the wrong final pointee");
 		ok &= Check(scanner.Read() == 7, "scanner read failed");
-		scanner.Write(9);
+		ok &= Check(scanner.Write(9), "Scanner::Write did not report a stored value");
 		ok &= Check(*finalValue == 9, "scanner write failed");
 	}
 	VirtualQuery(finalValue, &after, sizeof(after));
