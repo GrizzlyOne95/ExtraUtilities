@@ -16,6 +16,7 @@
 #include "Util/RuntimeGate.h"
 #include "bzr.h"
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <memory>
@@ -35,10 +36,11 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 		// These are complete, reloc-free instructions. The trampoline resumes at
 		// the following "mov eax,fs:[0]" SEH-frame instruction. Identity is also
 		// catalogued in exu.json as PersonRuntime.PersonSimulate.
-		const std::vector<std::uint8_t> kExpectedPersonSimulateEntry = {
-			0x55, 0x8B, 0xEC, 0x6A, 0xFF,
-			0x68, 0xD6, 0xC1, 0x84, 0x00
-		};
+		constexpr std::array<std::uint8_t, kPersonSimulateDetourLength>
+			kExpectedPersonSimulateEntry = {
+				0x55, 0x8B, 0xEC, 0x6A, 0xFF,
+				0x68, 0xD6, 0xC1, 0x84, 0x00
+			};
 
 		std::unique_ptr<EntryDetour32> g_detour;
 		PersonSimulateFn g_originalPersonSimulate = nullptr;
@@ -129,7 +131,9 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 				reinterpret_cast<const void*>(&PersonSimulateObserveHook),
 				kPersonSimulateDetourLength,
 				BasicPatch::Status::INACTIVE,
-				kExpectedPersonSimulateEntry);
+				std::vector<std::uint8_t>(
+					kExpectedPersonSimulateEntry.begin(),
+					kExpectedPersonSimulateEntry.end()));
 			if (raw == nullptr)
 			{
 				Logging::LogMessage("exu: failed to allocate Person::Simulate interception seam");
