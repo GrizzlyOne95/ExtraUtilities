@@ -313,7 +313,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 		int GetCapabilities(lua_State* L)
 		{
-			lua_createtable(L, 0, 6);
+			lua_createtable(L, 0, 7);
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "gameObjectTarget");
 			const bool hasFpBridge = OpenShimBridge::HasLocalFirstPersonEntityBridge();
@@ -321,6 +321,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_setfield(L, -2, "localFirstPersonTarget");
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "animationInventory");
+			lua_pushboolean(L, 1);
+			lua_setfield(L, -2, "pilotStateInspection");
 			lua_pushboolean(L, 0);
 			lua_setfield(L, -2, "managedClock");
 			lua_pushstring(L, "unvalidated");
