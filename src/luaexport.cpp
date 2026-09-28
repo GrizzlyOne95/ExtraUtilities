@@ -22,6 +22,7 @@
 
 #include "About.h"
 #include "Game/Culling.h"
+#include "Game/PilotFsmIntercept.h"
 #include "Game/RenderEffects.h"
 #include "Game/StaticGeometry.h"
 #include "Exports.h"
@@ -513,6 +514,7 @@ namespace ExtraUtilities::Lua
 
 		state = L; // save the state pointer to use in callbacks
 		CommandReplacement::ResetState(L);
+		PilotFsmIntercept::ResetStats();
 		Logging::LogMessage("exu: Init starting");
 		Patches::ResetOpenShimMissionOverrides();
 		// Scripted content gets the legacy jump-snipe crouch fix on by default.
@@ -527,6 +529,7 @@ namespace ExtraUtilities::Lua
 		if (supportedBuild && BasicPatch::EnableDeferredPatchActivation(false))
 		{
 			Logging::LogMessage("exu: deferred patches activated");
+			PilotFsmIntercept::Install();
 		}
 		else
 		{
