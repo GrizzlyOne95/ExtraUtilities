@@ -139,6 +139,7 @@
     <ClCompile Include="src\Patches\BulletHitCallback.cpp" />
     <ClCompile Include="src\Patches\BulletInitCallback.cpp" />
     <ClCompile Include="src\Game\AnimationApi.cpp" />
+    <ClCompile Include="src\Game\FirstPersonTarget.cpp" />
     <ClCompile Include="src\Game\Camera.cpp" />
     <ClCompile Include="src\Patches\Cheats.cpp" />
     <ClCompile Include="src\Game\CommandReplacement.cpp" />
@@ -278,6 +279,7 @@
     <ClInclude Include="src\Patches\AiHudBridges.h" />
     <ClInclude Include="src\Patches\WeaponMask.h" />
     <ClInclude Include="src\Game\AnimationApi.h" />
+    <ClInclude Include="src\Game\FirstPersonTarget.h" />
     <ClInclude Include="src\Game\ContinuityApi.h" />
     <ClInclude Include="src\Ogre\OgreMaterialShim.h" />
     <ClInclude Include="src\Ogre\OgreSceneManagerShim.h" />
