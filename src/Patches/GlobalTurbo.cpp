@@ -145,6 +145,14 @@ namespace ExtraUtilities::Patch
 
 	bool SetUnitTurboOverride(BZR::handle h, bool status)
 	{
+		// A dead handle never takes an override, whoever owns turbo; OpenShim's
+		// setter does not check liveness itself.
+		if (BZR::GameObject::GetObj(h) == nullptr)
+		{
+			PruneDeadTurboOverrides();
+			return false;
+		}
+
 		if (g_openShimOwnsUnitTurbo)
 		{
 			const auto fn = OpenShimBridge::Resolve<OpenShimSetUnitTurboFn>("OpenShimSetUnitTurbo");
@@ -154,17 +162,17 @@ namespace ExtraUtilities::Patch
 		// Handles are only unique among live objects; drop overrides for dead
 		// ones so the map stays bounded and a reused slot starts clean.
 		PruneDeadTurboOverrides();
-		if (BZR::GameObject::GetObj(h) == nullptr)
-		{
-			return false;
-		}
-
 		setTurboUnits[h] = status;
 		return !status || DataGateInstalled();
 	}
 
 	bool GetUnitTurboOverride(BZR::handle h)
 	{
+		if (BZR::GameObject::GetObj(h) == nullptr)
+		{
+			return false;
+		}
+
 		if (g_openShimOwnsUnitTurbo)
 		{
 			const auto fn = OpenShimBridge::Resolve<OpenShimGetUnitTurboFn>("OpenShimGetUnitTurbo");
@@ -172,7 +180,7 @@ namespace ExtraUtilities::Patch
 		}
 
 		const auto it = setTurboUnits.find(h);
-		return it != setTurboUnits.end() && it->second && BZR::GameObject::GetObj(h) != nullptr;
+		return it != setTurboUnits.end() && it->second;
 	}
 }
 
