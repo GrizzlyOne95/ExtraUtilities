@@ -58,10 +58,10 @@
       "PauseWrapper": {
         "address": "0x005D4690",
         "type": "function: void __cdecl(int dialog)",
-        "description": "Stock Escape/in-game UI wrapper (logs 'Starting escape/in game UI wrapper with dialog'). src/UI/Overlay.cpp verifies its prologue and hooks +0x26 (entry) and +0x1CA (exit) to track overlay pause depth. Also the 'Overlay pause wrapper' runtime-gate anchor in profiles/bzr_2.2.301.json.",
+        "description": "Stock Escape/in-game UI wrapper (logs 'Starting escape/in game UI wrapper with dialog'). src/UI/OverlaySuppression.cpp verifies its prologue and hooks +0x26 (entry) and +0x1CA (exit) to track overlay pause depth. Also the 'Overlay pause wrapper' runtime-gate anchor in profiles/bzr_2.2.301.json.",
         "pattern": "55 8B EC 51 83 3D 2C 83 91 00 00 74 05 E9 ?? ?? ?? ?? 0F B6 05 2B 81 91 00 85 C0 0F 85 ?? ?? ?? ??",
         "pattern_kind": "code",
-        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27. This is the runtime-gate preimage formerly inline in the build profile; it keeps the 0x0091832C and PauseWrapperActive operands literal, which is stricter than the shortest unique pattern and matches kPauseWrapperFunctionPattern in src/UI/Overlay.cpp."
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27. This is the runtime-gate preimage formerly inline in the build profile; it keeps the 0x0091832C and PauseWrapperActive operands literal, which is stricter than the shortest unique pattern and matches kPauseWrapperFunctionPattern in src/UI/OverlaySuppression.cpp."
       },
       "PauseWrapperActive": {
         "address": "0x0091812B",

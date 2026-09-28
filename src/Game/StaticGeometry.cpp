@@ -523,7 +523,7 @@ namespace ExtraUtilities::Lua::StaticGeometry
 
 		// Lua hands us simulation coordinates -- the ones GetPosition and
 		// GetTerrainHeightAndNormal return -- so convert every transform into
-		// render space before Ogre sees it, exactly as Environment.cpp does for
+		// render space before Ogre sees it, exactly as ParticleRuntime.cpp does for
 		// particles. Fail the call rather than silently building geometry that
 		// cannot be drawn.
 		OgreVector3Value renderOrigin{};
