@@ -99,6 +99,7 @@ error("This is a definition file, use require(\"exu\")")
 --- @field localFirstPersonTarget boolean
 --- @field animationInventory boolean
 --- @field pilotStateInspection boolean
+--- @field pilotFsmIntercept boolean
 --- @field managedClock boolean
 --- @field nativeAdvancement string
 --- @field firstPersonStatus string
@@ -135,10 +136,31 @@ error("This is a definition file, use require(\"exu\")")
 --- @field selectedWeaponSignatureText string?
 --- @field selectedWeaponOdf string?
 
+--- @class PilotInterceptStatus
+--- @field installed boolean
+--- @field active boolean
+--- @field observeOnly boolean
+--- @field hasLocalSample boolean
+--- @field calls integer
+--- @field localCalls integer
+--- @field stateChanges integer
+--- @field animationChanges integer
+--- @field beforeNativeState integer?
+--- @field afterNativeState integer?
+--- @field beforeState string?
+--- @field afterState string?
+--- @field beforeAnimationIndex integer?
+--- @field afterAnimationIndex integer?
+--- @field beforeAnimationName string?
+--- @field afterAnimationName string?
+--- @field beforeAnimationHandle integer?
+--- @field afterAnimationHandle integer?
+
 --- @class FpsAnimationApi
 --- @field IsAvailable fun(): boolean
 --- @field GetCapabilities fun(): AnimationCapabilities
 --- @field GetPilotState fun(): PilotStateInfo?
+--- @field GetPilotInterceptStatus fun(): PilotInterceptStatus
 --- @field IsCrouched fun(): boolean?
 --- @field IsGrounded fun(): boolean?
 --- @field IsSniperSelected fun(): boolean?

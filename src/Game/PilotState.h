@@ -32,4 +32,10 @@ namespace ExtraUtilities::Lua::PilotState
 	// Returns false when EXU's qualified runtime gate is closed, the user object
 	// is not a Person, or any native read faults. No engine pointer is retained.
 	bool Capture(Snapshot& outSnapshot) noexcept;
+
+	// Same snapshot, but only succeeds when candidate is exactly the current
+	// local user object and that object is a Person. Intended for native
+	// Person::Simulate hooks so AI/remote Person calls do not sample the local
+	// player accidentally.
+	bool CaptureIfCurrent(const void* candidate, Snapshot& outSnapshot) noexcept;
 }

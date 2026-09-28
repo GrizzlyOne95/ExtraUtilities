@@ -17,6 +17,7 @@
 */
 
 #include "BasicPatch.h"
+#include "EntryDetour32.h"
 #include "Hook.h"
 #include "InlinePatch.h"
 #include "LuaCppBarrier.h"
@@ -31,6 +32,7 @@
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -200,6 +202,14 @@ static int PlainLuaFunction(lua_State*)
 	return 3;
 }
 
+using DetourProbeFn = int(__cdecl*)();
+static DetourProbeFn g_detourProbeOriginal = nullptr;
+
+static int __cdecl DetourProbeHook()
+{
+	return g_detourProbeOriginal != nullptr ? g_detourProbeOriginal() + 1 : -1;
+}
+
 namespace
 {
 	class BytePatch final : public BasicPatch
@@ -253,6 +263,7 @@ namespace
 int main()
 {
 	static_assert(!std::is_move_constructible_v<Hook>);
+	static_assert(!std::is_move_constructible_v<EntryDetour32>);
 	static_assert(!std::is_move_constructible_v<Scanner<int>>);
 	// A function pointer must never be accepted as a byte buffer to copy from.
 	static_assert(!std::is_constructible_v<InlinePatch, uintptr_t, void (*)(), size_t, BasicPatch::Status>);
@@ -298,6 +309,45 @@ int main()
 		ok &= Check(patchPage[0] == 0x22, "requested active state was not restored on enable");
 		patch.SetStatus(false);
 		ok &= Check(patchPage[0] == 0x11, "boolean SetStatus(false) did not unload patch");
+	}
+	BasicPatch::UnloadAllPatches();
+
+	// Function-entry detour: copy a reloc-free instruction into a trampoline,
+	// jump to a hook, then resume at the first untouched byte. The synthetic
+	// function is "mov eax,42; nop; ret"; the hook calls the trampoline and adds 1.
+	auto* detourPage = static_cast<uint8_t*>(
+		VirtualAlloc(nullptr, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
+	if (!detourPage)
+	{
+		std::cerr << "entry-detour VirtualAlloc failed\n";
+		return 1;
+	}
+	const uint8_t detourOriginalBytes[7] = { 0xB8, 0x2A, 0x00, 0x00, 0x00, 0x90, 0xC3 };
+	std::memcpy(detourPage, detourOriginalBytes, sizeof(detourOriginalBytes));
+	auto detourProbe = reinterpret_cast<DetourProbeFn>(detourPage);
+	ok &= Check(detourProbe() == 42, "synthetic entry-detour baseline function returned the wrong value");
+	{
+		EntryDetour32 detour(
+			reinterpret_cast<uintptr_t>(detourPage),
+			reinterpret_cast<const void*>(&DetourProbeHook),
+			6,
+			BasicPatch::Status::INACTIVE,
+			{ 0xB8, 0x2A, 0x00, 0x00, 0x00, 0x90 });
+		ok &= Check(detourProbe() == 42, "inactive entry detour changed the target before activation");
+		ok &= Check(detour.PrepareTrampoline(), "entry detour could not prepare its trampoline");
+		g_detourProbeOriginal = detour.GetTrampolineAs<DetourProbeFn>();
+		ok &= Check(g_detourProbeOriginal != nullptr, "entry detour did not publish a prepared trampoline");
+
+		BasicPatch::EnableDeferredPatchActivation(false);
+		detour.SetStatus(true);
+		ok &= Check(detour.IsActive(), "entry detour did not report active after activation");
+		ok &= Check(detourProbe() == 43, "entry detour hook/trampoline did not preserve and extend stock execution");
+		ok &= Check(g_detourProbeOriginal() == 42, "entry detour trampoline did not execute the stolen bytes and resume");
+
+		BasicPatch::UnloadAllPatches();
+		ok &= Check(!detour.IsActive(), "entry detour stayed active after UnloadAllPatches");
+		ok &= Check(detourProbe() == 42, "entry detour teardown did not restore the original entry");
+		g_detourProbeOriginal = nullptr;
 	}
 	BasicPatch::UnloadAllPatches();
 
@@ -522,6 +572,7 @@ int main()
 		pattern.data(), mask.data(), pattern.size());
 	ok &= Check(found == reinterpret_cast<uintptr_t>(bytes.data() + 2), "masked signature resolver returned wrong match");
 
+	VirtualFree(detourPage, 0, MEM_RELEASE);
 	VirtualFree(patchPage, 0, MEM_RELEASE);
 	VirtualFree(root, 0, MEM_RELEASE);
 	VirtualFree(middle, 0, MEM_RELEASE);

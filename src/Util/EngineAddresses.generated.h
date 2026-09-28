@@ -490,5 +490,14 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 153u;
+	namespace PersonRuntime
+	{
+		enum : uintptr_t
+		{
+			// function: void __thiscall(Person*, float)
+			PersonSimulate = 0x0059D340u,
+		};
+	}
+
+	inline constexpr unsigned kEntryCount = 154u;
 }

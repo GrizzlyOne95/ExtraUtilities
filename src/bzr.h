@@ -377,6 +377,13 @@ namespace BZR
 		}
 	};
 
+	namespace PersonRuntime
+	{
+		// GOG/qualified Redux 2.2.301 Person::Simulate. The entry identity and
+		// prologue are catalogued in exu.json; use only behind RuntimeGate.
+		inline constexpr uintptr_t PersonSimulate = EngineAddresses::PersonRuntime::PersonSimulate;
+	}
+
 	namespace GraphicsOptions
 	{
 		inline auto isFullscreen = (bool*)EngineAddresses::GraphicsOptions::isFullscreen;
