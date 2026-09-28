@@ -37,7 +37,7 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 	// Installs/activates the verified Person::Simulate entry detour. The hook is
 	// observe-only in this work chunk: it always calls the stock trampoline and
 	// performs no native writes before or after it.
-	bool Install() noexcept;
+	bool Install();
 
 	bool IsInstalled() noexcept;
 	bool IsActive() noexcept;
