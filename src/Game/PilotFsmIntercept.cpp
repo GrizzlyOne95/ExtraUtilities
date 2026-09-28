@@ -18,6 +18,7 @@
 
 #include <array>
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <new>
 #include <vector>
@@ -116,7 +117,7 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 		}
 	}
 
-	bool Install() noexcept
+	bool Install()
 	{
 		if (!RuntimeGate::IsSupported())
 		{
