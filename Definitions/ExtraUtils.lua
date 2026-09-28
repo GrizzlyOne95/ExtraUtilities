@@ -98,6 +98,7 @@ error("This is a definition file, use require(\"exu\")")
 --- @field gameObjectTarget boolean
 --- @field localFirstPersonTarget boolean
 --- @field animationInventory boolean
+--- @field pilotStateInspection boolean
 --- @field managedClock boolean
 --- @field nativeAdvancement string
 --- @field firstPersonStatus string
