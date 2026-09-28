@@ -117,9 +117,11 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 		}
 	}
 
-	bool Install()
+	bool Install() noexcept
 	{
-		if (!RuntimeGate::IsSupported())
+		try
+		{
+			if (!RuntimeGate::IsSupported())
 		{
 			return false;
 		}
@@ -170,9 +172,24 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 			return false;
 		}
 
-		Logging::LogMessage(
-			"exu: Person::Simulate interception seam active (observe-only)");
-		return true;
+			Logging::LogMessage(
+				"exu: Person::Simulate interception seam active (observe-only)");
+			return true;
+		}
+		catch (...)
+		{
+			// luaopen_exu itself is a C ABI entry point, so no C++ exception may
+			// escape Init. Avoid allocation-heavy logging on this failure path.
+			OutputDebugStringA(
+				"ExtraUtilities: exception while installing Person::Simulate interception seam\n");
+			if (g_detour != nullptr)
+			{
+				delete g_detour;
+				g_detour = nullptr;
+			}
+			g_originalPersonSimulate = nullptr;
+			return false;
+		}
 	}
 
 	bool IsInstalled() noexcept
