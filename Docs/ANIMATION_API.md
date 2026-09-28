@@ -145,6 +145,15 @@ The snapshot contains only names and one-operation state pointers; metadata is
 then read through EXU's existing guarded animation getters and no Ogre pointer
 is retained after the public call returns.
 
+The two Ogre entry points the bridge needs (`Entity::getAllAnimationStates` and
+`AnimationStateSet::getAnimationStateIterator`) are resolved from the loaded
+`OgreMain.dll` by mangled name at run time (`Ogre/OgreProc.h`), like the other
+native Ogre bridges, and are not added to the hand-made `lib/OgreMain.lib`
+import subset. A load-time import of a name the shipped `OgreMain.dll` does not
+export would stop `exu.dll` loading at all; a missing export here only makes
+`List` return `nil`. Each animation's name is the `AnimationStateSet` map key,
+which is exactly the name `Has`, `GetInfo`, and `Play` look states up by.
+
 This is deliberately read-only. Enumerating states does not enable, seek,
 weight, or otherwise mutate them.
 
