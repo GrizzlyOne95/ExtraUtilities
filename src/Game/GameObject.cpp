@@ -204,7 +204,7 @@ namespace ExtraUtilities::Lua::GameObject
 		lua_pushlightuserdata(L, reinterpret_cast<void*>(h));
 		lua_call(L, 1, 1);
 
-		std::string classLabel = luaL_checkstring(L, -1);
+		const std::string_view classLabel = luaL_checkstring(L, -1);
 
 		if (classLabel != "commtower")
 		{

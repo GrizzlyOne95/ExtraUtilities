@@ -27,6 +27,7 @@
 
 #include <Windows.h>
 
+#include <algorithm>
 #include <array>
 #include <cctype>
 #include <cstddef>
@@ -760,10 +761,12 @@ namespace ExtraUtilities::Lua::Patches
 		constexpr size_t kMaxUnitVoAlternateCount = 16;
 		constexpr size_t kMaxUnitVoFilenameLength = 15;
 
-		std::string CheckUnitVoFilename(lua_State* L, int index)
+		// Returns the Lua string itself, so nothing needs destroying if the
+		// check raises.
+		const char* CheckUnitVoFilename(lua_State* L, int index)
 		{
 			size_t length{};
-			std::string filename = luaL_checklstring(L, index, &length);
+			const char* filename = luaL_checklstring(L, index, &length);
 			if (length == 0 || length > kMaxUnitVoFilenameLength)
 			{
 				luaL_argerror(L, index, "Extra Utilities Error: Unit VO filename must be 1-15 characters");
@@ -876,24 +879,62 @@ namespace ExtraUtilities::Lua::Patches
 		return 0;
 	}
 
+	namespace
+	{
+		// Plain copy of one filename's alternates. Taken under the lock and
+		// pushed to Lua after it is released: a Lua error (out of memory in
+		// lua_newtable or lua_pushlstring) would otherwise skip the lock's
+		// destructor and leave g_unitVoMutex held.
+		struct UnitVoAlternatesSnapshot
+		{
+			size_t count = 0;
+			size_t lengths[kMaxUnitVoAlternateCount] = {};
+			char names[kMaxUnitVoAlternateCount][kMaxUnitVoFilenameLength + 1] = {};
+		};
+
+		bool CopyUnitVoAlternates(const char* filename, UnitVoAlternatesSnapshot& outSnapshot)
+		{
+			const std::string normalized = Patch::NormalizeFilename(filename);
+			std::lock_guard<std::mutex> lock(Patch::g_unitVoMutex);
+			const auto alternateIt = Patch::unitVoAlternates.find(normalized);
+			if (alternateIt == Patch::unitVoAlternates.end())
+			{
+				return false;
+			}
+
+			for (const std::string& alternate : alternateIt->second)
+			{
+				if (outSnapshot.count == kMaxUnitVoAlternateCount)
+				{
+					break;
+				}
+
+				const size_t length = (std::min)(alternate.size(), kMaxUnitVoFilenameLength);
+				std::memcpy(outSnapshot.names[outSnapshot.count], alternate.data(), length);
+				outSnapshot.lengths[outSnapshot.count] = length;
+				++outSnapshot.count;
+			}
+
+			return true;
+		}
+	}
+
 	int GetUnitVoAlternates(lua_State* L)
 	{
-		const std::string normalized = Patch::NormalizeFilename(CheckUnitVoFilename(L, 1).c_str());
+		const char* const filename = CheckUnitVoFilename(L, 1);
 
-		std::lock_guard<std::mutex> lock(Patch::g_unitVoMutex);
-		const auto alternateIt = Patch::unitVoAlternates.find(normalized);
-		if (alternateIt == Patch::unitVoAlternates.end())
+		UnitVoAlternatesSnapshot snapshot;
+		if (!CopyUnitVoAlternates(filename, snapshot))
 		{
 			lua_pushnil(L);
 			return 1;
 		}
 
 		lua_newtable(L);
-		lua_Integer index = 1;
-		for (const std::string& alternate : alternateIt->second)
+		for (size_t i = 0; i < snapshot.count; ++i)
 		{
-			lua_pushlstring(L, alternate.c_str(), alternate.size());
-			lua_rawseti(L, -2, index++);
+			lua_pushlstring(L, snapshot.names[i], snapshot.lengths[i]);
+			lua_rawseti(L, -2, static_cast<int>(i + 1));
 		}
 
 		return 1;
@@ -901,10 +942,11 @@ namespace ExtraUtilities::Lua::Patches
 
 	int SetUnitVoAlternates(lua_State* L)
 	{
-		const std::string normalized = Patch::NormalizeFilename(CheckUnitVoFilename(L, 1).c_str());
+		const char* const filename = CheckUnitVoFilename(L, 1);
 
 		if (lua_isnil(L, 2))
 		{
+			const std::string normalized = Patch::NormalizeFilename(filename);
 			std::lock_guard<std::mutex> lock(Patch::g_unitVoMutex);
 			Patch::unitVoAlternates.erase(normalized);
 			Logging::LogMessage("[EXU::UnitVo] cleared alternates filename=%s", normalized.c_str());
@@ -919,9 +961,8 @@ namespace ExtraUtilities::Lua::Patches
 			return luaL_argerror(L, 2, "Extra Utilities Error: Unit VO alternate table must contain 1-16 filenames");
 		}
 
-		std::vector<std::string> alternates;
-		alternates.reserve(static_cast<size_t>(count));
-
+		// Validate every entry first; the strings and the vector are built
+		// only once no argument error can be raised.
 		for (int i = 1; i <= count; ++i)
 		{
 			lua_rawgeti(L, 2, i);
@@ -938,8 +979,16 @@ namespace ExtraUtilities::Lua::Patches
 				lua_pop(L, 1);
 				return luaL_argerror(L, 2, "Extra Utilities Error: Unit VO alternate filenames must be 1-15 characters");
 			}
+			lua_pop(L, 1);
+		}
 
-			alternates.emplace_back(Patch::NormalizeFilename(value));
+		const std::string normalized = Patch::NormalizeFilename(filename);
+		std::vector<std::string> alternates;
+		alternates.reserve(static_cast<size_t>(count));
+		for (int i = 1; i <= count; ++i)
+		{
+			lua_rawgeti(L, 2, i);
+			alternates.emplace_back(Patch::NormalizeFilename(lua_tostring(L, -1)));
 			lua_pop(L, 1);
 		}
 

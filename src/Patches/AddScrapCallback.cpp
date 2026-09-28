@@ -145,10 +145,12 @@ namespace ExtraUtilities::Lua::Patches
 
 		if (status != 0)
 		{
+			// Built on the Lua stack, not in a std::string: lua_error longjmps
+			// over this frame.
 			const char* luaMessage = lua_tostring(L, -1);
-			const std::string errorMessage = luaMessage != nullptr ? luaMessage : "unknown Lua error";
-			lua_pop(L, 1);
-			return luaL_error(L, "Extra Utilities AddScrapSilent error: %s", errorMessage.c_str());
+			lua_pushfstring(L, "Extra Utilities AddScrapSilent error: %s", luaMessage != nullptr ? luaMessage : "unknown Lua error");
+			lua_remove(L, -2);
+			return lua_error(L);
 		}
 
 		return 1;
