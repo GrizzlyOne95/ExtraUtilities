@@ -113,7 +113,7 @@ namespace Ogre
 	};
 
 	// Panel, BorderPanel and TextArea methods are resolved by mangled name in
-	// Overlay.cpp, so a missing export cannot stop exu.dll from loading.
+	// OgreOverlayElementOps.cpp, so a missing export cannot stop exu.dll from loading.
 	class PanelOverlayElement : public OverlayElement
 	{
 	};

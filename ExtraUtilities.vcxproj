@@ -148,8 +148,24 @@
     <ClCompile Include="src\dllmain.cpp" />
     <ClCompile Include="src\Patches\EngineFlameColor.cpp" />
     <ClCompile Include="src\Game\Environment.cpp" />
+    <ClCompile Include="src\Ogre\OgreParticleAbi.cpp" />
+    <ClCompile Include="src\Ogre\OgreSceneRuntime.cpp" />
+    <ClCompile Include="src\Game\SceneDebug.cpp" />
+    <ClCompile Include="src\Game\ViewportLightingMode.cpp" />
+    <ClCompile Include="src\Game\ParticleBindings.cpp" />
+    <ClCompile Include="src\Game\ParticleRuntime.cpp" />
+    <ClCompile Include="src\Game\EnvironmentSky.cpp" />
+    <ClCompile Include="src\Game\EnvironmentLighting.cpp" />
+    <ClCompile Include="src\Game\EnvironmentLog.cpp" />
     <ClCompile Include="src\Game\RenderEffects.cpp" />
     <ClCompile Include="src\Game\GameObject.cpp" />
+    <ClCompile Include="src\Ogre\OgreEntityRuntime.cpp" />
+    <ClCompile Include="src\Ogre\OgreMaterialRuntime.cpp" />
+    <ClCompile Include="src\Game\EntityRenderApi.cpp" />
+    <ClCompile Include="src\Game\MaterialApi.cpp" />
+    <ClCompile Include="src\Game\TerrainTrn.cpp" />
+    <ClCompile Include="src\Game\AiInspection.cpp" />
+    <ClCompile Include="src\Game\GameObjectHandle.cpp" />
     <ClCompile Include="src\Game\game_state.cpp" />
     <ClCompile Include="src\Patches\GlobalTurbo.cpp" />
     <ClCompile Include="src\Util\GraphicsOptions.cpp" />
@@ -164,6 +180,10 @@
       <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <ClCompile Include="src\UI\Overlay.cpp" />
+    <ClCompile Include="src\Ogre\OgreOverlayElementOps.cpp" />
+    <ClCompile Include="src\Ogre\OgreOverlayRuntime.cpp" />
+    <ClCompile Include="src\UI\OverlaySuppression.cpp" />
+    <ClCompile Include="src\UI\OverlayFontAssets.cpp" />
     <ClCompile Include="src\Game\Ordnance.cpp" />
     <ClCompile Include="src\Patches\OrdnanceVelocity.cpp" />
     <ClCompile Include="src\Util\OS.cpp" />
@@ -180,6 +200,7 @@
     <ClCompile Include="src\Game\Steam.cpp" />
     <ClCompile Include="src\StockExtensions.cpp" />
     <ClCompile Include="src\Patches\UnitVo.cpp" />
+    <ClCompile Include="src\Patches\AiHudBridges.cpp" />
     <ClCompile Include="src\Patches\WeaponMask.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -198,9 +219,16 @@
     <ClInclude Include="src\UI\ControlPanel.h" />
     <ClInclude Include="src\Patches\EngineFlameColor.h" />
     <ClInclude Include="src\Game\Environment.h" />
+    <ClInclude Include="src\Ogre\OgreParticleAbi.h" />
+    <ClInclude Include="src\Ogre\OgreSceneRuntime.h" />
+    <ClInclude Include="src\Game\EnvironmentLog.h" />
+    <ClInclude Include="src\Game\EnvironmentInternal.h" />
     <ClInclude Include="include\ExtraUtils.h" />
     <ClInclude Include="src\Exports.h" />
     <ClInclude Include="src\Game\GameObject.h" />
+    <ClInclude Include="src\Ogre\OgreEntityRuntime.h" />
+    <ClInclude Include="src\Ogre\OgreMaterialRuntime.h" />
+    <ClInclude Include="src\Game\GameObjectInternal.h" />
     <ClInclude Include="src\Game\game_state.h" />
     <ClInclude Include="src\Patches\GlobalTurbo.h" />
     <ClInclude Include="src\Patches\TurboGate.h" />
@@ -224,6 +252,9 @@
     <ClInclude Include="src\Ogre\OgreStringInterfaceShim.h" />
     <ClInclude Include="src\Ogre\Ogre.h" />
     <ClInclude Include="src\UI\Overlay.h" />
+    <ClInclude Include="src\Ogre\OgreOverlayElementOps.h" />
+    <ClInclude Include="src\Ogre\OgreOverlayRuntime.h" />
+    <ClInclude Include="src\UI\OverlayInternal.h" />
     <ClInclude Include="src\Game\Ordnance.h" />
     <ClInclude Include="src\Patches\OrdnanceVelocity.h" />
     <ClInclude Include="src\Scanner.h" />
@@ -240,6 +271,7 @@
     <ClInclude Include="src\Game\Steam.h" />
     <ClInclude Include="src\StockExtensions.h" />
     <ClInclude Include="src\Patches\UnitVo.h" />
+    <ClInclude Include="src\Patches\AiHudBridges.h" />
     <ClInclude Include="src\Patches\WeaponMask.h" />
     <ClInclude Include="src\Game\AnimationApi.h" />
     <ClInclude Include="src\Game\ContinuityApi.h" />

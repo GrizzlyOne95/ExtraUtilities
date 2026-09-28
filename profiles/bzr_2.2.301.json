@@ -45,7 +45,7 @@
       "expected_va": "0x005D4690",
       "required": true,
       "runtime_gate": true,
-      "source_file": "src/UI/Overlay.cpp",
+      "source_file": "src/UI/OverlaySuppression.cpp",
       "reason": "Existing overlay hook preimage from a separate BZR subsystem; used here to avoid a single-anchor build identity."
     },
     {

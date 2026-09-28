@@ -16,20 +16,23 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-/*
-* Combined header for patches
-*/
-
 #pragma once
 
-#include "Patches/AddScrapCallback.h"
-#include "Patches/AiHudBridges.h"
-#include "Patches/AiTargetSelect.h"
-#include "Patches/Cheats.h"
-#include "Patches/EngineFlameColor.h"
-#include "Patches/GlobalTurbo.h"
-#include "Patches/KillMessages.h"
-#include "Patches/OrdnanceVelocity.h"
-#include "Patches/ShotConvergence.h"
-#include "Patches/UnitVo.h"
-#include "Patches/WeaponMask.h"
+#include <lua.hpp>
+
+#include <string>
+
+// Environment logging: per-call tracing (EXU_DEBUG_LOG=1) to
+// exu_environment_debug.log, and fault lines that always reach exu.log.
+
+namespace ExtraUtilities::Lua::Environment
+{
+	namespace Detail
+	{
+		void LogEnvironmentDebug(const char* fmt, ...);
+		void LogEnvironmentFault(const char* fmt, ...);
+	}
+
+	using namespace Detail;
+	std::string DescribeLuaCaller(lua_State* L);
+}

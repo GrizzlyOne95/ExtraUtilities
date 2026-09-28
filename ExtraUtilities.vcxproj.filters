@@ -45,6 +45,18 @@
     <ClCompile Include="src\UI\Overlay.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Ogre\OgreOverlayElementOps.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Ogre\OgreOverlayRuntime.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\OverlaySuppression.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\OverlayFontAssets.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\PublicAPI.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
@@ -64,6 +76,33 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Game\Environment.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Ogre\OgreParticleAbi.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Ogre\OgreSceneRuntime.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\SceneDebug.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\ViewportLightingMode.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\ParticleBindings.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\ParticleRuntime.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\EnvironmentSky.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\EnvironmentLighting.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\EnvironmentLog.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Reticle.cpp">
@@ -88,6 +127,27 @@
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
     <ClCompile Include="src\Game\GameObject.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Ogre\OgreEntityRuntime.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Ogre\OgreMaterialRuntime.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\EntityRenderApi.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\MaterialApi.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\TerrainTrn.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\AiInspection.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\GameObjectHandle.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
     <ClCompile Include="src\Game\game_state.cpp">
@@ -151,6 +211,9 @@
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
     <ClCompile Include="src\Patches\UnitVo.cpp">
+      <Filter>Source Files\Patches</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Patches\AiHudBridges.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Renderer.cpp">
@@ -221,6 +284,15 @@
     <ClInclude Include="src\UI\Overlay.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
+    <ClInclude Include="src\Ogre\OgreOverlayElementOps.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreOverlayRuntime.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\OverlayInternal.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
     <ClInclude Include="src\Util\BuildValidation.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
@@ -258,6 +330,18 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\Environment.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreParticleAbi.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreSceneRuntime.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\EnvironmentLog.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\EnvironmentInternal.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="include\ExtraUtils.h">
@@ -303,6 +387,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\GameObject.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreEntityRuntime.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreMaterialRuntime.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\GameObjectInternal.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\game_state.h">
@@ -378,6 +471,9 @@
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="src\Patches\UnitVo.h">
+      <Filter>Header Files\Patches</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Patches\AiHudBridges.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="src\Patches\WeaponMask.h">
