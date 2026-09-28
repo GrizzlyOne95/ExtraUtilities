@@ -19,6 +19,7 @@
 #include "Game/AnimationApi.h"
 
 #include "Game/GameObject.h"
+#include "Game/PilotFsmIntercept.h"
 #include "Game/PilotState.h"
 #include "Game/PilotStateSemantics.h"
 #include "LuaHelpers.h"
@@ -313,7 +314,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 		int GetCapabilities(lua_State* L)
 		{
-			lua_createtable(L, 0, 7);
+			lua_createtable(L, 0, 8);
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "gameObjectTarget");
 			const bool hasFpBridge = OpenShimBridge::HasLocalFirstPersonEntityBridge();
@@ -323,6 +324,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_setfield(L, -2, "animationInventory");
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "pilotStateInspection");
+			lua_pushboolean(L, PilotFsmIntercept::IsActive() ? 1 : 0);
+			lua_setfield(L, -2, "pilotFsmIntercept");
 			lua_pushboolean(L, 0);
 			lua_setfield(L, -2, "managedClock");
 			lua_pushstring(L, "unvalidated");
@@ -689,6 +692,69 @@ namespace ExtraUtilities::Lua::AnimationApi
 			return 1;
 		}
 
+		int FpsGetPilotInterceptStatus(lua_State* L)
+		{
+			PilotFsmIntercept::Stats stats{};
+			PilotFsmIntercept::GetStats(stats);
+
+			lua_settop(L, 0);
+			lua_createtable(L, 0, 20);
+
+			lua_pushboolean(L, stats.installed ? 1 : 0);
+			lua_setfield(L, -2, "installed");
+			lua_pushboolean(L, stats.active ? 1 : 0);
+			lua_setfield(L, -2, "active");
+			lua_pushboolean(L, stats.observeOnly ? 1 : 0);
+			lua_setfield(L, -2, "observeOnly");
+			lua_pushboolean(L, stats.hasLocalSample ? 1 : 0);
+			lua_setfield(L, -2, "hasLocalSample");
+
+			lua_pushinteger(L, static_cast<lua_Integer>(stats.calls));
+			lua_setfield(L, -2, "calls");
+			lua_pushinteger(L, static_cast<lua_Integer>(stats.localCalls));
+			lua_setfield(L, -2, "localCalls");
+			lua_pushinteger(L, static_cast<lua_Integer>(stats.stateChanges));
+			lua_setfield(L, -2, "stateChanges");
+			lua_pushinteger(L, static_cast<lua_Integer>(stats.animationChanges));
+			lua_setfield(L, -2, "animationChanges");
+
+			if (stats.hasLocalSample)
+			{
+				lua_pushinteger(L, static_cast<lua_Integer>(stats.lastBeforeState));
+				lua_setfield(L, -2, "beforeNativeState");
+				lua_pushinteger(L, static_cast<lua_Integer>(stats.lastAfterState));
+				lua_setfield(L, -2, "afterNativeState");
+
+				lua_pushstring(L, PilotState::SemanticStateName(stats.lastBeforeState));
+				lua_setfield(L, -2, "beforeState");
+				lua_pushstring(L, PilotState::SemanticStateName(stats.lastAfterState));
+				lua_setfield(L, -2, "afterState");
+
+				lua_pushinteger(L, static_cast<lua_Integer>(stats.lastBeforeAnimation));
+				lua_setfield(L, -2, "beforeAnimationIndex");
+				lua_pushinteger(L, static_cast<lua_Integer>(stats.lastAfterAnimation));
+				lua_setfield(L, -2, "afterAnimationIndex");
+
+				if (const char* name = PilotState::KnownAnimationName(stats.lastBeforeAnimation))
+				{
+					lua_pushstring(L, name);
+					lua_setfield(L, -2, "beforeAnimationName");
+				}
+				if (const char* name = PilotState::KnownAnimationName(stats.lastAfterAnimation))
+				{
+					lua_pushstring(L, name);
+					lua_setfield(L, -2, "afterAnimationName");
+				}
+
+				lua_pushinteger(L, static_cast<lua_Integer>(stats.lastBeforeAnimationHandle));
+				lua_setfield(L, -2, "beforeAnimationHandle");
+				lua_pushinteger(L, static_cast<lua_Integer>(stats.lastAfterAnimationHandle));
+				lua_setfield(L, -2, "afterAnimationHandle");
+			}
+
+			return 1;
+		}
+
 		int FpsIsAvailable(lua_State* L)
 		{
 			Detail::Target target{};
@@ -786,6 +852,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{ "IsAvailable", &FpsIsAvailable },
 			{ "GetCapabilities", &FpsGetCapabilities },
 			{ "GetPilotState", &FpsGetPilotState },
+			{ "GetPilotInterceptStatus", &FpsGetPilotInterceptStatus },
 			{ "IsCrouched", &FpsIsCrouched },
 			{ "IsGrounded", &FpsIsGrounded },
 			{ "IsSniperSelected", &FpsIsSniperSelected },
