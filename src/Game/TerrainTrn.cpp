@@ -18,6 +18,8 @@
 
 #include "GameObjectInternal.h"
 
+#include "Util/AsciiString.h"
+
 // Terrain TRN discovery and the [Atlases] MaterialName parser behind
 // GetTerrainMaterialName and SetTerrainTextureSet.
 
@@ -67,19 +69,8 @@ namespace ExtraUtilities::Lua::GameObject
 			return std::string(begin, end);
 		}
 
-		std::string ToLowerAscii(std::string value)
-		{
-			std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch)
-				{
-					return static_cast<char>(std::tolower(ch));
-				});
-			return value;
-		}
-
-		bool EqualsIgnoreCase(const std::string& a, const std::string& b)
-		{
-			return ToLowerAscii(a) == ToLowerAscii(b);
-		}
+		using AsciiString::EqualsIgnoreCase;
+		using AsciiString::ToLowerAscii;
 
 		std::string StripMatchingQuotes(std::string value)
 		{

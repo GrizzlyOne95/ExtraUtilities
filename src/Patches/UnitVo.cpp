@@ -21,6 +21,7 @@
 #include "Hook.h"
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
+#include "Util/AsciiString.h"
 #include "Util/Logging.h"
 #include "Util/RuntimeGate.h"
 #include "Util/SignatureResolver.h"
@@ -47,19 +48,7 @@ namespace ExtraUtilities::Patch
 
 	std::string NormalizeFilename(const char* filename)
 	{
-		std::string normalized;
-		if (filename == nullptr)
-		{
-			return normalized;
-		}
-
-		normalized.reserve(std::strlen(filename));
-		for (const unsigned char c : std::string_view(filename))
-		{
-			normalized.push_back(static_cast<char>(std::tolower(c)));
-		}
-
-		return normalized;
+		return filename == nullptr ? std::string() : AsciiString::ToLowerAscii(filename);
 	}
 
 	namespace

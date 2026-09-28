@@ -20,6 +20,7 @@
 #include "OgreOverlayRuntime.h"
 
 #include "Ogre/Ogre.h"
+#include "Util/AsciiString.h"
 #include "Util/Logging.h"
 
 #include <Windows.h>
@@ -134,19 +135,7 @@ namespace ExtraUtilities::Lua::Overlay
 			return ElementKind::Unknown;
 		}
 
-		std::string ToLowerCopy(const std::string& value)
-		{
-			std::string lowered(value);
-			std::transform(
-				lowered.begin(),
-				lowered.end(),
-				lowered.begin(),
-				[](unsigned char ch)
-				{
-					return static_cast<char>(std::tolower(ch));
-				});
-			return lowered;
-		}
+		using AsciiString::ToLowerAscii;
 
 		bool TryParseFloatList(const std::string& value, std::vector<float>& outValues)
 		{
@@ -183,7 +172,7 @@ namespace ExtraUtilities::Lua::Overlay
 
 		bool TryParseBoolValue(const std::string& value, bool& outValue)
 		{
-			const std::string lowered = ToLowerCopy(value);
+			const std::string lowered = ToLowerAscii(value);
 			if (lowered == "true" || lowered == "1" || lowered == "yes" || lowered == "on")
 			{
 				outValue = true;
@@ -203,7 +192,7 @@ namespace ExtraUtilities::Lua::Overlay
 			const std::string& value,
 			::Ogre::TextAreaOverlayElement::Alignment& outAlignment)
 		{
-			const std::string lowered = ToLowerCopy(value);
+			const std::string lowered = ToLowerAscii(value);
 			if (lowered == "left")
 			{
 				outAlignment = ::Ogre::TextAreaOverlayElement::Left;
@@ -517,7 +506,7 @@ namespace ExtraUtilities::Lua::Overlay
 			}
 
 			const ElementKind kind = GetKnownElementKind(elementName);
-			const std::string normalizedName = ToLowerCopy(name);
+			const std::string normalizedName = ToLowerAscii(name);
 			if (normalizedName == "transparent")
 			{
 				outHandled = true;

@@ -299,6 +299,9 @@
     <ClInclude Include="src\Util\FiniteCheck.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
+    <ClInclude Include="src\Util\AsciiString.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
     <ClInclude Include="src\Util\BzrBuildProfile.generated.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
