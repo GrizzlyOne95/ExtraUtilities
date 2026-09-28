@@ -205,21 +205,21 @@ namespace ExtraUtilities::Lua::GameObject
 		}
 
 		outInventory.reserve(states.size());
-		for (const OgreAnimationInventory::AnimationStateRef& state : states)
+		for (const OgreAnimationInventory::AnimationStateRef& entry : states)
 		{
-			if (state.state == nullptr)
+			if (entry.state == nullptr)
 			{
 				outInventory.clear();
 				return false;
 			}
 
 			EntityAnimationSnapshot snapshot{};
-			snapshot.name = state.name;
-			if (!TryGetAnimationEnabled(state.state, snapshot.info.enabled) ||
-				!TryGetAnimationLoop(state.state, snapshot.info.loop) ||
-				!TryGetAnimationWeight(state.state, snapshot.info.weight) ||
-				!TryGetAnimationTimePosition(state.state, snapshot.info.timePosition) ||
-				!TryGetAnimationLength(state.state, snapshot.info.length))
+			snapshot.name = entry.name;
+			if (!TryGetAnimationEnabled(entry.state, snapshot.info.enabled) ||
+				!TryGetAnimationLoop(entry.state, snapshot.info.loop) ||
+				!TryGetAnimationWeight(entry.state, snapshot.info.weight) ||
+				!TryGetAnimationTimePosition(entry.state, snapshot.info.timePosition) ||
+				!TryGetAnimationLength(entry.state, snapshot.info.length))
 			{
 				outInventory.clear();
 				return false;
