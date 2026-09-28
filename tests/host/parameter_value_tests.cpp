@@ -21,7 +21,7 @@
 //
 // These run on any host with a C++17 compiler: the header under test has no
 // Windows, Ogre or Lua dependency, which is the whole reason the conversion
-// rules live in their own translation unit instead of inside Environment.cpp.
+// rules live in their own translation unit instead of inside the particle bindings.
 
 #include "Ogre/OgreParameterValue.h"
 #include "HostTest.h"
