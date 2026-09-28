@@ -138,16 +138,13 @@ namespace ExtraUtilities::Patch
 				return 0;
 			}
 
-			const auto* callInstruction = reinterpret_cast<const uint8_t*>(callSite);
-			if (callInstruction[0] != 0xE8)
+			uintptr_t target = 0;
+			if (!PatternMatch::TryDecodeRelativeCall(reinterpret_cast<const uint8_t*>(callSite), callSite, target))
 			{
 				Logging::LogMessage("[EXU::UnitVo] %s at %p is not a relative call", label, reinterpret_cast<void*>(callSite));
 				return 0;
 			}
 
-			int32_t displacement = 0;
-			std::memcpy(&displacement, callInstruction + 1, sizeof(displacement));
-			const uintptr_t target = callSite + 5 + static_cast<intptr_t>(displacement);
 			Logging::LogMessage(
 				"[EXU::UnitVo] resolved %s target %p from call site %p",
 				label,
