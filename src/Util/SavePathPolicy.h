@@ -160,12 +160,12 @@ namespace ExtraUtilities::NativeSave
 	};
 
 	// Resolves a script-supplied save path. Relative paths are taken from
-	// `resolveRoot`; the result must name a file inside "<root>\Save" for one
-	// of `allowedRoots` (the game root, which the engine's own saves use).
-	inline SavePathResult ResolveSavePath(
+	// `resolveRoot`; the result must name a file strictly inside one of
+	// `saveDirectories`.
+	inline SavePathResult ResolveSavePathInDirectories(
 		std::string_view requested,
 		std::string_view resolveRoot,
-		const std::vector<std::string>& allowedRoots)
+		const std::vector<std::string>& saveDirectories)
 	{
 		SavePathResult result;
 		if (requested.empty())
@@ -217,26 +217,25 @@ namespace ExtraUtilities::NativeSave
 			return result;
 		}
 
-		for (const auto& root : allowedRoots)
+		for (const auto& directory : saveDirectories)
 		{
-			std::string rootDrive;
-			std::vector<std::string> rootComponents;
-			if (root.empty() || !NormalizeAbsolute(root, rootDrive, rootComponents))
+			std::string directoryDrive;
+			std::vector<std::string> directoryComponents;
+			if (directory.empty() || !NormalizeAbsolute(directory, directoryDrive, directoryComponents))
 			{
 				continue;
 			}
-			rootComponents.emplace_back("Save");
 
-			// Strictly inside: the Save directory itself is not a file.
-			if (!EqualsFolded(drive, rootDrive) || components.size() <= rootComponents.size())
+			// Strictly inside: the directory itself is not a file.
+			if (!EqualsFolded(drive, directoryDrive) || components.size() <= directoryComponents.size())
 			{
 				continue;
 			}
 
 			bool inside = true;
-			for (std::size_t i = 0; i < rootComponents.size() && inside; ++i)
+			for (std::size_t i = 0; i < directoryComponents.size() && inside; ++i)
 			{
-				inside = EqualsFolded(components[i], rootComponents[i]);
+				inside = EqualsFolded(components[i], directoryComponents[i]);
 			}
 			if (inside)
 			{
@@ -248,5 +247,89 @@ namespace ExtraUtilities::NativeSave
 
 		result.error = "save path must be inside the game's Save directory";
 		return result;
+	}
+
+	// The "<root>\Save" directory of every allowed game root. Roots that are
+	// not absolute drive paths are dropped.
+	inline std::vector<std::string> SaveDirectoriesOf(const std::vector<std::string>& allowedRoots)
+	{
+		std::vector<std::string> directories;
+		for (const auto& root : allowedRoots)
+		{
+			std::string drive;
+			std::vector<std::string> components;
+			if (root.empty() || !NormalizeAbsolute(root, drive, components))
+			{
+				continue;
+			}
+			components.emplace_back("Save");
+			directories.push_back(JoinAbsolute(drive, components));
+		}
+		return directories;
+	}
+
+	// Resolves a script-supplied save path against "<root>\Save" for each of
+	// `allowedRoots` (the game root, which the engine's own saves use).
+	inline SavePathResult ResolveSavePath(
+		std::string_view requested,
+		std::string_view resolveRoot,
+		const std::vector<std::string>& allowedRoots)
+	{
+		return ResolveSavePathInDirectories(requested, resolveRoot, SaveDirectoriesOf(allowedRoots));
+	}
+
+	// The engine keeps its save directory in a fixed char[0x1000]
+	// (exu.json SaveGame.saveDirectory), filled once at startup with
+	// "<startup working directory>\save".
+	inline constexpr std::size_t ENGINE_SAVE_DIRECTORY_CAPACITY = 0x1000;
+	inline constexpr int MIN_SAVE_SLOT = 1;
+	inline constexpr int MAX_SAVE_SLOT = 10;
+
+	// The string held in a fixed engine buffer, or an empty view when the
+	// buffer has no terminator (never set, or not the buffer we expect).
+	inline std::string_view TerminatedString(const char* buffer, std::size_t capacity) noexcept
+	{
+		if (buffer == nullptr)
+		{
+			return {};
+		}
+		for (std::size_t i = 0; i < capacity; ++i)
+		{
+			if (buffer[i] == '\0')
+			{
+				return std::string_view(buffer, i);
+			}
+		}
+		return {};
+	}
+
+	// Slot saves go to "<engine save directory>\game<slot>.sav", the same
+	// file the engine's SaveShellGame writes. Fails closed unless the
+	// directory is an absolute drive path below a drive root.
+	inline SavePathResult BuildSlotSavePath(std::string_view engineSaveDirectory, int slot)
+	{
+		SavePathResult result;
+		if (slot < MIN_SAVE_SLOT || slot > MAX_SAVE_SLOT)
+		{
+			result.error = "save slot must be in range 1-10";
+			return result;
+		}
+		if (engineSaveDirectory.empty())
+		{
+			result.error = "engine save directory is not set";
+			return result;
+		}
+
+		std::string drive;
+		std::vector<std::string> components;
+		if (engineSaveDirectory.find('\0') != std::string_view::npos ||
+			!NormalizeAbsolute(engineSaveDirectory, drive, components) || components.empty())
+		{
+			result.error = "engine save directory is not an absolute drive path";
+			return result;
+		}
+
+		const std::string directory = JoinAbsolute(drive, components);
+		return ResolveSavePathInDirectories("game" + std::to_string(slot) + ".sav", directory, { directory });
 	}
 }

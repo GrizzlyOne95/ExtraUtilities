@@ -22,6 +22,7 @@
 #include "LuaHelpers.h"
 #include "LuaState.h"
 #include "LuaCppBarrier.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <string>
 
@@ -109,7 +110,7 @@ namespace ExtraUtilities::Patch
 			ret
 		}
 	}
-	Hook addScrapHook(0x005E1016, &AddScrapCallback, 6, BasicPatch::Status::ACTIVE, { 0x89, 0x4D, 0xFC, 0x8B, 0x4D, 0xFC });
+	Hook addScrapHook(EngineAddresses::Callbacks::AddScrapHook, &AddScrapCallback, 6, BasicPatch::Status::ACTIVE, { 0x89, 0x4D, 0xFC, 0x8B, 0x4D, 0xFC });
 }
 
 namespace ExtraUtilities::Lua::Patches

@@ -18,6 +18,8 @@
 
 #include "EngineFlameColor.h"
 
+#include "Util/AsciiString.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
@@ -42,24 +44,9 @@ namespace ExtraUtilities::Patch
 		teamEngineFlameColors.clear();
 	}
 
-	static std::string NormalizeColor(std::string_view color)
-	{
-		std::string normalized(color);
-		std::transform(
-			normalized.begin(),
-			normalized.end(),
-			normalized.begin(),
-			[](unsigned char value)
-			{
-				return static_cast<char>(std::tolower(value));
-			}
-		);
-		return normalized;
-	}
-
 	static bool TryParseColor(std::string_view color, EngineFlameColor& outColor)
 	{
-		const std::string normalized = NormalizeColor(color);
+		const std::string normalized = AsciiString::ToLowerAscii(color);
 
 		if (normalized == "default")
 		{
