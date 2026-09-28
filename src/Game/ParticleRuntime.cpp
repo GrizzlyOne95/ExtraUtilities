@@ -18,6 +18,8 @@
 
 #include "EnvironmentInternal.h"
 
+#include "Ogre/OgreRenderOrigin.h"
+
 // EXU-managed particle systems: creation and teardown in the current scene,
 // scene-node placement (sim to render space), attachment to the root, the
 // camera, objects and bones, the camera follower list, and emitter and
@@ -678,15 +680,12 @@ namespace ExtraUtilities::Lua::Environment
 			BZR::VECTOR_3D& outRenderPosition)
 		{
 			BZR::VECTOR_3D origin{};
-			__try
-			{
-				origin = *reinterpret_cast<const BZR::VECTOR_3D*>(BZR::Ogre::worldRenderOriginAddress);
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			unsigned long exceptionCode = 0;
+			if (!OgreRenderSpace::TryReadWorldRenderOrigin(origin, &exceptionCode))
 			{
 				LogEnvironmentFault(
 					"[EXU::Particle] render-position conversion failed reason=origin_read_crashed code=0x%08X",
-					GetExceptionCode());
+					exceptionCode);
 				return false;
 			}
 

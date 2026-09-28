@@ -16,6 +16,7 @@
 
 #include "LuaHelpers.h"
 #include "Ogre/Ogre.h"
+#include "Ogre/OgreRenderOrigin.h"
 #include "Ogre/OgreRenderSpace.h"
 #include "Util/FiniteCheck.h"
 #include "Util/Logging.h"
@@ -204,23 +205,19 @@ namespace ExtraUtilities::Lua::StaticGeometry
 		// from raw sim positions lands far outside the render world and is never
 		// drawn, identically on every backend.
 		//
-		// Its own SEH frame because Create() holds objects that require
-		// unwinding, which __try may not share a function with.
+		// The read has its own SEH frame (OgreRenderOrigin.h) because Create()
+		// holds objects that require unwinding, which __try may not share a
+		// function with.
 		bool TryReadWorldRenderOrigin(OgreVector3Value& outOrigin) noexcept
 		{
-			__try
-			{
-				const float* origin =
-					reinterpret_cast<const float*>(BZR::Ogre::worldRenderOriginAddress);
-				outOrigin.x = origin[0];
-				outOrigin.y = origin[1];
-				outOrigin.z = origin[2];
-				return true;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			BZR::VECTOR_3D origin{};
+			if (!OgreRenderSpace::TryReadWorldRenderOrigin(origin))
 			{
 				return false;
 			}
+
+			outOrigin = { origin.x, origin.y, origin.z };
+			return true;
 		}
 
 		float ReadNumberField(lua_State* L, int tableIndex, const char* name, float fallback)
