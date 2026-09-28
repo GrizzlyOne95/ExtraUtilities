@@ -23,6 +23,7 @@
 #include "Ogre/Ogre.h"
 #include "Util/Logging.h"
 #include "Util/RuntimeGate.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <lua.hpp>
 
@@ -49,7 +50,7 @@ namespace ExtraUtilities
 
 	// The game's Lua error reporter (logs, does not raise).
 	using _LuaCheckStatus = bool(__cdecl*)(int pcallCode, lua_State* L, const char* message);
-	inline _LuaCheckStatus NativeLuaCheckStatus = (_LuaCheckStatus)0x004FF600;
+	inline _LuaCheckStatus NativeLuaCheckStatus = (_LuaCheckStatus)EngineAddresses::Lua::LuaCheckStatus;
 
 	// Pass in the return from pcall to use the game's error handler in event
 	// callbacks. On an executable that failed the supported-build check the

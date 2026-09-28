@@ -18,6 +18,7 @@
 
 #include "OS.h"
 
+#include "EngineAddresses.generated.h"
 #include "Logging.h"
 #include "ModulePath.h"
 #include "NativeSaveFlag.h"
@@ -73,15 +74,45 @@ namespace ExtraUtilities::Lua::OS
 			ExtraUtilities::Logging::WriteSessionLogLine("exu_native_save.log", message.c_str());
 		}
 
-		std::string BuildSlotSavePath(int slot)
+		// Copies the engine's fixed save-directory buffer. Kept free of C++
+		// objects so the SEH guard needs no unwinding.
+		bool CopyEngineSaveDirectory(char (&out)[ExtraUtilities::NativeSave::ENGINE_SAVE_DIRECTORY_CAPACITY]) noexcept
 		{
-			const auto moduleDirectory = ModulePath::GetGameRootDirectory();
-			if (moduleDirectory.empty())
+			__try
 			{
-				return std::format("Save\\game{}.sav", slot);
+				std::memcpy(out, reinterpret_cast<const void*>(EngineAddresses::SaveGame::saveDirectory), sizeof(out));
+				return true;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER)
+			{
+				return false;
+			}
+		}
+
+		// The engine's save directory, "<startup working directory>\save",
+		// which the engine fills once at startup and its own slot saves use.
+		// Empty when the build gate has not accepted this executable or the
+		// buffer cannot be read or holds no terminated string.
+		std::string ReadEngineSaveDirectory()
+		{
+			if (!RuntimeGate::IsSupported())
+			{
+				return {};
 			}
 
-			return std::format("{}\\Save\\game{}.sav", moduleDirectory, slot);
+			char buffer[ExtraUtilities::NativeSave::ENGINE_SAVE_DIRECTORY_CAPACITY];
+			if (!CopyEngineSaveDirectory(buffer))
+			{
+				return {};
+			}
+			return std::string(ExtraUtilities::NativeSave::TerminatedString(buffer, sizeof(buffer)));
+		}
+
+		// The file the engine's SaveShellGame writes for this slot. Fails
+		// closed when the engine save directory is unreadable or unusable.
+		ExtraUtilities::NativeSave::SavePathResult BuildSlotSavePath(int slot)
+		{
+			return ExtraUtilities::NativeSave::BuildSlotSavePath(ReadEngineSaveDirectory(), slot);
 		}
 
 		std::string GetCurrentDirectoryString()
@@ -97,8 +128,9 @@ namespace ExtraUtilities::Lua::OS
 
 		// A script-supplied path must name a file under the game's Save
 		// directory. The game root is the executable's directory; the engine's
-		// own saves use the working directory, which is normally the same place
-		// but may differ with some launchers, so both count.
+		// own saves use the startup working directory, which is normally the
+		// same place but may differ with some launchers, so the current working
+		// directory and the engine's save directory count too.
 		ExtraUtilities::NativeSave::SavePathResult ResolveScriptSavePath(std::string_view requested)
 		{
 			const auto moduleDirectory = ModulePath::GetGameRootDirectory();
@@ -107,7 +139,12 @@ namespace ExtraUtilities::Lua::OS
 			{
 				roots.push_back(std::move(workingDirectory));
 			}
-			return ExtraUtilities::NativeSave::ResolveSavePath(requested, moduleDirectory, roots);
+			auto directories = ExtraUtilities::NativeSave::SaveDirectoriesOf(roots);
+			if (auto engineSaveDirectory = ReadEngineSaveDirectory(); !engineSaveDirectory.empty())
+			{
+				directories.push_back(std::move(engineSaveDirectory));
+			}
+			return ExtraUtilities::NativeSave::ResolveSavePathInDirectories(requested, moduleDirectory, directories);
 		}
 
 		bool EnsureSaveParentDirectory(const std::string& filename)
@@ -547,8 +584,14 @@ namespace ExtraUtilities::Lua::OS
 				0x83, 0x7D, 0x08, 0x0A, 0x0F, 0x8F, -1, -1, -1, -1
 			};
 
+			// mov dword ptr [ebp+disp8], saveGameDesc
+			constexpr uintptr_t kDescription = EngineAddresses::SaveGame::saveGameDesc;
 			constexpr std::array<int, 7> DESCRIPTION_BUFFER_PATTERN = {
-				0xC7, 0x45, -1, 0xD8, 0x86, 0x8E, 0x00
+				0xC7, 0x45, -1,
+				static_cast<int>(kDescription & 0xFF),
+				static_cast<int>((kDescription >> 8) & 0xFF),
+				static_cast<int>((kDescription >> 16) & 0xFF),
+				static_cast<int>((kDescription >> 24) & 0xFF)
 			};
 
 			if (!ContainsBytePattern(functionStart, kWindowSize, SLOT_RANGE_PATTERN))
@@ -793,7 +836,15 @@ namespace ExtraUtilities::Lua::OS
 				return luaL_error(L, "SaveGame slot must be in range 1-10");
 			}
 
-			filename = BuildSlotSavePath(slot);
+			auto slotPath = BuildSlotSavePath(slot);
+			if (!slotPath.ok)
+			{
+				LogNativeSave("[EXU::SaveGame] cannot build path for slot {}: {}", slot, slotPath.error);
+				lua_pushboolean(L, 0);
+				lua_pushstring(L, slotPath.error);
+				return 2;
+			}
+			filename = std::move(slotPath.path);
 		}
 		else
 		{
