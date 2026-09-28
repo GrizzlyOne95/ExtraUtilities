@@ -19,6 +19,7 @@ pass() {
 test_python_tools() {
     python3 "$ROOT/tools/validate_hardening.py"
     python3 "$ROOT/tools/generate_bzr_build_profile.py" --check
+    python3 "$ROOT/tools/generate_engine_addresses.py" --check
     python3 "$ROOT/tools/test_bzr_qualification.py"
     pass "Python validation tools"
 }

@@ -22,6 +22,7 @@
 #include "LuaHelpers.h"
 #include "LuaState.h"
 #include "LuaCppBarrier.h"
+#include "Util/EngineAddresses.generated.h"
 
 namespace ExtraUtilities::Patch
 {
@@ -155,5 +156,5 @@ namespace ExtraUtilities::Patch
 			ret
 		}
 	}
-	Hook bulletInitCallback(0x00480363, &BulletInitCallback, 6, BasicPatch::Status::ACTIVE, { 0x8B, 0x55, 0xE0, 0x8B, 0x42, 0x14 });
+	Hook bulletInitCallback(EngineAddresses::Callbacks::BulletInitHook, &BulletInitCallback, 6, BasicPatch::Status::ACTIVE, { 0x8B, 0x55, 0xE0, 0x8B, 0x42, 0x14 });
 }

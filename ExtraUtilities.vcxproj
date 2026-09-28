@@ -139,6 +139,7 @@
     <ClCompile Include="src\Patches\BulletHitCallback.cpp" />
     <ClCompile Include="src\Patches\BulletInitCallback.cpp" />
     <ClCompile Include="src\Game\AnimationApi.cpp" />
+    <ClCompile Include="src\Game\FirstPersonTarget.cpp" />
     <ClCompile Include="src\Game\Camera.cpp" />
     <ClCompile Include="src\Patches\Cheats.cpp" />
     <ClCompile Include="src\Game\CommandReplacement.cpp" />
@@ -232,6 +233,7 @@
     <ClInclude Include="src\Ogre\OgreEntityRuntime.h" />
     <ClInclude Include="src\Ogre\OgreMaterialRuntime.h" />
     <ClInclude Include="src\Game\GameObjectInternal.h" />
+    <ClInclude Include="src\Game\GameObjectHandle.h" />
     <ClInclude Include="src\Game\game_state.h" />
     <ClInclude Include="src\Patches\GlobalTurbo.h" />
     <ClInclude Include="src\Patches\TurboGate.h" />
@@ -254,6 +256,8 @@
     <ClInclude Include="src\Ogre\OgreOverlayShim.h" />
     <ClInclude Include="src\Ogre\OgreParameterValue.h" />
     <ClInclude Include="src\Ogre\OgreRenderSpace.h" />
+    <ClInclude Include="src\Ogre\OgreRenderOrigin.h" />
+    <ClInclude Include="src\Ogre\OgreProc.h" />
     <ClInclude Include="src\Ogre\OgreStringInterfaceShim.h" />
     <ClInclude Include="src\Ogre\Ogre.h" />
     <ClInclude Include="src\UI\Overlay.h" />
@@ -279,12 +283,18 @@
     <ClInclude Include="src\Patches\AiHudBridges.h" />
     <ClInclude Include="src\Patches\WeaponMask.h" />
     <ClInclude Include="src\Game\AnimationApi.h" />
+    <ClInclude Include="src\Game\FirstPersonTarget.h" />
     <ClInclude Include="src\Game\ContinuityApi.h" />
     <ClInclude Include="src\Ogre\OgreMaterialShim.h" />
     <ClInclude Include="src\Ogre\OgreSceneManagerShim.h" />
     <ClInclude Include="src\Patches\ShotConvergenceMath.h" />
     <ClInclude Include="src\Util\BuildValidation.h" />
+    <ClInclude Include="src\Util\FiniteCheck.h" />
+    <ClInclude Include="src\Util\AsciiString.h" />
+    <ClInclude Include="src\Util\ModulePath.h" />
+    <ClInclude Include="src\Util\MsvcRtti.h" />
     <ClInclude Include="src\Util\BzrBuildProfile.generated.h" />
+    <ClInclude Include="src\Util\EngineAddresses.generated.h" />
     <ClInclude Include="src\Util\Logging.h" />
     <ClInclude Include="src\Util\NativeSaveFlag.h" />
     <ClInclude Include="src\Util\PatternMatch.h" />
