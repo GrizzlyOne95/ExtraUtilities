@@ -19,6 +19,8 @@
 #include "GameObjectInternal.h"
 #include "Util/SehGuard.h"
 
+#include "Util/MsvcRtti.h"
+
 // AI process and task inspection: MSVC RTTI walking, polymorphic child and
 // aligned-field scans, and the GetAi*/SetAiTaskState bindings.
 
@@ -26,44 +28,10 @@ namespace ExtraUtilities::Lua::GameObject
 {
 	namespace
 	{
-		struct MsvcPmd
-		{
-			int mdisp;
-			int pdisp;
-			int vdisp;
-		};
-
-		struct MsvcRttiTypeDescriptor
-		{
-			void* pVFTable;
-			void* spare;
-			char name[1];
-		};
-
-		struct MsvcRttiBaseClassDescriptor
-		{
-			MsvcRttiTypeDescriptor* pTypeDescriptor;
-			uint32_t numContainedBases;
-			MsvcPmd where;
-			uint32_t attributes;
-		};
-
-		struct MsvcRttiClassHierarchyDescriptor
-		{
-			uint32_t signature;
-			uint32_t attributes;
-			uint32_t numBaseClasses;
-			MsvcRttiBaseClassDescriptor** pBaseClassArray;
-		};
-
-		struct MsvcRttiCompleteObjectLocator
-		{
-			uint32_t signature;
-			uint32_t offset;
-			uint32_t cdOffset;
-			MsvcRttiTypeDescriptor* pTypeDescriptor;
-			MsvcRttiClassHierarchyDescriptor* pClassDescriptor;
-		};
+		using MsvcRttiTypeDescriptor = MsvcRtti::TypeDescriptor;
+		using MsvcRttiBaseClassDescriptor = MsvcRtti::BaseClassDescriptor;
+		using MsvcRttiClassHierarchyDescriptor = MsvcRtti::ClassHierarchyDescriptor;
+		using MsvcRttiCompleteObjectLocator = MsvcRtti::CompleteObjectLocator;
 
 		struct PolymorphicObjectInfo
 		{

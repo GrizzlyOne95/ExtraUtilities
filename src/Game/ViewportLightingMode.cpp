@@ -18,6 +18,7 @@
 
 #include "EnvironmentInternal.h"
 #include "Util/SehGuard.h"
+#include "Util/EngineAddresses.generated.h"
 
 // Legacy viewport lighting modes (default, enhanced, retro) applied through
 // the viewport material scheme, the game's setMaterialScheme call-site hook,
@@ -325,11 +326,11 @@ namespace ExtraUtilities::Lua::Environment
 	// produced a visible default<->enhanced flip every second. Rewriting the
 	// scheme inside the game's own call removes the fight entirely and makes
 	// enhanced/retro safely hot-swappable.
-	constexpr uintptr_t kViewportSetMaterialSchemeIat = 0x00869810;
+	constexpr uintptr_t kViewportSetMaterialSchemeIat = EngineAddresses::Environment::ViewportSetMaterialSchemeIat;
 	constexpr uintptr_t kViewportSchemeCallSites[] = {
-		0x00681585, // settings reassert loop over all viewports
-		0x00682AA0, // secondary viewport creation ("low-noshadow")
-		0x00682EA7, // tertiary viewport creation ("low-noshadow")
+		EngineAddresses::Environment::ViewportSchemeCallSite0, // settings reassert loop over all viewports
+		EngineAddresses::Environment::ViewportSchemeCallSite1, // secondary viewport creation ("low-noshadow")
+		EngineAddresses::Environment::ViewportSchemeCallSite2, // tertiary viewport creation ("low-noshadow")
 	};
 
 	using FnViewportSetMaterialScheme = void(__thiscall*)(void*, const std::string&);

@@ -66,6 +66,9 @@
     <ClCompile Include="src\Game\AnimationApi.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Game\FirstPersonTarget.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Game\PilotState.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
@@ -245,6 +248,9 @@
     <ClInclude Include="src\Game\AnimationApi.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
+    <ClInclude Include="src\Game\FirstPersonTarget.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
     <ClInclude Include="src\Game\ContinuityApi.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
@@ -305,7 +311,22 @@
     <ClInclude Include="src\Util\BuildValidation.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
+    <ClInclude Include="src\Util\FiniteCheck.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\AsciiString.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\ModulePath.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\MsvcRtti.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
     <ClInclude Include="src\Util\BzrBuildProfile.generated.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\EngineAddresses.generated.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
     <ClInclude Include="src\Util\Logging.h">
@@ -419,6 +440,9 @@
     <ClInclude Include="src\Game\GameObjectInternal.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
+    <ClInclude Include="src\Game\GameObjectHandle.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
     <ClInclude Include="src\Game\game_state.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
@@ -477,6 +501,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Ogre\OgreRenderSpace.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreRenderOrigin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreProc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Patches\AddScrapCallback.h">
