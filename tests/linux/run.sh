@@ -46,6 +46,21 @@ test_weather_controller() {
     fail "no Lua interpreter found for tests/host/weather_controller_test.lua"
 }
 
+# The in-game pilot FSM capture script only reaches the game through the exu
+# table it is handed, so a fake one walks it through a whole session.
+test_pilot_fsm_capture() {
+    local lua
+    for lua in lua5.1 lua5.4 lua luajit; do
+        if command -v "$lua" >/dev/null 2>&1; then
+            (cd "$ROOT" && "$lua" tests/host/pilot_fsm_capture_test.lua) \
+                || fail "pilot FSM capture checks failed"
+            pass "pilot FSM capture script ($lua)"
+            return
+        fi
+    done
+    fail "no Lua interpreter found for tests/host/pilot_fsm_capture_test.lua"
+}
+
 # Ogre ParticleFX colours have already been converted to the render system's
 # vertex format. Reusing Redux's native-sprite SM4 BGRA swizzle turns orange
 # dust blue, so keep the weather materials on the dedicated no-swizzle path.
@@ -194,6 +209,7 @@ test_python_tools
 test_weather_textures
 test_host_cpp
 test_weather_controller
+test_pilot_fsm_capture
 test_weather_particle_color_contract
 test_script_syntax
 test_installer_marker

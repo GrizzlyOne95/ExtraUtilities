@@ -210,6 +210,13 @@ Record a dated capture under `Docs/Research/` (several cycles, both
 transitions, and the matching `exu.fps.GetInfo("stand2Kneel").length` /
 `"kneel2stand"`) before treating any number as the stock behavior.
 
+`tests/runtime/pilot_fsm_capture.lua` automates that capture: call its
+`Update` from a test mission's `Update`, hop out, and crouch with a sniper
+weapon a few times. It prints the capabilities, intercept status, animation
+inventory in the vehicle and on foot, the dwell table against the clip
+lengths, the local-Simulate-calls-per-Lua-`Update` ratio, and the transition
+samples as `[PILOTCAP]` Markdown lines ready for the research note.
+
 ## Pilot animation policy (stock only)
 
 Above the seam sits a mission-scoped policy that will eventually let a mod
