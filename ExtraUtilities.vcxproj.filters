@@ -39,6 +39,9 @@
     <ClCompile Include="src\Ogre\OgreNativeFontBridge.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Ogre\OgreAnimationInventoryBridge.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Patches\AiTargetSelect.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
@@ -262,6 +265,9 @@
     </ClInclude>
     <ClInclude Include="src\Ogre\OgreNativeFontBridge.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreAnimationInventoryBridge.h">
+      <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Ogre\OgreOverlayShim.h">
       <Filter>Header Files</Filter>
