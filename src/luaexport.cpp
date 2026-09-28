@@ -769,6 +769,7 @@ namespace ExtraUtilities::Lua
 			{ "SetOverlayColor", &Overlay::SetOverlayColor },
 			{ "SetOverlayCaption", &Overlay::SetOverlayCaption },
 			{ "SetOverlayTextFont", &Overlay::SetOverlayTextFont },
+			{ "AddOverlayFontDirectory", &Overlay::AddOverlayFontDirectory },
 			{ "SetOverlayTextColor", &Overlay::SetOverlayTextColor },
 			{ "SetOverlayTextCharHeight", &Overlay::SetOverlayTextCharHeight },
 

@@ -67,22 +67,54 @@ function Invoke-Checked {
     }
 }
 
+function Get-FileSha256 {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()
+}
+
+# Every download is pinned to an exact release URL and its SHA256. A cached
+# archive is re-verified too, so a stale or tampered _work copy fails instead
+# of being built. To move a pin, change the URL and the hash together.
 function Ensure-DownloadedArchive {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Url,
         [Parameter(Mandatory = $true)]
-        [string]$ArchivePath
+        [string]$ArchivePath,
+        [Parameter(Mandatory = $true)]
+        [ValidatePattern('^[0-9a-f]{64}$')]
+        [string]$Sha256
     )
 
     if ((Test-Path $ArchivePath) -and (Get-Item $ArchivePath).Length -gt 0) {
+        $cachedHash = Get-FileSha256 -Path $ArchivePath
+        if ($cachedHash -ne $Sha256) {
+            throw "Cached archive $ArchivePath has SHA256 $cachedHash, expected $Sha256. Delete it to re-download from $Url."
+        }
         return
     }
 
-    & curl.exe -L --fail $Url -o $ArchivePath
+    $partialPath = "$ArchivePath.partial"
+    if (Test-Path $partialPath) {
+        Remove-Item -LiteralPath $partialPath -Force
+    }
+
+    & curl.exe -L --fail $Url -o $partialPath
     if ($LASTEXITCODE -ne 0) {
         throw "Download failed: $Url"
     }
+
+    $downloadedHash = Get-FileSha256 -Path $partialPath
+    if ($downloadedHash -ne $Sha256) {
+        Remove-Item -LiteralPath $partialPath -Force
+        throw "SHA256 mismatch for $Url`: got $downloadedHash, expected $Sha256."
+    }
+
+    Move-Item -LiteralPath $partialPath -Destination $ArchivePath -Force
 }
 
 function Ensure-ExtractedArchive {
@@ -235,23 +267,27 @@ $freetypeArchive = Join-Path $thirdPartyRoot "freetype-2.13.3.zip"
 $freetypeSource = Join-Path $thirdPartyRoot "freetype-VER-2-13-3"
 $freetypeBuild = Join-Path $thirdPartyRoot "freetype-2.13.3-build-$toolchainTag-x86"
 
-$zzipArchive = Join-Path $thirdPartyRoot "zziplib-master.zip"
-$zzipSource = Join-Path $thirdPartyRoot "zziplib-master"
-$zzipBuild = Join-Path $thirdPartyRoot "zziplib-master-build-$toolchainTag-x86"
+$zzipArchive = Join-Path $thirdPartyRoot "zziplib-0.13.80.zip"
+$zzipSource = Join-Path $thirdPartyRoot "zziplib-0.13.80"
+$zzipBuild = Join-Path $thirdPartyRoot "zziplib-0.13.80-build-$toolchainTag-x86"
 $freeImageArchive = Join-Path $thirdPartyRoot "FreeImage3180Win32Win64.zip"
 $freeImageArchiveRoot = Join-Path $thirdPartyRoot "freeimage-official-bin"
 $defaultFreeImageRoot = Join-Path $freeImageArchiveRoot "FreeImage"
 
-Ensure-DownloadedArchive -Url "https://github.com/madler/zlib/archive/refs/tags/v1.3.1.zip" -ArchivePath $zlibArchive
+Ensure-DownloadedArchive -Url "https://github.com/madler/zlib/archive/refs/tags/v1.3.1.zip" -ArchivePath $zlibArchive `
+    -Sha256 "50b24b47bf19e1f35d2a21ff36d2a366638cdf958219a66f30ce0861201760e6"
 Ensure-ExtractedArchive -ArchivePath $zlibArchive -ExtractedDir $zlibSource
 
-Ensure-DownloadedArchive -Url "https://github.com/freetype/freetype/archive/refs/tags/VER-2-13-3.zip" -ArchivePath $freetypeArchive
+Ensure-DownloadedArchive -Url "https://github.com/freetype/freetype/archive/refs/tags/VER-2-13-3.zip" -ArchivePath $freetypeArchive `
+    -Sha256 "a7165cb405dfce349ae64d6f59efb2567565ca8edbacbeff2a8d0e4cfa779cf5"
 Ensure-ExtractedArchive -ArchivePath $freetypeArchive -ExtractedDir $freetypeSource
 
 if ($BattlezoneAbiProfile) {
-    Ensure-DownloadedArchive -Url "https://github.com/gdraheim/zziplib/archive/refs/heads/master.zip" -ArchivePath $zzipArchive
+    Ensure-DownloadedArchive -Url "https://github.com/gdraheim/zziplib/archive/refs/tags/v0.13.80.zip" -ArchivePath $zzipArchive `
+        -Sha256 "ad36975c090c0cd23b5dcdaabd986e56958025220c7db9d2bd0e97c4a1cca9c9"
     Ensure-ExtractedArchive -ArchivePath $zzipArchive -ExtractedDir $zzipSource
-    Ensure-DownloadedArchive -Url "https://downloads.sourceforge.net/freeimage/FreeImage3180Win32Win64.zip" -ArchivePath $freeImageArchive
+    Ensure-DownloadedArchive -Url "https://downloads.sourceforge.net/freeimage/FreeImage3180Win32Win64.zip" -ArchivePath $freeImageArchive `
+        -Sha256 "d546d5f3314da5dbf6a6e5686585da9b2a7fad3dc6da8f96f252348742247d8e"
     Ensure-ExtractedArchive -ArchivePath $freeImageArchive -ExtractedDir $defaultFreeImageRoot
 }
 
