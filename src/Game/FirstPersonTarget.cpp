@@ -21,6 +21,7 @@
 #include "Game/GameObject.h"
 #include "Util/MsvcRtti.h"
 #include "Util/RuntimeGate.h"
+#include "Util/SehGuard.h"
 #include "bzr.h"
 
 #include <Windows.h>
@@ -96,7 +97,7 @@ namespace ExtraUtilities::Lua::FirstPersonTarget
 				outTargets.firstPersonEntity = firstPersonEntity;
 				return firstPersonEntity != nullptr;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outTargets = {};
 				return false;
@@ -133,7 +134,7 @@ namespace ExtraUtilities::Lua::FirstPersonTarget
 				isPerson = rawName != nullptr &&
 					std::strstr(rawName, "Person@@") != nullptr;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return false;
 			}
