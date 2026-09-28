@@ -381,7 +381,7 @@ namespace BZR
 	{
 		// GOG/qualified Redux 2.2.301 Person::Simulate. The entry identity and
 		// prologue are catalogued in exu.json; use only behind RuntimeGate.
-		inline constexpr uintptr_t PersonSimulate = 0x0059D340u;
+		inline constexpr uintptr_t PersonSimulate = EngineAddresses::PersonRuntime::PersonSimulate;
 	}
 
 	namespace GraphicsOptions
