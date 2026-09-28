@@ -19,6 +19,7 @@
 #include "OS.h"
 
 #include "Logging.h"
+#include "ModulePath.h"
 #include "NativeSaveFlag.h"
 #include "SavePathPolicy.h"
 #include "RuntimeGate.h"
@@ -72,29 +73,9 @@ namespace ExtraUtilities::Lua::OS
 			ExtraUtilities::Logging::WriteSessionLogLine("exu_native_save.log", message.c_str());
 		}
 
-		std::string GetMainModuleDirectory()
-		{
-			char path[MAX_PATH]{};
-			const DWORD length = GetModuleFileNameA(nullptr, path, MAX_PATH);
-			if (length == 0 || length >= MAX_PATH)
-			{
-				return {};
-			}
-
-			std::string result(path, length);
-			const auto slash = result.find_last_of("\\/");
-			if (slash == std::string::npos)
-			{
-				return {};
-			}
-
-			result.resize(slash);
-			return result;
-		}
-
 		std::string BuildSlotSavePath(int slot)
 		{
-			const auto moduleDirectory = GetMainModuleDirectory();
+			const auto moduleDirectory = ModulePath::GetGameRootDirectory();
 			if (moduleDirectory.empty())
 			{
 				return std::format("Save\\game{}.sav", slot);
@@ -120,7 +101,7 @@ namespace ExtraUtilities::Lua::OS
 		// but may differ with some launchers, so both count.
 		ExtraUtilities::NativeSave::SavePathResult ResolveScriptSavePath(std::string_view requested)
 		{
-			const auto moduleDirectory = GetMainModuleDirectory();
+			const auto moduleDirectory = ModulePath::GetGameRootDirectory();
 			std::vector<std::string> roots{ moduleDirectory };
 			if (auto workingDirectory = GetCurrentDirectoryString(); !workingDirectory.empty())
 			{
