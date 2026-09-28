@@ -36,6 +36,7 @@ local caps = exu.fps.GetCapabilities()
 print(caps.localFirstPersonTarget)
 print(caps.pilotStateInspection)
 print(caps.pilotFsmIntercept)
+print(caps.pilotAnimationOverrides)
 print(caps.firstPersonStatus)
 ```
 
@@ -44,7 +45,9 @@ This is the same capability table returned by
 the read-only native Person snapshot API is compiled in. It is distinct from
 `localFirstPersonTarget`, which reports whether the presentation target backend
 is available. `pilotFsmIntercept=true` means the verified observe-only
-`Person::Simulate` entry detour is active.
+`Person::Simulate` entry detour is active. `pilotAnimationOverrides` reports
+whether this build can apply any non-stock pilot animation policy; it is
+`false` because the policy layer currently represents stock pass-through only.
 
 ## Read-only pilot FSM state
 
@@ -115,8 +118,10 @@ This work chunk is deliberately **observe-only**. The hook performs:
 
 1. a cheap check that the simulated `Person*` is the current local user;
 2. a pre-stock state snapshot for that local Person;
-3. the original `Person::Simulate(person, dt)` trampoline call;
-4. a post-stock snapshot and diagnostic counters.
+3. a consult of the mission-scoped pilot animation policy (see below), whose
+   only possible answer is pass-through;
+4. the original `Person::Simulate(person, dt)` trampoline call;
+5. a post-stock snapshot and diagnostic counters.
 
 There are no FSM writes, animation substitutions, duration overrides, skipped
 stock branches, or Lua callbacks from inside `Person::Simulate`.
@@ -129,6 +134,7 @@ print(hook.installed, hook.active, hook.observeOnly)
 print(hook.calls, hook.localCalls)
 print(hook.stateChanges, hook.animationChanges)
 print(hook.beforeState, hook.afterState)
+print(hook.policyDecision)
 ```
 
 `calls` includes every native Person object that reaches the shared function;
@@ -142,6 +148,63 @@ module already owns that exact entry, the seam fails closed and
 `pilotFsmIntercept` remains false. Mission/Lua-state teardown restores the
 entry through the same foreign-overwrite-safe patch path as other EXU native
 patches.
+
+## Pilot animation policy (stock only)
+
+Above the seam sits a mission-scoped policy that will eventually let a mod
+own parts of the pilot animation FSM. **This version contains only the
+ownership/configuration layer and its stock default.** It makes no native
+writes, changes no branch, substitutes no animation, and substitutes no
+duration. Read the effective profile back with:
+
+```lua
+local profile = exu.fps.GetPilotAnimationProfile()
+for _, slot in ipairs({ "stand", "enterCrouch", "crouched", "exitCrouch", "jump", "land" }) do
+    print(slot, profile[slot].mode, profile[slot].nativeState)
+end
+```
+
+Every slot currently reads `mode = "stock"`, meaning the native
+`Person::Simulate` behavior for that slot is untouched:
+
+| Slot | `nativeState` | Notes |
+| --- | ---: | --- |
+| `stand` | 0 | base state |
+| `enterCrouch` | 1 | native `stand2Kneel` transition |
+| `crouched` | 2 | native sniper/crouch hold |
+| `exitCrouch` | 3 | native `kneel2stand` transition |
+| `jump` | *(none)* | animation 11, selected from state 0; native conditions not traced |
+| `land` | *(none)* | animation 10, selected from state 0; native conditions not traced |
+
+`jump` and `land` carry no `nativeState` because they are animation
+selections made inside the standing state rather than distinct FSM states.
+
+Lifetime and scope:
+
+- The policy is **mission-scoped**. It is restored to stock when EXU initialises
+  for a Lua state and again from the mission-scoped reset when that state
+  closes, so nothing can carry into the next mission even if a host keeps the
+  DLL loaded.
+- The read-back needs no runtime gate or local pilot: it describes EXU's own
+  configuration, not engine memory, so it works on an unsupported build and
+  returns the same stock profile there.
+- `GetPilotInterceptStatus().policyDecision` is `"passThrough"` after the
+  first intercepted local `Person::Simulate` call and `nil` before it. It is
+  how an in-game session can confirm the policy layer is actually being
+  consulted on the seam.
+
+Not exposed, deliberately:
+
+- **No setter.** A `SetPilotAnimationProfile` that accepted overrides which
+  cannot yet be applied would silently mislead mods, so nothing writable is
+  exposed until the first override is real.
+- **No stock durations.** Only the animation-handle wait in native states 1
+  and 3 is proven; the numeric transition-duration constants have not been
+  located. The profile therefore reports no duration, and existing Ogre clip
+  lengths must not be read as the FSM's transition timing.
+
+The per-slot `mode` and `nativeState` fields are the stable part of this
+diagnostic shape; additional fields will appear as overrides are implemented.
 
 Enumerate all current viewmodel animations:
 
@@ -203,16 +266,16 @@ specific branches.
 This facade is presentation-only. It does not override Battlezone Redux's
 `Person` animation finite-state machine.
 
-Read-only FSM inspection is now available, but the facade still does **not**
-provide semantic writes such as:
+Read-only FSM inspection and the stock-only policy read-back are now available,
+but the facade still does **not** provide semantic writes such as:
 
 ```lua
 exu.fps.SetCrouched(true)
 exu.fps.SetPilotAnimationProfile({...})
 ```
 
-Those require the next policy layer on top of the now-established interception
-seam. Playing or seeking an Ogre animation
+Those require overrides to be implemented in the policy layer that now sits on
+top of the established interception seam. Playing or seeking an Ogre animation
 alone does not stop `Person::Simulate` from choosing another animation on a
 later update.
 
