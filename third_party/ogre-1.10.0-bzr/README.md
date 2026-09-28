@@ -12,8 +12,9 @@ This folder tracks the local Ogre work needed to build Battlezone Redux-compatib
 - Patches are stored byte-exact (`*.patch -text` in `.gitattributes`); do not let an editor strip trailing whitespace from them, since a blank context line is a single space.
 - `Build-Ogre-BZR.ps1`
   - applies both patches to a clean Ogre 1.10.0 source tree
-  - downloads and builds `zlib` and `freetype`
-  - can fetch `zziplib` and the official Win32 FreeImage package for the Battlezone ABI profile
+  - downloads and builds `zlib` 1.3.1 and `freetype` 2.13.3
+  - can fetch `zziplib` 0.13.80 and the official Win32 FreeImage 3.18.0 package for the Battlezone ABI profile
+  - pins every download to an exact release URL and SHA256; a mismatch, including a stale or altered archive cached under `_work`, stops the build (change a URL and its hash together)
   - configures Ogre for Win32
   - builds either D3D11 or D3D9 using the `v120` toolset
 - `Compare-Ogre-ABI.ps1`

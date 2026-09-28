@@ -22,7 +22,17 @@
 
 // Runtime overlay resources: EXU's resource groups and the runtime font (font
 // script, then TrueType, then the sprite-table image fallback), and the
-// filesystem search that finds their assets next to the game and in mods.
+// filesystem search that finds their assets.
+//
+// Ownership (audit P2-8): EXU provides one default overlay font. Its name,
+// CRBZoneOverlayFont, and asset names (CRBZoneOverlay.fontdef, BZONE.ttf) are
+// kept for compatibility with Campaign Reimagined, which ships them in an
+// OverlayFont folder and binds the font by that name. Directories a mission
+// registers with exu.AddOverlayFontDirectory are searched first; the legacy
+// discovery (EXU's own folder and its ancestors, the game root, the addon,
+// mods and packaged_mods folders, and the Steam Workshop content folder)
+// remains the fallback. With no assets anywhere the font is built from the
+// stock bzfont.dds sprite table, so the default font exists on every install.
 
 namespace ExtraUtilities::Lua::Overlay
 {
@@ -40,6 +50,14 @@ namespace ExtraUtilities::Lua::Overlay
 		constexpr const char* kOverlayRuntimeFontSource = "bzfont.dds";
 		constexpr const char* kOverlayRuntimeFontSpriteTable = "Edit\\stock\\bzfont.st";
 		constexpr const char* kBattlezoneWorkshopAppId = "301650";
+
+		// Mission-scoped: filled by exu.AddOverlayFontDirectory, cleared when
+		// the mission's Lua state closes.
+		std::vector<std::filesystem::path> registeredFontDirectories;
+
+		// Whether the last resource discovery found a directory holding the
+		// default font's script or TrueType source.
+		bool overlayRuntimeFontAssetsFound = false;
 
 		std::string GetCurrentModuleDirectory()
 		{
@@ -221,6 +239,14 @@ namespace ExtraUtilities::Lua::Overlay
 			std::unordered_set<std::string> seenFontDirectories;
 			std::vector<std::string> addedFontDirectories;
 
+			for (const std::filesystem::path& registered : registeredFontDirectories)
+			{
+				AppendOverlayFontCandidatesForBase(registered, fontDirectories, seenFontDirectories);
+			}
+			const size_t registeredCandidateCount = fontDirectories.size();
+
+			// Legacy discovery, kept as the fallback so Campaign Reimagined's
+			// OverlayFont folder keeps resolving without any script change.
 			AppendNearbyOverlayFontCandidates(moduleDirectoryPath, 5, fontDirectories, seenFontDirectories);
 			AppendOverlayFontCandidatesForBase(gameRootDirectoryPath, fontDirectories, seenFontDirectories);
 			AppendOverlayFontCandidatesUnder(gameRootDirectoryPath / "addon", 2, fontDirectories, seenFontDirectories);
@@ -229,8 +255,10 @@ namespace ExtraUtilities::Lua::Overlay
 			AppendOverlayFontCandidatesUnder(GetWorkshopContentDirectory(gameRootDirectoryPath), 3, fontDirectories, seenFontDirectories);
 
 			bool addedAnyFontLocation = false;
-			for (const std::filesystem::path& fontDirectory : fontDirectories)
+			bool scriptFromRegisteredDirectory = false;
+			for (size_t index = 0; index < fontDirectories.size(); ++index)
 			{
+				const std::filesystem::path& fontDirectory = fontDirectories[index];
 				if (!ContainsOverlayRuntimeFontAsset(fontDirectory))
 				{
 					continue;
@@ -238,14 +266,23 @@ namespace ExtraUtilities::Lua::Overlay
 
 				const std::string fontDirectoryString = fontDirectory.string();
 				const std::filesystem::path fontScriptPath = fontDirectory / kOverlayRuntimeFontScript;
-				if (IsRegularFile(fontScriptPath))
+				if (IsRegularFile(fontScriptPath) && !scriptFromRegisteredDirectory)
 				{
-					const bool currentIsOverlayFont = !overlayRuntimeFontScriptPath.empty()
-						&& std::filesystem::path(overlayRuntimeFontScriptPath).parent_path().filename() == "OverlayFont";
-					const bool candidateIsOverlayFont = fontDirectory.filename() == "OverlayFont";
-					if (overlayRuntimeFontScriptPath.empty() || (candidateIsOverlayFont && !currentIsOverlayFont))
+					if (index < registeredCandidateCount)
 					{
+						// A registered directory's script wins over any discovered one.
 						overlayRuntimeFontScriptPath = fontScriptPath.string();
+						scriptFromRegisteredDirectory = true;
+					}
+					else
+					{
+						const bool currentIsOverlayFont = !overlayRuntimeFontScriptPath.empty()
+							&& std::filesystem::path(overlayRuntimeFontScriptPath).parent_path().filename() == "OverlayFont";
+						const bool candidateIsOverlayFont = fontDirectory.filename() == "OverlayFont";
+						if (overlayRuntimeFontScriptPath.empty() || (candidateIsOverlayFont && !currentIsOverlayFont))
+						{
+							overlayRuntimeFontScriptPath = fontScriptPath.string();
+						}
 					}
 				}
 				if (Native::TryAddResourceLocation(fontDirectoryString.c_str(), kOverlayRuntimeResourceGroup))
@@ -255,13 +292,14 @@ namespace ExtraUtilities::Lua::Overlay
 				}
 			}
 
+			overlayRuntimeFontAssetsFound = addedAnyFontLocation;
 			if (!addedAnyFontLocation)
 			{
+				// Not fatal: the default font falls back to the stock sprite table.
 				Logging::LogMessage(
-					"[EXU::Overlay] overlay runtime resources failed to locate any font directory module=%s gameRoot=%s",
+					"[EXU::Overlay] overlay runtime resources found no font asset directory module=%s gameRoot=%s; using the stock bzfont.dds fallback",
 					moduleDirectory.c_str(),
 					gameRootDirectory.c_str());
-				return;
 			}
 
 			const std::string stockTextureDirectory = gameRootDirectory + "\\BZ_ASSETS\\pc\\textures\\MISC_DDS";
@@ -290,6 +328,103 @@ namespace ExtraUtilities::Lua::Overlay
 
 	namespace Detail
 	{
+		const char* GetOverlayRuntimeFontName() noexcept
+		{
+			return kOverlayRuntimeFontName;
+		}
+
+		bool RegisterOverlayFontDirectory(const char* directory, unsigned int& outParsedScripts)
+		{
+			outParsedScripts = 0;
+			if (directory == nullptr || directory[0] == '\0')
+			{
+				return false;
+			}
+
+			std::filesystem::path path(directory);
+			if (path.is_relative())
+			{
+				const std::string gameRootDirectory = ModulePath::GetGameRootDirectory();
+				if (gameRootDirectory.empty())
+				{
+					return false;
+				}
+				path = std::filesystem::path(gameRootDirectory) / path;
+			}
+			path = path.lexically_normal();
+
+			if (!IsDirectory(path))
+			{
+				Logging::LogMessage("[EXU::Overlay] AddOverlayFontDirectory rejected path=%s reason=not-a-directory", path.string().c_str());
+				return false;
+			}
+
+			if (std::find(registeredFontDirectories.begin(), registeredFontDirectories.end(), path) == registeredFontDirectories.end())
+			{
+				registeredFontDirectories.push_back(path);
+			}
+
+			// The default font has not been built yet this session: rerun
+			// discovery on next use so this directory is searched first.
+			if (!overlayRuntimeFontReady)
+			{
+				overlayRuntimeResourcesReady = false;
+				overlayRuntimeResourcesAttempted = false;
+				overlayRuntimeFontAttempted = false;
+				overlayRuntimeFontScriptPath.clear();
+			}
+
+			// Any other font script in the directory defines fonts a mission can
+			// bind by name. The default font's own script is left to the runtime
+			// font path. Re-parsing a font that already exists (a later mission)
+			// fails harmlessly and the existing font stays usable.
+			EnsureOverlaySupport();
+			const std::string pathString = path.string();
+			if (!Native::TryAddResourceLocation(pathString.c_str(), kOverlayRuntimeResourceGroup))
+			{
+				return false;
+			}
+
+			std::error_code error;
+			for (std::filesystem::directory_iterator it(path, std::filesystem::directory_options::skip_permission_denied, error), end;
+				!error && it != end;
+				it.increment(error))
+			{
+				if (!it->is_regular_file(error))
+				{
+					error.clear();
+					continue;
+				}
+
+				const std::filesystem::path& file = it->path();
+				std::string extension = file.extension().string();
+				std::transform(extension.begin(), extension.end(), extension.begin(),
+					[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+				const std::string fileName = file.filename().string();
+				if (extension != ".fontdef" || _stricmp(fileName.c_str(), kOverlayRuntimeFontScript) == 0)
+				{
+					continue;
+				}
+
+				if (Native::TryParseFontScript(fileName.c_str(), kOverlayRuntimeResourceGroup))
+				{
+					++outParsedScripts;
+				}
+			}
+
+			Logging::LogMessage(
+				"[EXU::Overlay] AddOverlayFontDirectory path=%s parsedScripts=%u runtimeFontReady=%d",
+				pathString.c_str(),
+				outParsedScripts,
+				overlayRuntimeFontReady ? 1 : 0);
+			return true;
+		}
+
+		void ClearRegisteredOverlayFontDirectories() noexcept
+		{
+			registeredFontDirectories.clear();
+		}
+
 		bool overlayRuntimeResourcesReady = false;
 		bool overlayRuntimeResourcesAttempted = false;
 		bool overlayRuntimeFontReady = false;
@@ -357,7 +492,7 @@ namespace ExtraUtilities::Lua::Overlay
 				}
 			}
 
-			if (Native::TryEnsureTrueTypeFont(
+			if (overlayRuntimeFontAssetsFound && Native::TryEnsureTrueTypeFont(
 				kOverlayRuntimeFontName,
 				kOverlayRuntimeResourceGroup,
 				kOverlayRuntimeTrueTypeSource,

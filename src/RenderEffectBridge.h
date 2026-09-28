@@ -82,12 +82,18 @@ namespace ExtraUtilities::RenderEffectBridge
 	// A winmm.dll that happens to be loaded is not necessarily OpenShim, and
 	// an OpenShim older than this ABI will not have these exports. Successful
 	// resolution of the exports is therefore the capability test, not the
-	// presence of the module.
+	// presence of the module. A live provider older than the winmm.dll thunks
+	// still resolves them but answers 0 (== kResultAccepted), so the API
+	// version, which shipped with the same exports and is never 0 when
+	// implemented, must also be non-zero.
 	inline bool IsAvailable() noexcept
 	{
+		const GetApiVersionFn getApiVersion = Detail::getApiVersion.Get();
 		return Detail::setEnabled.Get() != nullptr
 			&& Detail::setFloat.Get() != nullptr
-			&& Detail::getStatus.Get() != nullptr;
+			&& Detail::getStatus.Get() != nullptr
+			&& getApiVersion != nullptr
+			&& getApiVersion() != 0u;
 	}
 
 	inline std::uint32_t ApiVersion() noexcept
@@ -102,24 +108,22 @@ namespace ExtraUtilities::RenderEffectBridge
 	// the status query is where the difference is explained.
 	inline std::uint32_t SetEnabled(std::uint32_t effectId, bool enabled) noexcept
 	{
-		const SetEnabledFn setEnabled = Detail::setEnabled.Get();
-		if (!setEnabled)
+		if (!IsAvailable())
 		{
 			return RenderEffects::Abi::kResultRejectedEffect;
 		}
 		return static_cast<std::uint32_t>(
-			setEnabled(static_cast<DWORD>(effectId), enabled ? TRUE : FALSE));
+			Detail::setEnabled.Get()(static_cast<DWORD>(effectId), enabled ? TRUE : FALSE));
 	}
 
 	inline std::uint32_t SetFloat(std::uint32_t effectId, std::uint32_t paramId, float value) noexcept
 	{
-		const SetFloatFn setFloat = Detail::setFloat.Get();
-		if (!setFloat)
+		if (!IsAvailable())
 		{
 			return RenderEffects::Abi::kResultRejectedEffect;
 		}
 		return static_cast<std::uint32_t>(
-			setFloat(static_cast<DWORD>(effectId), static_cast<DWORD>(paramId), value));
+			Detail::setFloat.Get()(static_cast<DWORD>(effectId), static_cast<DWORD>(paramId), value));
 	}
 
 	// Fails closed to "nothing requested, nothing supported, OpenShim absent"
