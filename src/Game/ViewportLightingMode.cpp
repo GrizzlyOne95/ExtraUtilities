@@ -17,6 +17,7 @@
 */
 
 #include "EnvironmentInternal.h"
+#include "Util/SehGuard.h"
 #include "Util/EngineAddresses.generated.h"
 
 // Legacy viewport lighting modes (default, enhanced, retro) applied through
@@ -258,7 +259,7 @@ namespace ExtraUtilities::Lua::Environment
 	using FnCompositorManagerSetCompositorEnabled =
 		void(__thiscall*)(void*, void*, const std::string&, bool);
 
-	bool CallSetCompositorEnabledGuarded(
+	bool CallSetCompositorEnabledGuardedSeh(
 		FnCompositorManagerSetCompositorEnabled fn,
 		void* manager,
 		void* viewport,
@@ -270,7 +271,7 @@ namespace ExtraUtilities::Lua::Environment
 			fn(manager, viewport, *name, enabled);
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault(
 				"[EXU::Viewport] setCompositorEnabled crashed viewport=%p enabled=%d code=0x%08X",
@@ -279,6 +280,16 @@ namespace ExtraUtilities::Lua::Environment
 				GetExceptionCode());
 			return false;
 		}
+	}
+
+	bool CallSetCompositorEnabledGuarded(
+		FnCompositorManagerSetCompositorEnabled fn,
+		void* manager,
+		void* viewport,
+		const std::string* name,
+		bool enabled)
+	{
+		return Seh::CatchCpp("CallSetCompositorEnabledGuarded", [&] { return CallSetCompositorEnabledGuardedSeh(fn, manager, viewport, name, enabled); }, false);
 	}
 
 	bool TrySetGlowCompositorEnabled(void* viewport, bool enabled)

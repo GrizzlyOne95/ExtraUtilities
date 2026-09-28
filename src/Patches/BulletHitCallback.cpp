@@ -21,6 +21,7 @@
 #include "Hook.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
+#include "LuaCppBarrier.h"
 #include "Util/EngineAddresses.generated.h"
 
 #include <lua.hpp>
@@ -121,7 +122,7 @@ namespace ExtraUtilities::Patch
 
 		StackGuard guard(L);
 		BulletHitArgs args{ odf, shooter, hitObject, transform, ordnanceHandle };
-		const int status = lua_cpcall(L, &ProtectedBulletHit, &args);
+		const int status = lua_cpcall(L, &Lua::CppBarrier<&ProtectedBulletHit>, &args);
 		if (status != 0)
 		{
 			LuaCheckStatus(status, L, "Extra Utilities BulletHit error:\n%s");

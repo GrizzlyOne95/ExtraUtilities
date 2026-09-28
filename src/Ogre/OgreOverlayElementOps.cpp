@@ -22,6 +22,7 @@
 #include "Ogre/Ogre.h"
 #include "Util/AsciiString.h"
 #include "Util/Logging.h"
+#include "Util/SehGuard.h"
 
 #include <Windows.h>
 
@@ -104,7 +105,7 @@ namespace ExtraUtilities::Lua::Overlay
 			{
 				return *reinterpret_cast<const void* const*>(element);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return nullptr;
 			}
@@ -244,16 +245,18 @@ namespace ExtraUtilities::Lua::Overlay
 				return false;
 			}
 
-			__try
+			// Behind both barriers (Util/SehGuard.h): a fault reports its code,
+			// a C++ exception is logged, destroyed and reported as 0xE06D7363.
+			outExceptionCode = static_cast<unsigned int>(Seh::kMsvcCppExceptionCode);
+			const bool called = Seh::Guard(
+				"TryCallElementSetter",
+				[&] { fn(element, args...); },
+				[&](unsigned long exceptionCode) { outExceptionCode = static_cast<unsigned int>(exceptionCode); });
+			if (called)
 			{
-				fn(element, args...);
-				return true;
+				outExceptionCode = 0;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				outExceptionCode = GetExceptionCode();
-				return false;
-			}
+			return called;
 		}
 
 		bool TryCallPanelSetTransparent(::Ogre::PanelOverlayElement* element, bool transparent, unsigned int& outExceptionCode)
@@ -431,7 +434,7 @@ namespace ExtraUtilities::Lua::Overlay
 			element->::Ogre::OverlayElement::setColour(colour);
 		}
 
-		bool TryCallSetOverlayParameter(
+		bool TryCallSetOverlayParameterSeh(
 			bool(__thiscall* setParameter)(void*, const std::string&, const std::string&),
 			::Ogre::OverlayElement* element,
 			const std::string& name,
@@ -447,14 +450,28 @@ namespace ExtraUtilities::Lua::Overlay
 				outSuccess = setParameter(element, name, value);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
 		}
 
-		bool TryShowOverlay(::Ogre::Overlay* overlay, unsigned int& outExceptionCode)
+		bool TryCallSetOverlayParameter(
+			bool(__thiscall* setParameter)(void*, const std::string&, const std::string&),
+			::Ogre::OverlayElement* element,
+			const std::string& name,
+			const std::string& value,
+			bool& outSuccess,
+			unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp(
+				"TryCallSetOverlayParameter",
+				[&] { return TryCallSetOverlayParameterSeh(setParameter, element, name, value, outSuccess, outExceptionCode); },
+				[&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
+		}
+
+		bool TryShowOverlaySeh(::Ogre::Overlay* overlay, unsigned int& outExceptionCode)
 		{
 			outExceptionCode = 0;
 
@@ -463,14 +480,19 @@ namespace ExtraUtilities::Lua::Overlay
 				overlay->show();
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
 		}
 
-		bool TryHideOverlay(::Ogre::Overlay* overlay, unsigned int& outExceptionCode)
+		bool TryShowOverlay(::Ogre::Overlay* overlay, unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp("TryShowOverlay", [&] { return TryShowOverlaySeh(overlay, outExceptionCode); }, [&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
+		}
+
+		bool TryHideOverlaySeh(::Ogre::Overlay* overlay, unsigned int& outExceptionCode)
 		{
 			outExceptionCode = 0;
 
@@ -479,11 +501,16 @@ namespace ExtraUtilities::Lua::Overlay
 				overlay->hide();
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
+		}
+
+		bool TryHideOverlay(::Ogre::Overlay* overlay, unsigned int& outExceptionCode)
+		{
+			return Seh::CatchCpp("TryHideOverlay", [&] { return TryHideOverlaySeh(overlay, outExceptionCode); }, [&] { outExceptionCode = Seh::kMsvcCppExceptionCode; return false; });
 		}
 
 		ElementKind GetKnownElementKind(const std::string& elementName)

@@ -24,6 +24,7 @@
 #include "LuaHelpers.h"
 #include "Ogre/Ogre.h"
 #include "Ogre/OgreMaterialShim.h"
+#include "Util/SehGuard.h"
 
 #include <Windows.h>
 
@@ -87,7 +88,7 @@ namespace ExtraUtilities::Lua::GameObject
 				outCarrier = *reinterpret_cast<CarrierWeaponSelectionLayout**>(objBytes + kGameObjectCarrierOffset);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outStoredRawMask = 0;
 				outStoredMask = 0;
@@ -123,7 +124,7 @@ namespace ExtraUtilities::Lua::GameObject
 				}
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outEnabledMask = 0;
 				outActiveSlot = 0xFFFFFFFFu;
@@ -144,18 +145,23 @@ namespace ExtraUtilities::Lua::GameObject
 			return obj != nullptr ? obj->GetJammer() : nullptr;
 		}
 
-		bool TrySetAsUser(BZR::GameObject* obj)
+		bool TrySetAsUserSeh(BZR::GameObject* obj)
 		{
 			__try
 			{
 				BZR::GameObject::SetAsUser(obj);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault("[EXU::SetAsUser] crashed obj=%p code=0x%08X", obj, GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TrySetAsUser(BZR::GameObject* obj)
+		{
+			return Seh::CatchCpp("TrySetAsUser", [&] { return TrySetAsUserSeh(obj); }, false);
 		}
 
 		bool TryGetCommTowerPowerHandle(BZR::GameObject* obj, BZR::handle& outHandle)
@@ -170,7 +176,7 @@ namespace ExtraUtilities::Lua::GameObject
 				}
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault("[EXU::IsCommTowerPowered] crashed obj=%p code=0x%08X", obj, GetExceptionCode());
 				outHandle = 0;
@@ -198,7 +204,7 @@ namespace ExtraUtilities::Lua::GameObject
 		lua_pushlightuserdata(L, reinterpret_cast<void*>(h));
 		lua_call(L, 1, 1);
 
-		std::string classLabel = luaL_checkstring(L, -1);
+		const std::string_view classLabel = luaL_checkstring(L, -1);
 
 		if (classLabel != "commtower")
 		{
@@ -245,7 +251,7 @@ namespace ExtraUtilities::Lua::GameObject
 		{
 			mass = obj->euler.mass;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogMaterialFault("[EXU::GetMass] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
 			lua_pushnil(L);
@@ -273,7 +279,7 @@ namespace ExtraUtilities::Lua::GameObject
 			obj->euler.mass = mass;
 			obj->euler.mass_inv = 1 / mass;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogMaterialFault("[EXU::SetMass] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
 		}
@@ -384,13 +390,15 @@ namespace ExtraUtilities::Lua::GameObject
 		__try
 		{
 			selectedMountedMask = carrier->selectedMask & carrier->existingMask;
-			lua_pushinteger(L, static_cast<lua_Integer>(selectedMountedMask));
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogMaterialFault("[EXU::GetSelectedWeaponMask] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
 			lua_pushnil(L);
+			return 1;
 		}
+
+		lua_pushinteger(L, static_cast<lua_Integer>(selectedMountedMask));
 		return 1;
 	}
 
@@ -428,28 +436,42 @@ namespace ExtraUtilities::Lua::GameObject
 		}
 		lua_setfield(L, -2, "modeListActiveSlot");
 
+		uint32_t carrierExistingMask = 0;
+		uint32_t carrierSelectedMask = 0;
+		uint32_t carrierEnabledMask = 0;
+		bool carrierRead = false;
 		if (carrier != nullptr)
 		{
+			// Only the reads are guarded; the Lua stack is never touched
+			// inside __try, so a fault cannot leave a value half-pushed.
 			__try
 			{
-				const uint32_t selectedMountedMask = carrier->selectedMask & carrier->existingMask;
-				const uint32_t selectedReadyMask = selectedMountedMask & carrier->enabledMask;
-
-				lua_pushinteger(L, static_cast<lua_Integer>(carrier->existingMask));
-				lua_setfield(L, -2, "carrierExistingMask");
-				lua_pushinteger(L, static_cast<lua_Integer>(carrier->selectedMask));
-				lua_setfield(L, -2, "carrierSelectedMask");
-				lua_pushinteger(L, static_cast<lua_Integer>(carrier->enabledMask));
-				lua_setfield(L, -2, "carrierEnabledMask");
-				lua_pushinteger(L, static_cast<lua_Integer>(selectedMountedMask));
-				lua_setfield(L, -2, "selectedMountedMask");
-				lua_pushinteger(L, static_cast<lua_Integer>(selectedReadyMask));
-				lua_setfield(L, -2, "selectedReadyMask");
+				carrierExistingMask = carrier->existingMask;
+				carrierSelectedMask = carrier->selectedMask;
+				carrierEnabledMask = carrier->enabledMask;
+				carrierRead = true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogMaterialFault("[EXU::GetWeaponSelectionInfo] crashed while reading carrier handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
 			}
+		}
+
+		if (carrierRead)
+		{
+			const uint32_t selectedMountedMask = carrierSelectedMask & carrierExistingMask;
+			const uint32_t selectedReadyMask = selectedMountedMask & carrierEnabledMask;
+
+			lua_pushinteger(L, static_cast<lua_Integer>(carrierExistingMask));
+			lua_setfield(L, -2, "carrierExistingMask");
+			lua_pushinteger(L, static_cast<lua_Integer>(carrierSelectedMask));
+			lua_setfield(L, -2, "carrierSelectedMask");
+			lua_pushinteger(L, static_cast<lua_Integer>(carrierEnabledMask));
+			lua_setfield(L, -2, "carrierEnabledMask");
+			lua_pushinteger(L, static_cast<lua_Integer>(selectedMountedMask));
+			lua_setfield(L, -2, "selectedMountedMask");
+			lua_pushinteger(L, static_cast<lua_Integer>(selectedReadyMask));
+			lua_setfield(L, -2, "selectedReadyMask");
 		}
 
 		return 1;

@@ -16,6 +16,7 @@
 #include "Game/ContinuityApi.h"
 
 #include "LuaHelpers.h"
+#include "LuaCppBarrier.h"
 
 #include <lua.hpp>
 
@@ -1072,7 +1073,7 @@ namespace ExtraUtilities::Lua::ContinuityApi
 			{ "GetCapabilities", &GetCapabilities },
 			{ nullptr, nullptr },
 		};
-		luaL_register(L, nullptr, functions);
+		RegisterFunctions(L, nullptr, functions);
 		lua_setfield(L, -2, "continuity");
 		lua_pop(L, 1);
 	}

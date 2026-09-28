@@ -24,6 +24,7 @@
 
 #include "LuaHelpers.h"
 #include "Util/StorageCodec.h"
+#include "LuaCppBarrier.h"
 
 #include <Windows.h>
 #include <lua.hpp>
@@ -33,6 +34,7 @@
 #include <limits>
 #include <new>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace ExtraUtilities::Lua::StorageApi
@@ -418,21 +420,22 @@ namespace ExtraUtilities::Lua::StorageApi
 			}
 		}
 
-		std::string CheckNamespace(lua_State* L, int index)
+		// A view of the Lua string (valid while the argument is on the stack):
+		// no std::string is alive when the check raises.
+		std::string_view CheckNamespace(lua_State* L, int index)
 		{
 			size_t length = 0;
 			const char* raw = luaL_checklstring(L, index, &length);
-			const std::string name(raw, length);
-			if (!Codec::IsSafeNamespace(name))
+			if (!Codec::IsSafeNamespace(std::string(raw, length)))
 			{
 				luaL_argerror(L, index, "storage namespace must be 1-64 chars, start alphanumeric, and contain only A-Z a-z 0-9 . _ -");
 			}
-			return name;
+			return std::string_view(raw, length);
 		}
 
 		int Save(lua_State* L)
 		{
-			const std::string name = CheckNamespace(L, 1);
+			const std::string_view nameArg = CheckNamespace(L, 1);
 			const std::uint32_t schemaVersion = lua_isnoneornil(L, 3)
 				? 1u
 				: static_cast<std::uint32_t>(luaL_checkinteger(L, 3));
@@ -440,6 +443,7 @@ namespace ExtraUtilities::Lua::StorageApi
 			{
 				return luaL_argerror(L, 3, "schema version must be non-negative");
 			}
+			const std::string name(nameArg);
 
 			std::string error;
 			Paths paths{};
@@ -467,7 +471,7 @@ namespace ExtraUtilities::Lua::StorageApi
 
 		int LoadUnguarded(lua_State* L)
 		{
-			const std::string name = CheckNamespace(L, 1);
+			const std::string name(CheckNamespace(L, 1));
 			std::string pathError;
 			Paths paths{};
 			if (!GetStoragePaths(name, paths, pathError))
@@ -548,7 +552,7 @@ namespace ExtraUtilities::Lua::StorageApi
 
 		int Exists(lua_State* L)
 		{
-			const std::string name = CheckNamespace(L, 1);
+			const std::string name(CheckNamespace(L, 1));
 			std::string error;
 			Paths paths{};
 			if (!GetStoragePaths(name, paths, error))
@@ -562,7 +566,7 @@ namespace ExtraUtilities::Lua::StorageApi
 
 		int Delete(lua_State* L)
 		{
-			const std::string name = CheckNamespace(L, 1);
+			const std::string name(CheckNamespace(L, 1));
 			std::string error;
 			Paths paths{};
 			if (!GetStoragePaths(name, paths, error))
@@ -584,7 +588,7 @@ namespace ExtraUtilities::Lua::StorageApi
 
 		int GetInfo(lua_State* L)
 		{
-			const std::string name = CheckNamespace(L, 1);
+			const std::string name(CheckNamespace(L, 1));
 			std::string error;
 			Paths paths{};
 			if (!GetStoragePaths(name, paths, error))
@@ -655,7 +659,7 @@ namespace ExtraUtilities::Lua::StorageApi
 			{ "GetCapabilities", &GetCapabilities },
 			{ nullptr, nullptr },
 		};
-		luaL_register(L, nullptr, functions);
+		RegisterFunctions(L, nullptr, functions);
 		lua_setfield(L, -2, "storage");
 		lua_pop(L, 1);
 	}
