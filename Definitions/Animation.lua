@@ -26,6 +26,7 @@
 --- @field gameObjectTarget boolean
 --- @field localFirstPersonTarget boolean False until the `aspilo_fp` ownership/resolver path is validated live.
 --- @field animationInventory boolean True when `List` is available.
+--- @field pilotStateInspection boolean True when the read-only local Person FSM snapshot API is compiled in.
 --- @field managedClock boolean False while Redux/Ogre remains responsible for animation time advancement.
 --- @field nativeAdvancement "unvalidated"|string
 --- @field firstPersonStatus string
