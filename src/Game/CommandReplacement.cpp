@@ -86,13 +86,6 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			size_t size = 0;
 		};
 
-		struct ExecutableSection
-		{
-			const uint8_t* address = nullptr;
-			size_t size = 0;
-			std::string name;
-		};
-
 		using SetCommandIntFn = void(__thiscall*)(BZR::GameObject*, int);
 
 		constexpr std::array<int, 44> WINGMAN_HUNT_ACTIVATION_SIGNATURE = {
@@ -133,66 +126,6 @@ namespace ExtraUtilities::Lua::CommandReplacement
 		uintptr_t g_wingmanHuntActivationResumeAddress = 0;
 		SetCommandIntFn g_wingmanHuntSetCommand = nullptr;
 		bool g_lastWingmanHuntHandled = false;
-
-		std::vector<ExecutableSection> GetExecutableSections()
-		{
-			std::vector<ExecutableSection> sections;
-
-			HMODULE module = GetModuleHandleA("Battlezone98Redux.exe");
-			if (module == nullptr)
-			{
-				module = GetModuleHandleA(nullptr);
-			}
-
-			if (module == nullptr)
-			{
-				return sections;
-			}
-
-			const auto* base = reinterpret_cast<const uint8_t*>(module);
-			const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
-			if (dos->e_magic != IMAGE_DOS_SIGNATURE)
-			{
-				return sections;
-			}
-
-			const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
-			if (nt->Signature != IMAGE_NT_SIGNATURE)
-			{
-				return sections;
-			}
-
-			auto* section = IMAGE_FIRST_SECTION(nt);
-			for (WORD index = 0; index < nt->FileHeader.NumberOfSections; ++index, ++section)
-			{
-				if ((section->Characteristics & IMAGE_SCN_MEM_EXECUTE) == 0)
-				{
-					continue;
-				}
-
-				const size_t size = std::max<size_t>(section->Misc.VirtualSize, section->SizeOfRawData);
-				if (size == 0)
-				{
-					continue;
-				}
-
-				char sectionName[9]{};
-				std::memcpy(sectionName, section->Name, sizeof(section->Name));
-
-				sections.push_back({
-					base + section->VirtualAddress,
-					size,
-					sectionName
-				});
-			}
-
-			return sections;
-		}
-
-		const uint8_t* FindPattern(const uint8_t* start, size_t size, const auto& pattern)
-		{
-			return SignatureResolver::FindPattern(start, size, pattern);
-		}
 
 		uintptr_t ResolveRelativeCallTarget(uintptr_t callSite) noexcept
 		{
@@ -304,46 +237,17 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			return g_replacements.find(MakeReplacementKey(handle, stockCommand));
 		}
 
-		std::optional<ModuleSection> FindMainModuleSection(std::string_view sectionName) noexcept
+		std::optional<ModuleSection> FindMainModuleSection(const char* sectionName) noexcept
 		{
-			const HMODULE module = GetModuleHandleA(nullptr);
-			if (module == nullptr)
+			const uint8_t* data = nullptr;
+			size_t size = 0;
+			uintptr_t address = 0;
+			if (!SignatureResolver::TryGetModuleSection(GetModuleHandleA(nullptr), sectionName, data, size, address))
 			{
 				return std::nullopt;
 			}
 
-			const auto* dosHeader = reinterpret_cast<const IMAGE_DOS_HEADER*>(module);
-			if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE)
-			{
-				return std::nullopt;
-			}
-
-			const auto* ntHeaders = reinterpret_cast<const IMAGE_NT_HEADERS*>(
-				reinterpret_cast<const uint8_t*>(module) + dosHeader->e_lfanew);
-			if (ntHeaders->Signature != IMAGE_NT_SIGNATURE)
-			{
-				return std::nullopt;
-			}
-
-			const auto* section = IMAGE_FIRST_SECTION(ntHeaders);
-			for (uint16_t index = 0; index < ntHeaders->FileHeader.NumberOfSections; ++index, ++section)
-			{
-				const std::string_view currentName(
-					reinterpret_cast<const char*>(section->Name),
-					strnlen_s(reinterpret_cast<const char*>(section->Name), IMAGE_SIZEOF_SHORT_NAME));
-
-				if (currentName != sectionName)
-				{
-					continue;
-				}
-
-				return ModuleSection{
-					reinterpret_cast<uint8_t*>(module) + section->VirtualAddress,
-					static_cast<size_t>(section->Misc.VirtualSize)
-				};
-			}
-
-			return std::nullopt;
+			return ModuleSection{ const_cast<uint8_t*>(data), size };
 		}
 
 		const char* FindCStringInSection(const ModuleSection& section, std::string_view value) noexcept
@@ -679,7 +583,7 @@ namespace ExtraUtilities::Lua::CommandReplacement
 
 		uintptr_t InitializeWingmanHuntActivationHook()
 		{
-			const auto sections = GetExecutableSections();
+			const auto sections = SignatureResolver::GetExecutableSections(GetModuleHandleA(nullptr));
 			if (sections.empty())
 			{
 				Logging::LogMessage("exu: failed to enumerate executable sections for Wingman Hunt hook");
@@ -688,7 +592,7 @@ namespace ExtraUtilities::Lua::CommandReplacement
 
 			for (const auto& section : sections)
 			{
-				const auto* match = FindPattern(section.address, section.size, WINGMAN_HUNT_ACTIVATION_SIGNATURE);
+				const auto* match = SignatureResolver::FindPattern(section.address, section.size, WINGMAN_HUNT_ACTIVATION_SIGNATURE);
 				if (match == nullptr)
 				{
 					continue;
