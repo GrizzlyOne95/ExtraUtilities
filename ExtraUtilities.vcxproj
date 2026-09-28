@@ -138,9 +138,11 @@
     <ClCompile Include="src\Patches\AiTargetSelect.cpp" />
     <ClCompile Include="src\Patches\BulletHitCallback.cpp" />
     <ClCompile Include="src\Patches\BulletInitCallback.cpp" />
+    <ClCompile Include="src\Game\AnimationApi.cpp" />
     <ClCompile Include="src\Game\Camera.cpp" />
     <ClCompile Include="src\Patches\Cheats.cpp" />
     <ClCompile Include="src\Game\CommandReplacement.cpp" />
+    <ClCompile Include="src\Game\ContinuityApi.cpp" />
     <ClCompile Include="src\Game\Culling.cpp" />
     <ClCompile Include="src\UI\ControlPanel.cpp" />
     <ClCompile Include="src\dllmain.cpp" />
@@ -173,6 +175,8 @@
     <ClCompile Include="src\Game\StaticGeometry.cpp" />
     <ClCompile Include="src\Patches\ShotConvergence.cpp" />
     <ClCompile Include="src\Util\SoundOptions.cpp" />
+    <ClCompile Include="src\Util\StorageApi.cpp" />
+    <ClCompile Include="src\Util\StorageCodec.cpp" />
     <ClCompile Include="src\Game\Steam.cpp" />
     <ClCompile Include="src\StockExtensions.cpp" />
     <ClCompile Include="src\Patches\UnitVo.cpp" />
@@ -250,6 +254,7 @@
     <ClInclude Include="src\Util\RuntimeGate.h" />
     <ClInclude Include="src\Util\SignatureResolver.h" />
     <ClInclude Include="src\Util\StorageApi.h" />
+    <ClInclude Include="src\Util\StorageCodec.h" />
     <ClInclude Include="src\Util\Vec3.h" />
   </ItemGroup>
   <ItemGroup>
