@@ -18,6 +18,7 @@
 
 #include "OverlayInternal.h"
 
+#include "Util/AsciiString.h"
 #include "Util/ModulePath.h"
 
 // Runtime overlay resources: EXU's resource groups and the runtime font (font
@@ -397,9 +398,7 @@ namespace ExtraUtilities::Lua::Overlay
 				}
 
 				const std::filesystem::path& file = it->path();
-				std::string extension = file.extension().string();
-				std::transform(extension.begin(), extension.end(), extension.begin(),
-					[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+				const std::string extension = AsciiString::ToLowerAscii(file.extension().string());
 				const std::string fileName = file.filename().string();
 				if (extension != ".fontdef" || _stricmp(fileName.c_str(), kOverlayRuntimeFontScript) == 0)
 				{
