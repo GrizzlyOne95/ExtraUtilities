@@ -199,6 +199,8 @@
     <ClInclude Include="src\Game\GameObject.h" />
     <ClInclude Include="src\Game\game_state.h" />
     <ClInclude Include="src\Patches\GlobalTurbo.h" />
+    <ClInclude Include="src\Patches\TurboGate.h" />
+    <ClInclude Include="src\Patches\TurboGateThunk.h" />
     <ClInclude Include="src\Util\GraphicsOptions.h" />
     <ClInclude Include="src\Hook.h" />
     <ClInclude Include="src\BasicPatch.h" />

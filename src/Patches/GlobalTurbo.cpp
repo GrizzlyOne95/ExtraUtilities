@@ -23,6 +23,10 @@
 #include "InlinePatch.h"
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
+#include "TurboGate.h"
+#include "TurboGateThunk.h"
+
+#include <iterator>
 
 namespace
 {
@@ -39,131 +43,151 @@ namespace
 		return ExtraUtilities::OpenShimBridge::HasExport("OpenShimHasUnitTurboHooks");
 	}
 
+	// OpenShim ships the global and per-unit turbo exports together, and when
+	// it owns them it patches the same operand and gate sites. Ownership is
+	// therefore all or nothing: either OpenShim does global and per-unit turbo,
+	// or EXU's data gate below does both.
 	const bool g_openShimOwnsUnitTurbo = QueryOpenShimUnitTurboOwnership();
 }
 
 namespace ExtraUtilities::Patch
 {
-	InlinePatch turboPatch1(comissPatch, &patchedTurboTolerance, InlinePatch::Status::INACTIVE, { 0x04, 0x26, 0x8A, 0x00 });
-	InlinePatch turboPatch2(turboConditionPatch, BasicPatch::NOP, 2, InlinePatch::Status::INACTIVE, { 0x76, 0x0C });
-
-	enum class TurboCode
+	namespace
 	{
-		BEGIN = 0,
-		END = 1
-	};
+		// The floats the two patched operands read. The engine only reads them
+		// through the patched instructions, so they are volatile: every store
+		// the callback makes must reach memory before the thunk returns. They
+		// start at the stock values, so a data gate whose begin hook never
+		// installed still compares exactly like stock code.
+		volatile float g_turboToleranceOperand = TurboGate::kStockTolerance;
+		volatile float g_turboGateLimitOperand = TurboGate::kStockGateLimit;
+	}
 
-	static void __cdecl DoSelectiveTurboPatch(BZR::GameObject* obj, TurboCode code)
+	// The data gate: three patches written once, at activation, through the
+	// patch engine (preimage checks, build gate, restore at unload). After
+	// that nothing is rewritten per tick; the begin hook only stores two
+	// floats. Registration order is the order below, so the operands are
+	// redirected (to floats holding stock values) before the hook that
+	// changes the floats is installed.
+	static_assert(sizeof(uintptr_t) == 4, "the operands are x86 disp32 fields");
+	InlinePatch turboToleranceOperandPatch(
+		turboToleranceOperandAddr,
+		reinterpret_cast<uintptr_t>(&g_turboToleranceOperand),
+		g_openShimOwnsUnitTurbo ? InlinePatch::Status::INACTIVE : InlinePatch::Status::ACTIVE,
+		{ 0x04, 0x26, 0x8A, 0x00 });
+	InlinePatch turboGateOperandPatch(
+		turboGateOperandAddr,
+		reinterpret_cast<uintptr_t>(&g_turboGateLimitOperand),
+		g_openShimOwnsUnitTurbo ? InlinePatch::Status::INACTIVE : InlinePatch::Status::ACTIVE,
+		{ 0xC8, 0x25, 0x8A, 0x00 });
+
+	namespace
 	{
-		if (code == TurboCode::BEGIN)
+		bool OperandsRedirected() noexcept
 		{
-			Culling::UpdateUnit(obj);
+			return turboToleranceOperandPatch.IsActive() && turboGateOperandPatch.IsActive();
 		}
 
-		BZR::handle h = BZR::GameObject::GetHandle(obj);
-		switch (code)
+		void PruneDeadTurboOverrides() noexcept
 		{
-		case TurboCode::BEGIN:
-			if (setTurboUnits.contains(h))
+			for (auto it = setTurboUnits.begin(); it != setTurboUnits.end();)
 			{
-				turboPatch1.SetStatus(setTurboUnits.at(h));
-				turboPatch2.SetStatus(setTurboUnits.at(h));
+				it = BZR::GameObject::GetObj(it->first) == nullptr ? setTurboUnits.erase(it) : std::next(it);
 			}
-			break;
-		case TurboCode::END:
-			if (setTurboUnits.contains(h))
-			{
-				turboPatch1.SetStatus(globalTurboEnabled);
-				turboPatch2.SetStatus(globalTurboEnabled);
-			}
-			break;
 		}
 	}
 
-	static void __declspec(naked) TurboPatchBegin()
+	namespace TurboGate
 	{
-		__asm
+		// Runs for every unit, on the simulation thread, with an empty x87
+		// stack (see TurboGateThunk.h). No Lua, no allocation on the turbo
+		// path, no code writes.
+		void __cdecl OnTurboDecisionBegin(void* gameObject) noexcept
 		{
-			// Notes:
-			// ecx has the unit task, ecx+0x10 is the "me" gameobject*
+			auto* obj = static_cast<BZR::GameObject*>(gameObject);
+			try
+			{
+				Culling::UpdateUnit(obj);
+			}
+			catch (...)
+			{
+			}
 
-			pushad
-			pushfd
+			bool forced = globalTurboEnabled;
+			if (!setTurboUnits.empty())
+			{
+				const auto it = setTurboUnits.find(BZR::GameObject::GetHandle(obj));
+				forced = IsForced(globalTurboEnabled, it != setTurboUnits.end(), it != setTurboUnits.end() && it->second);
+			}
 
-			push 0x0 // Code for begin
-			mov eax, [eax+0x10]
-			push eax
-			call DoSelectiveTurboPatch
-			add esp, 0x08
-
-			popfd
-			popad
-
-			// Game code
-			mov eax, [ebp-0x70]
-			fstp [eax+0x08]
-
-			ret
+			// With one operand redirected and the other not, a forced unit would
+			// get half of the turbo change. Fall back to stock instead.
+			const Operands operands = SelectOperands(forced && OperandsRedirected());
+			g_turboToleranceOperand = operands.tolerance;
+			g_turboGateLimitOperand = operands.gateLimit;
 		}
 	}
+
 	Hook turboPatchBegin(
 		turboPatchBeginAddr,
-		&TurboPatchBegin,
+		&TurboGate::TurboDecisionBeginThunk,
 		6,
 		g_openShimOwnsUnitTurbo ? InlinePatch::Status::INACTIVE : InlinePatch::Status::ACTIVE,
 		{ 0x8B, 0x45, 0x90, 0xD9, 0x58, 0x08 });
 
-	static void __declspec(naked) TurboPatchEnd()
+	namespace
 	{
-		__asm
+		bool DataGateInstalled() noexcept
 		{
-			pushad
-			pushfd
-
-			push 0x1 // Code for end
-			mov eax, [edx+0x10]
-			push eax
-			call DoSelectiveTurboPatch
-			add esp, 0x08
-
-			popfd
-			popad
-
-			// Game code
-			mov edx, [ebp-0x70]
-			mov eax, [ebp-0x88]
-
-			ret
+			return turboPatchBegin.IsActive() && OperandsRedirected();
 		}
 	}
-	Hook turboPatchEnd(
-		turboPatchEndAddr,
-		&TurboPatchEnd,
-		9,
-		g_openShimOwnsUnitTurbo ? InlinePatch::Status::INACTIVE : InlinePatch::Status::ACTIVE,
-		{ 0x8B, 0x55, 0x90, 0x8B, 0x85, 0x78, 0xFF, 0xFF, 0xFF });
+
+	bool SetUnitTurboOverride(BZR::handle h, bool status)
+	{
+		if (g_openShimOwnsUnitTurbo)
+		{
+			const auto fn = OpenShimBridge::Resolve<OpenShimSetUnitTurboFn>("OpenShimSetUnitTurbo");
+			return fn && fn(static_cast<DWORD>(h), status ? TRUE : FALSE) != FALSE;
+		}
+
+		// Handles are only unique among live objects; drop overrides for dead
+		// ones so the map stays bounded and a reused slot starts clean.
+		PruneDeadTurboOverrides();
+		if (BZR::GameObject::GetObj(h) == nullptr)
+		{
+			return false;
+		}
+
+		setTurboUnits[h] = status;
+		return !status || DataGateInstalled();
+	}
+
+	bool GetUnitTurboOverride(BZR::handle h)
+	{
+		if (g_openShimOwnsUnitTurbo)
+		{
+			const auto fn = OpenShimBridge::Resolve<OpenShimGetUnitTurboFn>("OpenShimGetUnitTurbo");
+			return fn && fn(static_cast<DWORD>(h)) != FALSE;
+		}
+
+		const auto it = setTurboUnits.find(h);
+		return it != setTurboUnits.end() && it->second && BZR::GameObject::GetObj(h) != nullptr;
+	}
 }
 
 namespace ExtraUtilities::Lua::Patches
 {
 	int GetGlobalTurbo(lua_State* L)
 	{
-		if (const auto fn = OpenShimBridge::Resolve<OpenShimGetGlobalTurboFn>(
-				"OpenShimGetGlobalTurbo"))
+		if (g_openShimOwnsUnitTurbo)
 		{
-			lua_pushboolean(L, fn() != FALSE);
+			const auto fn = OpenShimBridge::Resolve<OpenShimGetGlobalTurboFn>("OpenShimGetGlobalTurbo");
+			lua_pushboolean(L, fn && fn() != FALSE);
 			return 1;
 		}
 
-		if (Patch::turboPatch1.IsActive() && Patch::turboPatch2.IsActive())
-		{
-			lua_pushboolean(L, true);
-		}
-		else
-		{
-			lua_pushboolean(L, false);
-		}
-
+		lua_pushboolean(L, Patch::globalTurboEnabled && Patch::DataGateInstalled());
 		return 1;
 	}
 
@@ -171,41 +195,22 @@ namespace ExtraUtilities::Lua::Patches
 	{
 		bool status = CheckBool(L, 1);
 		Patch::globalTurboEnabled = status;
-		if (const auto fn = OpenShimBridge::Resolve<OpenShimSetGlobalTurboFn>(
-				"OpenShimSetGlobalTurbo"))
+		if (g_openShimOwnsUnitTurbo)
 		{
-			lua_pushboolean(L, fn(status ? TRUE : FALSE) ? 1 : 0);
+			const auto fn = OpenShimBridge::Resolve<OpenShimSetGlobalTurboFn>("OpenShimSetGlobalTurbo");
+			lua_pushboolean(L, fn && fn(status ? TRUE : FALSE) != FALSE);
 			return 1;
 		}
 
-		Patch::turboPatch1.SetStatus(status);
-		Patch::turboPatch2.SetStatus(status);
-		lua_pushboolean(L, 1);
+		// The begin hook reads the flag on the next decision; nothing to patch.
+		lua_pushboolean(L, !status || Patch::DataGateInstalled());
 		return 1;
 	}
 
 	int GetUnitTurbo(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-
-		bool result;
-		if (g_openShimOwnsUnitTurbo)
-		{
-			const auto fn = OpenShimBridge::Resolve<OpenShimGetUnitTurboFn>(
-				"OpenShimGetUnitTurbo");
-			result = fn && fn(static_cast<DWORD>(h)) != FALSE;
-		}
-		else if (Patch::setTurboUnits.contains(h))
-		{
-			result = Patch::setTurboUnits.at(h);
-		}
-		else
-		{
-			result = false;
-		}
-
-		lua_pushboolean(L, result);
-
+		lua_pushboolean(L, Patch::GetUnitTurboOverride(h));
 		return 1;
 	}
 
@@ -213,21 +218,7 @@ namespace ExtraUtilities::Lua::Patches
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		bool status = CheckBool(L, 2);
-
-		if (g_openShimOwnsUnitTurbo)
-		{
-			if (const auto fn = OpenShimBridge::Resolve<OpenShimSetUnitTurboFn>(
-					"OpenShimSetUnitTurbo"))
-			{
-				fn(static_cast<DWORD>(h), status ? TRUE : FALSE);
-			}
-		}
-		else
-		{
-			Patch::setTurboUnits[h] = status;
-		}
-
-		lua_pushboolean(L, 1);
+		lua_pushboolean(L, Patch::SetUnitTurboOverride(h, status));
 		return 1;
 	}
 }
