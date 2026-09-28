@@ -76,9 +76,9 @@ def require_parity(label: str, definitions_path: str, runtime: set[str], definit
 
 
 SUB_API_TABLES = (
-    ("exu.animation", "src/Game/AnimationApi.h", "Definitions/Animation.lua", "animation"),
-    ("exu.storage", "src/Util/StorageApi.h", "Definitions/Storage.lua", "storage"),
-    ("exu.continuity", "src/Game/ContinuityApi.h", "Definitions/Continuity.lua", "continuity"),
+    ("exu.animation", "src/Game/AnimationApi.cpp", "Definitions/Animation.lua", "animation"),
+    ("exu.storage", "src/Util/StorageApi.cpp", "Definitions/Storage.lua", "storage"),
+    ("exu.continuity", "src/Game/ContinuityApi.cpp", "Definitions/Continuity.lua", "continuity"),
 )
 
 
@@ -87,8 +87,8 @@ def check_api_parity() -> None:
     require_parity("exu", "Definitions/ExtraUtils.lua", runtime, documented_names("Definitions/ExtraUtils.lua", "exu"))
     total = len(runtime)
 
-    for label, header, definitions_path, table in SUB_API_TABLES:
-        sub_runtime = registered_names(header, "luaL_Reg functions[] = {")
+    for label, source, definitions_path, table in SUB_API_TABLES:
+        sub_runtime = registered_names(source, "luaL_Reg functions[] = {")
         require_parity(label, definitions_path, sub_runtime, documented_names(definitions_path, table))
         total += len(sub_runtime)
 

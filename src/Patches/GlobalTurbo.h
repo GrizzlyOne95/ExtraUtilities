@@ -27,23 +27,29 @@
 
 namespace ExtraUtilities::Patch
 {
-	// this instruction compares some value in a hovercraft to an arbitrary "tolerance"
-	// that is part of what determines when to use turbo, we can't replace the value it compares to
-	// because it is used by a ton of other stuff and messes up the game, so this patch
-	// puts the address of our own variable into the comparison
-	constexpr uintptr_t comissPatch = 0x00601CA3;
-	inline float patchedTurboTolerance = 0.9f;
-
-	// this instruction bypasses the final check to prevent turbo from happening, so
-	// when combined with a reduced tolerance it forces ai to turbo everywhere
-	constexpr uintptr_t turboConditionPatch = 0x00601CB5;
-
+	// Hovercraft AI turbo decision (see TurboGate.h for the instructions).
+	// Hook site: the thunk in TurboGateThunk.h runs once per unit, before the
+	// two compares, and sets the floats their operands read.
 	constexpr uintptr_t turboPatchBeginAddr = 0x00601C92;
-	constexpr uintptr_t turboPatchEndAddr = 0x00601CCD;
+
+	// disp32 of 'comiss xmm0, [tolerance]' at 0x00601CA0. Stock value 1.0f.
+	constexpr uintptr_t turboToleranceOperandAddr = 0x00601CA3;
+
+	// disp32 of 'movss xmm0, [gateLimit]' at 0x00601CA9, which feeds the
+	// compare in front of the final 'jbe' that vetoes turbo. Stock value 0.8f.
+	constexpr uintptr_t turboGateOperandAddr = 0x00601CAD;
 
 	inline bool globalTurboEnabled = false;
 
+	// Per-unit overrides: true forces turbo, false forces stock behaviour even
+	// when global turbo is on. Entries for dead handles are pruned on write.
 	inline std::unordered_map<BZR::handle, bool> setTurboUnits;
+
+	// Record or read a unit's override, delegating to OpenShim when it owns
+	// per-unit turbo. The setter returns whether the override takes effect.
+	// Shared by exu.SetUnitTurbo/GetUnitTurbo and the AI task-state API.
+	bool SetUnitTurboOverride(BZR::handle h, bool status);
+	bool GetUnitTurboOverride(BZR::handle h);
 
 	// Per-mission turbo overrides; handles are only meaningful for one mission.
 	inline void ResetTurboMissionState() noexcept
