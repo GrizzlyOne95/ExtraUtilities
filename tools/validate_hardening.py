@@ -271,6 +271,7 @@ def check_engine_address_census() -> None:
 
 def check_hardening_markers() -> None:
     hook = read("src/Hook.h")
+    entry_detour = read("src/EntryDetour32.h")
     scanner = read("src/Scanner.h")
     basic = read("src/BasicPatch.h")
     dllmain = read("src/dllmain.cpp")
@@ -279,6 +280,10 @@ def check_hardening_markers() -> None:
 
     required = [
         ("Hook move deletion", "Hook(Hook&&) = delete;" in hook),
+        ("entry detour move deletion", "EntryDetour32(EntryDetour32&&) = delete;" in entry_detour),
+        ("entry detour mandatory preimage", "entry detour requires a complete expected-byte preimage" in entry_detour),
+        ("entry detour RX trampoline", "PAGE_EXECUTE_READ" in entry_detour),
+        ("entry detour absolute transfer", "target[0] = 0x68;" in entry_detour and "target[5] = 0xC3;" in entry_detour),
         ("Scanner move deletion", "Scanner(Scanner&&) = delete;" in scanner),
         ("instruction cache flush", "FlushInstructionCache" in basic),
         ("expected-byte validation", "expected bytes do not match" in basic),
