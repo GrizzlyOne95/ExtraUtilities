@@ -74,33 +74,13 @@ namespace ExtraUtilities::Lua::Overlay
 			0xC7, 0x05, 0x24, 0x83, 0x91, 0x00, 0x00, 0x00, 0x00, 0x00
 		};
 
-		bool IsReadableRange(const void* address, size_t length) noexcept
-		{
-			return SignatureResolver::IsReadableRange(address, length);
-		}
+		using SignatureResolver::FindMaskedPattern;
+		using SignatureResolver::MatchBytes;
 
 		bool TryGetMainModuleTextSection(const uint8_t*& outData, size_t& outSize, uintptr_t& outAddress)
 		{
 			return SignatureResolver::TryGetModuleTextSection(
 				GetModuleHandleA(nullptr), outData, outSize, outAddress);
-		}
-
-		uintptr_t FindMaskedPattern(
-			const uint8_t* data,
-			size_t dataSize,
-			uintptr_t baseAddress,
-			const uint8_t* pattern,
-			const uint8_t* mask,
-			size_t patternSize)
-		{
-			return SignatureResolver::FindMaskedPattern(
-				data, dataSize, baseAddress, pattern, mask, patternSize);
-		}
-
-		template <size_t N>
-		bool MatchBytes(uintptr_t address, const std::array<uint8_t, N>& bytes) noexcept
-		{
-			return SignatureResolver::MatchBytes(address, bytes);
 		}
 
 		bool IsOverlaySuppressedByGameUi() noexcept

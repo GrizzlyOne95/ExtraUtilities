@@ -17,6 +17,7 @@
 */
 
 #include "OgreNativeFontBridge.h"
+#include "Ogre/OgreProc.h"
 
 #include "Util/Logging.h"
 
@@ -56,35 +57,8 @@ namespace
 	constexpr unsigned int kCppExceptionCode = 0xE06D7363u;
 	const char* const kAutodetectResourceGroupName = "Autodetect";
 
-	void LogNativeOverlayMessage(const char* format, ...)
-	{
-		char buffer[1024]{};
-		va_list args;
-		va_start(args, format);
-		vsnprintf_s(buffer, sizeof(buffer), _TRUNCATE, format, args);
-		va_end(args);
-
-		OutputDebugStringA(buffer);
-		OutputDebugStringA("\n");
-
-		FILE* log = ExtraUtilities::Logging::OpenSessionLogFile("exu.log");
-		if (log != nullptr)
-		{
-			SYSTEMTIME localTime{};
-			GetLocalTime(&localTime);
-			std::fprintf(
-				log,
-				"[%04u-%02u-%02u %02u:%02u:%02u] %s\n",
-				localTime.wYear,
-				localTime.wMonth,
-				localTime.wDay,
-				localTime.wHour,
-				localTime.wMinute,
-				localTime.wSecond,
-				buffer);
-			std::fclose(log);
-		}
-	}
+	// exu.log, the same as every other EXU fault line.
+	constexpr auto& LogNativeOverlayMessage = ExtraUtilities::Logging::LogMessage;
 
 	constexpr const char* kOverlayResourceLocationType = "FileSystem";
 
@@ -95,28 +69,8 @@ namespace
 	};
 
 
-	HMODULE GetOgreMainModule()
-	{
-		static HMODULE module = GetModuleHandleA("OgreMain.dll");
-		return module;
-	}
-
-	HMODULE GetOgreOverlayModule()
-	{
-		static HMODULE module = GetModuleHandleA("OgreOverlay.dll");
-		return module;
-	}
-
-	template <typename T>
-	T ResolveOgreProc(HMODULE module, const char* symbolName)
-	{
-		if (module == nullptr || symbolName == nullptr)
-		{
-			return static_cast<T>(nullptr);
-		}
-
-		return reinterpret_cast<T>(GetProcAddress(module, symbolName));
-	}
+	using ExtraUtilities::OgreDll::OgreModule;
+	using ExtraUtilities::OgreDll::ResolveOgreProc;
 
 	using CreateFontFn = FontPtrPod(__thiscall*)(Ogre::FontManager*, const Ogre::String&, const Ogre::String&, bool, Ogre::ManualResourceLoader*, const Ogre::NameValuePairList*);
 	using InitialiseResourceGroupFn = void(__thiscall*)(Ogre::ResourceGroupManager*, const Ogre::String&);
@@ -220,7 +174,7 @@ namespace
 	CreateFontFn ResolveCreateFontProc()
 	{
 		static const CreateFontFn fn = ResolveOgreProc<CreateFontFn>(
-			GetOgreOverlayModule(),
+			OgreModule::Overlay,
 			"?create@FontManager@Ogre@@QAE?AV?$SharedPtr@VFont@Ogre@@@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0_NPAVManualResourceLoader@2@PBV?$map@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V12@U?$less@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@V?$STLAllocator@U?$pair@$$CBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V12@@std@@V?$CategorisedAllocPolicy@$0A@@Ogre@@@Ogre@@@5@@Z");
 		return fn;
 	}
@@ -228,7 +182,7 @@ namespace
 	InitialiseResourceGroupFn ResolveInitialiseResourceGroupProc()
 	{
 		static const InitialiseResourceGroupFn fn = ResolveOgreProc<InitialiseResourceGroupFn>(
-			GetOgreMainModule(),
+			OgreModule::Main,
 			"?initialiseResourceGroup@ResourceGroupManager@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
 		return fn;
 	}
@@ -236,7 +190,7 @@ namespace
 	ClearResourceGroupFn ResolveClearResourceGroupProc()
 	{
 		static const ClearResourceGroupFn fn = ResolveOgreProc<ClearResourceGroupFn>(
-			GetOgreMainModule(),
+			OgreModule::Main,
 			"?clearResourceGroup@ResourceGroupManager@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
 		return fn;
 	}
@@ -244,7 +198,7 @@ namespace
 	ResourceLocationExistsFn ResolveResourceLocationExistsProc()
 	{
 		static const ResourceLocationExistsFn fn = ResolveOgreProc<ResourceLocationExistsFn>(
-			GetOgreMainModule(),
+			OgreModule::Main,
 			"?resourceLocationExists@ResourceGroupManager@Ogre@@QAE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0@Z");
 		return fn;
 	}
@@ -252,7 +206,7 @@ namespace
 	UtfStringCtorFromCharFn ResolveUtfStringCtorFromCharProc()
 	{
 		static const UtfStringCtorFromCharFn fn = ResolveOgreProc<UtfStringCtorFromCharFn>(
-			GetOgreMainModule(),
+			OgreModule::Main,
 			"??0UTFString@Ogre@@QAE@PBD@Z");
 		return fn;
 	}
@@ -260,7 +214,7 @@ namespace
 	UtfStringDtorFn ResolveUtfStringDtorProc()
 	{
 		static const UtfStringDtorFn fn = ResolveOgreProc<UtfStringDtorFn>(
-			GetOgreMainModule(),
+			OgreModule::Main,
 			"??1UTFString@Ogre@@QAE@XZ");
 		return fn;
 	}
@@ -268,7 +222,7 @@ namespace
 	ColourValueCtorFn ResolveColourValueCtorProc()
 	{
 		static const ColourValueCtorFn fn = ResolveOgreProc<ColourValueCtorFn>(
-			GetOgreMainModule(),
+			OgreModule::Main,
 			"??0ColourValue@Ogre@@QAE@MMMM@Z");
 		return fn;
 	}
@@ -276,7 +230,7 @@ namespace
 	TextAreaSetCaptionFn ResolveTextAreaSetCaptionProc()
 	{
 		static const TextAreaSetCaptionFn fn = ResolveOgreProc<TextAreaSetCaptionFn>(
-			GetOgreOverlayModule(),
+			OgreModule::Overlay,
 			"?setCaption@TextAreaOverlayElement@Ogre@@UAEXABVUTFString@2@@Z");
 		return fn;
 	}
@@ -284,7 +238,7 @@ namespace
 	TextAreaSetCharHeightFn ResolveTextAreaSetCharHeightProc()
 	{
 		static const TextAreaSetCharHeightFn fn = ResolveOgreProc<TextAreaSetCharHeightFn>(
-			GetOgreOverlayModule(),
+			OgreModule::Overlay,
 			"?setCharHeight@TextAreaOverlayElement@Ogre@@QAEXM@Z");
 		return fn;
 	}
@@ -292,7 +246,7 @@ namespace
 	TextAreaSetColourFn ResolveTextAreaSetColourProc()
 	{
 		static const TextAreaSetColourFn fn = ResolveOgreProc<TextAreaSetColourFn>(
-			GetOgreOverlayModule(),
+			OgreModule::Overlay,
 			"?setColour@TextAreaOverlayElement@Ogre@@UAEXABVColourValue@2@@Z");
 		return fn;
 	}

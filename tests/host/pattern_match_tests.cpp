@@ -113,6 +113,35 @@ namespace
 		Expect(FindMaskedPattern(kData.data(), kData.size(), kBase, pattern, mask, 0) == 0, "empty pattern returns 0");
 		Expect(FindUniqueMaskedPattern(kData.data(), 0, kBase, pattern, mask, 1) == 0, "empty data returns 0");
 	}
+
+	void TestRelativeCallDecode()
+	{
+		uintptr_t target = 0xDEADu;
+
+		// call +0x10 at 0x00401000 lands 5 + 0x10 bytes later.
+		const uint8_t forward[] = { 0xE8, 0x10, 0x00, 0x00, 0x00 };
+		Expect(TryDecodeRelativeCall(forward, 0x00401000u, target) && target == 0x00401015u,
+			"a forward rel32 call is measured from the next instruction");
+
+		// call -0x20 (0xFFFFFFE0) at 0x00401000 goes backwards.
+		const uint8_t backward[] = { 0xE8, 0xE0, 0xFF, 0xFF, 0xFF };
+		Expect(TryDecodeRelativeCall(backward, 0x00401000u, target) && target == 0x00400FE5u,
+			"a negative displacement is sign-extended");
+
+		// A call to itself is E8 FB FF FF FF.
+		const uint8_t self[] = { 0xE8, 0xFB, 0xFF, 0xFF, 0xFF };
+		Expect(TryDecodeRelativeCall(self, 0x00401000u, target) && target == 0x00401000u,
+			"displacement -5 targets the call itself");
+
+		target = 0xDEADu;
+		const uint8_t jump[] = { 0xE9, 0x10, 0x00, 0x00, 0x00 };
+		Expect(!TryDecodeRelativeCall(jump, 0x00401000u, target) && target == 0,
+			"a jmp rel32 is not a call and clears the target");
+
+		target = 0xDEADu;
+		Expect(!TryDecodeRelativeCall(nullptr, 0x00401000u, target) && target == 0,
+			"null input fails closed");
+	}
 }
 
 int main()
@@ -122,5 +151,6 @@ int main()
 	TestIntPatternLiteralFF();
 	TestMaskedPatterns();
 	TestMaskedPatternRejectsBadInput();
+	TestRelativeCallDecode();
 	return HostTest::Finish("pattern-match");
 }

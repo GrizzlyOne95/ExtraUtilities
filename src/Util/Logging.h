@@ -121,13 +121,10 @@ namespace ExtraUtilities
 			return log;
 		}
 
-		inline void LogMessage(const char* format, ...)
+		inline void LogMessageV(const char* format, va_list args)
 		{
 			char buffer[1024]{};
-			va_list args;
-			va_start(args, format);
 			vsnprintf_s(buffer, sizeof(buffer), _TRUNCATE, format, args);
-			va_end(args);
 
 			OutputDebugStringA(buffer);
 			OutputDebugStringA("\n");
@@ -149,6 +146,58 @@ namespace ExtraUtilities
 					buffer
 				);
 				std::fclose(log);
+			}
+		}
+
+		inline void LogMessage(const char* format, ...)
+		{
+			va_list args;
+			va_start(args, format);
+			LogMessageV(format, args);
+			va_end(args);
+		}
+
+		// One untimestamped line to the debugger and to a subsystem's own
+		// session log (logs\<path>, truncated on the process's first write).
+		// Serialised so concurrent lines do not interleave.
+		inline void WriteSessionLogLine(const char* path, const char* line)
+		{
+			static std::mutex mutex;
+			std::lock_guard<std::mutex> lock(mutex);
+
+			OutputDebugStringA(line);
+			OutputDebugStringA("\n");
+
+			if (FILE* log = OpenSessionLogFile(path))
+			{
+				std::fprintf(log, "%s\n", line);
+				std::fclose(log);
+			}
+		}
+
+		// Subsystem tracing to its own session log, only with EXU_DEBUG_LOG=1.
+		inline void LogDebugToV(const char* path, const char* format, va_list args)
+		{
+			if (!IsDebugLoggingEnabled())
+			{
+				return;
+			}
+
+			char buffer[1024]{};
+			vsnprintf_s(buffer, sizeof(buffer), _TRUNCATE, format, args);
+			WriteSessionLogLine(path, buffer);
+		}
+
+		// A subsystem fault: always exu.log, and also the subsystem's own
+		// session log when EXU_DEBUG_LOG=1 so its trace stays complete.
+		inline void LogFaultToV(const char* path, const char* format, va_list args)
+		{
+			char buffer[1024]{};
+			vsnprintf_s(buffer, sizeof(buffer), _TRUNCATE, format, args);
+			LogMessage("%s", buffer);
+			if (IsDebugLoggingEnabled())
+			{
+				WriteSessionLogLine(path, buffer);
 			}
 		}
 	}

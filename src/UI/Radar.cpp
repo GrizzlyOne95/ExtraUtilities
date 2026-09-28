@@ -23,6 +23,7 @@
 #include "OpenShimBridge.h"
 #include "Util/Logging.h"
 #include "Util/EngineAddresses.generated.h"
+#include "Util/PatternMatch.h"
 
 #include <cmath>
 #include <cstdint>
@@ -259,11 +260,9 @@ namespace ExtraUtilities::Lua::Radar
 
 			for (uintptr_t site : kRefreshLayoutCallSites)
 			{
-				const uint8_t* bytes = reinterpret_cast<const uint8_t*>(site);
-				int32_t rel = 0;
-				std::memcpy(&rel, bytes + 1, sizeof(rel));
-				const uintptr_t target = site + 5 + static_cast<uintptr_t>(rel);
-				if (bytes[0] != 0xE8 || target != kRefreshLayoutEntry)
+				uintptr_t target = 0;
+				if (!PatternMatch::TryDecodeRelativeCall(reinterpret_cast<const uint8_t*>(site), site, target) ||
+					target != kRefreshLayoutEntry)
 				{
 					// Unexpected code — leave the site alone rather than corrupt it.
 					continue;
@@ -276,14 +275,9 @@ namespace ExtraUtilities::Lua::Radar
 			}
 		}
 
-		int AbsoluteIndex(lua_State* L, int idx)
-		{
-			return idx > 0 ? idx : lua_gettop(L) + idx + 1;
-		}
-
 		BZR::Radar::EdgePathPoint CheckEdgePathPoint(lua_State* L, int idx)
 		{
-			idx = AbsoluteIndex(L, idx);
+			idx = AbsoluteStackIndex(L, idx);
 
 			BZR::Radar::EdgePathPoint point{};
 			if (lua_isuserdata(L, idx))

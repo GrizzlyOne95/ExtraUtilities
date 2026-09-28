@@ -23,31 +23,11 @@
 
 namespace ExtraUtilities::Lua::Environment
 {
-	bool IsFiniteColor(const Ogre::Color& color)
-	{
-		return std::isfinite(color.r)
-			&& std::isfinite(color.g)
-			&& std::isfinite(color.b)
-			&& std::isfinite(color.a);
-	}
-
 	bool IsExpectedColorRange(const Ogre::Color& color)
 	{
 		return color.r >= 0.0f && color.r <= 1.0f
 			&& color.g >= 0.0f && color.g <= 1.0f
 			&& color.b >= 0.0f && color.b <= 1.0f;
-	}
-
-	bool IsFiniteVector(const BZR::VECTOR_3D& vector)
-	{
-		return std::isfinite(vector.x)
-			&& std::isfinite(vector.y)
-			&& std::isfinite(vector.z);
-	}
-
-	bool IsFiniteScalar(float value)
-	{
-		return std::isfinite(value);
 	}
 
 	bool IsValidTimeOfDay(int timeOfDay)
