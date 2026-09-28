@@ -197,22 +197,29 @@ namespace ExtraUtilities
 		}
 
 		// Writes only on the qualified executable: on any other build the
-		// fixed address belongs to something else.
-		void Write(T value) noexcept
+		// fixed address belongs to something else. Returns whether the value
+		// was stored.
+		bool Write(T value) noexcept
 		{
 			if (!RuntimeGate::IsSupported() ||
 				m_address == nullptr ||
 				!SignatureResolver::IsReadableRange(m_address, sizeof(T)))
 			{
-				return;
+				return false;
 			}
 
 			const T previous = *m_address;
-			if (Store(value) && !m_written)
+			if (!Store(value))
+			{
+				return false;
+			}
+
+			if (!m_written)
 			{
 				m_originalData = previous;
 				m_written = true;
 			}
+			return true;
 		}
 
 		T* Get() const noexcept
