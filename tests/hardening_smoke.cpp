@@ -330,13 +330,15 @@ int main()
 			reinterpret_cast<uintptr_t>(detourPage),
 			reinterpret_cast<const void*>(&DetourProbeHook),
 			5,
-			BasicPatch::Status::ACTIVE,
+			BasicPatch::Status::INACTIVE,
 			{ 0xB8, 0x2A, 0x00, 0x00, 0x00 });
-		ok &= Check(detourProbe() == 42, "entry detour activated before deferred patch activation");
+		ok &= Check(detourProbe() == 42, "inactive entry detour changed the target before activation");
+		ok &= Check(detour.PrepareTrampoline(), "entry detour could not prepare its trampoline");
+		g_detourProbeOriginal = detour.GetTrampolineAs<DetourProbeFn>();
+		ok &= Check(g_detourProbeOriginal != nullptr, "entry detour did not publish a prepared trampoline");
 
 		BasicPatch::EnableDeferredPatchActivation(false);
-		g_detourProbeOriginal = detour.GetTrampolineAs<DetourProbeFn>();
-		ok &= Check(g_detourProbeOriginal != nullptr, "entry detour did not publish a trampoline");
+		detour.SetStatus(true);
 		ok &= Check(detour.IsActive(), "entry detour did not report active after activation");
 		ok &= Check(detourProbe() == 43, "entry detour hook/trampoline did not preserve and extend stock execution");
 		ok &= Check(g_detourProbeOriginal() == 42, "entry detour trampoline did not execute the stolen bytes and resume");
