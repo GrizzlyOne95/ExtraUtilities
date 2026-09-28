@@ -34,6 +34,7 @@
 #include "Game/CommandReplacement.h"
 #include "Game/ContinuityApi.h"
 #include "Game/Environment.h"
+#include "Game/PilotFsmIntercept.h"
 #include "Game/StaticGeometry.h"
 #include "LuaState.h"
 #include "LuaCppBarrier.h"
@@ -167,6 +168,7 @@ namespace ExtraUtilities::Lua
 			ReleaseLuaStateBindings(L);
 			CommandReplacement::ReleaseState(L);
 			BasicPatch::UnloadAllPatches();
+			PilotFsmIntercept::Shutdown();
 			ResetMissionScopedState();
 			Overlay::ShutdownOverlaySupport();
 			StaticGeometry::Shutdown();
