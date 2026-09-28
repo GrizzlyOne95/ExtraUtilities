@@ -139,6 +139,7 @@
     <ClCompile Include="src\Patches\BulletHitCallback.cpp" />
     <ClCompile Include="src\Patches\BulletInitCallback.cpp" />
     <ClCompile Include="src\Game\AnimationApi.cpp" />
+    <ClCompile Include="src\Game\PilotState.cpp" />
     <ClCompile Include="src\Game\Camera.cpp" />
     <ClCompile Include="src\Patches\Cheats.cpp" />
     <ClCompile Include="src\Game\CommandReplacement.cpp" />
@@ -229,6 +230,8 @@
     <ClInclude Include="include\ExtraUtils.h" />
     <ClInclude Include="src\Exports.h" />
     <ClInclude Include="src\Game\GameObject.h" />
+    <ClInclude Include="src\Game\PilotState.h" />
+    <ClInclude Include="src\Game\PilotStateSemantics.h" />
     <ClInclude Include="src\Ogre\OgreEntityRuntime.h" />
     <ClInclude Include="src\Ogre\OgreMaterialRuntime.h" />
     <ClInclude Include="src\Game\GameObjectInternal.h" />
