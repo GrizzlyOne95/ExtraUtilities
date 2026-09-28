@@ -2,6 +2,10 @@
 
 `exu.animation` is the high-level animation-control layer for Ogre animation states exposed through Extra Utilities.
 
+For local pilot/viewmodel code that does not need to manage a target descriptor,
+see [FPS_API.md](FPS_API.md). `exu.fps` is a thin convenience facade over this
+same implementation, not a separate animation runtime.
+
 It deliberately sits above the existing low-level functions (`HasEntityAnimation`, `GetEntityAnimationInfo`, `SetEntityAnimationEnabled`, `SetEntityAnimationLoop`, `SetEntityAnimationWeight`, and `SetEntityAnimationTime`) rather than replacing them.
 
 ## Design rules

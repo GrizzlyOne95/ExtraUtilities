@@ -97,6 +97,7 @@ error("This is a definition file, use require(\"exu\")")
 --- @class AnimationCapabilities
 --- @field gameObjectTarget boolean
 --- @field localFirstPersonTarget boolean
+--- @field animationInventory boolean
 --- @field managedClock boolean
 --- @field nativeAdvancement string
 --- @field firstPersonStatus string
@@ -107,6 +108,7 @@ error("This is a definition file, use require(\"exu\")")
 --- @field GetCapabilities fun(): AnimationCapabilities
 --- @field Has fun(target: Handle|AnimationTarget, animationName: string): boolean
 --- @field GetInfo fun(target: Handle|AnimationTarget, animationName: string): AnimationInfo?
+--- @field List fun(target: Handle|AnimationTarget): AnimationInfo[]?
 --- @field Play fun(target: Handle|AnimationTarget, animationName: string, options?: AnimationPlayOptions): boolean
 --- @field Stop fun(target: Handle|AnimationTarget, animationName: string, reset?: boolean): boolean
 --- @field Restart fun(target: Handle|AnimationTarget, animationName: string): boolean
@@ -115,9 +117,21 @@ error("This is a definition file, use require(\"exu\")")
 --- @field SetWeight fun(target: Handle|AnimationTarget, animationName: string, weight: number): boolean
 --- @field Seek fun(target: Handle|AnimationTarget, animationName: string, timePosition: number): boolean
 
+--- @class FpsAnimationApi
+--- @field IsAvailable fun(): boolean
+--- @field GetCapabilities fun(): AnimationCapabilities
+--- @field ListAnimations fun(): AnimationInfo[]?
+--- @field HasAnimation fun(animationName: string): boolean
+--- @field GetInfo fun(animationName: string): AnimationInfo?
+--- @field Play fun(animationName: string, options?: AnimationPlayOptions): boolean
+--- @field Stop fun(animationName: string, reset?: boolean): boolean
+--- @field Restart fun(animationName: string): boolean
+--- @field Seek fun(animationName: string, timePosition: number): boolean
+
 --- @class exu
 --- @field Origins CameraOrigins
 --- @field animation AnimationApi
+--- @field fps FpsAnimationApi
 local exu = {}
 
 --- Enums
