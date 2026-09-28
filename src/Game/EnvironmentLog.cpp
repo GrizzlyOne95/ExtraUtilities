@@ -24,33 +24,9 @@
 
 #include <cstdarg>
 #include <cstdio>
-#include <fstream>
-#include <mutex>
 
 namespace ExtraUtilities::Lua::Environment
 {
-	namespace
-	{
-		std::mutex g_environmentLogMutex;
-
-		void WriteEnvironmentDebug(const std::string& message)
-		{
-			std::lock_guard lock(g_environmentLogMutex);
-
-			OutputDebugStringA(message.c_str());
-			OutputDebugStringA("\n");
-
-			ExtraUtilities::Logging::ResetLogFileForCurrentProcess("exu_environment_debug.log");
-			std::ofstream file(
-				ExtraUtilities::Logging::GetLogFilePath("exu_environment_debug.log"),
-				std::ios::app);
-			if (file.is_open())
-			{
-				file << message << '\n';
-			}
-		}
-	}
-
 	namespace Detail
 	{
 		// Verbose per-call tracing, opt-in through EXU_DEBUG_LOG=1. The weather
@@ -58,32 +34,19 @@ namespace ExtraUtilities::Lua::Environment
 		// line costs a log-file open/close, so it must be off by default.
 		void LogEnvironmentDebug(const char* fmt, ...)
 		{
-			if (!ExtraUtilities::Logging::IsDebugLoggingEnabled())
-			{
-				return;
-			}
-
-			char buffer[1024]{};
 			va_list args;
 			va_start(args, fmt);
-			vsnprintf_s(buffer, sizeof(buffer), _TRUNCATE, fmt, args);
+			ExtraUtilities::Logging::LogDebugToV("exu_environment_debug.log", fmt, args);
 			va_end(args);
-			WriteEnvironmentDebug(buffer);
 		}
 
 		// Fault paths (SEH handlers) always reach exu.log.
 		void LogEnvironmentFault(const char* fmt, ...)
 		{
-			char buffer[1024]{};
 			va_list args;
 			va_start(args, fmt);
-			vsnprintf_s(buffer, sizeof(buffer), _TRUNCATE, fmt, args);
+			ExtraUtilities::Logging::LogFaultToV("exu_environment_debug.log", fmt, args);
 			va_end(args);
-			ExtraUtilities::Logging::LogMessage("%s", buffer);
-			if (ExtraUtilities::Logging::IsDebugLoggingEnabled())
-			{
-				WriteEnvironmentDebug(buffer);
-			}
 		}
 	}
 

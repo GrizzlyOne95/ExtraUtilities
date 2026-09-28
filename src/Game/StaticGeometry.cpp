@@ -16,7 +16,9 @@
 
 #include "LuaHelpers.h"
 #include "Ogre/Ogre.h"
+#include "Ogre/OgreRenderOrigin.h"
 #include "Ogre/OgreRenderSpace.h"
+#include "Util/FiniteCheck.h"
 #include "Util/Logging.h"
 #include "bzr.h"
 #include "Util/SehGuard.h"
@@ -106,12 +108,7 @@ namespace ExtraUtilities::Lua::StaticGeometry
 		using StaticGeometryBuildFn = void(__thiscall*)(void*);
 		using EntitySetMaterialNameFn = void(__thiscall*)(void*, const std::string&, const std::string&);
 
-		template<typename T>
-		T ResolveOgreProc(const char* name)
-		{
-			const HMODULE module = GetModuleHandleA("OgreMain.dll");
-			return module == nullptr ? nullptr : reinterpret_cast<T>(GetProcAddress(module, name));
-		}
+		using ExtraUtilities::OgreDll::ResolveOgreProc;
 
 		SceneManagerCreateStaticGeometryFn ResolveCreateStaticGeometry()
 		{
@@ -204,10 +201,7 @@ namespace ExtraUtilities::Lua::StaticGeometry
 			return fn;
 		}
 
-		bool IsFinite(float value)
-		{
-			return std::isfinite(value);
-		}
+		using FiniteCheck::IsFiniteScalar;
 
 		// Redux recentres the Ogre render world around a per-map origin and
 		// mirrors Z, so Lua's simulation coordinates are NOT render coordinates.
@@ -215,23 +209,19 @@ namespace ExtraUtilities::Lua::StaticGeometry
 		// from raw sim positions lands far outside the render world and is never
 		// drawn, identically on every backend.
 		//
-		// Its own SEH frame because Create() holds objects that require
-		// unwinding, which __try may not share a function with.
+		// The read has its own SEH frame (OgreRenderOrigin.h) because Create()
+		// holds objects that require unwinding, which __try may not share a
+		// function with.
 		bool TryReadWorldRenderOrigin(OgreVector3Value& outOrigin) noexcept
 		{
-			__try
-			{
-				const float* origin =
-					reinterpret_cast<const float*>(BZR::Ogre::worldRenderOriginAddress);
-				outOrigin.x = origin[0];
-				outOrigin.y = origin[1];
-				outOrigin.z = origin[2];
-				return true;
-			}
-			__except (Seh::Filter(GetExceptionCode()))
+			BZR::VECTOR_3D origin{};
+			if (!OgreRenderSpace::TryReadWorldRenderOrigin(origin))
 			{
 				return false;
 			}
+
+			outOrigin = { origin.x, origin.y, origin.z };
+			return true;
 		}
 
 		float ReadNumberField(lua_State* L, int tableIndex, const char* name, float fallback)
@@ -362,7 +352,7 @@ namespace ExtraUtilities::Lua::StaticGeometry
 			};
 			for (const float value : values)
 			{
-				if (!IsFinite(value))
+				if (!IsFiniteScalar(value))
 				{
 					luaL_error(L, "StaticGeometry instance values must be finite");
 				}
@@ -389,16 +379,16 @@ namespace ExtraUtilities::Lua::StaticGeometry
 			options.castShadows = ReadBoolField(L, tableIndex, "castShadows", false);
 			options.visible = ReadBoolField(L, tableIndex, "visible", true);
 
-			if (!IsFinite(options.regionDimensions.x) ||
-				!IsFinite(options.regionDimensions.y) ||
-				!IsFinite(options.regionDimensions.z) ||
+			if (!IsFiniteScalar(options.regionDimensions.x) ||
+				!IsFiniteScalar(options.regionDimensions.y) ||
+				!IsFiniteScalar(options.regionDimensions.z) ||
 				options.regionDimensions.x <= 0.0f ||
 				options.regionDimensions.y <= 0.0f ||
 				options.regionDimensions.z <= 0.0f)
 			{
 				luaL_argerror(L, tableIndex, "regionDimensions must contain finite positive values");
 			}
-			if (!IsFinite(options.renderingDistance) || options.renderingDistance < 0.0f)
+			if (!IsFiniteScalar(options.renderingDistance) || options.renderingDistance < 0.0f)
 			{
 				luaL_argerror(L, tableIndex, "renderingDistance must be finite and non-negative");
 			}
@@ -543,7 +533,7 @@ namespace ExtraUtilities::Lua::StaticGeometry
 		// cannot be drawn.
 		OgreVector3Value renderOrigin{};
 		if (!TryReadWorldRenderOrigin(renderOrigin) ||
-			!IsFinite(renderOrigin.x) || !IsFinite(renderOrigin.y) || !IsFinite(renderOrigin.z))
+			!IsFiniteScalar(renderOrigin.x) || !IsFiniteScalar(renderOrigin.y) || !IsFiniteScalar(renderOrigin.z))
 		{
 			return PushFailure(L, "Redux render origin is unavailable");
 		}
