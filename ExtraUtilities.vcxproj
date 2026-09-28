@@ -281,6 +281,7 @@
     <ClInclude Include="src\Ogre\OgreSceneManagerShim.h" />
     <ClInclude Include="src\Patches\ShotConvergenceMath.h" />
     <ClInclude Include="src\Util\BuildValidation.h" />
+    <ClInclude Include="src\Util\FiniteCheck.h" />
     <ClInclude Include="src\Util\BzrBuildProfile.generated.h" />
     <ClInclude Include="src\Util\Logging.h" />
     <ClInclude Include="src\Util\NativeSaveFlag.h" />
