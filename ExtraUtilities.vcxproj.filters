@@ -66,6 +66,9 @@
     <ClCompile Include="src\Game\AnimationApi.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Game\PilotState.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Game\ContinuityApi.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
