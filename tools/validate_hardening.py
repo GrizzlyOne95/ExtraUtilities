@@ -277,6 +277,15 @@ def check_hardening_markers() -> None:
     dllmain = read("src/dllmain.cpp")
     lua_state = read("src/LuaState.h")
     add_scrap = read("src/Patches/AddScrapCallback.cpp")
+    pilot_policy_h = read("src/Game/PilotAnimationPolicy.h")
+    pilot_policy_cpp = read("src/Game/PilotAnimationPolicy.cpp")
+    # The pilot animation policy owns "what should happen" and must stay pure
+    # data: any engine, patch, Ogre, or Lua access belongs to the seam, not here.
+    pilot_policy_includes = re.findall(r'^\s*#include\s+[<"]([^>"]+)[>"]', pilot_policy_h + pilot_policy_cpp, re.M)
+    pilot_policy_impure = [
+        inc for inc in pilot_policy_includes
+        if inc.startswith(("Ogre/", "Patches/", "Util/")) or inc in ("bzr.h", "BasicPatch.h", "Hook.h", "Windows.h", "lua.hpp")
+    ]
 
     required = [
         ("Hook move deletion", "Hook(Hook&&) = delete;" in hook),
@@ -293,6 +302,13 @@ def check_hardening_markers() -> None:
         ("deferred requested status", "m_requestedStatus = s;" in basic),
         ("Lua-state generation", "m_generation" in lua_state),
         ("protected AddScrap call", "lua_pcall(L, 2, 1, 0)" in add_scrap),
+        ("pilot animation policy defaults to stock", "static_assert(IsStockOnly(Policy{})" in pilot_policy_h),
+        ("pilot animation policy stays engine-free", not pilot_policy_impure),
+        (
+            "pilot animation policy reset at Lua-state init and mission reset",
+            "PilotAnimationPolicy::ResetMissionState();" in read("src/luaexport.cpp")
+            and "PilotAnimationPolicy::ResetMissionState();" in read("src/PublicAPI.cpp"),
+        ),
     ]
     for label, ok in required:
         if not ok:

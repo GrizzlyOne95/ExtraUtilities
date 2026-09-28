@@ -34,6 +34,7 @@
 #include "Game/CommandReplacement.h"
 #include "Game/ContinuityApi.h"
 #include "Game/Environment.h"
+#include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotFsmIntercept.h"
 #include "Game/StaticGeometry.h"
 #include "LuaState.h"
@@ -150,6 +151,7 @@ namespace ExtraUtilities::Lua
 		Patch::ResetUnitVoMissionState();
 		Patch::ResetKillMessages();
 		Patch::ResetEngineFlameColors();
+		PilotAnimationPolicy::ResetMissionState();
 		Patch::AiTargetSelect::dispatchEnabled = false;
 		Patch::AiTargetSelect::scoreDispatchEnabled = false;
 	}
