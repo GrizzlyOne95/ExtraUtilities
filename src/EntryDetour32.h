@@ -160,9 +160,16 @@ namespace ExtraUtilities
 			std::size_t length,
 			Status status,
 			std::vector<std::uint8_t> expectedBytes)
-			: BasicPatch(address, length, status, std::move(expectedBytes)),
+			: BasicPatch(address, length, status, expectedBytes),
 			  m_hook(hook)
 		{
+			if (expectedBytes.empty() || expectedBytes.size() != m_length)
+			{
+				LogPatchIssue("entry detour requires a complete expected-byte preimage", m_address, m_length);
+				m_status = Status::INACTIVE;
+				m_requestedStatus = Status::INACTIVE;
+				return;
+			}
 			if (m_hook == nullptr)
 			{
 				LogPatchIssue("refusing to install null entry-detour hook", m_address, m_length);
