@@ -1005,7 +1005,7 @@ namespace ExtraUtilities::Lua
 
 		// EXU's own Lua core shares the executable's dummynode; on a build where
 		// it moved, the first table EXU creates and resizes would free the host's
-		// static node. Check before luaL_register creates any table. luaL_error
+		// static node. Check before RegisterFunctions creates any table. luaL_error
 		// only builds strings.
 		if (!BuildValidation::IsLuaCoreCompatible())
 		{
