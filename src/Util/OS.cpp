@@ -31,7 +31,6 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
-#include <mutex>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -70,25 +69,11 @@ namespace ExtraUtilities::Lua::OS
 			0x6A, 0x2E
 		};
 
-		std::mutex g_nativeSaveLogMutex;
-
 		template <typename... Args>
 		void LogNativeSave(std::format_string<Args...> fmt, Args&&... args)
 		{
 			const auto message = std::format(fmt, std::forward<Args>(args)...);
-			std::lock_guard<std::mutex> lock(g_nativeSaveLogMutex);
-
-			OutputDebugStringA(message.c_str());
-			OutputDebugStringA("\n");
-
-			ExtraUtilities::Logging::ResetLogFileForCurrentProcess("exu_native_save.log");
-			std::ofstream file(
-				ExtraUtilities::Logging::GetLogFilePath("exu_native_save.log"),
-				std::ios::app);
-			if (file.is_open())
-			{
-				file << message << '\n';
-			}
+			ExtraUtilities::Logging::WriteSessionLogLine("exu_native_save.log", message.c_str());
 		}
 
 		std::string GetMainModuleDirectory()

@@ -519,37 +519,19 @@ namespace ExtraUtilities::Lua::GameObject
 		// open/close.
 		void LogMaterialDebug(const char* fmt, ...)
 		{
-			if (!ExtraUtilities::Logging::IsDebugLoggingEnabled())
-			{
-				return;
-			}
-
-			char message[1024];
 			va_list args;
 			va_start(args, fmt);
-			vsnprintf_s(message, sizeof(message), _TRUNCATE, fmt, args);
+			ExtraUtilities::Logging::LogDebugToV("exu_material_debug.log", fmt, args);
 			va_end(args);
-
-			OutputDebugStringA(message);
-			OutputDebugStringA("\n");
-
-			if (FILE* file = ExtraUtilities::Logging::OpenSessionLogFile("exu_material_debug.log"))
-			{
-				fprintf(file, "%s\n", message);
-				fclose(file);
-			}
 		}
 
 		// Fault paths (SEH handlers) always reach exu.log.
 		void LogMaterialFault(const char* fmt, ...)
 		{
-			char message[1024];
 			va_list args;
 			va_start(args, fmt);
-			vsnprintf_s(message, sizeof(message), _TRUNCATE, fmt, args);
+			ExtraUtilities::Logging::LogFaultToV("exu_material_debug.log", fmt, args);
 			va_end(args);
-			ExtraUtilities::Logging::LogMessage("%s", message);
-			LogMaterialDebug("%s", message);
 		}
 
 		void CacheMaterialHandle(const std::string& materialName, const MaterialHandle& material)

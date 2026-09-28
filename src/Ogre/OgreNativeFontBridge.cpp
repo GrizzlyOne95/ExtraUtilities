@@ -57,35 +57,8 @@ namespace
 	constexpr unsigned int kCppExceptionCode = 0xE06D7363u;
 	const char* const kAutodetectResourceGroupName = "Autodetect";
 
-	void LogNativeOverlayMessage(const char* format, ...)
-	{
-		char buffer[1024]{};
-		va_list args;
-		va_start(args, format);
-		vsnprintf_s(buffer, sizeof(buffer), _TRUNCATE, format, args);
-		va_end(args);
-
-		OutputDebugStringA(buffer);
-		OutputDebugStringA("\n");
-
-		FILE* log = ExtraUtilities::Logging::OpenSessionLogFile("exu.log");
-		if (log != nullptr)
-		{
-			SYSTEMTIME localTime{};
-			GetLocalTime(&localTime);
-			std::fprintf(
-				log,
-				"[%04u-%02u-%02u %02u:%02u:%02u] %s\n",
-				localTime.wYear,
-				localTime.wMonth,
-				localTime.wDay,
-				localTime.wHour,
-				localTime.wMinute,
-				localTime.wSecond,
-				buffer);
-			std::fclose(log);
-		}
-	}
+	// exu.log, the same as every other EXU fault line.
+	constexpr auto& LogNativeOverlayMessage = ExtraUtilities::Logging::LogMessage;
 
 	constexpr const char* kOverlayResourceLocationType = "FileSystem";
 
