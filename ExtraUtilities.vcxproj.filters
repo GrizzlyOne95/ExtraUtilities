@@ -473,6 +473,9 @@
     <ClInclude Include="src\Ogre\OgreRenderSpace.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Ogre\OgreRenderOrigin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\Ogre\OgreProc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
