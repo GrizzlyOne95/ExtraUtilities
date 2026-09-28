@@ -117,9 +117,30 @@ error("This is a definition file, use require(\"exu\")")
 --- @field SetWeight fun(target: Handle|AnimationTarget, animationName: string, weight: number): boolean
 --- @field Seek fun(target: Handle|AnimationTarget, animationName: string, timePosition: number): boolean
 
+--- @class PilotStateInfo
+--- @field available boolean
+--- @field state "standing"|"enteringCrouch"|"crouched"|"exitingCrouch"|"unknown"
+--- @field nativeState integer
+--- @field transition boolean
+--- @field crouched boolean
+--- @field grounded boolean
+--- @field sniperSelected boolean
+--- @field animationIndex integer
+--- @field animationName string?
+--- @field animationHandle integer
+--- @field selectedWeaponMask integer
+--- @field selectedWeaponSlot integer?
+--- @field selectedWeaponSignature integer?
+--- @field selectedWeaponSignatureText string?
+--- @field selectedWeaponOdf string?
+
 --- @class FpsAnimationApi
 --- @field IsAvailable fun(): boolean
 --- @field GetCapabilities fun(): AnimationCapabilities
+--- @field GetPilotState fun(): PilotStateInfo?
+--- @field IsCrouched fun(): boolean?
+--- @field IsGrounded fun(): boolean?
+--- @field IsSniperSelected fun(): boolean?
 --- @field ListAnimations fun(): AnimationInfo[]?
 --- @field HasAnimation fun(animationName: string): boolean
 --- @field GetInfo fun(animationName: string): AnimationInfo?
