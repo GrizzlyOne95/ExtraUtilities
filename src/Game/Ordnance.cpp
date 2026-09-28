@@ -18,6 +18,7 @@
 
 #include "LuaHelpers.h"
 #include "Ordnance.h"
+#include "Util/MsvcRtti.h"
 #include "Util/SignatureResolver.h"
 
 #include <lua.hpp>
@@ -38,22 +39,8 @@ namespace ExtraUtilities::Lua::Ordnance
 		// contains Ordnance. A freed round whose memory was reused by something
 		// else is rejected; one reused by another round is still an Ordnance,
 		// so the reads stay type-correct.
-		struct RttiCompleteObjectLocator
-		{
-			uint32_t signature;
-			uint32_t offset;
-			uint32_t cdOffset;
-			const void* typeDescriptor;
-			const void* classDescriptor;
-		};
-
-		struct RttiClassHierarchyDescriptor
-		{
-			uint32_t signature;
-			uint32_t attributes;
-			uint32_t numBaseClasses;
-			const void* const* baseClassArray;
-		};
+		using RttiCompleteObjectLocator = MsvcRtti::CompleteObjectLocator;
+		using RttiClassHierarchyDescriptor = MsvcRtti::ClassHierarchyDescriptor;
 
 		bool IsInExecutableImage(const void* address, size_t length) noexcept
 		{
@@ -96,10 +83,10 @@ namespace ExtraUtilities::Lua::Ordnance
 					return false;
 				}
 
-				const auto* hierarchy = reinterpret_cast<const RttiClassHierarchyDescriptor*>(locator->classDescriptor);
+				const RttiClassHierarchyDescriptor* hierarchy = locator->pClassDescriptor;
 				if (!IsInExecutableImage(hierarchy, sizeof(*hierarchy)) ||
 					hierarchy->numBaseClasses == 0 || hierarchy->numBaseClasses > 32 ||
-					!IsInExecutableImage(hierarchy->baseClassArray, hierarchy->numBaseClasses * sizeof(void*)))
+					!IsInExecutableImage(hierarchy->pBaseClassArray, hierarchy->numBaseClasses * sizeof(void*)))
 				{
 					return false;
 				}
@@ -107,7 +94,7 @@ namespace ExtraUtilities::Lua::Ordnance
 				for (uint32_t i = 0; i < hierarchy->numBaseClasses; ++i)
 				{
 					// A BaseClassDescriptor starts with its TypeDescriptor pointer.
-					const void* baseClass = hierarchy->baseClassArray[i];
+					const void* baseClass = hierarchy->pBaseClassArray[i];
 					if (!IsInExecutableImage(baseClass, sizeof(void*)))
 					{
 						return false;
