@@ -1,0 +1,503 @@
+/*
+ * AUTO-GENERATED FILE. DO NOT EDIT BY HAND.
+ *
+ * Source: exu.json
+ * Regenerate with: python tools/generate_engine_addresses.py
+ */
+#pragma once
+
+#include <cstdint>
+
+// Engine virtual addresses for BZR 2.2.301 x86, one per exu.json entry.
+// Only valid once the runtime build gate (BuildValidation / RuntimeGate)
+// has accepted the running executable; code that reads, calls or patches
+// them must stay behind that gate. tools/validate_hardening.py rejects
+// engine-range literals anywhere else in src/.
+//
+// The addresses are enumerators, not constexpr variables, so the generated
+// code is identical to the literals they replace: MSVC folds `(T*)enumerator`
+// into a constant initializer exactly like `(T*)0x...`, but for
+// `(T*)constexpr_variable` in an inline variable it also emits a /include
+// directive that keeps every such variable alive in the linked image.
+namespace ExtraUtilities::EngineAddresses
+{
+	inline constexpr const char* kCatalogVersion = "2.2.301";
+
+	namespace Lua
+	{
+		enum : uintptr_t
+		{
+			// Node (static, 32 zero bytes)
+			dummynode = 0x0086EEF0u,
+			// function: void __cdecl(lua_State*, Table*, int)
+			setnodevector = 0x00831635u,
+			// function: bool __cdecl(int pcallCode, lua_State*, const char* message)
+			LuaCheckStatus = 0x004FF600u,
+		};
+	}
+
+	namespace GameUI
+	{
+		enum : uintptr_t
+		{
+			// uint32_t*
+			EscapeWrapperActive = 0x00918310u,
+			// function: void __cdecl()
+			MainShellWrapper = 0x005D42E0u,
+			// function: void __cdecl(int dialog)
+			PauseWrapper = 0x005D4690u,
+			// uint8_t*
+			PauseWrapperActive = 0x0091812Bu,
+			// const char* (.rdata)
+			PauseWrapperLogFormat = 0x00887A64u,
+			// void**
+			UiCurrentScreen = 0x00918320u,
+			// uint32_t*
+			MainShellWrapperActive = 0x00918324u,
+			// uint32_t*
+			UiCurrentScreenType = 0x00918328u,
+			// void**
+			SingleplayerPauseRoot = 0x009454ECu,
+			// uint8_t*
+			MultiplayerPauseFlag = 0x00945549u,
+			// void**
+			MultiplayerPauseRoot = 0x0094557Cu,
+		};
+	}
+
+	namespace Camera
+	{
+		enum : uintptr_t
+		{
+			// BZR_Camera*
+			View_Record_MainCam = 0x008EAAE0u,
+			// float*
+			zoomFactorFPP = 0x008EAD10u,
+			// float*
+			zoomFactorTPP = 0x008EAB10u,
+			// float*
+			maxZoomFactor = 0x008A2688u,
+			// float*
+			minZoomFactor = 0x008A25FCu,
+			// void*
+			viewFrustum = 0x008EABE0u,
+			// int*
+			currentView = 0x02CECEA0u,
+			// function: void __cdecl(tagENTITY*, int)
+			Set_View = 0x0061D120u,
+		};
+	}
+
+	namespace Math
+	{
+		enum : uintptr_t
+		{
+			// function: void __cdecl(MAT_3D* out, MAT_3D* in)
+			Matrix_Inverse = 0x008203F0u,
+			// function: void __cdecl(VECTOR_3D* out, VECTOR_3D* vec, MAT_3D* mat)
+			Vector_Unrotate = 0x00440300u,
+		};
+	}
+
+	namespace Cheats
+	{
+		enum : uintptr_t
+		{
+			// bool*
+			editMode = 0x009454B8u,
+			// hook site (8 bytes)
+			InfiniteAmmoHook = 0x004A7709u,
+			// hook site (8 bytes)
+			InfiniteScrapHook = 0x005E10D7u,
+			// hook site (9 bytes)
+			WeaponMaskCaptureHook = 0x0060A8C6u,
+		};
+	}
+
+	namespace ControlPanel
+	{
+		enum : uintptr_t
+		{
+			// ControlPanel*
+			p_controlPanel = 0x00978E20u,
+			// function: void __thiscall(ControlPanel*, GameObject*)
+			SelectOne = 0x004A6CD0u,
+			// function: void __thiscall(ControlPanel*)
+			SelectNone = 0x004A6D50u,
+			// function: void __thiscall(ControlPanel*, GameObject*)
+			SelectAdd = 0x004A6C70u,
+			// function: char __thiscall(void*)
+			HudPaletteSelector = 0x0047C070u,
+			// void* (static object)
+			HudPaletteSelectorThis = 0x0094F4B0u,
+			// hook site (10 bytes)
+			ScrapPilotHudDrawHook = 0x005C6FF0u,
+			// hook site (6 bytes)
+			ScrapLabelColorHook = 0x005C712Bu,
+			// hook site (7 bytes)
+			ScrapValueColorHook = 0x005C719Bu,
+			// hook site (7 bytes)
+			PilotLabelColorHook = 0x005C72F1u,
+			// hook site (7 bytes)
+			PilotValueColorHook = 0x005C7361u,
+			// int*
+			scrapLabelX = 0x0091829Cu,
+			// int*
+			scrapLabelY = 0x009182A0u,
+			// int*
+			scrapValueX = 0x0091826Cu,
+			// int*
+			scrapValueY = 0x00918270u,
+			// int*
+			pilotLabelX = 0x00918280u,
+			// int*
+			pilotLabelY = 0x00918284u,
+			// int*
+			pilotValueX = 0x00918278u,
+			// int*
+			pilotValueY = 0x0091827Cu,
+		};
+	}
+
+	namespace Environment
+	{
+		enum : uintptr_t
+		{
+			// VECTOR_3D*
+			gravityVector = 0x00871A80u,
+			// int*
+			timeOfDay = 0x02CD94E4u,
+			// VECTOR_3D*
+			sunDirection = 0x02CEB830u,
+			// function: void __cdecl(int hourOfDay)
+			SetTimeOfDay = 0x0068A230u,
+			// function: void __cdecl()
+			RefreshTerrainMasterLight = 0x0067E0E0u,
+			// function (SetFog wrapper)
+			FogReset = 0x00683370u,
+			// IAT slot (.rdata)
+			ViewportSetMaterialSchemeIat = 0x00869810u,
+			// call site (call [IAT])
+			ViewportSchemeCallSite0 = 0x00681585u,
+			// call site (call [IAT])
+			ViewportSchemeCallSite1 = 0x00682AA0u,
+			// call site (call [IAT])
+			ViewportSchemeCallSite2 = 0x00682EA7u,
+		};
+	}
+
+	namespace GameObject
+	{
+		enum : uintptr_t
+		{
+			// function: handle __thiscall(GameObject*)
+			GetHandle = 0x00462380u,
+			// uintptr_t (base of object table)
+			GetObj_base = 0x0260DB20u,
+			// function: GameObject* __cdecl(handle)
+			GetObjByHandle = 0x004DA060u,
+			// function: void __thiscall(GameObject*)
+			SetAsUser = 0x004DB930u,
+			// void*
+			p_userObject = 0x00917AFCu,
+			// tagENTITY**
+			user_entity_ptr = 0x00920C78u,
+		};
+	}
+
+	namespace GraphicsOptions
+	{
+		enum : uintptr_t
+		{
+			// bool*
+			isFullscreen = 0x009183B8u,
+			// int*
+			uiScaling = 0x008E77A8u,
+		};
+	}
+
+	namespace Multiplayer
+	{
+		enum : uintptr_t
+		{
+			// bool*
+			isNetGame = 0x00917F7Bu,
+			// int*
+			lives = 0x008E8D04u,
+			// uint8_t*
+			myNetID = 0x009180D4u,
+			// bool*
+			showScoreboard = 0x02A17494u,
+			// function: void()
+			UpdateLives = 0x006260F0u,
+			// patch site (2-byte je)
+			BuildObjectSyncBranch = 0x005C833Bu,
+			// patch site (11 bytes)
+			BuildObjectSyncCall = 0x005C833Du,
+			// patch site (5 bytes)
+			SkipStartingRecycler = 0x0056F014u,
+		};
+	}
+
+	namespace Ogre
+	{
+		enum : uintptr_t
+		{
+			// void** (BZR EXE absolute)
+			terrain_masterlight = 0x00920CA0u,
+			// void** (BZR EXE absolute)
+			sceneManagerStructure = 0x00920EA0u,
+			// VECTOR_3D*
+			worldRenderOrigin = 0x025F8E4Cu,
+		};
+	}
+
+	namespace Ordnance
+	{
+		enum : uintptr_t
+		{
+			// uintptr_t (base of OrdnanceClass list)
+			OrdnanceClassList = 0x009C915Cu,
+			// function: Ordnance* __thiscall(OrdnanceClass*, Mat3*, OBJ76*)
+			Build = 0x00586FF0u,
+			// float*
+			coeffBallistic = 0x008A2858u,
+			// hook site (8 bytes)
+			VelocityInheritanceHook = 0x004803D4u,
+			// hook site (6 bytes)
+			CannonLeadPositionHook = 0x0048F658u,
+			// patch site (6-byte jbe)
+			CannonVelocityToleranceBranch = 0x0048F639u,
+		};
+	}
+
+	namespace PlayOption
+	{
+		enum : uintptr_t
+		{
+			// void*
+			userProfilePtr = 0x0094672Cu,
+			// uint8_t*
+			difficulty = 0x025CFA1Cu,
+		};
+	}
+
+	namespace Radar
+	{
+		enum : uintptr_t
+		{
+			// uint8_t*
+			state = 0x008EAAACu,
+			// float*
+			scale = 0x008E77B0u,
+			// float*
+			cockpitWireframeProjectionBase = 0x008E7754u,
+			// int*
+			cockpitWireframeProjectionRadius = 0x009173C0u,
+			// float*
+			radarLeftBase = 0x009782A0u,
+			// int*
+			radarLeft = 0x008E77A8u,
+			// int*
+			radarBottom = 0x008E77ACu,
+			// float*
+			commandPanelLeftBase = 0x008E7918u,
+			// int*
+			cockpitWireframeCenterX = 0x008E7924u,
+			// int*
+			cockpitWireframeCenterY = 0x008E7928u,
+			// float*
+			edgeMinX = 0x00917388u,
+			// float*
+			edgeMaxX = 0x0091738Cu,
+			// float*
+			edgeMinZ = 0x00917390u,
+			// float*
+			edgeMaxZ = 0x00917394u,
+			// function: void __cdecl()
+			RefreshCockpitWireframeAnchor = 0x00404CF0u,
+			// function: void __cdecl(int screenHeight)
+			RefreshLayout = 0x00492EC0u,
+			// function: RuntimePath* __cdecl(const char* name)
+			FindNamedPath = 0x00460FC0u,
+			// function: void __thiscall(void* self)
+			RefreshEdgePathBounds = 0x0046AF20u,
+			// call site (call RefreshLayout)
+			RefreshLayoutCallSite0 = 0x0049325Fu,
+			// call site (call RefreshLayout)
+			RefreshLayoutCallSite1 = 0x0049405Bu,
+		};
+	}
+
+	namespace Reticle
+	{
+		enum : uintptr_t
+		{
+			// float*
+			angle = 0x025CE714u,
+			// VECTOR_3D*
+			position = 0x025CE79Cu,
+			// float*
+			range = 0x00886B20u,
+			// int*
+			object = 0x00979F40u,
+			// MAT_3D*
+			matrix = 0x025CE6F8u,
+		};
+	}
+
+	namespace Satellite
+	{
+		enum : uintptr_t
+		{
+			// bool*
+			state = 0x008E8F9Cu,
+			// VECTOR_3D*
+			cursorPos = 0x009C9194u,
+			// VECTOR_3D*
+			camPos = 0x009C91B4u,
+			// VECTOR_3D*
+			clickPos = 0x009C9188u,
+			// float*
+			panSpeed = 0x009C91D0u,
+			// float*
+			minZoom = 0x00872400u,
+			// float*
+			maxZoom = 0x008723F4u,
+			// float*
+			zoom = 0x009C91B0u,
+		};
+	}
+
+	namespace SoundOptions
+	{
+		enum : uintptr_t
+		{
+			// uint8_t*
+			soundStruct1 = 0x0094672Cu,
+		};
+	}
+
+	namespace Steam
+	{
+		enum : uintptr_t
+		{
+			// uint64_t*
+			steam64 = 0x0260B1D0u,
+		};
+	}
+
+	namespace SaveGame
+	{
+		enum : uintptr_t
+		{
+			// function (native mission save)
+			SaveGame = 0x004FD190u,
+			// function: slot-save wrapper around SaveGame
+			SaveShellGame = 0x004FDC80u,
+			// char[] (save description buffer)
+			saveGameDesc = 0x008E86D8u,
+			// char[0x1000] (engine save directory)
+			saveDirectory = 0x02CEEFE0u,
+			// uint8_t* (bool; decoded at runtime, verification entry)
+			missionSave = 0x009173B7u,
+			// uint8_t* (bool; decoded at runtime, verification entry)
+			binarySave = 0x009173B6u,
+			// int32_t* (-binarysave option; decoded at runtime, verification entry)
+			binarySaveSwitch = 0x008EAAB4u,
+		};
+	}
+
+	namespace AiTargetSelect
+	{
+		enum : uintptr_t
+		{
+			// function: float __cdecl(const float* vector)
+			VectorMagnitude = 0x00462070u,
+			// function: GameObject* __thiscall(void* process, float* rangeLimit)
+			OffensiveProcess_ChooseAttackTarget = 0x00583500u,
+			// function: GameObject* __thiscall(void* process, float* rangeLimit)
+			ScoutProcess_ChooseAttackTarget = 0x00614020u,
+			// call site (call VectorMagnitude)
+			ScoreCall0 = 0x004634A5u,
+			// call site (call VectorMagnitude)
+			ScoreCall1 = 0x00463593u,
+			// call site (call VectorMagnitude)
+			ScoreCall2 = 0x00463670u,
+			// call site (call VectorMagnitude)
+			ScoreCall3 = 0x00463A46u,
+			// call site (call VectorMagnitude)
+			ScoreCall4 = 0x00463B34u,
+			// call site (call VectorMagnitude)
+			ScoreCall5 = 0x00463C11u,
+			// vftable (.rdata)
+			WingmanProcess_vftable = 0x0088A6ECu,
+			// vftable (.rdata)
+			RocketTankProcess_vftable = 0x0088A5C0u,
+			// vftable (.rdata)
+			TankProcess_vftable = 0x0088AB9Cu,
+			// vftable (.rdata)
+			BomberProcess_vftable = 0x0088B178u,
+			// vftable (.rdata)
+			ScoutProcess_vftable = 0x0088AF98u,
+		};
+	}
+
+	namespace ShotConvergence
+	{
+		enum : uintptr_t
+		{
+			// vftable slot (.rdata, uintptr_t)
+			Wingman_UpdateWeaponAimSlot = 0x0088A4FCu,
+			// vftable slot (.rdata, uintptr_t)
+			TurretCraft_UpdateWeaponAimSlot = 0x00889418u,
+			// function: void __thiscall(GameObject*, float)
+			TurretCraft_UpdateWeaponAim = 0x005F0930u,
+			// function: void __thiscall(GameObject*, float)
+			Walker_UpdateWeaponAim = 0x0060F320u,
+			// function: Weapon* __thiscall(void* carrier, int slot)
+			Carrier_GetWeapon = 0x00417F60u,
+			// function: void __cdecl(OBJ76*, MAT_3D*)
+			RefreshWeaponTransform = 0x00681A00u,
+		};
+	}
+
+	namespace Callbacks
+	{
+		enum : uintptr_t
+		{
+			// hook site (6 bytes)
+			BulletInitHook = 0x00480363u,
+			// hook site (6 bytes)
+			BulletHitHook = 0x00480771u,
+			// hook site (6 bytes)
+			AddScrapHook = 0x005E1016u,
+			// hook site (8 bytes)
+			KillMessageHook = 0x0062627Fu,
+		};
+	}
+
+	namespace Turbo
+	{
+		enum : uintptr_t
+		{
+			// hook site (6 bytes)
+			TurboPatchBegin = 0x00601C92u,
+			// disp32 operand (float*)
+			TurboToleranceOperand = 0x00601CA3u,
+			// disp32 operand (float*)
+			TurboGateOperand = 0x00601CADu,
+		};
+	}
+
+	namespace PersonRuntime
+	{
+		enum : uintptr_t
+		{
+			// function: void __thiscall(Person*, float)
+			PersonSimulate = 0x0059D340u,
+		};
+	}
+
+	inline constexpr unsigned kEntryCount = 154u;
+}

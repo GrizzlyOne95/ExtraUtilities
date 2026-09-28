@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "Util/FiniteCheck.h"
 #include "EnvironmentLog.h"
 #include "Ogre/OgreSceneRuntime.h"
 #include "Ogre/OgreParticleAbi.h"
@@ -66,9 +67,9 @@ namespace ExtraUtilities::Lua::Environment
 	}
 
 	using namespace Detail;
-	bool IsFiniteColor(const Ogre::Color& color);
-	bool IsFiniteVector(const BZR::VECTOR_3D& vector);
-	bool IsFiniteScalar(float value);
+	using FiniteCheck::IsFiniteColor;
+	using FiniteCheck::IsFiniteVector;
+	using FiniteCheck::IsFiniteScalar;
 		std::string CheckOptionalParticleResourceGroup(lua_State* L, int idx);
 		bool TryHasParticleSystem(void* sceneManager, const std::string& name, bool& outHasParticleSystem);
 		bool TryDestroyManagedParticleSystem(void* sceneManager, const std::string& name);

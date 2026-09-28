@@ -23,7 +23,7 @@
 // SEH (__try/__except) is the barrier for hardware faults: an access violation
 // from a stale Ogre or engine pointer. It must not be the barrier for C++
 // exceptions. Under /EHsc a C++ throw is an SEH exception with code 0xE06D7363;
-// an __except (Seh::Filter(GetExceptionCode())) catches it without destroying the
+// an unconditional EXCEPTION_EXECUTE_HANDLER catches it without destroying the
 // thrown object, loses its message, and reports an Ogre::Exception for bad
 // input (unknown particle template, missing material, bad bone) as a crash.
 //

@@ -19,6 +19,7 @@
 #pragma once
 
 #include "Ogre/OgreOverlayShim.h"
+#include "Ogre/OgreProc.h"
 
 #include <Windows.h>
 
@@ -35,7 +36,10 @@ namespace ExtraUtilities::Lua::Overlay
 	{
 		extern std::unordered_set<void*> attachedOverlaySceneManagers;
 		extern void* overlaySystemInstance;
-		HMODULE GetOgreOverlayModule();
+		using ExtraUtilities::OgreDll::GetOgreOverlayModule;
+		using ExtraUtilities::OgreDll::OgreModule;
+		using ExtraUtilities::OgreDll::OgreProc;
+		using ExtraUtilities::OgreDll::ResolveOgreProc;
 		::Ogre::OverlayManager* GetOverlayManagerRaw();
 		::Ogre::Overlay* FindExistingOverlay(const std::string& name);
 		bool TryGetRootSingleton(void*& outRoot);

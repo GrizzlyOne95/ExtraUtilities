@@ -22,6 +22,7 @@
 #include "Ogre/Ogre.h"
 #include "InlinePatch.h"
 #include "Scanner.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <lua.hpp>
 
@@ -162,7 +163,7 @@ namespace ExtraUtilities::Patch
 	// The engine's SetFog wrapper (SceneManager::setFog(FOG_LINEAR, ...) plus
 	// a cached clear colour). exu.SetFog stubs it out so a script's fog is not
 	// overwritten; it is armed only by exu.SetFog.
-	constexpr uintptr_t fogReset = 0x00683370;
+	constexpr uintptr_t fogReset = EngineAddresses::Environment::FogReset;
 	extern InlinePatch fogResetPatch;
 
 	void TryInitializeOgre();

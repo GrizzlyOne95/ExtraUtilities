@@ -52,6 +52,9 @@ jobs:
       - name: Validate generated BZR build profile
         run: python tools/generate_bzr_build_profile.py --check
 
+      - name: Validate generated engine address header
+        run: python tools/generate_engine_addresses.py --check
+
       - name: Test BZR build qualification tooling
         run: python tools/test_bzr_qualification.py
 
