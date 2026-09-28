@@ -22,6 +22,8 @@
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
 #include "Util/Logging.h"
+#include "Util/EngineAddresses.generated.h"
+#include "Util/PatternMatch.h"
 
 #include <cmath>
 #include <cstdint>
@@ -230,8 +232,8 @@ namespace ExtraUtilities::Lua::Radar
 		// The engine re-runs RefreshLayout when it (re)builds the cockpit HUD,
 		// which would restore the misaligned native layout, so both of its
 		// call sites are retargeted at the concentric wrapper above.
-		constexpr uintptr_t kRefreshLayoutCallSites[] = { 0x0049325F, 0x0049405B };
-		constexpr uintptr_t kRefreshLayoutEntry = 0x00492EC0;
+		constexpr uintptr_t kRefreshLayoutCallSites[] = { EngineAddresses::Radar::RefreshLayoutCallSite0, EngineAddresses::Radar::RefreshLayoutCallSite1 };
+		constexpr uintptr_t kRefreshLayoutEntry = EngineAddresses::Radar::RefreshLayout;
 
 		void InstallRefreshLayoutCallSiteHooks()
 		{
@@ -258,11 +260,9 @@ namespace ExtraUtilities::Lua::Radar
 
 			for (uintptr_t site : kRefreshLayoutCallSites)
 			{
-				const uint8_t* bytes = reinterpret_cast<const uint8_t*>(site);
-				int32_t rel = 0;
-				std::memcpy(&rel, bytes + 1, sizeof(rel));
-				const uintptr_t target = site + 5 + static_cast<uintptr_t>(rel);
-				if (bytes[0] != 0xE8 || target != kRefreshLayoutEntry)
+				uintptr_t target = 0;
+				if (!PatternMatch::TryDecodeRelativeCall(reinterpret_cast<const uint8_t*>(site), site, target) ||
+					target != kRefreshLayoutEntry)
 				{
 					// Unexpected code — leave the site alone rather than corrupt it.
 					continue;
@@ -275,14 +275,9 @@ namespace ExtraUtilities::Lua::Radar
 			}
 		}
 
-		int AbsoluteIndex(lua_State* L, int idx)
-		{
-			return idx > 0 ? idx : lua_gettop(L) + idx + 1;
-		}
-
 		BZR::Radar::EdgePathPoint CheckEdgePathPoint(lua_State* L, int idx)
 		{
-			idx = AbsoluteIndex(L, idx);
+			idx = AbsoluteStackIndex(L, idx);
 
 			BZR::Radar::EdgePathPoint point{};
 			if (lua_isuserdata(L, idx))
