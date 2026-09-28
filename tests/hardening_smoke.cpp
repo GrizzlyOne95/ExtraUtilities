@@ -32,6 +32,7 @@
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -313,7 +314,7 @@ int main()
 
 	// Function-entry detour: copy a reloc-free instruction into a trampoline,
 	// jump to a hook, then resume at the first untouched byte. The synthetic
-	// function is "mov eax,42; ret"; the hook calls the trampoline and adds 1.
+	// function is "mov eax,42; nop; ret"; the hook calls the trampoline and adds 1.
 	auto* detourPage = static_cast<uint8_t*>(
 		VirtualAlloc(nullptr, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
 	if (!detourPage)
@@ -321,7 +322,7 @@ int main()
 		std::cerr << "entry-detour VirtualAlloc failed\n";
 		return 1;
 	}
-	const uint8_t detourOriginalBytes[6] = { 0xB8, 0x2A, 0x00, 0x00, 0x00, 0xC3 };
+	const uint8_t detourOriginalBytes[7] = { 0xB8, 0x2A, 0x00, 0x00, 0x00, 0x90, 0xC3 };
 	std::memcpy(detourPage, detourOriginalBytes, sizeof(detourOriginalBytes));
 	auto detourProbe = reinterpret_cast<DetourProbeFn>(detourPage);
 	ok &= Check(detourProbe() == 42, "synthetic entry-detour baseline function returned the wrong value");
@@ -329,9 +330,9 @@ int main()
 		EntryDetour32 detour(
 			reinterpret_cast<uintptr_t>(detourPage),
 			reinterpret_cast<const void*>(&DetourProbeHook),
-			5,
+			6,
 			BasicPatch::Status::INACTIVE,
-			{ 0xB8, 0x2A, 0x00, 0x00, 0x00 });
+			{ 0xB8, 0x2A, 0x00, 0x00, 0x00, 0x90 });
 		ok &= Check(detourProbe() == 42, "inactive entry detour changed the target before activation");
 		ok &= Check(detour.PrepareTrampoline(), "entry detour could not prepare its trampoline");
 		g_detourProbeOriginal = detour.GetTrampolineAs<DetourProbeFn>();
