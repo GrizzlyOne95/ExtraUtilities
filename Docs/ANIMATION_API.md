@@ -15,7 +15,7 @@ It deliberately sits above the existing low-level functions (`HasEntityAnimation
 - No new executable patch or frame hook is installed by this API.
 - Redux/Ogre remains responsible for animation evaluation and time advancement.
 - Unsupported or temporarily unavailable targets fail closed.
-- `TargetLocalFirstPerson()` resolves the qualified OpenShim `aspilo_fp` target afresh for every operation; neither EXU nor Lua caches its Ogre pointer.
+- `TargetLocalFirstPerson()` resolves the dedicated pilot FP target afresh for every operation. OpenShim remains preferred when installed; standalone EXU falls back to the validated Redux `Person` render-bridge path. Neither EXU nor Lua caches its Ogre pointer.
 
 ## Basic use
 
@@ -94,7 +94,19 @@ if exu.animation.Has(fp, "stand2Kneel") then
 end
 ```
 
-OpenShim revalidates the local world `Person`, SceneManager membership, the strict `_fp` pilot mesh family, skeleton, and stock pilot animation vocabulary before returning the entity. Entering a vehicle, destruction, respawn, mission changes, and entity recreation advance the tracker generation. If no qualified FP entity exists, operations return `false` (`GetInfo` returns `nil`) without falling back to the world entity.
+When OpenShim is installed, EXU preserves the existing OpenShim resolver and its generation/lifetime qualification.
+
+Without OpenShim, EXU now resolves the target directly from the current user-controlled object on every operation:
+
+```text
+p_userObject -> RTTI Person -> Person+0x0F0 render bridge
+                              -> bridge+0x094 WORLD entity
+                              -> bridge+0x0C0 FP entity
+```
+
+The native resolver fails closed unless the current user object is a `Person`, the FP pointer is non-null and distinct from WORLD, and the FP entity exposes a skeleton with the stock `idle` and `stand2Kneel` vocabulary. The `+0xC0` FP field was independently runtime-qualified in the 2026-09-05 pilot flashlight investigation as the live `aspilo_fp.mesh` entity. Because the chain is re-read per operation, boarding, destruction, respawn, mission changes, and entity recreation cannot leave EXU holding a stale Ogre pointer. If no qualified FP entity exists, operations return `false` (`GetInfo` returns `nil`) without falling back to WORLD.
+
+The standalone EXU resolver still needs an isolated runtime matrix with OpenShim absent before it is labeled `PROVEN-RUNTIME`; the original public control matrix below used OpenShim as the resolver.
 
 ## Capability probe
 
@@ -106,7 +118,7 @@ Current expected values:
 
 ```lua
 caps.gameObjectTarget == true
-caps.localFirstPersonTarget == true -- when the required OpenShim export is installed
+caps.localFirstPersonTarget == true -- with OpenShim or EXU's native supported-build resolver
 caps.animationInventory == true
 caps.managedClock == false
 caps.nativeAdvancement == "unvalidated"
@@ -126,7 +138,7 @@ The public path is now qualified on GOG Redux 2.2.301 with matching isolated Rel
 - Same-process mission replay released generation 1, reacquired a different entity at generation 3, released it at generation 4, and reacquired another at generation 5. No stale pointer was retained or manipulated.
 - A synchronized first-person capture showed the FP half-kneel pose; Shift+F3 during the same FP-only hold showed the external WORLD pilot still standing.
 
-This proves stock `Play`, `Stop`, and `Seek` through the complete Lua → EXU → OpenShim tracker → Ogre `AnimationState` path. It does not prove autonomous native advancement of an externally selected clip, so `managedClock` remains `false` and `nativeAdvancement` remains `"unvalidated"`.
+This proves stock `Play`, `Stop`, and `Seek` through the complete Lua → EXU → OpenShim tracker → Ogre `AnimationState` path. The native EXU fallback intentionally reuses the same downstream `GameObject::HasAnimation` / `AnimationState` operations; only target discovery changes. It does not prove autonomous native advancement of an externally selected clip, so `managedClock` remains `false` and `nativeAdvancement` remains `"unvalidated"`.
 
 ## Animation inventory implementation
 

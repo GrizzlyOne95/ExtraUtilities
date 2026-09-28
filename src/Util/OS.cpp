@@ -18,11 +18,14 @@
 
 #include "OS.h"
 
+#include "EngineAddresses.generated.h"
 #include "Logging.h"
+#include "ModulePath.h"
 #include "NativeSaveFlag.h"
 #include "SavePathPolicy.h"
 #include "RuntimeGate.h"
-#include "Util/SehGuard.h"
+#include "SehGuard.h"
+#include "SignatureResolver.h"
 
 #include <algorithm>
 #include <array>
@@ -32,7 +35,6 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
-#include <mutex>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -57,12 +59,7 @@ namespace ExtraUtilities::Lua::OS
 			volatile uint8_t* saveFlag = nullptr;
 		};
 
-		struct ExecutableSection
-		{
-			const uint8_t* address = nullptr;
-			size_t size = 0;
-			std::string name;
-		};
+		using ExecutableSection = SignatureResolver::SectionView;
 
 		constexpr std::array<int, 54> SAVE_GAME_SIGNATURE = {
 			0x55, 0x8B, 0xEC, 0x81, 0xEC, 0x94, 0x00, 0x00, 0x00, 0xC6, 0x45, 0xFF, 0x01, 0xE8, -1, -1,
@@ -71,56 +68,52 @@ namespace ExtraUtilities::Lua::OS
 			0x6A, 0x2E
 		};
 
-		std::mutex g_nativeSaveLogMutex;
-
 		template <typename... Args>
 		void LogNativeSave(std::format_string<Args...> fmt, Args&&... args)
 		{
 			const auto message = std::format(fmt, std::forward<Args>(args)...);
-			std::lock_guard<std::mutex> lock(g_nativeSaveLogMutex);
+			ExtraUtilities::Logging::WriteSessionLogLine("exu_native_save.log", message.c_str());
+		}
 
-			OutputDebugStringA(message.c_str());
-			OutputDebugStringA("\n");
-
-			ExtraUtilities::Logging::ResetLogFileForCurrentProcess("exu_native_save.log");
-			std::ofstream file(
-				ExtraUtilities::Logging::GetLogFilePath("exu_native_save.log"),
-				std::ios::app);
-			if (file.is_open())
+		// Copies the engine's fixed save-directory buffer. Kept free of C++
+		// objects so the SEH guard needs no unwinding.
+		bool CopyEngineSaveDirectory(char (&out)[ExtraUtilities::NativeSave::ENGINE_SAVE_DIRECTORY_CAPACITY]) noexcept
+		{
+			__try
 			{
-				file << message << '\n';
+				std::memcpy(out, reinterpret_cast<const void*>(EngineAddresses::SaveGame::saveDirectory), sizeof(out));
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return false;
 			}
 		}
 
-		std::string GetMainModuleDirectory()
+		// The engine's save directory, "<startup working directory>\save",
+		// which the engine fills once at startup and its own slot saves use.
+		// Empty when the build gate has not accepted this executable or the
+		// buffer cannot be read or holds no terminated string.
+		std::string ReadEngineSaveDirectory()
 		{
-			char path[MAX_PATH]{};
-			const DWORD length = GetModuleFileNameA(nullptr, path, MAX_PATH);
-			if (length == 0 || length >= MAX_PATH)
+			if (!RuntimeGate::IsSupported())
 			{
 				return {};
 			}
 
-			std::string result(path, length);
-			const auto slash = result.find_last_of("\\/");
-			if (slash == std::string::npos)
+			char buffer[ExtraUtilities::NativeSave::ENGINE_SAVE_DIRECTORY_CAPACITY];
+			if (!CopyEngineSaveDirectory(buffer))
 			{
 				return {};
 			}
-
-			result.resize(slash);
-			return result;
+			return std::string(ExtraUtilities::NativeSave::TerminatedString(buffer, sizeof(buffer)));
 		}
 
-		std::string BuildSlotSavePath(int slot)
+		// The file the engine's SaveShellGame writes for this slot. Fails
+		// closed when the engine save directory is unreadable or unusable.
+		ExtraUtilities::NativeSave::SavePathResult BuildSlotSavePath(int slot)
 		{
-			const auto moduleDirectory = GetMainModuleDirectory();
-			if (moduleDirectory.empty())
-			{
-				return std::format("Save\\game{}.sav", slot);
-			}
-
-			return std::format("{}\\Save\\game{}.sav", moduleDirectory, slot);
+			return ExtraUtilities::NativeSave::BuildSlotSavePath(ReadEngineSaveDirectory(), slot);
 		}
 
 		std::string GetCurrentDirectoryString()
@@ -136,17 +129,23 @@ namespace ExtraUtilities::Lua::OS
 
 		// A script-supplied path must name a file under the game's Save
 		// directory. The game root is the executable's directory; the engine's
-		// own saves use the working directory, which is normally the same place
-		// but may differ with some launchers, so both count.
+		// own saves use the startup working directory, which is normally the
+		// same place but may differ with some launchers, so the current working
+		// directory and the engine's save directory count too.
 		ExtraUtilities::NativeSave::SavePathResult ResolveScriptSavePath(std::string_view requested)
 		{
-			const auto moduleDirectory = GetMainModuleDirectory();
+			const auto moduleDirectory = ModulePath::GetGameRootDirectory();
 			std::vector<std::string> roots{ moduleDirectory };
 			if (auto workingDirectory = GetCurrentDirectoryString(); !workingDirectory.empty())
 			{
 				roots.push_back(std::move(workingDirectory));
 			}
-			return ExtraUtilities::NativeSave::ResolveSavePath(requested, moduleDirectory, roots);
+			auto directories = ExtraUtilities::NativeSave::SaveDirectoriesOf(roots);
+			if (auto engineSaveDirectory = ReadEngineSaveDirectory(); !engineSaveDirectory.empty())
+			{
+				directories.push_back(std::move(engineSaveDirectory));
+			}
+			return ExtraUtilities::NativeSave::ResolveSavePathInDirectories(requested, moduleDirectory, directories);
 		}
 
 		bool EnsureSaveParentDirectory(const std::string& filename)
@@ -413,91 +412,6 @@ namespace ExtraUtilities::Lua::OS
 			return true;
 		}
 
-		std::vector<ExecutableSection> GetExecutableSections()
-		{
-			std::vector<ExecutableSection> sections;
-
-			HMODULE module = GetModuleHandleA("Battlezone98Redux.exe");
-			if (module == nullptr)
-			{
-				module = GetModuleHandleA(nullptr);
-			}
-
-			if (module == nullptr)
-			{
-				return sections;
-			}
-
-			auto* const base = reinterpret_cast<const uint8_t*>(module);
-			auto* const dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
-			if (dos->e_magic != IMAGE_DOS_SIGNATURE)
-			{
-				return sections;
-			}
-
-			auto* const nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
-			if (nt->Signature != IMAGE_NT_SIGNATURE)
-			{
-				return sections;
-			}
-
-			auto* section = IMAGE_FIRST_SECTION(nt);
-			for (WORD index = 0; index < nt->FileHeader.NumberOfSections; ++index, ++section)
-			{
-				if ((section->Characteristics & IMAGE_SCN_MEM_EXECUTE) == 0)
-				{
-					continue;
-				}
-
-				const size_t size = std::max<size_t>(section->Misc.VirtualSize, section->SizeOfRawData);
-				if (size == 0)
-				{
-					continue;
-				}
-
-				char sectionName[9]{};
-				std::memcpy(sectionName, section->Name, sizeof(section->Name));
-
-				sections.push_back({
-					base + section->VirtualAddress,
-					size,
-					sectionName
-				});
-			}
-
-			return sections;
-		}
-
-		const uint8_t* FindPattern(const uint8_t* start, size_t size, const auto& pattern)
-		{
-			if (start == nullptr || size < pattern.size())
-			{
-				return nullptr;
-			}
-
-			const size_t lastOffset = size - pattern.size();
-			for (size_t offset = 0; offset <= lastOffset; ++offset)
-			{
-				bool matched = true;
-				for (size_t index = 0; index < pattern.size(); ++index)
-				{
-					const int expected = pattern[index];
-					if (expected >= 0 && start[offset + index] != static_cast<uint8_t>(expected))
-					{
-						matched = false;
-						break;
-					}
-				}
-
-				if (matched)
-				{
-					return start + offset;
-				}
-			}
-
-			return nullptr;
-		}
-
 		NativeSaveGameFn ResolveNativeSaveGame()
 		{
 			static NativeSaveGameFn cached = nullptr;
@@ -506,7 +420,7 @@ namespace ExtraUtilities::Lua::OS
 				return cached;
 			}
 
-			const auto executableSections = GetExecutableSections();
+			const auto executableSections = SignatureResolver::GetExecutableSections(GetModuleHandleA(nullptr));
 			if (executableSections.empty())
 			{
 				LogNativeSave("[EXU::SaveGame] failed to enumerate executable sections");
@@ -515,7 +429,7 @@ namespace ExtraUtilities::Lua::OS
 
 			for (const auto& section : executableSections)
 			{
-				if (const auto* address = FindPattern(section.address, section.size, SAVE_GAME_SIGNATURE))
+				if (const auto* address = SignatureResolver::FindPattern(section.address, section.size, SAVE_GAME_SIGNATURE))
 				{
 					LogNativeSave(
 						"[EXU::SaveGame] resolved native SaveGame at {} in section {}",
@@ -655,7 +569,7 @@ namespace ExtraUtilities::Lua::OS
 
 		bool ContainsBytePattern(const uint8_t* start, size_t size, const auto& pattern)
 		{
-			return FindPattern(start, size, pattern) != nullptr;
+			return SignatureResolver::FindPattern(start, size, pattern) != nullptr;
 		}
 
 		bool IsSaveShellGameCandidate(const uint8_t* functionStart, const uint8_t* saveGameAddress)
@@ -671,8 +585,14 @@ namespace ExtraUtilities::Lua::OS
 				0x83, 0x7D, 0x08, 0x0A, 0x0F, 0x8F, -1, -1, -1, -1
 			};
 
+			// mov dword ptr [ebp+disp8], saveGameDesc
+			constexpr uintptr_t kDescription = EngineAddresses::SaveGame::saveGameDesc;
 			constexpr std::array<int, 7> DESCRIPTION_BUFFER_PATTERN = {
-				0xC7, 0x45, -1, 0xD8, 0x86, 0x8E, 0x00
+				0xC7, 0x45, -1,
+				static_cast<int>(kDescription & 0xFF),
+				static_cast<int>((kDescription >> 8) & 0xFF),
+				static_cast<int>((kDescription >> 16) & 0xFF),
+				static_cast<int>((kDescription >> 24) & 0xFF)
 			};
 
 			if (!ContainsBytePattern(functionStart, kWindowSize, SLOT_RANGE_PATTERN))
@@ -687,15 +607,10 @@ namespace ExtraUtilities::Lua::OS
 
 			for (size_t offset = 0; offset + 5 <= kWindowSize; ++offset)
 			{
-				if (functionStart[offset] != 0xE8)
-				{
-					continue;
-				}
-
-				int32_t displacement = 0;
-				std::memcpy(&displacement, functionStart + offset + 1, sizeof(displacement));
-				const auto* target = functionStart + offset + 5 + displacement;
-				if (target == saveGameAddress)
+				const auto* instruction = functionStart + offset;
+				uintptr_t target = 0;
+				if (PatternMatch::TryDecodeRelativeCall(instruction, reinterpret_cast<uintptr_t>(instruction), target) &&
+					target == reinterpret_cast<uintptr_t>(saveGameAddress))
 				{
 					return true;
 				}
@@ -712,7 +627,7 @@ namespace ExtraUtilities::Lua::OS
 				return cached;
 			}
 
-			const auto executableSections = GetExecutableSections();
+			const auto executableSections = SignatureResolver::GetExecutableSections(GetModuleHandleA(nullptr));
 			if (executableSections.empty())
 			{
 				LogNativeSave("[EXU::SaveGame] failed to enumerate executable sections for SaveShellGame");
@@ -736,20 +651,14 @@ namespace ExtraUtilities::Lua::OS
 
 				for (size_t offset = 0; offset + 5 <= section.size; ++offset)
 				{
-					if (section.address[offset] != 0xE8)
-					{
-						continue;
-					}
-
-					int32_t displacement = 0;
-					std::memcpy(&displacement, section.address + offset + 1, sizeof(displacement));
-					const auto* target = section.address + offset + 5 + displacement;
-					if (target != saveGameAddress)
-					{
-						continue;
-					}
-
 					const auto* callSite = section.address + offset;
+					uintptr_t target = 0;
+					if (!PatternMatch::TryDecodeRelativeCall(callSite, reinterpret_cast<uintptr_t>(callSite), target) ||
+						target != reinterpret_cast<uintptr_t>(saveGameAddress))
+					{
+						continue;
+					}
+
 					const auto* functionStart = BacktrackFunctionProlog(section, callSite);
 					if (!IsSaveShellGameCandidate(functionStart, saveGameAddress))
 					{
@@ -1032,7 +941,15 @@ namespace ExtraUtilities::Lua::OS
 		std::string filename;
 		if (rawPath == nullptr)
 		{
-			filename = BuildSlotSavePath(slot);
+			auto slotPath = BuildSlotSavePath(slot);
+			if (!slotPath.ok)
+			{
+				LogNativeSave("[EXU::SaveGame] cannot build path for slot {}: {}", slot, slotPath.error);
+				lua_pushboolean(L, 0);
+				lua_pushstring(L, slotPath.error);
+				return 2;
+			}
+			filename = std::move(slotPath.path);
 		}
 		else
 		{
