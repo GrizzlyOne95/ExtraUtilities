@@ -19,6 +19,8 @@
 /* Optional OpenShim bridge resolution shared by ExtraUtilities modules. */
 #pragma once
 
+#include "Util/Logging.h"
+
 #include <Windows.h>
 
 #include <cstdint>
@@ -74,6 +76,49 @@ namespace ExtraUtilities::OpenShimBridge
 	{
 		return Resolve<FARPROC>(exportName) != nullptr;
 	}
+
+	// An optional export cached per winmm.dll module: resolved once while the
+	// module GetModule() reports stays the same, and again if it changes or
+	// appears late, so an early miss is never latched for the life of the
+	// DLL. constexpr-constructible, so a function-local `static constinit`
+	// needs no guard. When `missingLog` is set it goes to exu.log the first
+	// time the export is found missing.
+	template <typename Fn>
+	class CachedExport
+	{
+	public:
+		constexpr explicit CachedExport(const char* exportName, const char* missingLog = nullptr) noexcept
+			: m_name(exportName), m_missingLog(missingLog)
+		{
+		}
+
+		Fn Get() noexcept
+		{
+			const HMODULE module = GetModule();
+			if (!m_resolved || module != m_module)
+			{
+				m_resolved = true;
+				m_module = module;
+				m_fn = module != nullptr && m_name != nullptr
+					? reinterpret_cast<Fn>(GetProcAddress(module, m_name))
+					: nullptr;
+				if (m_fn == nullptr && m_missingLog != nullptr && !m_loggedMissing)
+				{
+					m_loggedMissing = true;
+					Logging::LogMessage("%s", m_missingLog);
+				}
+			}
+			return m_fn;
+		}
+
+	private:
+		const char* m_name;
+		const char* m_missingLog;
+		HMODULE m_module = nullptr;
+		Fn m_fn = nullptr;
+		bool m_resolved = false;
+		bool m_loggedMissing = false;
+	};
 
 	using ResolveLocalFirstPersonEntityFn = std::int32_t (__cdecl*)(
 		void** outEntity, std::uint64_t* outGeneration);
