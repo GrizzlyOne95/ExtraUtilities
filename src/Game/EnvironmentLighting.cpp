@@ -17,6 +17,7 @@
 */
 
 #include "EnvironmentInternal.h"
+#include "Util/SehGuard.h"
 
 // Fog, gravity, sun (ambient, diffuse, specular, direction, power, shadow
 // distance) and time of day: the guarded engine calls and their bindings.
@@ -57,7 +58,7 @@ namespace ExtraUtilities::Lua::Environment
 			&& (timeOfDay % 100) < 60;
 	}
 
-	bool TryGetSunAmbientColor(void* sceneManager, Ogre::Color& outColor)
+	bool TryGetSunAmbientColorSeh(void* sceneManager, Ogre::Color& outColor)
 	{
 		__try
 		{
@@ -68,28 +69,38 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::GetSunAmbient] crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 			return false;
 		}
 	}
 
-	bool TrySetSunAmbientColor(void* sceneManager, const Ogre::Color& color)
+	bool TryGetSunAmbientColor(void* sceneManager, Ogre::Color& outColor)
+	{
+		return Seh::CatchCpp("TryGetSunAmbientColor", [&] { return TryGetSunAmbientColorSeh(sceneManager, outColor); }, false);
+	}
+
+	bool TrySetSunAmbientColorSeh(void* sceneManager, const Ogre::Color& color)
 	{
 		__try
 		{
 			Ogre::SetAmbientLight(sceneManager, const_cast<Ogre::Color*>(&color));
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::SetSunAmbient] crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 			return false;
 		}
 	}
 
-	bool TryGetSunDiffuseColor(void* terrainMasterLight, Ogre::Color& outColor)
+	bool TrySetSunAmbientColor(void* sceneManager, const Ogre::Color& color)
+	{
+		return Seh::CatchCpp("TrySetSunAmbientColor", [&] { return TrySetSunAmbientColorSeh(sceneManager, color); }, false);
+	}
+
+	bool TryGetSunDiffuseColorSeh(void* terrainMasterLight, Ogre::Color& outColor)
 	{
 		__try
 		{
@@ -100,28 +111,38 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::GetSunDiffuse] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
 			return false;
 		}
 	}
 
-	bool TrySetSunDiffuseColor(void* terrainMasterLight, const Ogre::Color& color)
+	bool TryGetSunDiffuseColor(void* terrainMasterLight, Ogre::Color& outColor)
+	{
+		return Seh::CatchCpp("TryGetSunDiffuseColor", [&] { return TryGetSunDiffuseColorSeh(terrainMasterLight, outColor); }, false);
+	}
+
+	bool TrySetSunDiffuseColorSeh(void* terrainMasterLight, const Ogre::Color& color)
 	{
 		__try
 		{
 			Ogre::SetDiffuseColor(terrainMasterLight, color.r, color.g, color.b);
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::SetSunDiffuse] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
 			return false;
 		}
 	}
 
-	bool TryGetSunSpecularColor(void* terrainMasterLight, Ogre::Color& outColor)
+	bool TrySetSunDiffuseColor(void* terrainMasterLight, const Ogre::Color& color)
+	{
+		return Seh::CatchCpp("TrySetSunDiffuseColor", [&] { return TrySetSunDiffuseColorSeh(terrainMasterLight, color); }, false);
+	}
+
+	bool TryGetSunSpecularColorSeh(void* terrainMasterLight, Ogre::Color& outColor)
 	{
 		__try
 		{
@@ -132,28 +153,38 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::GetSunSpecular] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
 			return false;
 		}
 	}
 
-	bool TrySetSunSpecularColor(void* terrainMasterLight, const Ogre::Color& color)
+	bool TryGetSunSpecularColor(void* terrainMasterLight, Ogre::Color& outColor)
+	{
+		return Seh::CatchCpp("TryGetSunSpecularColor", [&] { return TryGetSunSpecularColorSeh(terrainMasterLight, outColor); }, false);
+	}
+
+	bool TrySetSunSpecularColorSeh(void* terrainMasterLight, const Ogre::Color& color)
 	{
 		__try
 		{
 			Ogre::SetSpecularColor(terrainMasterLight, color.r, color.g, color.b);
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::SetSunSpecular] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
 			return false;
 		}
 	}
 
-	bool TryGetSunDirection(void* terrainMasterLight, BZR::VECTOR_3D& outDirection)
+	bool TrySetSunSpecularColor(void* terrainMasterLight, const Ogre::Color& color)
+	{
+		return Seh::CatchCpp("TrySetSunSpecularColor", [&] { return TrySetSunSpecularColorSeh(terrainMasterLight, color); }, false);
+	}
+
+	bool TryGetSunDirectionSeh(void* terrainMasterLight, BZR::VECTOR_3D& outDirection)
 	{
 		__try
 		{
@@ -164,28 +195,38 @@ namespace ExtraUtilities::Lua::Environment
 			}
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::GetSunDirection] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
 			return false;
 		}
 	}
 
-	bool TrySetSunDirection(void* terrainMasterLight, const BZR::VECTOR_3D& direction)
+	bool TryGetSunDirection(void* terrainMasterLight, BZR::VECTOR_3D& outDirection)
+	{
+		return Seh::CatchCpp("TryGetSunDirection", [&] { return TryGetSunDirectionSeh(terrainMasterLight, outDirection); }, false);
+	}
+
+	bool TrySetSunDirectionSeh(void* terrainMasterLight, const BZR::VECTOR_3D& direction)
 	{
 		__try
 		{
 			Ogre::SetDirection(terrainMasterLight, direction.x, direction.y, direction.z);
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::SetSunDirection] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
 			return false;
 		}
 	}
 
-	bool TryGetFog(void* sceneManager, Ogre::Fog& outFog)
+	bool TrySetSunDirection(void* terrainMasterLight, const BZR::VECTOR_3D& direction)
+	{
+		return Seh::CatchCpp("TrySetSunDirection", [&] { return TrySetSunDirectionSeh(terrainMasterLight, direction); }, false);
+	}
+
+	bool TryGetFogSeh(void* sceneManager, Ogre::Fog& outFog)
 	{
 		if (!Ogre::GetFogColour || !Ogre::GetFogStart || !Ogre::GetFogEnd)
 		{
@@ -206,16 +247,21 @@ namespace ExtraUtilities::Lua::Environment
 			outFog.ending = Ogre::GetFogEnd(sceneManager);
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::GetFog] crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 			return false;
 		}
 	}
 
+	bool TryGetFog(void* sceneManager, Ogre::Fog& outFog)
+	{
+		return Seh::CatchCpp("TryGetFog", [&] { return TryGetFogSeh(sceneManager, outFog); }, false);
+	}
+
 	// Keeps the scene's fog mode, density and colour alpha; changes colour
 	// and linear range, as the old direct write did.
-	bool TrySetFog(void* sceneManager, const Ogre::Fog& fog)
+	bool TrySetFogSeh(void* sceneManager, const Ogre::Fog& fog)
 	{
 		if (!Ogre::GetFogColour || !Ogre::GetFogMode || !Ogre::GetFogDensity || !Ogre::SetFog)
 		{
@@ -235,14 +281,19 @@ namespace ExtraUtilities::Lua::Environment
 				fog.ending);
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::SetFog] crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 			return false;
 		}
 	}
 
-	bool TrySetNativeTimeOfDay(int timeOfDay)
+	bool TrySetFog(void* sceneManager, const Ogre::Fog& fog)
+	{
+		return Seh::CatchCpp("TrySetFog", [&] { return TrySetFogSeh(sceneManager, fog); }, false);
+	}
+
+	bool TrySetNativeTimeOfDaySeh(int timeOfDay)
 	{
 		if (!RuntimeGate::IsSupported())
 		{
@@ -255,14 +306,19 @@ namespace ExtraUtilities::Lua::Environment
 			BZR::Environment::SetTimeOfDay(timeOfDay / 100);
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::SetTimeOfDay] crashed timeOfDay=%d code=0x%08X", timeOfDay, GetExceptionCode());
 			return false;
 		}
 	}
 
-	bool TryRefreshTerrainMasterLight()
+	bool TrySetNativeTimeOfDay(int timeOfDay)
+	{
+		return Seh::CatchCpp("TrySetNativeTimeOfDay", [&] { return TrySetNativeTimeOfDaySeh(timeOfDay); }, false);
+	}
+
+	bool TryRefreshTerrainMasterLightSeh()
 	{
 		if (!RuntimeGate::IsSupported())
 		{
@@ -274,21 +330,26 @@ namespace ExtraUtilities::Lua::Environment
 			BZR::Environment::RefreshTerrainMasterLight();
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::SetTimeOfDay] refresh crashed code=0x%08X", GetExceptionCode());
 			return false;
 		}
 	}
 
-	bool TryGetSunPowerScale(void* terrainMasterLight, float& outValue)
+	bool TryRefreshTerrainMasterLight()
+	{
+		return Seh::CatchCpp("TryRefreshTerrainMasterLight", [&] { return TryRefreshTerrainMasterLightSeh(); }, false);
+	}
+
+	bool TryGetSunPowerScaleSeh(void* terrainMasterLight, float& outValue)
 	{
 		__try
 		{
 			outValue = Ogre::GetPowerScale(terrainMasterLight);
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::GetSunPowerScale] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
 			outValue = 0.0f;
@@ -296,28 +357,38 @@ namespace ExtraUtilities::Lua::Environment
 		}
 	}
 
-	bool TrySetSunPowerScale(void* terrainMasterLight, float value)
+	bool TryGetSunPowerScale(void* terrainMasterLight, float& outValue)
+	{
+		return Seh::CatchCpp("TryGetSunPowerScale", [&] { return TryGetSunPowerScaleSeh(terrainMasterLight, outValue); }, [&] { outValue = 0.0f; return false; });
+	}
+
+	bool TrySetSunPowerScaleSeh(void* terrainMasterLight, float value)
 	{
 		__try
 		{
 			Ogre::SetPowerScale(terrainMasterLight, value);
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::SetSunPowerScale] crashed terrainMasterLight=%p value=%g code=0x%08X", terrainMasterLight, value, GetExceptionCode());
 			return false;
 		}
 	}
 
-	bool TryGetSunShadowFarDistance(void* terrainMasterLight, float& outValue)
+	bool TrySetSunPowerScale(void* terrainMasterLight, float value)
+	{
+		return Seh::CatchCpp("TrySetSunPowerScale", [&] { return TrySetSunPowerScaleSeh(terrainMasterLight, value); }, false);
+	}
+
+	bool TryGetSunShadowFarDistanceSeh(void* terrainMasterLight, float& outValue)
 	{
 		__try
 		{
 			outValue = Ogre::GetShadowFarDistance(terrainMasterLight);
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::GetSunShadowFarDistance] crashed terrainMasterLight=%p code=0x%08X", terrainMasterLight, GetExceptionCode());
 			outValue = 0.0f;
@@ -325,18 +396,28 @@ namespace ExtraUtilities::Lua::Environment
 		}
 	}
 
-	bool TrySetSunShadowFarDistance(void* terrainMasterLight, float value)
+	bool TryGetSunShadowFarDistance(void* terrainMasterLight, float& outValue)
+	{
+		return Seh::CatchCpp("TryGetSunShadowFarDistance", [&] { return TryGetSunShadowFarDistanceSeh(terrainMasterLight, outValue); }, [&] { outValue = 0.0f; return false; });
+	}
+
+	bool TrySetSunShadowFarDistanceSeh(void* terrainMasterLight, float value)
 	{
 		__try
 		{
 			Ogre::SetShadowFarDistance(terrainMasterLight, value);
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::SetSunShadowFarDistance] crashed terrainMasterLight=%p value=%g code=0x%08X", terrainMasterLight, value, GetExceptionCode());
 			return false;
 		}
+	}
+
+	bool TrySetSunShadowFarDistance(void* terrainMasterLight, float value)
+	{
+		return Seh::CatchCpp("TrySetSunShadowFarDistance", [&] { return TrySetSunShadowFarDistanceSeh(terrainMasterLight, value); }, false);
 	}
 
 	int GetGravity(lua_State* L)

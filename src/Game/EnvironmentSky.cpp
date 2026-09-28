@@ -17,6 +17,7 @@
 */
 
 #include "EnvironmentInternal.h"
+#include "Util/SehGuard.h"
 
 // Sky box, dome and plane: parameter reads, enable toggles, setters and
 // their bindings.
@@ -25,14 +26,14 @@ namespace ExtraUtilities::Lua::Environment
 {
 	using SkyNodeGetter = void*(*)(void*);
 
-	bool TryHasSkyNode(void* sceneManager, SkyNodeGetter getter, bool& outHasNode, const char* label)
+	bool TryHasSkyNodeSeh(void* sceneManager, SkyNodeGetter getter, bool& outHasNode, const char* label)
 	{
 		__try
 		{
 			outHasNode = getter(sceneManager) != nullptr;
 			return true;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::Sky] %s node probe crashed sceneManager=%p code=0x%08X", label, sceneManager, GetExceptionCode());
 			outHasNode = false;
@@ -40,46 +41,66 @@ namespace ExtraUtilities::Lua::Environment
 		}
 	}
 
-	bool TryGetSkyBoxGenParameters(void* sceneManager, Ogre::SkyBoxGenParameters& outParams)
+	bool TryHasSkyNode(void* sceneManager, SkyNodeGetter getter, bool& outHasNode, const char* label)
+	{
+		return Seh::CatchCpp("TryHasSkyNode", [&] { return TryHasSkyNodeSeh(sceneManager, getter, outHasNode, label); }, [&] { outHasNode = false; return false; });
+	}
+
+	bool TryGetSkyBoxGenParametersSeh(void* sceneManager, Ogre::SkyBoxGenParameters& outParams)
 	{
 		__try
 		{
 			return Ogre::GetSkyBoxGenParameters(sceneManager, outParams);
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::Sky] get skybox params crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 			return false;
 		}
 	}
 
-	bool TryGetSkyDomeGenParameters(void* sceneManager, Ogre::SkyDomeGenParameters& outParams)
+	bool TryGetSkyBoxGenParameters(void* sceneManager, Ogre::SkyBoxGenParameters& outParams)
+	{
+		return Seh::CatchCpp("TryGetSkyBoxGenParameters", [&] { return TryGetSkyBoxGenParametersSeh(sceneManager, outParams); }, false);
+	}
+
+	bool TryGetSkyDomeGenParametersSeh(void* sceneManager, Ogre::SkyDomeGenParameters& outParams)
 	{
 		__try
 		{
 			return Ogre::GetSkyDomeGenParameters(sceneManager, outParams);
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogEnvironmentFault("[EXU::Sky] get skydome params crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 			return false;
 		}
 	}
 
-		bool TryGetSkyPlaneGenParameters(void* sceneManager, Ogre::SkyPlaneGenParameters& outParams)
+	bool TryGetSkyDomeGenParameters(void* sceneManager, Ogre::SkyDomeGenParameters& outParams)
+	{
+		return Seh::CatchCpp("TryGetSkyDomeGenParameters", [&] { return TryGetSkyDomeGenParametersSeh(sceneManager, outParams); }, false);
+	}
+
+		bool TryGetSkyPlaneGenParametersSeh(void* sceneManager, Ogre::SkyPlaneGenParameters& outParams)
 		{
 			__try
 			{
 				return Ogre::GetSkyPlaneGenParameters(sceneManager, outParams);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Sky] get skyplane params crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TryGetSkyEnabled(void* sceneManager, IsSkyEnabledFn fn, bool& outEnabled, const char* label)
+		bool TryGetSkyPlaneGenParameters(void* sceneManager, Ogre::SkyPlaneGenParameters& outParams)
+		{
+			return Seh::CatchCpp("TryGetSkyPlaneGenParameters", [&] { return TryGetSkyPlaneGenParametersSeh(sceneManager, outParams); }, false);
+		}
+
+		bool TryGetSkyEnabledSeh(void* sceneManager, IsSkyEnabledFn fn, bool& outEnabled, const char* label)
 		{
 			outEnabled = false;
 			if (sceneManager == nullptr || fn == nullptr)
@@ -92,14 +113,19 @@ namespace ExtraUtilities::Lua::Environment
 				outEnabled = fn(sceneManager);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Sky] %s enabled probe crashed sceneManager=%p code=0x%08X", label, sceneManager, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetSkyEnabled(void* sceneManager, SetSkyEnabledFn fn, bool enabled, const char* label)
+		bool TryGetSkyEnabled(void* sceneManager, IsSkyEnabledFn fn, bool& outEnabled, const char* label)
+		{
+			return Seh::CatchCpp("TryGetSkyEnabled", [&] { return TryGetSkyEnabledSeh(sceneManager, fn, outEnabled, label); }, false);
+		}
+
+		bool TrySetSkyEnabledSeh(void* sceneManager, SetSkyEnabledFn fn, bool enabled, const char* label)
 		{
 			if (sceneManager == nullptr || fn == nullptr)
 			{
@@ -111,14 +137,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(sceneManager, enabled);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Sky] %s enabled setter crashed sceneManager=%p enabled=%d code=0x%08X", label, sceneManager, enabled ? 1 : 0, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetSkyBox(void* sceneManager, const std::string& materialName, float distance, bool drawFirst, const std::string& resourceGroup)
+		bool TrySetSkyEnabled(void* sceneManager, SetSkyEnabledFn fn, bool enabled, const char* label)
+		{
+			return Seh::CatchCpp("TrySetSkyEnabled", [&] { return TrySetSkyEnabledSeh(sceneManager, fn, enabled, label); }, false);
+		}
+
+		bool TrySetSkyBoxSeh(void* sceneManager, const std::string& materialName, float distance, bool drawFirst, const std::string& resourceGroup)
 		{
 			const auto fn = ResolveSetSkyBox();
 			if (sceneManager == nullptr || fn == nullptr)
@@ -132,7 +163,7 @@ namespace ExtraUtilities::Lua::Environment
 				fn(sceneManager, true, materialName, distance, drawFirst, identity, resourceGroup);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault(
 					"[EXU::Sky] setSkyBox crashed sceneManager=%p material=%s distance=%g drawFirst=%d group=%s code=0x%08X",
@@ -146,7 +177,12 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 
-		bool TrySetSkyDome(
+		bool TrySetSkyBox(void* sceneManager, const std::string& materialName, float distance, bool drawFirst, const std::string& resourceGroup)
+		{
+			return Seh::CatchCpp("TrySetSkyBox", [&] { return TrySetSkyBoxSeh(sceneManager, materialName, distance, drawFirst, resourceGroup); }, false);
+		}
+
+		bool TrySetSkyDomeSeh(
 			void* sceneManager,
 			const std::string& materialName,
 			float curvature,
@@ -170,7 +206,7 @@ namespace ExtraUtilities::Lua::Environment
 				fn(sceneManager, true, materialName, curvature, tiling, distance, drawFirst, identity, xsegments, ysegments, ysegmentsKeep, resourceGroup);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault(
 					"[EXU::Sky] setSkyDome crashed sceneManager=%p material=%s curvature=%g tiling=%g distance=%g drawFirst=%d group=%s code=0x%08X",
@@ -186,7 +222,22 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 
-		bool TrySetSkyPlane(
+		bool TrySetSkyDome(
+			void* sceneManager,
+			const std::string& materialName,
+			float curvature,
+			float tiling,
+			float distance,
+			bool drawFirst,
+			int xsegments,
+			int ysegments,
+			int ysegmentsKeep,
+			const std::string& resourceGroup)
+		{
+			return Seh::CatchCpp("TrySetSkyDome", [&] { return TrySetSkyDomeSeh(sceneManager, materialName, curvature, tiling, distance, drawFirst, xsegments, ysegments, ysegmentsKeep, resourceGroup); }, false);
+		}
+
+		bool TrySetSkyPlaneSeh(
 			void* sceneManager,
 			const OgrePlaneValue& plane,
 			const std::string& materialName,
@@ -209,7 +260,7 @@ namespace ExtraUtilities::Lua::Environment
 				fn(sceneManager, true, plane, materialName, scale, tiling, drawFirst, bow, xsegments, ysegments, resourceGroup);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault(
 					"[EXU::Sky] setSkyPlane crashed sceneManager=%p material=%s scale=%g tiling=%g drawFirst=%d bow=%g group=%s code=0x%08X",
@@ -223,6 +274,21 @@ namespace ExtraUtilities::Lua::Environment
 					GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TrySetSkyPlane(
+			void* sceneManager,
+			const OgrePlaneValue& plane,
+			const std::string& materialName,
+			float scale,
+			float tiling,
+			bool drawFirst,
+			float bow,
+			int xsegments,
+			int ysegments,
+			const std::string& resourceGroup)
+		{
+			return Seh::CatchCpp("TrySetSkyPlane", [&] { return TrySetSkyPlaneSeh(sceneManager, plane, materialName, scale, tiling, drawFirst, bow, xsegments, ysegments, resourceGroup); }, false);
 		}
 
 		bool TryReadSkyPlane(lua_State* L, int idx, OgrePlaneValue& outPlane)

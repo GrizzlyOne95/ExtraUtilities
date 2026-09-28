@@ -17,6 +17,7 @@
 */
 
 #include "EnvironmentInternal.h"
+#include "Util/SehGuard.h"
 
 // Scene diagnostics: bounding boxes, debug shadows, viewport shadow and
 // overlay toggles, and the scene visibility mask.
@@ -35,14 +36,10 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		bool enabled = false;
-		__try
-		{
-			enabled = Ogre::GetShowBoundingBoxes(sceneManager);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-			LogEnvironmentFault("[EXU::Scene] getShowBoundingBoxes crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
-		}
+		Seh::Guard(
+			"GetShowBoundingBoxes",
+			[&] { enabled = Ogre::GetShowBoundingBoxes(sceneManager); },
+			[&](unsigned long exceptionCode) { LogEnvironmentFault("[EXU::Scene] getShowBoundingBoxes crashed sceneManager=%p code=0x%08X", sceneManager, exceptionCode); });
 
 		lua_pushboolean(L, enabled ? 1 : 0);
 		return 1;
@@ -59,14 +56,10 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		bool enabled = CheckBool(L, 1);
-		__try
-		{
-			Ogre::ShowBoundingBoxes(sceneManager, enabled);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-			LogEnvironmentFault("[EXU::Scene] showBoundingBoxes crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
-		}
+		Seh::Guard(
+			"SetShowBoundingBoxes",
+			[&] { Ogre::ShowBoundingBoxes(sceneManager, enabled); },
+			[&](unsigned long exceptionCode) { LogEnvironmentFault("[EXU::Scene] showBoundingBoxes crashed sceneManager=%p code=0x%08X", sceneManager, exceptionCode); });
 
 		return 0;
 	}
@@ -83,14 +76,10 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		bool enabled = false;
-		__try
-		{
-			enabled = Ogre::GetShowDebugShadows(sceneManager);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-			LogEnvironmentFault("[EXU::Scene] getShowDebugShadows crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
-		}
+		Seh::Guard(
+			"GetShowDebugShadows",
+			[&] { enabled = Ogre::GetShowDebugShadows(sceneManager); },
+			[&](unsigned long exceptionCode) { LogEnvironmentFault("[EXU::Scene] getShowDebugShadows crashed sceneManager=%p code=0x%08X", sceneManager, exceptionCode); });
 
 		lua_pushboolean(L, enabled ? 1 : 0);
 		return 1;
@@ -107,14 +96,10 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		bool enabled = CheckBool(L, 1);
-		__try
-		{
-			Ogre::SetShowDebugShadows(sceneManager, enabled);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-			LogEnvironmentFault("[EXU::Scene] setShowDebugShadows crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
-		}
+		Seh::Guard(
+			"SetShowDebugShadows",
+			[&] { Ogre::SetShowDebugShadows(sceneManager, enabled); },
+			[&](unsigned long exceptionCode) { LogEnvironmentFault("[EXU::Scene] setShowDebugShadows crashed sceneManager=%p code=0x%08X", sceneManager, exceptionCode); });
 
 		return 0;
 	}
@@ -131,14 +116,10 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		bool enabled = false;
-		__try
-		{
-			enabled = Ogre::GetViewportShadowsEnabled(viewport);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-			LogEnvironmentFault("[EXU::Viewport] getShadowsEnabled crashed viewport=%p code=0x%08X", viewport, GetExceptionCode());
-		}
+		Seh::Guard(
+			"GetViewportShadowsEnabled",
+			[&] { enabled = Ogre::GetViewportShadowsEnabled(viewport); },
+			[&](unsigned long exceptionCode) { LogEnvironmentFault("[EXU::Viewport] getShadowsEnabled crashed viewport=%p code=0x%08X", viewport, exceptionCode); });
 
 		lua_pushboolean(L, enabled ? 1 : 0);
 		return 1;
@@ -155,14 +136,10 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		bool enabled = CheckBool(L, 1);
-		__try
-		{
-			Ogre::SetViewportShadowsEnabled(viewport, enabled);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-			LogEnvironmentFault("[EXU::Viewport] setShadowsEnabled crashed viewport=%p code=0x%08X", viewport, GetExceptionCode());
-		}
+		Seh::Guard(
+			"SetViewportShadowsEnabled",
+			[&] { Ogre::SetViewportShadowsEnabled(viewport, enabled); },
+			[&](unsigned long exceptionCode) { LogEnvironmentFault("[EXU::Viewport] setShadowsEnabled crashed viewport=%p code=0x%08X", viewport, exceptionCode); });
 
 		return 0;
 	}
@@ -213,13 +190,11 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		uint32_t mask = 0;
-		__try
+		if (!Seh::Guard(
+				"GetSceneVisibilityMask",
+				[&] { mask = Ogre::GetSceneVisibilityMask(sceneManager); },
+				[&](unsigned long exceptionCode) { LogEnvironmentFault("[EXU::Scene] getVisibilityMask crashed sceneManager=%p code=0x%08X", sceneManager, exceptionCode); }))
 		{
-			mask = Ogre::GetSceneVisibilityMask(sceneManager);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-			LogEnvironmentFault("[EXU::Scene] getVisibilityMask crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 			lua_pushnil(L);
 			return 1;
 		}
@@ -239,14 +214,10 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		uint32_t mask = static_cast<uint32_t>(luaL_checkinteger(L, 1));
-		__try
-		{
-			Ogre::SetSceneVisibilityMask(sceneManager, mask);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-			LogEnvironmentFault("[EXU::Scene] setVisibilityMask crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
-		}
+		Seh::Guard(
+			"SetSceneVisibilityMask",
+			[&] { Ogre::SetSceneVisibilityMask(sceneManager, mask); },
+			[&](unsigned long exceptionCode) { LogEnvironmentFault("[EXU::Scene] setVisibilityMask crashed sceneManager=%p code=0x%08X", sceneManager, exceptionCode); });
 
 		return 0;
 	}

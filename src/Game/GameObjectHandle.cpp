@@ -17,6 +17,7 @@
 */
 
 #include "GameObjectInternal.h"
+#include "Util/SehGuard.h"
 
 // Raw GameObject memory probes: readable-pointer checks, field reads and
 // handle validation (a handle is live only when GetHandle(obj) returns it).
@@ -39,7 +40,7 @@ namespace ExtraUtilities::Lua::GameObject
 				outPointer = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(base) + offset);
 				return outPointer != nullptr;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outPointer = nullptr;
 				return false;
@@ -60,7 +61,7 @@ namespace ExtraUtilities::Lua::GameObject
 				outValue = *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(base) + offset);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outValue = 0;
 				return false;
@@ -100,7 +101,7 @@ namespace ExtraUtilities::Lua::GameObject
 			return true;
 		}
 
-		bool TryResolveHandleValue(uint32_t rawValue, BZR::handle& outHandle, BZR::GameObject*& outObject)
+		bool TryResolveHandleValueSeh(uint32_t rawValue, BZR::handle& outHandle, BZR::GameObject*& outObject)
 		{
 			outHandle = 0;
 			outObject = nullptr;
@@ -128,7 +129,7 @@ namespace ExtraUtilities::Lua::GameObject
 				outObject = obj;
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outHandle = 0;
 				outObject = nullptr;
@@ -136,7 +137,12 @@ namespace ExtraUtilities::Lua::GameObject
 			}
 		}
 
-		bool TryGetHandleFromObject(BZR::GameObject* obj, BZR::handle& outHandle)
+		bool TryResolveHandleValue(uint32_t rawValue, BZR::handle& outHandle, BZR::GameObject*& outObject)
+		{
+			return Seh::CatchCpp("TryResolveHandleValue", [&] { return TryResolveHandleValueSeh(rawValue, outHandle, outObject); }, [&] { outHandle = 0; outObject = nullptr; return false; });
+		}
+
+		bool TryGetHandleFromObjectSeh(BZR::GameObject* obj, BZR::handle& outHandle)
 		{
 			outHandle = 0;
 			if (obj == nullptr)
@@ -149,11 +155,16 @@ namespace ExtraUtilities::Lua::GameObject
 				outHandle = BZR::GameObject::GetHandle(obj);
 				return outHandle != 0;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outHandle = 0;
 				return false;
 			}
+		}
+
+		bool TryGetHandleFromObject(BZR::GameObject* obj, BZR::handle& outHandle)
+		{
+			return Seh::CatchCpp("TryGetHandleFromObject", [&] { return TryGetHandleFromObjectSeh(obj, outHandle); }, [&] { outHandle = 0; return false; });
 		}
 	}
 }

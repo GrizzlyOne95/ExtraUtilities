@@ -17,6 +17,7 @@
 */
 
 #include "GameObjectInternal.h"
+#include "Util/SehGuard.h"
 
 // AI process and task inspection: MSVC RTTI walking, polymorphic child and
 // aligned-field scans, and the GetAi*/SetAiTaskState bindings.
@@ -128,7 +129,7 @@ namespace ExtraUtilities::Lua::GameObject
 				outName.assign(rawName, length);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outName.clear();
 				return false;
@@ -220,7 +221,7 @@ namespace ExtraUtilities::Lua::GameObject
 					{
 						(void)classDescriptor->numBaseClasses;
 					}
-					__except (EXCEPTION_EXECUTE_HANDLER)
+					__except (Seh::Filter(GetExceptionCode()))
 					{
 						classDescriptor = nullptr;
 					}
@@ -229,7 +230,7 @@ namespace ExtraUtilities::Lua::GameObject
 				outVtable = vtable;
 				outClassDescriptor = classDescriptor;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outVtable = nullptr;
 				outRawTypeName.clear();
@@ -280,7 +281,7 @@ namespace ExtraUtilities::Lua::GameObject
 					return false;
 				}
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outRawTypeName.clear();
 				return false;
@@ -315,7 +316,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 				return outCount != 0;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outCount = 0;
 				return false;
@@ -830,23 +831,22 @@ namespace ExtraUtilities::Lua::GameObject
 	int GetAiProcess(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
-		__try
+		void* aiProcess = nullptr;
+		Seh::Guard(
+			"GetAiProcess",
+			[&] {
+				BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+				aiProcess = obj != nullptr ? obj->aiProcess : nullptr;
+			},
+			[&](unsigned long exceptionCode) { LogMaterialFault("[EXU::GetAiProcess] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), exceptionCode); });
+
+		if (aiProcess == nullptr)
 		{
-			BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-			void* aiProcess = obj != nullptr ? obj->aiProcess : nullptr;
-			if (aiProcess == nullptr)
-			{
-				lua_pushnil(L);
-			}
-			else
-			{
-				lua_pushlightuserdata(L, aiProcess);
-			}
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-			LogMaterialFault("[EXU::GetAiProcess] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
 			lua_pushnil(L);
+		}
+		else
+		{
+			lua_pushlightuserdata(L, aiProcess);
 		}
 		return 1;
 	}
@@ -1217,7 +1217,7 @@ namespace ExtraUtilities::Lua::GameObject
 				if (request.hasGotoDir) task->gotoDir = request.gotoDir;
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return false;
 			}

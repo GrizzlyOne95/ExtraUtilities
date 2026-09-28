@@ -27,6 +27,7 @@
 #include "Ogre/Ogre.h"
 #include "Ogre/OgreOverlayShim.h"
 #include "Game/game_state.h"
+#include "Util/SehGuard.h"
 
 #include <Windows.h>
 
@@ -50,7 +51,7 @@ namespace ExtraUtilities::Lua::Overlay
 	{
 		::Ogre::OverlayManager* GetOverlayManager();
 
-		::Ogre::Overlay* FindOverlay(const std::string& name)
+		::Ogre::Overlay* FindOverlaySeh(const std::string& name)
 		{
 			::Ogre::OverlayManager* manager = GetOverlayManager();
 			if (manager == nullptr)
@@ -62,13 +63,18 @@ namespace ExtraUtilities::Lua::Overlay
 			{
 				return manager->getByName(name);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return nullptr;
 			}
 		}
 
-		::Ogre::OverlayElement* FindOverlayElement(const std::string& name)
+		::Ogre::Overlay* FindOverlay(const std::string& name)
+		{
+			return Seh::CatchCpp("FindOverlay", [&] { return FindOverlaySeh(name); }, nullptr);
+		}
+
+		::Ogre::OverlayElement* FindOverlayElementSeh(const std::string& name)
 		{
 			::Ogre::OverlayManager* manager = GetOverlayManager();
 			if (manager == nullptr)
@@ -84,10 +90,15 @@ namespace ExtraUtilities::Lua::Overlay
 				}
 				return manager->getOverlayElement(name, false);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return nullptr;
 			}
+		}
+
+		::Ogre::OverlayElement* FindOverlayElement(const std::string& name)
+		{
+			return Seh::CatchCpp("FindOverlayElement", [&] { return FindOverlayElementSeh(name); }, nullptr);
 		}
 
 		::Ogre::OverlayContainer* FindOverlayContainer(const std::string& name)
@@ -245,7 +256,7 @@ namespace ExtraUtilities::Lua::Overlay
 			overlayRuntimeFontScriptPath.clear();
 		}
 
-		bool TryDestroyOverlayByName(::Ogre::OverlayManager* manager, const std::string& name, bool& outDestroyed)
+		bool TryDestroyOverlayByNameSeh(::Ogre::OverlayManager* manager, const std::string& name, bool& outDestroyed)
 		{
 			outDestroyed = false;
 			if (manager == nullptr)
@@ -264,14 +275,19 @@ namespace ExtraUtilities::Lua::Overlay
 				outDestroyed = true;
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				Logging::LogMessage("[EXU::Overlay] destroy overlay crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TryDestroyOverlayElementByName(::Ogre::OverlayManager* manager, const std::string& name, bool& outDestroyed)
+		bool TryDestroyOverlayByName(::Ogre::OverlayManager* manager, const std::string& name, bool& outDestroyed)
+		{
+			return Seh::CatchCpp("TryDestroyOverlayByName", [&] { return TryDestroyOverlayByNameSeh(manager, name, outDestroyed); }, false);
+		}
+
+		bool TryDestroyOverlayElementByNameSeh(::Ogre::OverlayManager* manager, const std::string& name, bool& outDestroyed)
 		{
 			outDestroyed = false;
 			if (manager == nullptr)
@@ -290,11 +306,16 @@ namespace ExtraUtilities::Lua::Overlay
 				outDestroyed = true;
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				Logging::LogMessage("[EXU::Overlay] destroy overlay element crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TryDestroyOverlayElementByName(::Ogre::OverlayManager* manager, const std::string& name, bool& outDestroyed)
+		{
+			return Seh::CatchCpp("TryDestroyOverlayElementByName", [&] { return TryDestroyOverlayElementByNameSeh(manager, name, outDestroyed); }, false);
 		}
 
 		bool ResetOverlaySupportInternal(const char* reason)

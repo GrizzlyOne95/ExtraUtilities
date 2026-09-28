@@ -19,6 +19,7 @@
 #include "OgreNativeFontBridge.h"
 
 #include "Util/Logging.h"
+#include "Util/SehGuard.h"
 
 #include <cstdarg>
 #include <cstdio>
@@ -53,7 +54,6 @@
 
 namespace
 {
-	constexpr unsigned int kCppExceptionCode = 0xE06D7363u;
 	const char* const kAutodetectResourceGroupName = "Autodetect";
 
 	void LogNativeOverlayMessage(const char* format, ...)
@@ -139,12 +139,6 @@ namespace
 		unsigned int refWidth;
 		unsigned int refHeight;
 	};
-
-	int HandleNativeOverlayException(unsigned int exceptionCode, unsigned int& outExceptionCode)
-	{
-		outExceptionCode = exceptionCode;
-		return exceptionCode == kCppExceptionCode ? EXCEPTION_CONTINUE_SEARCH : EXCEPTION_EXECUTE_HANDLER;
-	}
 
 	bool TryParseSpriteGlyphLine(const std::string& line, SpriteGlyph& outGlyph)
 	{
@@ -329,7 +323,7 @@ namespace
 		{
 			return ClearResourceGroupCpp(groupName);
 		}
-		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
+		__except (ExtraUtilities::Seh::Filter(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -356,7 +350,7 @@ namespace
 		{
 			return ParseFontScriptCpp(scriptName, groupName);
 		}
-		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
+		__except (ExtraUtilities::Seh::Filter(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -387,7 +381,7 @@ namespace
 			outHasFont = HasFontResourceCpp(fontName, groupName);
 			return true;
 		}
-		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
+		__except (ExtraUtilities::Seh::Filter(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -431,7 +425,7 @@ namespace
 			outFont = GetOrCreateFontCpp(manager, fontName, groupName);
 			return true;
 		}
-		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
+		__except (ExtraUtilities::Seh::Filter(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -465,7 +459,7 @@ namespace
 			QueryTextureVisibilityCpp(resourceGroups, groupName, textureName, outVisibleInGroup, outVisibleAnywhere);
 			return true;
 		}
-		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
+		__except (ExtraUtilities::Seh::Filter(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -509,7 +503,7 @@ namespace
 		{
 			return ConfigureTrueTypeFontCpp(font, sourceName, pointSize, resolution, firstCodePoint, lastCodePoint);
 		}
-		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
+		__except (ExtraUtilities::Seh::Filter(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -559,7 +553,7 @@ namespace
 		{
 			return ConfigureImageFontCpp(font, textureName, spriteTable, outGlyphCount);
 		}
-		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
+		__except (ExtraUtilities::Seh::Filter(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -626,7 +620,7 @@ namespace
 			SetTextAreaFontNameCpp(overlayElement, fontName);
 			return true;
 		}
-		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
+		__except (ExtraUtilities::Seh::Filter(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -640,7 +634,7 @@ namespace
 		{
 			return SetTextAreaCaptionDynamic(overlayElement, text);
 		}
-		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
+		__except (ExtraUtilities::Seh::Filter(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -654,7 +648,7 @@ namespace
 		{
 			return SetTextAreaCharHeightDynamic(overlayElement, charHeight);
 		}
-		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
+		__except (ExtraUtilities::Seh::Filter(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -668,7 +662,7 @@ namespace
 		{
 			return SetTextAreaColorDynamic(overlayElement, r, g, b, a);
 		}
-		__except (HandleNativeOverlayException(GetExceptionCode(), outExceptionCode))
+		__except (ExtraUtilities::Seh::Filter(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}

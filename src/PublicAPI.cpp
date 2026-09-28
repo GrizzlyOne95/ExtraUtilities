@@ -36,6 +36,7 @@
 #include "Game/Environment.h"
 #include "Game/StaticGeometry.h"
 #include "LuaState.h"
+#include "LuaCppBarrier.h"
 #include "OpenShimBridge.h"
 #include "UI/Overlay.h"
 #include "Util/PlayOption.h"
@@ -80,7 +81,7 @@ namespace ExtraUtilities::Lua
 			lua_newuserdata(L, 1);
 			if (luaL_newmetatable(L, kLifecycleMetatable) != 0)
 			{
-				lua_pushcfunction(L, LuaStateLifecycleGc);
+				lua_pushcfunction(L, &CppBarrier<&LuaStateLifecycleGc>);
 				lua_setfield(L, -2, "__gc");
 			}
 			lua_setmetatable(L, -2);

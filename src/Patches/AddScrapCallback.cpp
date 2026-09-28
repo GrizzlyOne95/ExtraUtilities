@@ -21,6 +21,7 @@
 #include "Hook.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
+#include "LuaCppBarrier.h"
 
 #include <string>
 
@@ -68,7 +69,7 @@ namespace ExtraUtilities::Patch
 
 		StackGuard guard(L);
 		AddScrapArgs args{ teamNumber, scrapAmount };
-		const int status = lua_cpcall(L, &ProtectedAddScrap, &args);
+		const int status = lua_cpcall(L, &Lua::CppBarrier<&ProtectedAddScrap>, &args);
 		if (status != 0)
 		{
 			LuaCheckStatus(status, L, "Extra Utilities AddScrap error:\n%s");

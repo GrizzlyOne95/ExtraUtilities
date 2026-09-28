@@ -24,6 +24,7 @@
 
 #include "LuaHelpers.h"
 #include "Util/StorageCodec.h"
+#include "LuaCppBarrier.h"
 
 #include <Windows.h>
 #include <lua.hpp>
@@ -655,7 +656,7 @@ namespace ExtraUtilities::Lua::StorageApi
 			{ "GetCapabilities", &GetCapabilities },
 			{ nullptr, nullptr },
 		};
-		luaL_register(L, nullptr, functions);
+		RegisterFunctions(L, nullptr, functions);
 		lua_setfield(L, -2, "storage");
 		lua_pop(L, 1);
 	}

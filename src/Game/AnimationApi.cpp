@@ -22,6 +22,7 @@
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
 #include "Util/Logging.h"
+#include "LuaCppBarrier.h"
 
 #include <lua.hpp>
 
@@ -499,7 +500,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 		};
 
 		lua_newtable(L);
-		luaL_register(L, nullptr, functions);
+		RegisterFunctions(L, nullptr, functions);
 		lua_setfield(L, -2, "animation");
 		lua_settop(L, originalTop);
 
