@@ -41,6 +41,11 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 
 	bool IsInstalled() noexcept;
 	bool IsActive() noexcept;
+
+	// Destroys the lazily allocated detour while BasicPatch's registry is still
+	// alive. Called explicitly from the Lua-state shutdown path.
+	void Shutdown() noexcept;
+
 	void ResetStats() noexcept;
 	void GetStats(Stats& outStats) noexcept;
 }
