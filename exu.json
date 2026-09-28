@@ -1074,7 +1074,7 @@
       "TurboPatchBegin": {
         "address": "0x00601C92",
         "type": "hook site (6 bytes)",
-        "description": "Start of the hovercraft AI turbo decision; GlobalTurbo's selective-turbo hook runs here.",
+        "description": "Start of the hovercraft AI turbo decision ('mov eax,[ebp-0x70]; fstp [eax+8]'). GlobalTurbo's data-gate hook runs the stolen instructions, then sets the two operand floats for this unit.",
         "pattern": "8B 45 90 D9 58 08",
         "pattern_kind": "code",
         "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
@@ -1082,25 +1082,18 @@
       "TurboToleranceOperand": {
         "address": "0x00601CA3",
         "type": "disp32 operand (float*)",
-        "description": "Memory operand of 'comiss xmm0, [0x008A2604]' at 0x00601CA0, the turbo tolerance comparison. GlobalTurbo points it at its own tolerance float.",
-        "pattern": null,
-        "note": "No pattern: the address is inside an instruction (operand of the comiss at 0x00601CA0). Turbo.TurboPatchBegin's signature covers it, and the InlinePatch expected bytes 04 26 8A 00 check the operand."
-      },
-      "TurboConditionBranch": {
-        "address": "0x00601CB5",
-        "type": "patch site (2-byte jbe)",
-        "description": "Final check that prevents turbo; GlobalTurbo NOPs it to force AI turbo.",
-        "pattern": "76 0C C7 85 78",
+        "description": "Memory operand of 'comiss xmm0, [0x008A2604]' (stock 1.0f) at 0x00601CA0, the throttle tolerance compare. GlobalTurbo points it once at a per-unit EXU float.",
+        "pattern": "04 26 8A 00 72 1A F3 0F 10 05",
         "pattern_kind": "code",
-        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+        "note": "Pattern starts at the operand (inside the comiss), verified unique in GOG 2.2.301 executable sections 2026-09-27. The InlinePatch expected bytes 04 26 8A 00 check the operand."
       },
-      "TurboPatchEnd": {
-        "address": "0x00601CCD",
-        "type": "hook site (9 bytes)",
-        "description": "Stores the turbo decision to [unit+0x10]; GlobalTurbo's end hook applies per-unit overrides.",
-        "pattern": "8B 55 90 8B 85 78",
+      "TurboGateOperand": {
+        "address": "0x00601CAD",
+        "type": "disp32 operand (float*)",
+        "description": "Memory operand of 'movss xmm0, [0x008A25C8]' (stock 0.8f) at 0x00601CA9, compared against [ebp-0x54] before the final 'jbe' that vetoes turbo. GlobalTurbo points it once at a per-unit EXU float.",
+        "pattern": "C8 25 8A 00 0F 2F 45 AC 76 0C",
         "pattern_kind": "code",
-        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+        "note": "Pattern starts at the operand (inside the movss), verified unique in GOG 2.2.301 executable sections 2026-09-27. The InlinePatch expected bytes C8 25 8A 00 check the operand."
       }
     }
   }

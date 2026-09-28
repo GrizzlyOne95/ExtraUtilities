@@ -19,6 +19,7 @@
 #include "BasicPatch.h"
 #include "Hook.h"
 #include "InlinePatch.h"
+#include "Patches/TurboGateThunk.h"
 #include "Scanner.h"
 #include "bzr.h"
 #include "Util/BuildValidation.h"
@@ -34,6 +35,92 @@
 #include <vector>
 
 using namespace ExtraUtilities;
+
+// Synthetic engine frame for the per-unit turbo hook (TurboGateThunk.h). The
+// driver builds the frame the hovercraft AI function has at the hook site,
+// leaves a float live in ST0, fills every register with a sentinel, and calls
+// the thunk the way the installed FF 15 does.
+static float g_probeControls[8] = {};
+static unsigned char g_probeOwner[16] = {};
+static void* g_probeTask[5] = { nullptr, nullptr, nullptr, nullptr, g_probeOwner }; // +0x10 = owner
+static float g_probeSt0 = 0.625f;
+static const void* g_probeThunkTarget = reinterpret_cast<const void*>(&ExtraUtilities::Patch::TurboGate::TurboDecisionBeginThunk);
+
+static void* g_probeSeenObject = nullptr;
+static uint16_t g_probeSeenTagWord = 0;
+static int g_probeCalls = 0;
+
+static uint32_t g_probeEax = 0, g_probeEbx = 0, g_probeEcx = 0, g_probeEdx = 0, g_probeEsi = 0, g_probeEdi = 0;
+static uint32_t g_probeFrameDepth = 0;
+static uint8_t g_probeCarry = 0;
+static unsigned char g_probeEnvAfter[28] = {};
+
+void __cdecl ExtraUtilities::Patch::TurboGate::OnTurboDecisionBegin(void* gameObject) noexcept
+{
+	// fnstenv masks x87 exceptions; fldenv puts the environment back.
+	unsigned char env[28];
+	__asm
+	{
+		fnstenv env
+		fldenv env
+	}
+	g_probeSeenTagWord = static_cast<uint16_t>(env[8] | (env[9] << 8)); // 0xFFFF: x87 stack empty
+	g_probeSeenObject = gameObject;
+	++g_probeCalls;
+
+	// A cdecl callee may clobber eax, ecx, edx and EFLAGS.
+	__asm
+	{
+		mov eax, 0xDEAD0001
+		mov ecx, 0xDEAD0002
+		mov edx, 0xDEAD0003
+		clc
+	}
+}
+
+static void __declspec(naked) DriveTurboThunk()
+{
+	__asm
+	{
+		pushad
+		push ebp
+		mov ebp, esp
+		sub esp, 0x80
+
+		lea eax, g_probeControls
+		mov [ebp - 0x70], eax
+		lea eax, g_probeTask
+		mov [ebp - 0x68], eax
+		fld dword ptr [g_probeSt0]
+
+		mov ebx, 0x0B0B0B0B
+		mov ecx, 0x1C1C1C1C
+		mov edx, 0x2D2D2D2D
+		mov esi, 0x3E3E3E3E
+		mov edi, 0x4F4F4F4F
+		mov eax, 0x5A5A5A5A
+		stc
+		call dword ptr [g_probeThunkTarget]
+
+		setc byte ptr [g_probeCarry]
+		mov [g_probeEax], eax
+		mov [g_probeEbx], ebx
+		mov [g_probeEcx], ecx
+		mov [g_probeEdx], edx
+		mov [g_probeEsi], esi
+		mov [g_probeEdi], edi
+		mov eax, ebp
+		sub eax, esp
+		mov [g_probeFrameDepth], eax
+		fnstenv g_probeEnvAfter
+		fldenv g_probeEnvAfter
+
+		mov esp, ebp
+		pop ebp
+		popad
+		ret
+	}
+}
 
 namespace
 {
@@ -277,6 +364,21 @@ int main()
 			VirtualFree(arena, 0, MEM_RELEASE);
 		}
 	}
+
+	// Per-unit turbo hook: runs the stolen instructions, calls the callback
+	// with an empty x87 stack and the owner from the frame, and returns with
+	// every register as the stolen instructions alone would leave it.
+	DriveTurboThunk();
+	ok &= Check(g_probeCalls == 1, "turbo thunk did not call its callback exactly once");
+	ok &= Check(g_probeControls[2] == 0.625f, "turbo thunk did not run the stolen fstp [eax+8]");
+	ok &= Check(g_probeSeenTagWord == 0xFFFF, "turbo callback was entered with a live x87 register");
+	ok &= Check(g_probeSeenObject == g_probeOwner, "turbo callback did not receive [[ebp-0x68]+0x10]");
+	ok &= Check(g_probeEax == reinterpret_cast<uint32_t>(g_probeControls), "turbo thunk did not leave eax = [ebp-0x70]");
+	ok &= Check(g_probeEbx == 0x0B0B0B0Bu && g_probeEcx == 0x1C1C1C1Cu && g_probeEdx == 0x2D2D2D2Du &&
+		g_probeEsi == 0x3E3E3E3Eu && g_probeEdi == 0x4F4F4F4Fu, "turbo thunk changed a general register");
+	ok &= Check(g_probeCarry == 1, "turbo thunk did not restore EFLAGS");
+	ok &= Check(g_probeFrameDepth == 0x80, "turbo thunk unbalanced esp or changed ebp");
+	ok &= Check((g_probeEnvAfter[8] | (g_probeEnvAfter[9] << 8)) == 0xFFFF, "turbo thunk left a value on the x87 stack");
 
 	const std::array<uint8_t, 8> bytes{ 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80 };
 	const std::array<uint8_t, 3> pattern{ 0x30, 0x00, 0x50 };
