@@ -34,11 +34,15 @@ Inspect capabilities/status:
 ```lua
 local caps = exu.fps.GetCapabilities()
 print(caps.localFirstPersonTarget)
+print(caps.pilotStateInspection)
 print(caps.firstPersonStatus)
 ```
 
 This is the same capability table returned by
-`exu.animation.GetCapabilities()`.
+`exu.animation.GetCapabilities()`. `pilotStateInspection=true` reports that
+the read-only native Person snapshot API is compiled in. It is distinct from
+`localFirstPersonTarget`, which reports whether the presentation target backend
+is available.
 
 ## Read-only pilot FSM state
 
