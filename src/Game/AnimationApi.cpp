@@ -23,6 +23,7 @@
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
 #include "Util/Logging.h"
+#include "LuaCppBarrier.h"
 
 #include <lua.hpp>
 
@@ -343,8 +344,9 @@ namespace ExtraUtilities::Lua::AnimationApi
 		int Play(lua_State* L)
 		{
 			const Detail::Target target = Detail::ReadTarget(L, 1);
-			const std::string name = luaL_checkstring(L, 2);
+			const char* const nameArg = luaL_checkstring(L, 2);
 			const Detail::PlayOptions options = Detail::ReadPlayOptions(L, 3);
+			const std::string name(nameArg);
 			void* entity = Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
 			if (!entity || !Detail::RawHas(entity, name))
 			{
@@ -371,8 +373,9 @@ namespace ExtraUtilities::Lua::AnimationApi
 		int Stop(lua_State* L)
 		{
 			const Detail::Target target = Detail::ReadTarget(L, 1);
-			const std::string name = luaL_checkstring(L, 2);
+			const char* const nameArg = luaL_checkstring(L, 2);
 			const bool reset = lua_isnoneornil(L, 3) ? false : CheckBool(L, 3);
+			const std::string name(nameArg);
 			void* entity = Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
 			if (!entity || !Detail::RawHas(entity, name))
 			{
@@ -411,8 +414,9 @@ namespace ExtraUtilities::Lua::AnimationApi
 		int SetEnabled(lua_State* L)
 		{
 			const Detail::Target target = Detail::ReadTarget(L, 1);
-			const std::string name = luaL_checkstring(L, 2);
+			const char* const nameArg = luaL_checkstring(L, 2);
 			const bool enabled = CheckBool(L, 3);
+			const std::string name(nameArg);
 			void* entity = Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
 			if (!entity || !Detail::RawHas(entity, name))
 			{
@@ -428,8 +432,9 @@ namespace ExtraUtilities::Lua::AnimationApi
 		int SetLoop(lua_State* L)
 		{
 			const Detail::Target target = Detail::ReadTarget(L, 1);
-			const std::string name = luaL_checkstring(L, 2);
+			const char* const nameArg = luaL_checkstring(L, 2);
 			const bool loop = CheckBool(L, 3);
+			const std::string name(nameArg);
 			void* entity = Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
 			if (!entity || !Detail::RawHas(entity, name))
 			{
@@ -445,12 +450,13 @@ namespace ExtraUtilities::Lua::AnimationApi
 		int SetWeight(lua_State* L)
 		{
 			const Detail::Target target = Detail::ReadTarget(L, 1);
-			const std::string name = luaL_checkstring(L, 2);
+			const char* const nameArg = luaL_checkstring(L, 2);
 			const float weight = static_cast<float>(luaL_checknumber(L, 3));
 			if (!std::isfinite(weight) || weight < 0.0f || weight > 1.0f)
 			{
 				return luaL_argerror(L, 3, "animation weight must be a finite value in [0, 1]");
 			}
+			const std::string name(nameArg);
 			void* entity = Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
 			if (!entity || !Detail::RawHas(entity, name))
 			{
@@ -466,12 +472,13 @@ namespace ExtraUtilities::Lua::AnimationApi
 		int Seek(lua_State* L)
 		{
 			const Detail::Target target = Detail::ReadTarget(L, 1);
-			const std::string name = luaL_checkstring(L, 2);
+			const char* const nameArg = luaL_checkstring(L, 2);
 			const float timePosition = static_cast<float>(luaL_checknumber(L, 3));
 			if (!std::isfinite(timePosition) || timePosition < 0.0f)
 			{
 				return luaL_argerror(L, 3, "animation time must be a finite non-negative value");
 			}
+			const std::string name(nameArg);
 			void* entity = Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
 			if (!entity || !Detail::RawHas(entity, name))
 			{
@@ -518,7 +525,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 		};
 
 		lua_newtable(L);
-		luaL_register(L, nullptr, functions);
+		RegisterFunctions(L, nullptr, functions);
 		lua_setfield(L, -2, "animation");
 		lua_settop(L, originalTop);
 

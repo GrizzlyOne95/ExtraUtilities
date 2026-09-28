@@ -361,7 +361,10 @@ namespace ExtraUtilities::Lua::GameObject
 			return true;
 		}
 
-		bool TryReadOptionalStringField(lua_State* L, int tableIndex, const char* fieldName, std::string& outValue)
+		// outValue points at the string held by the table field. It stays valid
+		// while the table is on the stack and unchanged, and lets the caller
+		// read every field (each read can raise) before any std::string exists.
+		bool TryReadOptionalStringField(lua_State* L, int tableIndex, const char* fieldName, const char*& outValue)
 		{
 			const int absIndex = AbsoluteStackIndex(L, tableIndex);
 			lua_getfield(L, absIndex, fieldName);
@@ -407,7 +410,7 @@ namespace ExtraUtilities::Lua::GameObject
 			lua_State* L,
 			int tableIndex,
 			const TerrainTextureSlotBinding& binding,
-			std::string& outTextureName)
+			const char*& outTextureName)
 		{
 			if (TryReadOptionalStringField(L, tableIndex, binding.canonicalName, outTextureName))
 			{
@@ -435,11 +438,8 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int GetTerrainMaterialName(lua_State* L)
 	{
-		std::string trnFilename;
-		if (!lua_isnoneornil(L, 1))
-		{
-			trnFilename = luaL_checkstring(L, 1);
-		}
+		const char* const trnArg = lua_isnoneornil(L, 1) ? "" : luaL_checkstring(L, 1);
+		const std::string trnFilename(trnArg);
 
 		std::string materialName;
 		if (!TryResolveTerrainMaterialName(L, trnFilename, materialName))
@@ -452,102 +452,130 @@ namespace ExtraUtilities::Lua::GameObject
 		return 1;
 	}
 
+	namespace
+	{
+		struct TerrainTextureSetRequest
+		{
+			const char* materialName = nullptr;
+			const char* trnFilename = nullptr;
+			const char* resourceGroup = "General";
+			int techniqueIndex = 0;
+			int passIndex = 0;
+			const char* textures[std::size(kTerrainTextureSlots)] = {};
+		};
+
+		// Everything after argument parsing. Holds the std::strings and
+		// vectors, and raises no Lua error.
+		int ApplyTerrainTextureSet(lua_State* L, const TerrainTextureSetRequest& request)
+		{
+			std::string materialName = request.materialName != nullptr ? request.materialName : "";
+			if (materialName.empty())
+			{
+				const std::string trnFilename = request.trnFilename != nullptr ? request.trnFilename : "";
+				if (!TryResolveTerrainMaterialName(L, trnFilename, materialName))
+				{
+					lua_pushboolean(L, 0);
+					lua_pushnil(L);
+					return 2;
+				}
+			}
+
+			const std::string resourceGroup = request.resourceGroup;
+			const int techniqueIndex = request.techniqueIndex;
+			const int passIndex = request.passIndex;
+
+			std::vector<TerrainTextureSlotUpdate> updates;
+			updates.reserve(std::size(kTerrainTextureSlots));
+			for (size_t slot = 0; slot < std::size(kTerrainTextureSlots); ++slot)
+			{
+				if (request.textures[slot] != nullptr)
+				{
+					updates.push_back({ &kTerrainTextureSlots[slot], request.textures[slot] });
+				}
+			}
+
+			if (updates.empty())
+			{
+				LogMaterialDebug("[EXU::Terrain] SetTerrainTextureSet had no texture fields material=%s", materialName.c_str());
+				lua_pushboolean(L, 0);
+				lua_pushstring(L, materialName.c_str());
+				return 2;
+			}
+
+			bool success = true;
+			for (const TerrainTextureSlotUpdate& update : updates)
+			{
+				MaterialTextureUnitHandle handle;
+				if (!TryResolveMaterialTextureUnit(
+					materialName,
+					resourceGroup,
+					techniqueIndex,
+					passIndex,
+					update.binding->textureUnitIndex,
+					handle))
+				{
+					LogMaterialDebug(
+						"[EXU::Terrain] Failed to resolve terrain texture slot material=%s slot=%s group=%s technique=%d pass=%d unit=%d",
+						materialName.c_str(),
+						update.binding->canonicalName,
+						resourceGroup.c_str(),
+						techniqueIndex,
+						passIndex,
+						update.binding->textureUnitIndex);
+					success = false;
+					continue;
+				}
+
+				if (!TrySetMaterialTextureName(handle.textureUnit, update.textureName))
+				{
+					LogMaterialDebug(
+						"[EXU::Terrain] Failed to set terrain texture slot material=%s slot=%s texture=%s",
+						materialName.c_str(),
+						update.binding->canonicalName,
+						update.textureName.c_str());
+					success = false;
+				}
+			}
+
+			lua_pushboolean(L, success ? 1 : 0);
+			lua_pushstring(L, materialName.c_str());
+			return 2;
+		}
+	}
+
 	int SetTerrainTextureSet(lua_State* L)
 	{
 		luaL_checktype(L, 1, LUA_TTABLE);
 
-		std::string materialName;
-		TryReadOptionalStringField(L, 1, "material", materialName)
-			|| TryReadOptionalStringField(L, 1, "materialName", materialName);
+		// Every field is read (and type-checked, which can raise) before any
+		// C++ object with a destructor exists.
+		TerrainTextureSetRequest request;
+		TryReadOptionalStringField(L, 1, "material", request.materialName)
+			|| TryReadOptionalStringField(L, 1, "materialName", request.materialName);
 
-		if (materialName.empty())
+		if (request.materialName == nullptr || request.materialName[0] == '\0')
 		{
-			std::string trnFilename;
-			TryReadOptionalStringField(L, 1, "trn", trnFilename)
-				|| TryReadOptionalStringField(L, 1, "trnFilename", trnFilename);
-
-			if (!TryResolveTerrainMaterialName(L, trnFilename, materialName))
-			{
-				lua_pushboolean(L, 0);
-				lua_pushnil(L);
-				return 2;
-			}
+			TryReadOptionalStringField(L, 1, "trn", request.trnFilename)
+				|| TryReadOptionalStringField(L, 1, "trnFilename", request.trnFilename);
 		}
 
-		std::string resourceGroup = "General";
-		TryReadOptionalStringField(L, 1, "resourceGroup", resourceGroup);
+		TryReadOptionalStringField(L, 1, "resourceGroup", request.resourceGroup);
 
-		int techniqueIndex = 0;
-		if (!TryReadOptionalIntegerField(L, 1, "techniqueIndex", techniqueIndex))
+		if (!TryReadOptionalIntegerField(L, 1, "techniqueIndex", request.techniqueIndex))
 		{
-			TryReadOptionalIntegerField(L, 1, "technique", techniqueIndex);
+			TryReadOptionalIntegerField(L, 1, "technique", request.techniqueIndex);
 		}
 
-		int passIndex = 0;
-		if (!TryReadOptionalIntegerField(L, 1, "passIndex", passIndex))
+		if (!TryReadOptionalIntegerField(L, 1, "passIndex", request.passIndex))
 		{
-			TryReadOptionalIntegerField(L, 1, "pass", passIndex);
+			TryReadOptionalIntegerField(L, 1, "pass", request.passIndex);
 		}
 
-		std::vector<TerrainTextureSlotUpdate> updates;
-		updates.reserve(std::size(kTerrainTextureSlots));
-
-		for (const TerrainTextureSlotBinding& binding : kTerrainTextureSlots)
+		for (size_t slot = 0; slot < std::size(kTerrainTextureSlots); ++slot)
 		{
-			std::string textureName;
-			if (!TryReadTerrainTextureField(L, 1, binding, textureName))
-			{
-				continue;
-			}
-
-			updates.push_back({ &binding, textureName });
+			TryReadTerrainTextureField(L, 1, kTerrainTextureSlots[slot], request.textures[slot]);
 		}
 
-		if (updates.empty())
-		{
-			LogMaterialDebug("[EXU::Terrain] SetTerrainTextureSet had no texture fields material=%s", materialName.c_str());
-			lua_pushboolean(L, 0);
-			lua_pushstring(L, materialName.c_str());
-			return 2;
-		}
-
-		bool success = true;
-		for (const TerrainTextureSlotUpdate& update : updates)
-		{
-			MaterialTextureUnitHandle handle;
-			if (!TryResolveMaterialTextureUnit(
-				materialName,
-				resourceGroup,
-				techniqueIndex,
-				passIndex,
-				update.binding->textureUnitIndex,
-				handle))
-			{
-				LogMaterialDebug(
-					"[EXU::Terrain] Failed to resolve terrain texture slot material=%s slot=%s group=%s technique=%d pass=%d unit=%d",
-					materialName.c_str(),
-					update.binding->canonicalName,
-					resourceGroup.c_str(),
-					techniqueIndex,
-					passIndex,
-					update.binding->textureUnitIndex);
-				success = false;
-				continue;
-			}
-
-			if (!TrySetMaterialTextureName(handle.textureUnit, update.textureName))
-			{
-				LogMaterialDebug(
-					"[EXU::Terrain] Failed to set terrain texture slot material=%s slot=%s texture=%s",
-					materialName.c_str(),
-					update.binding->canonicalName,
-					update.textureName.c_str());
-				success = false;
-			}
-		}
-
-		lua_pushboolean(L, success ? 1 : 0);
-		lua_pushstring(L, materialName.c_str());
-		return 2;
+		return ApplyTerrainTextureSet(L, request);
 	}
 }

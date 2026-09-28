@@ -21,6 +21,7 @@
 #include "Util/FiniteCheck.h"
 #include "Util/Logging.h"
 #include "bzr.h"
+#include "Util/SehGuard.h"
 
 #include <Windows.h>
 
@@ -28,10 +29,13 @@
 #include <cstdint>
 #include <limits>
 #include <map>
+#include <new>
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <tuple>
+#include <type_traits>
 #include <vector>
 
 namespace ExtraUtilities::Lua::StaticGeometry
@@ -471,16 +475,20 @@ namespace ExtraUtilities::Lua::StaticGeometry
 
 	int Create(lua_State* L)
 	{
-		const std::string name = luaL_checkstring(L, 1);
-		const std::string mesh = luaL_checkstring(L, 2);
-		const std::string material = lua_isnoneornil(L, 3) ? "" : luaL_checkstring(L, 3);
+		// Arguments are read as views of the Lua strings and the instances
+		// into a Lua-owned scratch buffer: a Lua error raised while parsing
+		// longjmps over this frame, and nothing here may need a destructor
+		// until the last check has passed.
+		const std::string_view nameArg = luaL_checkstring(L, 1);
+		const std::string_view meshArg = luaL_checkstring(L, 2);
+		const std::string_view materialArg = lua_isnoneornil(L, 3) ? std::string_view() : std::string_view(luaL_checkstring(L, 3));
 		luaL_checktype(L, 4, LUA_TTABLE);
 
-		if (name.empty() || name.size() > kMaxNameLength)
+		if (nameArg.empty() || nameArg.size() > kMaxNameLength)
 		{
 			return luaL_argerror(L, 1, "name must contain 1-128 characters");
 		}
-		if (mesh.empty())
+		if (meshArg.empty())
 		{
 			return luaL_argerror(L, 2, "mesh must not be empty");
 		}
@@ -491,8 +499,8 @@ namespace ExtraUtilities::Lua::StaticGeometry
 			return luaL_argerror(L, 4, "instances must contain 1-100000 entries");
 		}
 
-		std::vector<Instance> instances;
-		instances.reserve(instanceCount);
+		static_assert(std::is_trivially_copyable_v<Instance> && std::is_trivially_destructible_v<Instance>);
+		auto* parsed = static_cast<Instance*>(lua_newuserdata(L, instanceCount * sizeof(Instance)));
 		for (size_t index = 1; index <= instanceCount; ++index)
 		{
 			lua_rawgeti(L, 4, static_cast<int>(index));
@@ -500,10 +508,17 @@ namespace ExtraUtilities::Lua::StaticGeometry
 			{
 				return luaL_argerror(L, 4, "each instance must be a table");
 			}
-			instances.push_back(ReadInstance(L, -1));
+			new (&parsed[index - 1]) Instance(ReadInstance(L, -1));
 			lua_pop(L, 1);
 		}
 		const Options options = ReadOptions(L, 5);
+
+		// Nothing below raises a Lua error.
+		const std::string name(nameArg);
+		const std::string mesh(meshArg);
+		const std::string material(materialArg);
+		std::vector<Instance> instances(parsed, parsed + instanceCount);
+		lua_pop(L, 1); // the scratch buffer; the collector frees it
 
 		auto* sceneManager = CurrentSceneManager();
 		if (sceneManager == nullptr)
@@ -705,8 +720,9 @@ namespace ExtraUtilities::Lua::StaticGeometry
 
 	int SetVisible(lua_State* L)
 	{
-		const std::string name = luaL_checkstring(L, 1);
+		const char* const nameArg = luaL_checkstring(L, 1);
 		const bool visible = CheckBool(L, 2);
+		const std::string name(nameArg);
 		const auto found = g_records.find(name);
 		if (found == g_records.end() || CurrentSceneManager() != found->second.owner)
 		{

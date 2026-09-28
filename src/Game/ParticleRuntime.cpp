@@ -17,6 +17,7 @@
 */
 
 #include "EnvironmentInternal.h"
+#include "Util/SehGuard.h"
 
 #include "Ogre/OgreRenderOrigin.h"
 
@@ -46,7 +47,7 @@ namespace ExtraUtilities::Lua::Environment
 			return luaL_checkstring(L, idx);
 		}
 
-		bool TryHasParticleSystem(void* sceneManager, const std::string& name, bool& outHasParticleSystem)
+		bool TryHasParticleSystemSeh(void* sceneManager, const std::string& name, bool& outHasParticleSystem)
 		{
 			outHasParticleSystem = false;
 			const auto fn = ResolveHasParticleSystem();
@@ -60,14 +61,19 @@ namespace ExtraUtilities::Lua::Environment
 				outHasParticleSystem = fn(sceneManager, name);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] hasParticleSystem crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TryHasSceneNode(void* sceneManager, const std::string& name, bool& outHasSceneNode)
+		bool TryHasParticleSystem(void* sceneManager, const std::string& name, bool& outHasParticleSystem)
+		{
+			return Seh::CatchCpp("TryHasParticleSystem", [&] { return TryHasParticleSystemSeh(sceneManager, name, outHasParticleSystem); }, false);
+		}
+
+		bool TryHasSceneNodeSeh(void* sceneManager, const std::string& name, bool& outHasSceneNode)
 		{
 			outHasSceneNode = false;
 			const auto fn = ResolveHasSceneNode();
@@ -81,14 +87,19 @@ namespace ExtraUtilities::Lua::Environment
 				outHasSceneNode = fn(sceneManager, name);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] hasSceneNode crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TryGetParticleSystem(void* sceneManager, const std::string& name, void*& outParticleSystem)
+		bool TryHasSceneNode(void* sceneManager, const std::string& name, bool& outHasSceneNode)
+		{
+			return Seh::CatchCpp("TryHasSceneNode", [&] { return TryHasSceneNodeSeh(sceneManager, name, outHasSceneNode); }, false);
+		}
+
+		bool TryGetParticleSystemSeh(void* sceneManager, const std::string& name, void*& outParticleSystem)
 		{
 			outParticleSystem = nullptr;
 			bool hasParticleSystem = false;
@@ -108,14 +119,19 @@ namespace ExtraUtilities::Lua::Environment
 				outParticleSystem = fn(sceneManager, name);
 				return outParticleSystem != nullptr;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] getParticleSystem crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TryGetSceneNode(void* sceneManager, const std::string& nodeName, void*& outSceneNode)
+		bool TryGetParticleSystem(void* sceneManager, const std::string& name, void*& outParticleSystem)
+		{
+			return Seh::CatchCpp("TryGetParticleSystem", [&] { return TryGetParticleSystemSeh(sceneManager, name, outParticleSystem); }, false);
+		}
+
+		bool TryGetSceneNodeSeh(void* sceneManager, const std::string& nodeName, void*& outSceneNode)
 		{
 			outSceneNode = nullptr;
 			bool hasSceneNode = false;
@@ -135,11 +151,16 @@ namespace ExtraUtilities::Lua::Environment
 				outSceneNode = fn(sceneManager, nodeName);
 				return outSceneNode != nullptr;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] getSceneNode crashed sceneManager=%p node=%s code=0x%08X", sceneManager, nodeName.c_str(), GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TryGetSceneNode(void* sceneManager, const std::string& nodeName, void*& outSceneNode)
+		{
+			return Seh::CatchCpp("TryGetSceneNode", [&] { return TryGetSceneNodeSeh(sceneManager, nodeName, outSceneNode); }, false);
 		}
 
 		bool TryGetManagedParticleSceneNode(void* sceneManager, const std::string& particleName, void*& outSceneNode)
@@ -161,7 +182,7 @@ namespace ExtraUtilities::Lua::Environment
 		// OgreMain the game shipped, ask the scene manager for the movable
 		// object by name: Ogre performs the downcast on its own side and hands
 		// back the correctly re-based pointer.
-		bool TryGetParticleMovableObject(void* sceneManager, const std::string& name, void*& outMovableObject)
+		bool TryGetParticleMovableObjectSeh(void* sceneManager, const std::string& name, void*& outMovableObject)
 		{
 			outMovableObject = nullptr;
 			const auto hasFn = ResolveHasMovableObject();
@@ -182,7 +203,7 @@ namespace ExtraUtilities::Lua::Environment
 				outMovableObject = getFn(sceneManager, name, *typeName);
 				return outMovableObject != nullptr;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] getMovableObject crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
 				outMovableObject = nullptr;
@@ -190,7 +211,12 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 
-		bool TryDestroyParticleSystemByName(void* sceneManager, const std::string& name)
+		bool TryGetParticleMovableObject(void* sceneManager, const std::string& name, void*& outMovableObject)
+		{
+			return Seh::CatchCpp("TryGetParticleMovableObject", [&] { return TryGetParticleMovableObjectSeh(sceneManager, name, outMovableObject); }, [&] { outMovableObject = nullptr; return false; });
+		}
+
+		bool TryDestroyParticleSystemByNameSeh(void* sceneManager, const std::string& name)
 		{
 			const auto fn = ResolveDestroyParticleSystem();
 			if (sceneManager == nullptr || fn == nullptr)
@@ -209,14 +235,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(sceneManager, name);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] destroyParticleSystem crashed sceneManager=%p name=%s code=0x%08X", sceneManager, name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TryDestroySceneNodeByName(void* sceneManager, const std::string& nodeName)
+		bool TryDestroyParticleSystemByName(void* sceneManager, const std::string& name)
+		{
+			return Seh::CatchCpp("TryDestroyParticleSystemByName", [&] { return TryDestroyParticleSystemByNameSeh(sceneManager, name); }, false);
+		}
+
+		bool TryDestroySceneNodeByNameSeh(void* sceneManager, const std::string& nodeName)
 		{
 			const auto fn = ResolveDestroySceneNode();
 			if (sceneManager == nullptr || fn == nullptr)
@@ -235,11 +266,16 @@ namespace ExtraUtilities::Lua::Environment
 				fn(sceneManager, nodeName);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] destroySceneNode crashed sceneManager=%p node=%s code=0x%08X", sceneManager, nodeName.c_str(), GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TryDestroySceneNodeByName(void* sceneManager, const std::string& nodeName)
+		{
+			return Seh::CatchCpp("TryDestroySceneNodeByName", [&] { return TryDestroySceneNodeByNameSeh(sceneManager, nodeName); }, false);
 		}
 
 		bool TryDestroyManagedParticleSystem(void* sceneManager, const std::string& name)
@@ -260,7 +296,7 @@ namespace ExtraUtilities::Lua::Environment
 			return removedAny;
 		}
 
-		bool TryCreateParticleSystemAttachment(void* sceneManager, const std::string& name, const std::string& templateName, const std::string& nodeName, const BZR::VECTOR_3D& position)
+		bool TryCreateParticleSystemAttachmentSeh(void* sceneManager, const std::string& name, const std::string& templateName, const std::string& nodeName, const BZR::VECTOR_3D& position)
 		{
 			const auto createParticleFn = ResolveCreateParticleSystem();
 			const auto getRootSceneNodeFn = ResolveGetRootSceneNode();
@@ -319,7 +355,7 @@ namespace ExtraUtilities::Lua::Environment
 					static_cast<int>(reinterpret_cast<char*>(movableObject) - reinterpret_cast<char*>(particleSystem)));
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault(
 					"[EXU::Particle] create crashed sceneManager=%p name=%s template=%s node=%s code=0x%08X",
@@ -330,6 +366,11 @@ namespace ExtraUtilities::Lua::Environment
 					GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TryCreateParticleSystemAttachment(void* sceneManager, const std::string& name, const std::string& templateName, const std::string& nodeName, const BZR::VECTOR_3D& position)
+		{
+			return Seh::CatchCpp("TryCreateParticleSystemAttachment", [&] { return TryCreateParticleSystemAttachmentSeh(sceneManager, name, templateName, nodeName, position); }, false);
 		}
 
 		// Particle systems created through EXU in the current scene manager,
@@ -376,7 +417,7 @@ namespace ExtraUtilities::Lua::Environment
 			return false;
 		}
 
-		bool TrySetManagedParticleSceneNodePosition(void* sceneManager, const std::string& name, const BZR::VECTOR_3D& position)
+		bool TrySetManagedParticleSceneNodePositionSeh(void* sceneManager, const std::string& name, const BZR::VECTOR_3D& position)
 		{
 			void* sceneNode = nullptr;
 			const auto fn = ResolveSetNodePosition();
@@ -390,14 +431,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(sceneNode, position);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] setPosition crashed sceneNode=%p name=%s code=0x%08X", sceneNode, name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetManagedParticleSceneNodeDirection(void* sceneManager, const std::string& name, const BZR::VECTOR_3D& direction)
+		bool TrySetManagedParticleSceneNodePosition(void* sceneManager, const std::string& name, const BZR::VECTOR_3D& position)
+		{
+			return Seh::CatchCpp("TrySetManagedParticleSceneNodePosition", [&] { return TrySetManagedParticleSceneNodePositionSeh(sceneManager, name, position); }, false);
+		}
+
+		bool TrySetManagedParticleSceneNodeDirectionSeh(void* sceneManager, const std::string& name, const BZR::VECTOR_3D& direction)
 		{
 			void* sceneNode = nullptr;
 			const auto fn = ResolveSetSceneNodeDirection();
@@ -412,14 +458,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(sceneNode, direction, kOgreTransformSpaceLocal, localDirectionVector);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] setDirection crashed sceneNode=%p name=%s code=0x%08X", sceneNode, name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetParticleSystemEmitting(void* sceneManager, const std::string& name, bool enabled)
+		bool TrySetManagedParticleSceneNodeDirection(void* sceneManager, const std::string& name, const BZR::VECTOR_3D& direction)
+		{
+			return Seh::CatchCpp("TrySetManagedParticleSceneNodeDirection", [&] { return TrySetManagedParticleSceneNodeDirectionSeh(sceneManager, name, direction); }, false);
+		}
+
+		bool TrySetParticleSystemEmittingSeh(void* sceneManager, const std::string& name, bool enabled)
 		{
 			void* particleSystem = nullptr;
 			const auto fn = ResolveSetParticleSystemEmitting();
@@ -433,14 +484,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(particleSystem, enabled);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] setEmitting crashed particleSystem=%p name=%s enabled=%d code=0x%08X", particleSystem, name.c_str(), enabled ? 1 : 0, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetParticleSystemVisible(void* sceneManager, const std::string& name, bool enabled)
+		bool TrySetParticleSystemEmitting(void* sceneManager, const std::string& name, bool enabled)
+		{
+			return Seh::CatchCpp("TrySetParticleSystemEmitting", [&] { return TrySetParticleSystemEmittingSeh(sceneManager, name, enabled); }, false);
+		}
+
+		bool TrySetParticleSystemVisibleSeh(void* sceneManager, const std::string& name, bool enabled)
 		{
 			// setVisible is MovableObject's own body, so it needs the re-based
 			// pointer rather than the ParticleSystem*.
@@ -456,14 +512,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(movableObject, enabled);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] setVisible crashed movableObject=%p name=%s enabled=%d code=0x%08X", movableObject, name.c_str(), enabled ? 1 : 0, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetParticleSystemSpeedFactor(void* sceneManager, const std::string& name, float speedFactor)
+		bool TrySetParticleSystemVisible(void* sceneManager, const std::string& name, bool enabled)
+		{
+			return Seh::CatchCpp("TrySetParticleSystemVisible", [&] { return TrySetParticleSystemVisibleSeh(sceneManager, name, enabled); }, false);
+		}
+
+		bool TrySetParticleSystemSpeedFactorSeh(void* sceneManager, const std::string& name, float speedFactor)
 		{
 			void* particleSystem = nullptr;
 			const auto fn = ResolveSetParticleSystemSpeedFactor();
@@ -477,14 +538,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(particleSystem, speedFactor);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] setSpeedFactor crashed particleSystem=%p name=%s speed=%g code=0x%08X", particleSystem, name.c_str(), speedFactor, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetParticleSystemKeepLocalSpace(void* sceneManager, const std::string& name, bool enabled)
+		bool TrySetParticleSystemSpeedFactor(void* sceneManager, const std::string& name, float speedFactor)
+		{
+			return Seh::CatchCpp("TrySetParticleSystemSpeedFactor", [&] { return TrySetParticleSystemSpeedFactorSeh(sceneManager, name, speedFactor); }, false);
+		}
+
+		bool TrySetParticleSystemKeepLocalSpaceSeh(void* sceneManager, const std::string& name, bool enabled)
 		{
 			void* particleSystem = nullptr;
 			const auto fn = ResolveSetParticleSystemKeepLocalSpace();
@@ -498,14 +564,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(particleSystem, enabled);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] setKeepParticlesInLocalSpace crashed particleSystem=%p name=%s enabled=%d code=0x%08X", particleSystem, name.c_str(), enabled ? 1 : 0, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetParticleSystemMaterial(void* sceneManager, const std::string& name, const std::string& materialName, const std::string& resourceGroup)
+		bool TrySetParticleSystemKeepLocalSpace(void* sceneManager, const std::string& name, bool enabled)
+		{
+			return Seh::CatchCpp("TrySetParticleSystemKeepLocalSpace", [&] { return TrySetParticleSystemKeepLocalSpaceSeh(sceneManager, name, enabled); }, false);
+		}
+
+		bool TrySetParticleSystemMaterialSeh(void* sceneManager, const std::string& name, const std::string& materialName, const std::string& resourceGroup)
 		{
 			void* particleSystem = nullptr;
 			const auto fn = ResolveSetParticleSystemMaterial();
@@ -519,7 +590,7 @@ namespace ExtraUtilities::Lua::Environment
 				fn(particleSystem, materialName, resourceGroup);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault(
 					"[EXU::Particle] setMaterialName crashed particleSystem=%p name=%s material=%s group=%s code=0x%08X",
@@ -532,7 +603,12 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 
-		bool TrySetParticleSystemRenderQueueGroup(void* sceneManager, const std::string& name, uint8_t renderQueueGroup)
+		bool TrySetParticleSystemMaterial(void* sceneManager, const std::string& name, const std::string& materialName, const std::string& resourceGroup)
+		{
+			return Seh::CatchCpp("TrySetParticleSystemMaterial", [&] { return TrySetParticleSystemMaterialSeh(sceneManager, name, materialName, resourceGroup); }, false);
+		}
+
+		bool TrySetParticleSystemRenderQueueGroupSeh(void* sceneManager, const std::string& name, uint8_t renderQueueGroup)
 		{
 			// ParticleSystem::setRenderQueueGroup overrides a MovableObject
 			// virtual, so under the MSVC ABI its this-pointer is the re-based
@@ -552,14 +628,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(movableObject, renderQueueGroup);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] setRenderQueueGroup crashed movableObject=%p name=%s queue=%u code=0x%08X", movableObject, name.c_str(), renderQueueGroup, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetParticleSystemParticleQuota(void* sceneManager, const std::string& name, uint32_t quota)
+		bool TrySetParticleSystemRenderQueueGroup(void* sceneManager, const std::string& name, uint8_t renderQueueGroup)
+		{
+			return Seh::CatchCpp("TrySetParticleSystemRenderQueueGroup", [&] { return TrySetParticleSystemRenderQueueGroupSeh(sceneManager, name, renderQueueGroup); }, false);
+		}
+
+		bool TrySetParticleSystemParticleQuotaSeh(void* sceneManager, const std::string& name, uint32_t quota)
 		{
 			void* particleSystem = nullptr;
 			const auto fn = ResolveSetParticleSystemParticleQuota();
@@ -573,14 +654,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(particleSystem, quota);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] setParticleQuota crashed particleSystem=%p name=%s quota=%u code=0x%08X", particleSystem, name.c_str(), quota, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetParticleSystemDefaultDimensions(void* sceneManager, const std::string& name, float width, float height)
+		bool TrySetParticleSystemParticleQuota(void* sceneManager, const std::string& name, uint32_t quota)
+		{
+			return Seh::CatchCpp("TrySetParticleSystemParticleQuota", [&] { return TrySetParticleSystemParticleQuotaSeh(sceneManager, name, quota); }, false);
+		}
+
+		bool TrySetParticleSystemDefaultDimensionsSeh(void* sceneManager, const std::string& name, float width, float height)
 		{
 			void* particleSystem = nullptr;
 			const auto fn = ResolveSetParticleSystemDefaultDimensions();
@@ -594,11 +680,16 @@ namespace ExtraUtilities::Lua::Environment
 				fn(particleSystem, width, height);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] setDefaultDimensions crashed particleSystem=%p name=%s width=%g height=%g code=0x%08X", particleSystem, name.c_str(), width, height, GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TrySetParticleSystemDefaultDimensions(void* sceneManager, const std::string& name, float width, float height)
+		{
+			return Seh::CatchCpp("TrySetParticleSystemDefaultDimensions", [&] { return TrySetParticleSystemDefaultDimensionsSeh(sceneManager, name, width, height); }, false);
 		}
 
 		std::vector<ParticleCameraFollower> g_particleCameraFollowers;
@@ -630,7 +721,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		// The active viewport's Ogre camera, or null when no viewport is live.
-		void* GetActiveOgreCamera()
+		void* GetActiveOgreCameraSeh()
 		{
 			const ActiveViewportSet activeViewports = GetActiveViewports();
 			if (activeViewports.count == 0 || activeViewports.viewports[0] == nullptr)
@@ -642,14 +733,19 @@ namespace ExtraUtilities::Lua::Environment
 			{
 				return Ogre::GetViewportCamera(activeViewports.viewports[0]);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] Viewport::getCamera crashed code=0x%08X", GetExceptionCode());
 				return nullptr;
 			}
 		}
 
-		bool TryGetCameraDerivedPosition(void* camera, BZR::VECTOR_3D& outPosition)
+		void* GetActiveOgreCamera()
+		{
+			return Seh::CatchCpp("GetActiveOgreCamera", [&] { return GetActiveOgreCameraSeh(); }, nullptr);
+		}
+
+		bool TryGetCameraDerivedPositionSeh(void* camera, BZR::VECTOR_3D& outPosition)
 		{
 			const auto fn = ResolveCameraGetDerivedPosition();
 			if (camera == nullptr || fn == nullptr)
@@ -668,11 +764,16 @@ namespace ExtraUtilities::Lua::Environment
 				outPosition = *position;
 				return IsFiniteVector(outPosition);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] Camera::getDerivedPosition crashed camera=%p code=0x%08X", camera, GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TryGetCameraDerivedPosition(void* camera, BZR::VECTOR_3D& outPosition)
+		{
+			return Seh::CatchCpp("TryGetCameraDerivedPosition", [&] { return TryGetCameraDerivedPositionSeh(camera, outPosition); }, false);
 		}
 
 		bool TryConvertSimPositionToRenderSpace(
@@ -703,7 +804,7 @@ namespace ExtraUtilities::Lua::Environment
 			return IsFiniteVector(outRenderPosition);
 		}
 
-		void* GetMovableObjectParentSceneNode(void* movableObject)
+		void* GetMovableObjectParentSceneNodeSeh(void* movableObject)
 		{
 			const auto fn = ResolveGetParentSceneNode();
 			if (movableObject == nullptr || fn == nullptr)
@@ -715,17 +816,22 @@ namespace ExtraUtilities::Lua::Environment
 			{
 				return fn(movableObject);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] getParentSceneNode crashed movableObject=%p code=0x%08X", movableObject, GetExceptionCode());
 				return nullptr;
 			}
 		}
 
+		void* GetMovableObjectParentSceneNode(void* movableObject)
+		{
+			return Seh::CatchCpp("GetMovableObjectParentSceneNode", [&] { return GetMovableObjectParentSceneNodeSeh(movableObject); }, nullptr);
+		}
+
 		// Moves an EXU-owned particle node under a new parent. Ogre asserts if a
 		// node is added to a second parent while it still has one, so the
 		// current parent link is always broken first.
-		bool TryReparentNode(void* node, void* newParent)
+		bool TryReparentNodeSeh(void* node, void* newParent)
 		{
 			const auto getParentFn = ResolveNodeGetParent();
 			const auto removeChildFn = ResolveNodeRemoveChildPtr();
@@ -752,14 +858,19 @@ namespace ExtraUtilities::Lua::Environment
 				addChildFn(newParent, node);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] reparent crashed node=%p newParent=%p code=0x%08X", node, newParent, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetNodeInheritOrientation(void* node, bool inherit)
+		bool TryReparentNode(void* node, void* newParent)
+		{
+			return Seh::CatchCpp("TryReparentNode", [&] { return TryReparentNodeSeh(node, newParent); }, false);
+		}
+
+		bool TrySetNodeInheritOrientationSeh(void* node, bool inherit)
 		{
 			const auto fn = ResolveNodeSetInheritOrientation();
 			if (node == nullptr || fn == nullptr)
@@ -772,14 +883,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(node, inherit);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] setInheritOrientation crashed node=%p code=0x%08X", node, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetNodeInheritScale(void* node, bool inherit)
+		bool TrySetNodeInheritOrientation(void* node, bool inherit)
+		{
+			return Seh::CatchCpp("TrySetNodeInheritOrientation", [&] { return TrySetNodeInheritOrientationSeh(node, inherit); }, false);
+		}
+
+		bool TrySetNodeInheritScaleSeh(void* node, bool inherit)
 		{
 			const auto fn = ResolveNodeSetInheritScale();
 			if (node == nullptr || fn == nullptr)
@@ -792,14 +908,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(node, inherit);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] setInheritScale crashed node=%p code=0x%08X", node, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetNodePositionDirect(void* node, const BZR::VECTOR_3D& position)
+		bool TrySetNodeInheritScale(void* node, bool inherit)
+		{
+			return Seh::CatchCpp("TrySetNodeInheritScale", [&] { return TrySetNodeInheritScaleSeh(node, inherit); }, false);
+		}
+
+		bool TrySetNodePositionDirectSeh(void* node, const BZR::VECTOR_3D& position)
 		{
 			const auto fn = ResolveSetNodePosition();
 			if (node == nullptr || fn == nullptr)
@@ -812,11 +933,16 @@ namespace ExtraUtilities::Lua::Environment
 				fn(node, position);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] setPosition crashed node=%p code=0x%08X", node, GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TrySetNodePositionDirect(void* node, const BZR::VECTOR_3D& position)
+		{
+			return Seh::CatchCpp("TrySetNodePositionDirect", [&] { return TrySetNodePositionDirectSeh(node, position); }, false);
 		}
 
 		bool TryAttachManagedParticleToRoot(void* sceneManager, const std::string& name)
@@ -829,13 +955,11 @@ namespace ExtraUtilities::Lua::Environment
 			}
 
 			void* rootSceneNode = nullptr;
-			__try
+			if (!Seh::Guard(
+					"TryAttachManagedParticleToRoot",
+					[&] { rootSceneNode = getRootFn(sceneManager); },
+					[&](unsigned long exceptionCode) { LogEnvironmentFault("[EXU::Particle] getRootSceneNode crashed sceneManager=%p code=0x%08X", sceneManager, exceptionCode); }))
 			{
-				rootSceneNode = getRootFn(sceneManager);
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				LogEnvironmentFault("[EXU::Particle] getRootSceneNode crashed sceneManager=%p code=0x%08X", sceneManager, GetExceptionCode());
 				return false;
 			}
 
@@ -930,7 +1054,7 @@ namespace ExtraUtilities::Lua::Environment
 			return true;
 		}
 
-		bool TryAttachManagedParticleToBone(void* sceneManager, const std::string& name, void* entity, const std::string& boneName, const BZR::VECTOR_3D& offset)
+		bool TryAttachManagedParticleToBoneSeh(void* sceneManager, const std::string& name, void* entity, const std::string& boneName, const BZR::VECTOR_3D& offset)
 		{
 			const auto hasSkeletonFn = ResolveEntityHasSkeleton();
 			const auto attachFn = ResolveEntityAttachObjectToBone();
@@ -962,7 +1086,7 @@ namespace ExtraUtilities::Lua::Environment
 				detachFromParentFn(movableObject);
 				return attachFn(entity, boneName, movableObject, identity, offset) != nullptr;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault(
 					"[EXU::Particle] bone attach crashed name=%s bone=%s entity=%p code=0x%08X",
@@ -974,7 +1098,12 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 
-		void* GetParticleEmitter(void* sceneManager, const std::string& name, int emitterIndex)
+		bool TryAttachManagedParticleToBone(void* sceneManager, const std::string& name, void* entity, const std::string& boneName, const BZR::VECTOR_3D& offset)
+		{
+			return Seh::CatchCpp("TryAttachManagedParticleToBone", [&] { return TryAttachManagedParticleToBoneSeh(sceneManager, name, entity, boneName, offset); }, false);
+		}
+
+		void* GetParticleEmitterSeh(void* sceneManager, const std::string& name, int emitterIndex)
 		{
 			const auto getNumFn = ResolveGetNumEmitters();
 			const auto getEmitterFn = ResolveGetEmitter();
@@ -995,14 +1124,19 @@ namespace ExtraUtilities::Lua::Environment
 
 				return getEmitterFn(particleSystem, static_cast<uint16_t>(emitterIndex));
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] getEmitter crashed name=%s index=%d code=0x%08X", name.c_str(), emitterIndex, GetExceptionCode());
 				return nullptr;
 			}
 		}
 
-		bool TryGetParticleEmitterCount(void* sceneManager, const std::string& name, int& outCount)
+		void* GetParticleEmitter(void* sceneManager, const std::string& name, int emitterIndex)
+		{
+			return Seh::CatchCpp("GetParticleEmitter", [&] { return GetParticleEmitterSeh(sceneManager, name, emitterIndex); }, nullptr);
+		}
+
+		bool TryGetParticleEmitterCountSeh(void* sceneManager, const std::string& name, int& outCount)
 		{
 			outCount = 0;
 			const auto fn = ResolveGetNumEmitters();
@@ -1017,14 +1151,19 @@ namespace ExtraUtilities::Lua::Environment
 				outCount = static_cast<int>(fn(particleSystem));
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] getNumEmitters crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
 
-		void* GetParticleAffector(void* sceneManager, const std::string& name, int affectorIndex)
+		bool TryGetParticleEmitterCount(void* sceneManager, const std::string& name, int& outCount)
+		{
+			return Seh::CatchCpp("TryGetParticleEmitterCount", [&] { return TryGetParticleEmitterCountSeh(sceneManager, name, outCount); }, false);
+		}
+
+		void* GetParticleAffectorSeh(void* sceneManager, const std::string& name, int affectorIndex)
 		{
 			const auto getNumFn = ResolveGetNumAffectors();
 			const auto getAffectorFn = ResolveGetAffector();
@@ -1045,14 +1184,19 @@ namespace ExtraUtilities::Lua::Environment
 
 				return getAffectorFn(particleSystem, static_cast<uint16_t>(affectorIndex));
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] getAffector crashed name=%s index=%d code=0x%08X", name.c_str(), affectorIndex, GetExceptionCode());
 				return nullptr;
 			}
 		}
 
-		bool TryGetParticleAffectorCount(void* sceneManager, const std::string& name, int& outCount)
+		void* GetParticleAffector(void* sceneManager, const std::string& name, int affectorIndex)
+		{
+			return Seh::CatchCpp("GetParticleAffector", [&] { return GetParticleAffectorSeh(sceneManager, name, affectorIndex); }, nullptr);
+		}
+
+		bool TryGetParticleAffectorCountSeh(void* sceneManager, const std::string& name, int& outCount)
 		{
 			outCount = 0;
 			const auto fn = ResolveGetNumAffectors();
@@ -1067,11 +1211,16 @@ namespace ExtraUtilities::Lua::Environment
 				outCount = static_cast<int>(fn(particleSystem));
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] getNumAffectors crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TryGetParticleAffectorCount(void* sceneManager, const std::string& name, int& outCount)
+		{
+			return Seh::CatchCpp("TryGetParticleAffectorCount", [&] { return TryGetParticleAffectorCountSeh(sceneManager, name, outCount); }, false);
 		}
 
 		// ---------------------------------------------------------------
@@ -1138,7 +1287,7 @@ namespace ExtraUtilities::Lua::Environment
 			return true;
 		}
 
-		bool TryGetStringInterfaceTypeName(void* stringInterface, OgreAbi::GetTypeNameFn fn, std::string& outType)
+		bool TryGetStringInterfaceTypeNameSeh(void* stringInterface, OgreAbi::GetTypeNameFn fn, std::string& outType)
 		{
 			outType.clear();
 			if (stringInterface == nullptr || fn == nullptr)
@@ -1159,14 +1308,19 @@ namespace ExtraUtilities::Lua::Environment
 				outType = *type;
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] getType crashed object=%p code=0x%08X", stringInterface, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetStringInterfaceParameter(
+		bool TryGetStringInterfaceTypeName(void* stringInterface, OgreAbi::GetTypeNameFn fn, std::string& outType)
+		{
+			return Seh::CatchCpp("TryGetStringInterfaceTypeName", [&] { return TryGetStringInterfaceTypeNameSeh(stringInterface, fn, outType); }, false);
+		}
+
+		bool TrySetStringInterfaceParameterSeh(
 			void* stringInterface,
 			const std::string& parameter,
 			const std::string& value,
@@ -1185,7 +1339,7 @@ namespace ExtraUtilities::Lua::Environment
 				// "unknown parameter" answer Lua needs.
 				return fn(stringInterface, parameter, value);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault(
 					"[EXU::Particle] %s setParameter crashed object=%p parameter=%s value=%s code=0x%08X",
@@ -1198,7 +1352,16 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 
-		bool TryGetStringInterfaceParameter(
+		bool TrySetStringInterfaceParameter(
+			void* stringInterface,
+			const std::string& parameter,
+			const std::string& value,
+			const char* what)
+		{
+			return Seh::CatchCpp("TrySetStringInterfaceParameter", [&] { return TrySetStringInterfaceParameterSeh(stringInterface, parameter, value, what); }, false);
+		}
+
+		bool TryGetStringInterfaceParameterSeh(
 			void* stringInterface,
 			const std::string& parameter,
 			std::string& outValue,
@@ -1216,7 +1379,7 @@ namespace ExtraUtilities::Lua::Environment
 				InvokeGetStringInterfaceParameter(fn, stringInterface, parameter, outValue);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault(
 					"[EXU::Particle] %s getParameter crashed object=%p parameter=%s code=0x%08X",
@@ -1228,7 +1391,16 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 
-		bool TryGetStringInterfaceParameterNames(
+		bool TryGetStringInterfaceParameter(
+			void* stringInterface,
+			const std::string& parameter,
+			std::string& outValue,
+			const char* what)
+		{
+			return Seh::CatchCpp("TryGetStringInterfaceParameter", [&] { return TryGetStringInterfaceParameterSeh(stringInterface, parameter, outValue, what); }, false);
+		}
+
+		bool TryGetStringInterfaceParameterNamesSeh(
 			void* stringInterface,
 			std::vector<std::string>& outNames,
 			const char* what)
@@ -1244,7 +1416,7 @@ namespace ExtraUtilities::Lua::Environment
 			{
 				return InvokeGetStringInterfaceParameterNames(fn, stringInterface, outNames);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault(
 					"[EXU::Particle] %s getParameters crashed object=%p code=0x%08X",
@@ -1255,7 +1427,15 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 
-		bool TrySetEmitterEnabled(void* emitter, bool enabled)
+		bool TryGetStringInterfaceParameterNames(
+			void* stringInterface,
+			std::vector<std::string>& outNames,
+			const char* what)
+		{
+			return Seh::CatchCpp("TryGetStringInterfaceParameterNames", [&] { return TryGetStringInterfaceParameterNamesSeh(stringInterface, outNames, what); }, false);
+		}
+
+		bool TrySetEmitterEnabledSeh(void* emitter, bool enabled)
 		{
 			const auto fn = ResolveEmitterSetEnabled();
 			if (emitter == nullptr || fn == nullptr)
@@ -1268,14 +1448,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(emitter, enabled);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] emitter setEnabled crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetEmitterEmissionRate(void* emitter, float rate)
+		bool TrySetEmitterEnabled(void* emitter, bool enabled)
+		{
+			return Seh::CatchCpp("TrySetEmitterEnabled", [&] { return TrySetEmitterEnabledSeh(emitter, enabled); }, false);
+		}
+
+		bool TrySetEmitterEmissionRateSeh(void* emitter, float rate)
 		{
 			const auto fn = ResolveEmitterSetEmissionRate();
 			if (emitter == nullptr || fn == nullptr)
@@ -1288,14 +1473,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(emitter, rate);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] emitter setEmissionRate crashed emitter=%p rate=%g code=0x%08X", emitter, rate, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TryGetEmitterEmissionRate(void* emitter, float& outRate)
+		bool TrySetEmitterEmissionRate(void* emitter, float rate)
+		{
+			return Seh::CatchCpp("TrySetEmitterEmissionRate", [&] { return TrySetEmitterEmissionRateSeh(emitter, rate); }, false);
+		}
+
+		bool TryGetEmitterEmissionRateSeh(void* emitter, float& outRate)
 		{
 			outRate = 0.0f;
 			const auto fn = ResolveEmitterGetEmissionRate();
@@ -1309,14 +1499,19 @@ namespace ExtraUtilities::Lua::Environment
 				outRate = fn(emitter);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] emitter getEmissionRate crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetEmitterDirection(void* emitter, const BZR::VECTOR_3D& direction)
+		bool TryGetEmitterEmissionRate(void* emitter, float& outRate)
+		{
+			return Seh::CatchCpp("TryGetEmitterEmissionRate", [&] { return TryGetEmitterEmissionRateSeh(emitter, outRate); }, false);
+		}
+
+		bool TrySetEmitterDirectionSeh(void* emitter, const BZR::VECTOR_3D& direction)
 		{
 			const auto fn = ResolveEmitterSetDirection();
 			if (emitter == nullptr || fn == nullptr)
@@ -1329,14 +1524,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(emitter, direction);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] emitter setDirection crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetEmitterPosition(void* emitter, const BZR::VECTOR_3D& position)
+		bool TrySetEmitterDirection(void* emitter, const BZR::VECTOR_3D& direction)
+		{
+			return Seh::CatchCpp("TrySetEmitterDirection", [&] { return TrySetEmitterDirectionSeh(emitter, direction); }, false);
+		}
+
+		bool TrySetEmitterPositionSeh(void* emitter, const BZR::VECTOR_3D& position)
 		{
 			const auto fn = ResolveEmitterSetPosition();
 			if (emitter == nullptr || fn == nullptr)
@@ -1349,14 +1549,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(emitter, position);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] emitter setPosition crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetEmitterVelocityRange(void* emitter, float minVelocity, float maxVelocity)
+		bool TrySetEmitterPosition(void* emitter, const BZR::VECTOR_3D& position)
+		{
+			return Seh::CatchCpp("TrySetEmitterPosition", [&] { return TrySetEmitterPositionSeh(emitter, position); }, false);
+		}
+
+		bool TrySetEmitterVelocityRangeSeh(void* emitter, float minVelocity, float maxVelocity)
 		{
 			const auto fn = ResolveEmitterSetVelocityRange();
 			if (emitter == nullptr || fn == nullptr)
@@ -1369,14 +1574,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(emitter, minVelocity, maxVelocity);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] emitter setParticleVelocity crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetEmitterAngle(void* emitter, float radians)
+		bool TrySetEmitterVelocityRange(void* emitter, float minVelocity, float maxVelocity)
+		{
+			return Seh::CatchCpp("TrySetEmitterVelocityRange", [&] { return TrySetEmitterVelocityRangeSeh(emitter, minVelocity, maxVelocity); }, false);
+		}
+
+		bool TrySetEmitterAngleSeh(void* emitter, float radians)
 		{
 			const auto fn = ResolveEmitterSetAngle();
 			if (emitter == nullptr || fn == nullptr)
@@ -1389,14 +1599,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(emitter, radians);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] emitter setAngle crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetEmitterTimeToLiveRange(void* emitter, float minTimeToLive, float maxTimeToLive)
+		bool TrySetEmitterAngle(void* emitter, float radians)
+		{
+			return Seh::CatchCpp("TrySetEmitterAngle", [&] { return TrySetEmitterAngleSeh(emitter, radians); }, false);
+		}
+
+		bool TrySetEmitterTimeToLiveRangeSeh(void* emitter, float minTimeToLive, float maxTimeToLive)
 		{
 			const auto fn = ResolveEmitterSetTimeToLiveRange();
 			if (emitter == nullptr || fn == nullptr)
@@ -1409,14 +1624,19 @@ namespace ExtraUtilities::Lua::Environment
 				fn(emitter, minTimeToLive, maxTimeToLive);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] emitter setTimeToLive crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetEmitterColourRange(void* emitter, const Ogre::Color& startColor, const Ogre::Color& endColor)
+		bool TrySetEmitterTimeToLiveRange(void* emitter, float minTimeToLive, float maxTimeToLive)
+		{
+			return Seh::CatchCpp("TrySetEmitterTimeToLiveRange", [&] { return TrySetEmitterTimeToLiveRangeSeh(emitter, minTimeToLive, maxTimeToLive); }, false);
+		}
+
+		bool TrySetEmitterColourRangeSeh(void* emitter, const Ogre::Color& startColor, const Ogre::Color& endColor)
 		{
 			const auto fn = ResolveEmitterSetColourRange();
 			if (emitter == nullptr || fn == nullptr)
@@ -1429,16 +1649,21 @@ namespace ExtraUtilities::Lua::Environment
 				fn(emitter, startColor, endColor);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] emitter setColour crashed emitter=%p code=0x%08X", emitter, GetExceptionCode());
 				return false;
 			}
 		}
 
+		bool TrySetEmitterColourRange(void* emitter, const Ogre::Color& startColor, const Ogre::Color& endColor)
+		{
+			return Seh::CatchCpp("TrySetEmitterColourRange", [&] { return TrySetEmitterColourRangeSeh(emitter, startColor, endColor); }, false);
+		}
+
 		// Undoes any of the three attachments: the system goes back onto its own
 		// EXU-owned node, and that node goes back under the scene root.
-		bool TryReturnManagedParticleToOwnNode(void* sceneManager, const std::string& name)
+		bool TryReturnManagedParticleToOwnNodeSeh(void* sceneManager, const std::string& name)
 		{
 			const auto detachFromParentFn = ResolveMovableObjectDetachFromParent();
 			const auto attachObjectFn = ResolveAttachObject();
@@ -1466,14 +1691,19 @@ namespace ExtraUtilities::Lua::Environment
 				attachObjectFn(node, movableObject);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] detach crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
 				return false;
 			}
 		}
 
-		bool TrySetParticleSystemNonVisibleUpdateTimeout(void* sceneManager, const std::string& name, float timeout)
+		bool TryReturnManagedParticleToOwnNode(void* sceneManager, const std::string& name)
+		{
+			return Seh::CatchCpp("TryReturnManagedParticleToOwnNode", [&] { return TryReturnManagedParticleToOwnNodeSeh(sceneManager, name); }, false);
+		}
+
+		bool TrySetParticleSystemNonVisibleUpdateTimeoutSeh(void* sceneManager, const std::string& name, float timeout)
 		{
 			void* particleSystem = nullptr;
 			const auto fn = ResolveSetNonVisibleUpdateTimeout();
@@ -1487,11 +1717,16 @@ namespace ExtraUtilities::Lua::Environment
 				fn(particleSystem, timeout);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				LogEnvironmentFault("[EXU::Particle] setNonVisibleUpdateTimeout crashed name=%s code=0x%08X", name.c_str(), GetExceptionCode());
 				return false;
 			}
+		}
+
+		bool TrySetParticleSystemNonVisibleUpdateTimeout(void* sceneManager, const std::string& name, float timeout)
+		{
+			return Seh::CatchCpp("TrySetParticleSystemNonVisibleUpdateTimeout", [&] { return TrySetParticleSystemNonVisibleUpdateTimeoutSeh(sceneManager, name, timeout); }, false);
 		}
 
 		// Mission teardown: the scene these followers point into is gone, so the
