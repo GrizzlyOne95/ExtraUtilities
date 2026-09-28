@@ -120,13 +120,18 @@ namespace ExtraUtilities::RenderEffectBridge
 	// A winmm.dll that happens to be loaded is not necessarily OpenShim, and
 	// an OpenShim older than this ABI will not have these exports. Successful
 	// resolution of the exports is therefore the capability test, not the
-	// presence of the module.
+	// presence of the module. A live provider older than the winmm.dll thunks
+	// still resolves them but answers 0 (== kResultAccepted), so the API
+	// version, which shipped with the same exports and is never 0 when
+	// implemented, must also be non-zero.
 	inline bool IsAvailable() noexcept
 	{
 		const Detail::Table& table = Detail::Resolve();
 		return table.setEnabled != nullptr
 			&& table.setFloat != nullptr
-			&& table.getStatus != nullptr;
+			&& table.getStatus != nullptr
+			&& table.getApiVersion != nullptr
+			&& table.getApiVersion() != 0u;
 	}
 
 	inline std::uint32_t ApiVersion() noexcept
@@ -142,7 +147,7 @@ namespace ExtraUtilities::RenderEffectBridge
 	inline std::uint32_t SetEnabled(std::uint32_t effectId, bool enabled) noexcept
 	{
 		const Detail::Table& table = Detail::Resolve();
-		if (!table.setEnabled)
+		if (!IsAvailable())
 		{
 			return RenderEffects::Abi::kResultRejectedEffect;
 		}
@@ -153,7 +158,7 @@ namespace ExtraUtilities::RenderEffectBridge
 	inline std::uint32_t SetFloat(std::uint32_t effectId, std::uint32_t paramId, float value) noexcept
 	{
 		const Detail::Table& table = Detail::Resolve();
-		if (!table.setFloat)
+		if (!IsAvailable())
 		{
 			return RenderEffects::Abi::kResultRejectedEffect;
 		}
