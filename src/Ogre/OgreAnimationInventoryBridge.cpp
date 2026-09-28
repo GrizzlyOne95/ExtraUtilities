@@ -18,6 +18,7 @@
 
 #include "OgreAnimationInventoryBridge.h"
 
+#include "Ogre/OgreProc.h"
 #include "Util/Logging.h"
 #include "Util/SehGuard.h"
 
@@ -33,7 +34,6 @@
 #include <Windows.h>
 
 #include <OgreAnimationState.h>
-#include <OgreEntity.h>
 
 #ifdef EXU_OGRE_RESTORE_REGISTER
 #undef register
@@ -46,6 +46,39 @@ namespace ExtraUtilities
 {
 	namespace OgreAnimationInventory
 	{
+		namespace
+		{
+			// Ogre entry points are resolved from the loaded OgreMain.dll by
+			// mangled name (Ogre/OgreProc.h), never linked through the hand-made
+			// lib/OgreMain.lib import subset. A load-time import of a name the
+			// shipped OgreMain.dll does not export would stop exu.dll loading at
+			// all; a missing export here only makes the inventory unavailable.
+			//
+			// Entity::getAllAnimationStates is the same export the GameObject
+			// animation path already resolves in Ogre/Ogre.h.
+			using GetAllAnimationStatesFn = void*(__thiscall*)(void* entity);
+
+			// AnimationStateSet::getAnimationStateIterator() returns the header-only
+			// MapIterator by value, so the call goes through the real return type
+			// and the compiler supplies the hidden return slot.
+			using GetAnimationStateIteratorFn =
+				Ogre::AnimationStateIterator(__thiscall*)(void* stateSet);
+
+			GetAllAnimationStatesFn ResolveGetAllAnimationStates() noexcept
+			{
+				static const OgreDll::OgreProc<GetAllAnimationStatesFn> proc(
+					"?getAllAnimationStates@Entity@Ogre@@QBEPAVAnimationStateSet@2@XZ");
+				return proc.Get();
+			}
+
+			GetAnimationStateIteratorFn ResolveGetAnimationStateIterator() noexcept
+			{
+				static const OgreDll::OgreProc<GetAnimationStateIteratorFn> proc(
+					"?getAnimationStateIterator@AnimationStateSet@Ogre@@QAE?AV?$MapIterator@V?$map@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@PAVAnimationState@Ogre@@U?$less@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@V?$allocator@U?$pair@$$CBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@PAVAnimationState@Ogre@@@std@@@2@@std@@@2@XZ");
+				return proc.Get();
+			}
+		}
+
 		bool TryEnumerateAnimationStates(
 			void* entity,
 			std::vector<AnimationStateRef>& outStates) noexcept
@@ -56,28 +89,37 @@ namespace ExtraUtilities
 				return false;
 			}
 
+			const GetAllAnimationStatesFn getAllAnimationStates = ResolveGetAllAnimationStates();
+			const GetAnimationStateIteratorFn getIterator = ResolveGetAnimationStateIterator();
+			if (getAllAnimationStates == nullptr || getIterator == nullptr)
+			{
+				return false;
+			}
+
 			const bool completed = Seh::Guard(
 				"TryEnumerateAnimationStates",
 				[&]
 				{
-					Ogre::Entity* const ogreEntity = static_cast<Ogre::Entity*>(entity);
-					Ogre::AnimationStateSet* const stateSet = ogreEntity->getAllAnimationStates();
+					void* const stateSet = getAllAnimationStates(entity);
 					if (stateSet == nullptr)
 					{
 						return;
 					}
 
-					Ogre::AnimationStateIterator it = stateSet->getAnimationStateIterator();
+					Ogre::AnimationStateIterator it = getIterator(stateSet);
 					while (it.hasMoreElements())
 					{
+						// The map key is the animation name and is exactly what
+						// AnimationStateSet::getAnimationState(name) accepts, so it
+						// is the name Has/GetInfo/Play must be given.
+						AnimationStateRef ref;
+						ref.name = it.peekNextKey();
 						Ogre::AnimationState* const state = it.getNext();
 						if (state == nullptr)
 						{
 							continue;
 						}
 
-						AnimationStateRef ref;
-						ref.name = state->getAnimationName();
 						ref.state = state;
 						outStates.push_back(ref);
 					}
