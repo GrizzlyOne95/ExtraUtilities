@@ -274,14 +274,9 @@ namespace ExtraUtilities::Lua::Radar
 			}
 		}
 
-		int AbsoluteIndex(lua_State* L, int idx)
-		{
-			return idx > 0 ? idx : lua_gettop(L) + idx + 1;
-		}
-
 		BZR::Radar::EdgePathPoint CheckEdgePathPoint(lua_State* L, int idx)
 		{
-			idx = AbsoluteIndex(L, idx);
+			idx = AbsoluteStackIndex(L, idx);
 
 			BZR::Radar::EdgePathPoint point{};
 			if (lua_isuserdata(L, idx))
