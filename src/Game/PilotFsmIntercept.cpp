@@ -19,7 +19,6 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
-#include <memory>
 #include <new>
 #include <vector>
 
@@ -42,7 +41,7 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 				0x68, 0xD6, 0xC1, 0x84, 0x00
 			};
 
-		std::unique_ptr<EntryDetour32> g_detour;
+		EntryDetour32* g_detour = nullptr;
 		PersonSimulateFn g_originalPersonSimulate = nullptr;
 
 		std::atomic<std::uint32_t> g_calls{ 0 };
@@ -140,12 +139,13 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 				return false;
 			}
 
-			g_detour.reset(raw);
+			g_detour = raw;
 			if (!g_detour->PrepareTrampoline())
 			{
 				Logging::LogMessage(
 					"exu: Person::Simulate interception seam unavailable; entry identity/preimage did not qualify");
-				g_detour.reset();
+				delete g_detour;
+				g_detour = nullptr;
 				g_originalPersonSimulate = nullptr;
 				return false;
 			}
@@ -155,7 +155,8 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 			if (g_originalPersonSimulate == nullptr)
 			{
 				Logging::LogMessage("exu: Person::Simulate interception seam produced no trampoline");
-				g_detour.reset();
+				delete g_detour;
+				g_detour = nullptr;
 				return false;
 			}
 		}
@@ -181,6 +182,17 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 	bool IsActive() noexcept
 	{
 		return IsInstalled() && g_detour->IsActive();
+	}
+
+	void Shutdown() noexcept
+	{
+		if (g_detour != nullptr)
+		{
+			delete g_detour;
+			g_detour = nullptr;
+		}
+		g_originalPersonSimulate = nullptr;
+		ResetStats();
 	}
 
 	void ResetStats() noexcept
