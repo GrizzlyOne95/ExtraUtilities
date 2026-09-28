@@ -20,6 +20,8 @@
 #include "Ogre/OgreAnimationInventoryBridge.h"
 #include "Util/SehGuard.h"
 
+#include <utility>
+
 // Entity render, light and animation API: the renderable-entity and light
 // lookups on a GameObject, the exported animation bridge and their bindings.
 
