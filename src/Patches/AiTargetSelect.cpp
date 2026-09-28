@@ -37,6 +37,7 @@
 #include "LuaState.h"
 #include "Util/Logging.h"
 #include "Util/SehGuard.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <Windows.h>
 
@@ -58,13 +59,13 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 
 		// Validated 2026-07-12 against GOG battlezone98redux.exe (image base 0x400000).
 		constexpr uintptr_t kSlotByteOffset = 0xE4; // vtable slot 57
-		constexpr uintptr_t kSharedImplAddr = 0x00583500; // OffensiveProcess::ChooseAttackTarget
-		constexpr uintptr_t kScoutImplAddr  = 0x00614020; // ScoutProcess::ChooseAttackTarget
+		constexpr uintptr_t kSharedImplAddr = EngineAddresses::AiTargetSelect::OffensiveProcess_ChooseAttackTarget; // OffensiveProcess::ChooseAttackTarget
+		constexpr uintptr_t kScoutImplAddr  = EngineAddresses::AiTargetSelect::ScoutProcess_ChooseAttackTarget; // ScoutProcess::ChooseAttackTarget
 
 		// Offset of the searching GameObject inside the process, taken from the
 		// verified disassembly of both implementations (mov edx,[ecx+0x34]).
 		constexpr uintptr_t kProcessOwnerOffset = 0x34;
-		constexpr uintptr_t kVectorMagnitudeAddr = 0x00462070;
+		constexpr uintptr_t kVectorMagnitudeAddr = EngineAddresses::AiTargetSelect::VectorMagnitude;
 
 		// These are the six distance evaluations inside the two stock target
 		// searches. Replacing only their call destinations lets us adjust the
@@ -80,8 +81,8 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 		};
 
 		ScoreCallPatch g_scoreCalls[] = {
-			{ 0x004634A5, 0 }, { 0x00463593, 1 }, { 0x00463670, 2 },
-			{ 0x00463A46, 0 }, { 0x00463B34, 1 }, { 0x00463C11, 2 },
+			{ EngineAddresses::AiTargetSelect::ScoreCall0, 0 }, { EngineAddresses::AiTargetSelect::ScoreCall1, 1 }, { EngineAddresses::AiTargetSelect::ScoreCall2, 2 },
+			{ EngineAddresses::AiTargetSelect::ScoreCall3, 0 }, { EngineAddresses::AiTargetSelect::ScoreCall4, 1 }, { EngineAddresses::AiTargetSelect::ScoreCall5, 2 },
 		};
 
 		BZR::GameObject* __fastcall HookShared(void* process, void* edx, float* rangeLimit);
@@ -99,11 +100,11 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 		};
 
 		SlotPatch g_slots[] = {
-			{ ".?AVWingmanProcess@@",    0x0088A6EC, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
-			{ ".?AVRocketTankProcess@@", 0x0088A5C0, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
-			{ ".?AVTankProcess@@",       0x0088AB9C, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
-			{ ".?AVBomberProcess@@",     0x0088B178, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
-			{ ".?AVScoutProcess@@",      0x0088AF98, kScoutImplAddr,  reinterpret_cast<void*>(&HookScout),  nullptr },
+			{ ".?AVWingmanProcess@@",    EngineAddresses::AiTargetSelect::WingmanProcess_vftable, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
+			{ ".?AVRocketTankProcess@@", EngineAddresses::AiTargetSelect::RocketTankProcess_vftable, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
+			{ ".?AVTankProcess@@",       EngineAddresses::AiTargetSelect::TankProcess_vftable, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
+			{ ".?AVBomberProcess@@",     EngineAddresses::AiTargetSelect::BomberProcess_vftable, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
+			{ ".?AVScoutProcess@@",      EngineAddresses::AiTargetSelect::ScoutProcess_vftable, kScoutImplAddr,  reinterpret_cast<void*>(&HookScout),  nullptr },
 		};
 
 		bool g_inCallback = false;

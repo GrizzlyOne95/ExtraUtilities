@@ -288,6 +288,7 @@
     <ClInclude Include="src\Util\ModulePath.h" />
     <ClInclude Include="src\Util\MsvcRtti.h" />
     <ClInclude Include="src\Util\BzrBuildProfile.generated.h" />
+    <ClInclude Include="src\Util\EngineAddresses.generated.h" />
     <ClInclude Include="src\Util\Logging.h" />
     <ClInclude Include="src\Util\NativeSaveFlag.h" />
     <ClInclude Include="src\Util\PatternMatch.h" />

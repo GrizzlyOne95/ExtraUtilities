@@ -23,6 +23,7 @@
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
 #include "Util/SehGuard.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <algorithm>
 #include <array>
@@ -34,12 +35,12 @@ namespace ExtraUtilities::Lua::ControlPanel
 {
 	namespace
 	{
-		constexpr uintptr_t kScrapPilotHudDrawHookAddress = 0x005C6FF0;
+		constexpr uintptr_t kScrapPilotHudDrawHookAddress = EngineAddresses::ControlPanel::ScrapPilotHudDrawHook;
 		constexpr size_t kScrapPilotHudDrawHookLength = 10;
-		constexpr uintptr_t kScrapLabelColorHookAddress = 0x005C712B;
-		constexpr uintptr_t kScrapValueColorHookAddress = 0x005C719B;
-		constexpr uintptr_t kPilotLabelColorHookAddress = 0x005C72F1;
-		constexpr uintptr_t kPilotValueColorHookAddress = 0x005C7361;
+		constexpr uintptr_t kScrapLabelColorHookAddress = EngineAddresses::ControlPanel::ScrapLabelColorHook;
+		constexpr uintptr_t kScrapValueColorHookAddress = EngineAddresses::ControlPanel::ScrapValueColorHook;
+		constexpr uintptr_t kPilotLabelColorHookAddress = EngineAddresses::ControlPanel::PilotLabelColorHook;
+		constexpr uintptr_t kPilotValueColorHookAddress = EngineAddresses::ControlPanel::PilotValueColorHook;
 		constexpr size_t kScrapHudTextColorHookLength = 6;
 		constexpr size_t kPilotHudTextColorHookLength = 7;
 		constexpr size_t kScrapGroupStartIndex = 0;
@@ -87,13 +88,13 @@ namespace ExtraUtilities::Lua::ControlPanel
 			Pilot = 1
 		};
 
-		inline HudPaletteSelectorFn g_hudPaletteSelector = reinterpret_cast<HudPaletteSelectorFn>(0x0047C070);
-		inline void* g_hudPaletteSelectorThis = reinterpret_cast<void*>(0x0094F4B0);
+		inline HudPaletteSelectorFn g_hudPaletteSelector = reinterpret_cast<HudPaletteSelectorFn>(EngineAddresses::ControlPanel::HudPaletteSelector);
+		inline void* g_hudPaletteSelectorThis = reinterpret_cast<void*>(EngineAddresses::ControlPanel::HudPaletteSelectorThis);
 		inline std::array<HudTextPoint, 4> g_scrapPilotHudTextPoints{ {
-			{ reinterpret_cast<int*>(0x0091829C), reinterpret_cast<int*>(0x009182A0) },
-			{ reinterpret_cast<int*>(0x0091826C), reinterpret_cast<int*>(0x00918270) },
-			{ reinterpret_cast<int*>(0x00918280), reinterpret_cast<int*>(0x00918284) },
-			{ reinterpret_cast<int*>(0x00918278), reinterpret_cast<int*>(0x0091827C) }
+			{ reinterpret_cast<int*>(EngineAddresses::ControlPanel::scrapLabelX), reinterpret_cast<int*>(EngineAddresses::ControlPanel::scrapLabelY) },
+			{ reinterpret_cast<int*>(EngineAddresses::ControlPanel::scrapValueX), reinterpret_cast<int*>(EngineAddresses::ControlPanel::scrapValueY) },
+			{ reinterpret_cast<int*>(EngineAddresses::ControlPanel::pilotLabelX), reinterpret_cast<int*>(EngineAddresses::ControlPanel::pilotLabelY) },
+			{ reinterpret_cast<int*>(EngineAddresses::ControlPanel::pilotValueX), reinterpret_cast<int*>(EngineAddresses::ControlPanel::pilotValueY) }
 		} };
 		inline std::array<int, 8> g_scrapPilotHudBaseline{};
 		inline std::array<int, 8> g_scrapPilotHudOriginalBaseline{};
