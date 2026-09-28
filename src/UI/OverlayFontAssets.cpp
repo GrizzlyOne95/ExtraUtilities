@@ -18,6 +18,9 @@
 
 #include "OverlayInternal.h"
 
+#include "Util/AsciiString.h"
+#include "Util/ModulePath.h"
+
 // Runtime overlay resources: EXU's resource groups and the runtime font (font
 // script, then TrueType, then the sprite-table image fallback), and the
 // filesystem search that finds their assets.
@@ -57,31 +60,6 @@ namespace ExtraUtilities::Lua::Overlay
 		// default font's script or TrueType source.
 		bool overlayRuntimeFontAssetsFound = false;
 
-		std::string GetDirectoryForModule(HMODULE module)
-		{
-			if (module == nullptr)
-			{
-				return {};
-			}
-
-			std::array<char, MAX_PATH> path{};
-			const DWORD length = GetModuleFileNameA(module, path.data(), static_cast<DWORD>(path.size()));
-			if (length == 0 || length >= path.size())
-			{
-				return {};
-			}
-
-			std::string result(path.data(), length);
-			const auto slash = result.find_last_of("\\/");
-			if (slash == std::string::npos)
-			{
-				return {};
-			}
-
-			result.resize(slash);
-			return result;
-		}
-
 		std::string GetCurrentModuleDirectory()
 		{
 			HMODULE module = nullptr;
@@ -93,12 +71,7 @@ namespace ExtraUtilities::Lua::Overlay
 				return {};
 			}
 
-			return GetDirectoryForModule(module);
-		}
-
-		std::string GetCurrentGameRootDirectory()
-		{
-			return GetDirectoryForModule(GetModuleHandleA(nullptr));
+			return ModulePath::GetModuleDirectory(module);
 		}
 
 		bool IsRegularFile(const std::filesystem::path& path)
@@ -254,7 +227,7 @@ namespace ExtraUtilities::Lua::Overlay
 				return;
 			}
 
-			const std::string gameRootDirectory = GetCurrentGameRootDirectory();
+			const std::string gameRootDirectory = ModulePath::GetGameRootDirectory();
 			if (gameRootDirectory.empty())
 			{
 				Logging::LogMessage("[EXU::Overlay] overlay runtime resources failed to resolve game root directory");
@@ -372,7 +345,7 @@ namespace ExtraUtilities::Lua::Overlay
 			std::filesystem::path path(directory);
 			if (path.is_relative())
 			{
-				const std::string gameRootDirectory = GetCurrentGameRootDirectory();
+				const std::string gameRootDirectory = ModulePath::GetGameRootDirectory();
 				if (gameRootDirectory.empty())
 				{
 					return false;
@@ -425,9 +398,7 @@ namespace ExtraUtilities::Lua::Overlay
 				}
 
 				const std::filesystem::path& file = it->path();
-				std::string extension = file.extension().string();
-				std::transform(extension.begin(), extension.end(), extension.begin(),
-					[](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+				const std::string extension = AsciiString::ToLowerAscii(file.extension().string());
 				const std::string fileName = file.filename().string();
 				if (extension != ".fontdef" || _stricmp(fileName.c_str(), kOverlayRuntimeFontScript) == 0)
 				{
@@ -473,7 +444,7 @@ namespace ExtraUtilities::Lua::Overlay
 				return;
 			}
 
-			const std::string gameRootDirectory = GetCurrentGameRootDirectory();
+			const std::string gameRootDirectory = ModulePath::GetGameRootDirectory();
 			if (gameRootDirectory.empty())
 			{
 				Logging::LogMessage("[EXU::Overlay] overlay runtime font failed to resolve game root directory");
