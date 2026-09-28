@@ -100,6 +100,7 @@ error("This is a definition file, use require(\"exu\")")
 --- @field animationInventory boolean
 --- @field pilotStateInspection boolean
 --- @field pilotFsmIntercept boolean
+--- @field pilotAnimationOverrides boolean
 --- @field managedClock boolean
 --- @field nativeAdvancement string
 --- @field firstPersonStatus string
@@ -145,6 +146,7 @@ error("This is a definition file, use require(\"exu\")")
 --- @field localCalls integer
 --- @field stateChanges integer
 --- @field animationChanges integer
+--- @field policyDecision "passThrough"|string?
 --- @field beforeNativeState integer?
 --- @field afterNativeState integer?
 --- @field beforeState string?
@@ -156,10 +158,23 @@ error("This is a definition file, use require(\"exu\")")
 --- @field beforeAnimationHandle integer?
 --- @field afterAnimationHandle integer?
 
+--- @class PilotPolicySlotInfo
+--- @field mode "stock"|string
+--- @field nativeState integer?
+
+--- @class PilotAnimationProfile
+--- @field stand PilotPolicySlotInfo
+--- @field enterCrouch PilotPolicySlotInfo
+--- @field crouched PilotPolicySlotInfo
+--- @field exitCrouch PilotPolicySlotInfo
+--- @field jump PilotPolicySlotInfo
+--- @field land PilotPolicySlotInfo
+
 --- @class FpsAnimationApi
 --- @field IsAvailable fun(): boolean
 --- @field GetCapabilities fun(): AnimationCapabilities
 --- @field GetPilotState fun(): PilotStateInfo?
+--- @field GetPilotAnimationProfile fun(): PilotAnimationProfile
 --- @field GetPilotInterceptStatus fun(): PilotInterceptStatus
 --- @field IsCrouched fun(): boolean?
 --- @field IsGrounded fun(): boolean?
