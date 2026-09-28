@@ -19,6 +19,8 @@
 /* Optional OpenShim bridge resolution shared by ExtraUtilities modules. */
 #pragma once
 
+#include "Util/Logging.h"
+
 #include <Windows.h>
 
 #include <cstdint>
@@ -74,6 +76,40 @@ namespace ExtraUtilities::OpenShimBridge
 	{
 		return Resolve<FARPROC>(exportName) != nullptr;
 	}
+
+	// An optional export looked up once per DLL load, found or not. A
+	// function-local `static constinit` needs no guard. When `missingLog` is
+	// set it goes to exu.log the one time the export turns out to be absent.
+	// Callers that must follow OpenShim coming and going use Resolve instead.
+	template <typename Fn>
+	class LatchedExport
+	{
+	public:
+		constexpr explicit LatchedExport(const char* exportName, const char* missingLog = nullptr) noexcept
+			: m_name(exportName), m_missingLog(missingLog)
+		{
+		}
+
+		Fn Get() noexcept
+		{
+			if (!m_attempted)
+			{
+				m_attempted = true;
+				m_fn = Resolve<Fn>(m_name);
+				if (m_fn == nullptr && m_missingLog != nullptr)
+				{
+					Logging::LogMessage("%s", m_missingLog);
+				}
+			}
+			return m_fn;
+		}
+
+	private:
+		const char* m_name;
+		const char* m_missingLog;
+		Fn m_fn = nullptr;
+		bool m_attempted = false;
+	};
 
 	using ResolveLocalFirstPersonEntityFn = std::int32_t (__cdecl*)(
 		void** outEntity, std::uint64_t* outGeneration);

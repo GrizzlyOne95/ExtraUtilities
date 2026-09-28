@@ -50,327 +50,120 @@ namespace ExtraUtilities::Lua::Patches
 
 		OpenShimSetUnderAttackAlertModeFn ResolveUnderAttackAlertBridge()
 		{
-			static OpenShimSetUnderAttackAlertModeFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimSetUnderAttackAlertModeFn>(
-				"OpenShimSetUnderAttackAlertMode");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::UnitVo] OpenShim under-attack alert bridge unavailable");
-			}
-
-			return fn;
+			static constinit OpenShimBridge::LatchedExport<OpenShimSetUnderAttackAlertModeFn> bridge{
+				"OpenShimSetUnderAttackAlertMode",
+				"[EXU::UnitVo] OpenShim under-attack alert bridge unavailable" };
+			return bridge.Get();
 		}
 
 		OpenShimSetTargetReticlePopupModeFn ResolveTargetReticlePopupBridge()
 		{
-			static OpenShimSetTargetReticlePopupModeFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimSetTargetReticlePopupModeFn>(
-				"OpenShimSetTargetReticlePopupMode");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::UnitVo] OpenShim target reticle popup bridge unavailable");
-			}
-
-			return fn;
+			static constinit OpenShimBridge::LatchedExport<OpenShimSetTargetReticlePopupModeFn> bridge{
+				"OpenShimSetTargetReticlePopupMode",
+				"[EXU::UnitVo] OpenShim target reticle popup bridge unavailable" };
+			return bridge.Get();
 		}
 
 		OpenShimSetBomberAiRangeEnabledFn ResolveBomberAiRangeBridge()
 		{
-			static OpenShimSetBomberAiRangeEnabledFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimSetBomberAiRangeEnabledFn>(
-				"OpenShimSetBomberAiRangeEnabled");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::UnitVo] OpenShim bomber AI range bridge unavailable");
-			}
-
-			return fn;
+			static constinit OpenShimBridge::LatchedExport<OpenShimSetBomberAiRangeEnabledFn> bridge{
+				"OpenShimSetBomberAiRangeEnabled",
+				"[EXU::UnitVo] OpenShim bomber AI range bridge unavailable" };
+			return bridge.Get();
 		}
 
 		OpenShimSetHowitzerVolleyEnabledFn ResolveHowitzerVolleyBridge()
 		{
-			static OpenShimSetHowitzerVolleyEnabledFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimSetHowitzerVolleyEnabledFn>(
-				"OpenShimSetHowitzerVolleyEnabled");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::UnitVo] OpenShim howitzer volley bridge unavailable");
-			}
-
-			return fn;
+			static constinit OpenShimBridge::LatchedExport<OpenShimSetHowitzerVolleyEnabledFn> bridge{
+				"OpenShimSetHowitzerVolleyEnabled",
+				"[EXU::UnitVo] OpenShim howitzer volley bridge unavailable" };
+			return bridge.Get();
 		}
 
 		OpenShimSetWeaponMaskCarrierBiasEnabledFn ResolveWeaponMaskCarrierBiasBridge()
 		{
-			static OpenShimSetWeaponMaskCarrierBiasEnabledFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimSetWeaponMaskCarrierBiasEnabledFn>(
-				"OpenShimSetWeaponMaskCarrierBiasEnabled");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::UnitVo] OpenShim weapon-mask carrier bias bridge unavailable");
-			}
-
-			return fn;
+			static constinit OpenShimBridge::LatchedExport<OpenShimSetWeaponMaskCarrierBiasEnabledFn> bridge{
+				"OpenShimSetWeaponMaskCarrierBiasEnabled",
+				"[EXU::UnitVo] OpenShim weapon-mask carrier bias bridge unavailable" };
+			return bridge.Get();
 		}
 
         OpenShimSetAiOdfGameplayTuningEnabledFn ResolveAiOdfGameplayTuningBridge()
         {
-            static OpenShimSetAiOdfGameplayTuningEnabledFn fn = nullptr;
-            static bool attempted = false;
-            static bool loggedMissing = false;
-            if (attempted)
-            {
-                return fn;
-            }
-
-            attempted = true;
-            fn = OpenShimBridge::Resolve<OpenShimSetAiOdfGameplayTuningEnabledFn>(
-                "OpenShimSetAiOdfGameplayTuningEnabled");
-
-            if (!fn && !loggedMissing)
-            {
-                loggedMissing = true;
-                Logging::LogMessage("[EXU::UnitVo] OpenShim AI ODF gameplay tuning bridge unavailable");
-            }
-
-            return fn;
+            static constinit OpenShimBridge::LatchedExport<OpenShimSetAiOdfGameplayTuningEnabledFn> bridge{
+                "OpenShimSetAiOdfGameplayTuningEnabled",
+                "[EXU::UnitVo] OpenShim AI ODF gameplay tuning bridge unavailable" };
+            return bridge.Get();
         }
 
         OpenShimSetAiUnitTuningFn ResolveAiUnitTuningSetBridge()
         {
-            static OpenShimSetAiUnitTuningFn fn = nullptr;
-            static bool attempted = false;
-            static bool loggedMissing = false;
-            if (attempted)
-            {
-                return fn;
-            }
-
-            attempted = true;
-            fn = OpenShimBridge::Resolve<OpenShimSetAiUnitTuningFn>(
-                "OpenShimSetAiUnitTuning");
-
-            if (!fn && !loggedMissing)
-            {
-                loggedMissing = true;
-                Logging::LogMessage("[EXU::UnitVo] OpenShim per-unit AI tuning bridge unavailable");
-            }
-
-            return fn;
+            static constinit OpenShimBridge::LatchedExport<OpenShimSetAiUnitTuningFn> bridge{
+                "OpenShimSetAiUnitTuning",
+                "[EXU::UnitVo] OpenShim per-unit AI tuning bridge unavailable" };
+            return bridge.Get();
         }
 
         OpenShimSetAiUnitTuningV2Fn ResolveAiUnitTuningSetV2Bridge()
         {
-            static OpenShimSetAiUnitTuningV2Fn fn = nullptr;
-            static bool attempted = false;
-            if (!attempted)
-            {
-                attempted = true;
-                fn = OpenShimBridge::Resolve<OpenShimSetAiUnitTuningV2Fn>(
-                    "OpenShimSetAiUnitTuningV2");
-            }
-            return fn;
+            static constinit OpenShimBridge::LatchedExport<OpenShimSetAiUnitTuningV2Fn> bridge{
+                "OpenShimSetAiUnitTuningV2" };
+            return bridge.Get();
         }
 
         OpenShimSetAiUnitTuningV3Fn ResolveAiUnitTuningSetV3Bridge()
         {
-            static OpenShimSetAiUnitTuningV3Fn fn = nullptr;
-            static bool attempted = false;
-            if (!attempted)
-            {
-                attempted = true;
-                fn = OpenShimBridge::Resolve<OpenShimSetAiUnitTuningV3Fn>(
-                    "OpenShimSetAiUnitTuningV3");
-            }
-            return fn;
+            static constinit OpenShimBridge::LatchedExport<OpenShimSetAiUnitTuningV3Fn> bridge{
+                "OpenShimSetAiUnitTuningV3" };
+            return bridge.Get();
         }
 
         OpenShimClearAiUnitTuningFn ResolveAiUnitTuningClearBridge()
         {
-            static OpenShimClearAiUnitTuningFn fn = nullptr;
-            static bool attempted = false;
-            static bool loggedMissing = false;
-            if (attempted)
-            {
-                return fn;
-            }
-
-            attempted = true;
-            fn = OpenShimBridge::Resolve<OpenShimClearAiUnitTuningFn>(
-                "OpenShimClearAiUnitTuning");
-
-            if (!fn && !loggedMissing)
-            {
-                loggedMissing = true;
-                Logging::LogMessage("[EXU::UnitVo] OpenShim per-unit AI tuning clear bridge unavailable");
-            }
-
-            return fn;
+            static constinit OpenShimBridge::LatchedExport<OpenShimClearAiUnitTuningFn> bridge{
+                "OpenShimClearAiUnitTuning",
+                "[EXU::UnitVo] OpenShim per-unit AI tuning clear bridge unavailable" };
+            return bridge.Get();
         }
 
         OpenShimClearAllAiUnitTuningFn ResolveAiUnitTuningClearAllBridge()
         {
-            static OpenShimClearAllAiUnitTuningFn fn = nullptr;
-            static bool attempted = false;
-            static bool loggedMissing = false;
-            if (attempted)
-            {
-                return fn;
-            }
-
-            attempted = true;
-            fn = OpenShimBridge::Resolve<OpenShimClearAllAiUnitTuningFn>(
-                "OpenShimClearAllAiUnitTuning");
-
-            if (!fn && !loggedMissing)
-            {
-                loggedMissing = true;
-                Logging::LogMessage("[EXU::UnitVo] OpenShim per-unit AI tuning clear-all bridge unavailable");
-            }
-
-            return fn;
+            static constinit OpenShimBridge::LatchedExport<OpenShimClearAllAiUnitTuningFn> bridge{
+                "OpenShimClearAllAiUnitTuning",
+                "[EXU::UnitVo] OpenShim per-unit AI tuning clear-all bridge unavailable" };
+            return bridge.Get();
         }
 
         OpenShimSetTurretAimPitchEnabledFn ResolveTurretAimPitchBridge()
         {
-            static OpenShimSetTurretAimPitchEnabledFn fn = nullptr;
-            static bool attempted = false;
-            static bool loggedMissing = false;
-            if (attempted)
-            {
-                return fn;
-            }
-
-            attempted = true;
-            fn = OpenShimBridge::Resolve<OpenShimSetTurretAimPitchEnabledFn>(
-                "OpenShimSetTurretAimPitchEnabled");
-
-            if (!fn && !loggedMissing)
-            {
-                loggedMissing = true;
-                Logging::LogMessage("[EXU::UnitVo] OpenShim turret aim pitch bridge unavailable");
-            }
-
-            return fn;
+            static constinit OpenShimBridge::LatchedExport<OpenShimSetTurretAimPitchEnabledFn> bridge{
+                "OpenShimSetTurretAimPitchEnabled",
+                "[EXU::UnitVo] OpenShim turret aim pitch bridge unavailable" };
+            return bridge.Get();
         }
 
         OpenShimSetAttackRevealEnabledFn ResolveAttackRevealBridge()
         {
-            static OpenShimSetAttackRevealEnabledFn fn = nullptr;
-            static bool attempted = false;
-            static bool loggedMissing = false;
-            if (attempted)
-            {
-                return fn;
-            }
-
-            attempted = true;
-            fn = OpenShimBridge::Resolve<OpenShimSetAttackRevealEnabledFn>(
-                "OpenShimSetAttackRevealEnabled");
-
-            if (!fn && !loggedMissing)
-            {
-                loggedMissing = true;
-                Logging::LogMessage("[EXU::UnitVo] OpenShim attack reveal bridge unavailable");
-            }
-
-            return fn;
+            static constinit OpenShimBridge::LatchedExport<OpenShimSetAttackRevealEnabledFn> bridge{
+                "OpenShimSetAttackRevealEnabled",
+                "[EXU::UnitVo] OpenShim attack reveal bridge unavailable" };
+            return bridge.Get();
         }
 
         OpenShimSetJumpSnipeCrouchEnabledFn ResolveJumpSnipeCrouchBridge()
         {
-            static OpenShimSetJumpSnipeCrouchEnabledFn fn = nullptr;
-            static bool attempted = false;
-            static bool loggedMissing = false;
-            if (attempted)
-            {
-                return fn;
-            }
-
-            attempted = true;
-            fn = OpenShimBridge::Resolve<OpenShimSetJumpSnipeCrouchEnabledFn>(
-                "OpenShimSetJumpSnipeCrouchEnabled");
-
-            if (!fn && !loggedMissing)
-            {
-                loggedMissing = true;
-                Logging::LogMessage("[EXU::UnitVo] OpenShim jump-snipe crouch bridge unavailable");
-            }
-
-            return fn;
+            static constinit OpenShimBridge::LatchedExport<OpenShimSetJumpSnipeCrouchEnabledFn> bridge{
+                "OpenShimSetJumpSnipeCrouchEnabled",
+                "[EXU::UnitVo] OpenShim jump-snipe crouch bridge unavailable" };
+            return bridge.Get();
         }
 
 		OpenShimResetMissionHookOverridesFn ResolveMissionHookResetBridge()
 		{
-			static OpenShimResetMissionHookOverridesFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimResetMissionHookOverridesFn>(
-				"OpenShimResetMissionHookOverrides");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::UnitVo] OpenShim mission-hook reset bridge unavailable");
-			}
-
-			return fn;
+			static constinit OpenShimBridge::LatchedExport<OpenShimResetMissionHookOverridesFn> bridge{
+				"OpenShimResetMissionHookOverrides",
+				"[EXU::UnitVo] OpenShim mission-hook reset bridge unavailable" };
+			return bridge.Get();
 		}
 	}
 

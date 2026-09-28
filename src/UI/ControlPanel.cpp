@@ -396,141 +396,60 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		OpenShimGetHudSpriteRectFn ResolveHudSpriteGetRectBridge()
 		{
-			static OpenShimGetHudSpriteRectFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimGetHudSpriteRectFn>(
-				"OpenShimGetHudSpriteRect");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::ControlPanel] OpenShim HUD sprite get-rect bridge unavailable");
-			}
-
-			return fn;
+			static constinit OpenShimBridge::LatchedExport<OpenShimGetHudSpriteRectFn> bridge{
+				"OpenShimGetHudSpriteRect",
+				"[EXU::ControlPanel] OpenShim HUD sprite get-rect bridge unavailable" };
+			return bridge.Get();
 		}
 
 		OpenShimSetHudSpriteRectFn ResolveHudSpriteRectBridge()
 		{
-			static OpenShimSetHudSpriteRectFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimSetHudSpriteRectFn>(
-				"OpenShimSetHudSpriteRect");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::ControlPanel] OpenShim HUD sprite rect bridge unavailable");
-			}
-
-			return fn;
+			static constinit OpenShimBridge::LatchedExport<OpenShimSetHudSpriteRectFn> bridge{
+				"OpenShimSetHudSpriteRect",
+				"[EXU::ControlPanel] OpenShim HUD sprite rect bridge unavailable" };
+			return bridge.Get();
 		}
 
 		OpenShimSetHudSpriteVisibleFn ResolveHudSpriteVisibleBridge()
 		{
-			static OpenShimSetHudSpriteVisibleFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimSetHudSpriteVisibleFn>(
-				"OpenShimSetHudSpriteVisible");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::ControlPanel] OpenShim HUD sprite visibility bridge unavailable");
-			}
-
-			return fn;
+			static constinit OpenShimBridge::LatchedExport<OpenShimSetHudSpriteVisibleFn> bridge{
+				"OpenShimSetHudSpriteVisible",
+				"[EXU::ControlPanel] OpenShim HUD sprite visibility bridge unavailable" };
+			return bridge.Get();
 		}
 
 		OpenShimRestoreHudSpriteFn ResolveRestoreHudSpriteBridge()
 		{
-			static OpenShimRestoreHudSpriteFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimRestoreHudSpriteFn>(
-				"OpenShimRestoreHudSprite");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::ControlPanel] OpenShim HUD sprite restore bridge unavailable");
-			}
-
-			return fn;
+			static constinit OpenShimBridge::LatchedExport<OpenShimRestoreHudSpriteFn> bridge{
+				"OpenShimRestoreHudSprite",
+				"[EXU::ControlPanel] OpenShim HUD sprite restore bridge unavailable" };
+			return bridge.Get();
 		}
 
 		OpenShimRestoreAllHudSpritesFn ResolveRestoreAllHudSpritesBridge()
 		{
-			static OpenShimRestoreAllHudSpritesFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimRestoreAllHudSpritesFn>(
-				"OpenShimRestoreAllHudSprites");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::ControlPanel] OpenShim HUD sprite restore-all bridge unavailable");
-			}
-
-			return fn;
+			static constinit OpenShimBridge::LatchedExport<OpenShimRestoreAllHudSpritesFn> bridge{
+				"OpenShimRestoreAllHudSprites",
+				"[EXU::ControlPanel] OpenShim HUD sprite restore-all bridge unavailable" };
+			return bridge.Get();
 		}
 
 		OpenShimGetScrapPilotHudTopLeftsFn ResolveScrapPilotHudGetBridge()
 		{
-			static const auto fn =
-				OpenShimBridge::Resolve<OpenShimGetScrapPilotHudTopLeftsFn>(
-					"OpenShimGetScrapPilotHudTopLefts");
-			return fn;
+			static constinit OpenShimBridge::LatchedExport<OpenShimGetScrapPilotHudTopLeftsFn> bridge{ "OpenShimGetScrapPilotHudTopLefts" };
+			return bridge.Get();
 		}
 
 		OpenShimSetScrapPilotHudTopLeftsFn ResolveScrapPilotHudSetBridge()
 		{
-			static const auto fn =
-				OpenShimBridge::Resolve<OpenShimSetScrapPilotHudTopLeftsFn>(
-					"OpenShimSetScrapPilotHudTopLefts");
-			return fn;
+			static constinit OpenShimBridge::LatchedExport<OpenShimSetScrapPilotHudTopLeftsFn> bridge{ "OpenShimSetScrapPilotHudTopLefts" };
+			return bridge.Get();
 		}
 
 		OpenShimRestoreScrapPilotHudStockFn ResolveScrapPilotHudRestoreBridge()
 		{
-			static const auto fn =
-				OpenShimBridge::Resolve<OpenShimRestoreScrapPilotHudStockFn>(
-					"OpenShimRestoreScrapPilotHudStock");
-			return fn;
+			static constinit OpenShimBridge::LatchedExport<OpenShimRestoreScrapPilotHudStockFn> bridge{ "OpenShimRestoreScrapPilotHudStock" };
+			return bridge.Get();
 		}
 
 		bool IsReasonableCommandMenuRect(const CommandMenuRect& rect) noexcept
