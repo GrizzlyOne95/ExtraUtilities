@@ -162,6 +162,10 @@
       <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <ClCompile Include="src\UI\Overlay.cpp" />
+    <ClCompile Include="src\Ogre\OgreOverlayElementOps.cpp" />
+    <ClCompile Include="src\Ogre\OgreOverlayRuntime.cpp" />
+    <ClCompile Include="src\UI\OverlaySuppression.cpp" />
+    <ClCompile Include="src\UI\OverlayFontAssets.cpp" />
     <ClCompile Include="src\Game\Ordnance.cpp" />
     <ClCompile Include="src\Patches\OrdnanceVelocity.cpp" />
     <ClCompile Include="src\Util\OS.cpp" />
@@ -219,6 +223,9 @@
     <ClInclude Include="src\Ogre\OgreStringInterfaceShim.h" />
     <ClInclude Include="src\Ogre\Ogre.h" />
     <ClInclude Include="src\UI\Overlay.h" />
+    <ClInclude Include="src\Ogre\OgreOverlayElementOps.h" />
+    <ClInclude Include="src\Ogre\OgreOverlayRuntime.h" />
+    <ClInclude Include="src\UI\OverlayInternal.h" />
     <ClInclude Include="src\Game\Ordnance.h" />
     <ClInclude Include="src\Patches\OrdnanceVelocity.h" />
     <ClInclude Include="src\Scanner.h" />
