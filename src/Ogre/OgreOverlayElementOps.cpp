@@ -238,23 +238,18 @@ namespace ExtraUtilities::Lua::Overlay
 			return true;
 		}
 
-		bool TryCallPanelSetTransparent(::Ogre::PanelOverlayElement* element, bool transparent, unsigned int& outExceptionCode)
+		// Calls one exported element setter under SEH and reports the fault
+		// code, so a bad element pointer fails the call rather than the game.
+		// A missing export or null element is a plain failure (code 0).
+		template <typename Fn, typename Element, typename... Args>
+		bool TryCallElementSetter(
+			const OgreProc<Fn>& proc,
+			Element* element,
+			unsigned int& outExceptionCode,
+			const Args&... args)
 		{
 			outExceptionCode = 0;
-			using Fn = void(__thiscall*)(void*, bool);
-			static Fn fn = nullptr;
-			if (fn == nullptr)
-			{
-				HMODULE ogreOverlay = GetOgreOverlayModule();
-				if (ogreOverlay == nullptr)
-				{
-					return false;
-				}
-
-				fn = reinterpret_cast<Fn>(
-					GetProcAddress(ogreOverlay, "?setTransparent@PanelOverlayElement@Ogre@@QAEX_N@Z"));
-			}
-
+			const Fn fn = proc.Get();
 			if (fn == nullptr || element == nullptr)
 			{
 				return false;
@@ -262,7 +257,7 @@ namespace ExtraUtilities::Lua::Overlay
 
 			__try
 			{
-				fn(element, transparent);
+				fn(element, args...);
 				return true;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER)
@@ -270,142 +265,36 @@ namespace ExtraUtilities::Lua::Overlay
 				outExceptionCode = GetExceptionCode();
 				return false;
 			}
+		}
+
+		bool TryCallPanelSetTransparent(::Ogre::PanelOverlayElement* element, bool transparent, unsigned int& outExceptionCode)
+		{
+			static constinit OgreProc<void(__thiscall*)(void*, bool)> fn{ OgreModule::Overlay, "?setTransparent@PanelOverlayElement@Ogre@@QAEX_N@Z" };
+			return TryCallElementSetter(fn, element, outExceptionCode, transparent);
 		}
 
 		bool TryCallPanelSetTiling(::Ogre::PanelOverlayElement* element, float x, float y, unsigned short layer, unsigned int& outExceptionCode)
 		{
-			outExceptionCode = 0;
-			using Fn = void(__thiscall*)(void*, float, float, unsigned short);
-			static Fn fn = nullptr;
-			if (fn == nullptr)
-			{
-				HMODULE ogreOverlay = GetOgreOverlayModule();
-				if (ogreOverlay == nullptr)
-				{
-					return false;
-				}
-
-				fn = reinterpret_cast<Fn>(
-					GetProcAddress(ogreOverlay, "?setTiling@PanelOverlayElement@Ogre@@QAEXMMG@Z"));
-			}
-
-			if (fn == nullptr || element == nullptr)
-			{
-				return false;
-			}
-
-			__try
-			{
-				fn(element, x, y, layer);
-				return true;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				outExceptionCode = GetExceptionCode();
-				return false;
-			}
+			static constinit OgreProc<void(__thiscall*)(void*, float, float, unsigned short)> fn{ OgreModule::Overlay, "?setTiling@PanelOverlayElement@Ogre@@QAEXMMG@Z" };
+			return TryCallElementSetter(fn, element, outExceptionCode, x, y, layer);
 		}
 
 		bool TryCallPanelSetUV(::Ogre::PanelOverlayElement* element, float u1, float v1, float u2, float v2, unsigned int& outExceptionCode)
 		{
-			outExceptionCode = 0;
-			using Fn = void(__thiscall*)(void*, float, float, float, float);
-			static Fn fn = nullptr;
-			if (fn == nullptr)
-			{
-				HMODULE ogreOverlay = GetOgreOverlayModule();
-				if (ogreOverlay == nullptr)
-				{
-					return false;
-				}
-
-				fn = reinterpret_cast<Fn>(
-					GetProcAddress(ogreOverlay, "?setUV@PanelOverlayElement@Ogre@@QAEXMMMM@Z"));
-			}
-
-			if (fn == nullptr || element == nullptr)
-			{
-				return false;
-			}
-
-			__try
-			{
-				fn(element, u1, v1, u2, v2);
-				return true;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				outExceptionCode = GetExceptionCode();
-				return false;
-			}
+			static constinit OgreProc<void(__thiscall*)(void*, float, float, float, float)> fn{ OgreModule::Overlay, "?setUV@PanelOverlayElement@Ogre@@QAEXMMMM@Z" };
+			return TryCallElementSetter(fn, element, outExceptionCode, u1, v1, u2, v2);
 		}
 
 		bool TryCallBorderPanelSetBorderSize1(::Ogre::BorderPanelOverlayElement* element, float size, unsigned int& outExceptionCode)
 		{
-			outExceptionCode = 0;
-			using Fn = void(__thiscall*)(void*, float);
-			static Fn fn = nullptr;
-			if (fn == nullptr)
-			{
-				HMODULE ogreOverlay = GetOgreOverlayModule();
-				if (ogreOverlay == nullptr)
-				{
-					return false;
-				}
-
-				fn = reinterpret_cast<Fn>(
-					GetProcAddress(ogreOverlay, "?setBorderSize@BorderPanelOverlayElement@Ogre@@QAEXM@Z"));
-			}
-
-			if (fn == nullptr || element == nullptr)
-			{
-				return false;
-			}
-
-			__try
-			{
-				fn(element, size);
-				return true;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				outExceptionCode = GetExceptionCode();
-				return false;
-			}
+			static constinit OgreProc<void(__thiscall*)(void*, float)> fn{ OgreModule::Overlay, "?setBorderSize@BorderPanelOverlayElement@Ogre@@QAEXM@Z" };
+			return TryCallElementSetter(fn, element, outExceptionCode, size);
 		}
 
 		bool TryCallBorderPanelSetBorderSize2(::Ogre::BorderPanelOverlayElement* element, float sides, float topBottom, unsigned int& outExceptionCode)
 		{
-			outExceptionCode = 0;
-			using Fn = void(__thiscall*)(void*, float, float);
-			static Fn fn = nullptr;
-			if (fn == nullptr)
-			{
-				HMODULE ogreOverlay = GetOgreOverlayModule();
-				if (ogreOverlay == nullptr)
-				{
-					return false;
-				}
-
-				fn = reinterpret_cast<Fn>(
-					GetProcAddress(ogreOverlay, "?setBorderSize@BorderPanelOverlayElement@Ogre@@QAEXMM@Z"));
-			}
-
-			if (fn == nullptr || element == nullptr)
-			{
-				return false;
-			}
-
-			__try
-			{
-				fn(element, sides, topBottom);
-				return true;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				outExceptionCode = GetExceptionCode();
-				return false;
-			}
+			static constinit OgreProc<void(__thiscall*)(void*, float, float)> fn{ OgreModule::Overlay, "?setBorderSize@BorderPanelOverlayElement@Ogre@@QAEXMM@Z" };
+			return TryCallElementSetter(fn, element, outExceptionCode, sides, topBottom);
 		}
 
 		bool TryCallBorderPanelSetBorderSize4(
@@ -416,36 +305,8 @@ namespace ExtraUtilities::Lua::Overlay
 			float bottom,
 			unsigned int& outExceptionCode)
 		{
-			outExceptionCode = 0;
-			using Fn = void(__thiscall*)(void*, float, float, float, float);
-			static Fn fn = nullptr;
-			if (fn == nullptr)
-			{
-				HMODULE ogreOverlay = GetOgreOverlayModule();
-				if (ogreOverlay == nullptr)
-				{
-					return false;
-				}
-
-				fn = reinterpret_cast<Fn>(
-					GetProcAddress(ogreOverlay, "?setBorderSize@BorderPanelOverlayElement@Ogre@@QAEXMMMM@Z"));
-			}
-
-			if (fn == nullptr || element == nullptr)
-			{
-				return false;
-			}
-
-			__try
-			{
-				fn(element, left, right, top, bottom);
-				return true;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				outExceptionCode = GetExceptionCode();
-				return false;
-			}
+			static constinit OgreProc<void(__thiscall*)(void*, float, float, float, float)> fn{ OgreModule::Overlay, "?setBorderSize@BorderPanelOverlayElement@Ogre@@QAEXMMMM@Z" };
+			return TryCallElementSetter(fn, element, outExceptionCode, left, right, top, bottom);
 		}
 
 		bool TryCallBorderPanelSetBorderMaterial(
@@ -453,36 +314,8 @@ namespace ExtraUtilities::Lua::Overlay
 			const std::string& materialName,
 			unsigned int& outExceptionCode)
 		{
-			outExceptionCode = 0;
-			using Fn = void(__thiscall*)(void*, const std::string&);
-			static Fn fn = nullptr;
-			if (fn == nullptr)
-			{
-				HMODULE ogreOverlay = GetOgreOverlayModule();
-				if (ogreOverlay == nullptr)
-				{
-					return false;
-				}
-
-				fn = reinterpret_cast<Fn>(
-					GetProcAddress(ogreOverlay, "?setBorderMaterialName@BorderPanelOverlayElement@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z"));
-			}
-
-			if (fn == nullptr || element == nullptr)
-			{
-				return false;
-			}
-
-			__try
-			{
-				fn(element, materialName);
-				return true;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				outExceptionCode = GetExceptionCode();
-				return false;
-			}
+			static constinit OgreProc<void(__thiscall*)(void*, const std::string&)> fn{ OgreModule::Overlay, "?setBorderMaterialName@BorderPanelOverlayElement@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z" };
+			return TryCallElementSetter(fn, element, outExceptionCode, materialName);
 		}
 
 		bool TryCallTextAreaSetAlignment(
@@ -490,70 +323,14 @@ namespace ExtraUtilities::Lua::Overlay
 			::Ogre::TextAreaOverlayElement::Alignment alignment,
 			unsigned int& outExceptionCode)
 		{
-			outExceptionCode = 0;
-			using Fn = void(__thiscall*)(void*, ::Ogre::TextAreaOverlayElement::Alignment);
-			static Fn fn = nullptr;
-			if (fn == nullptr)
-			{
-				HMODULE ogreOverlay = GetOgreOverlayModule();
-				if (ogreOverlay == nullptr)
-				{
-					return false;
-				}
-
-				fn = reinterpret_cast<Fn>(
-					GetProcAddress(ogreOverlay, "?setAlignment@TextAreaOverlayElement@Ogre@@QAEXW4Alignment@12@@Z"));
-			}
-
-			if (fn == nullptr || element == nullptr)
-			{
-				return false;
-			}
-
-			__try
-			{
-				fn(element, alignment);
-				return true;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				outExceptionCode = GetExceptionCode();
-				return false;
-			}
+			static constinit OgreProc<void(__thiscall*)(void*, ::Ogre::TextAreaOverlayElement::Alignment)> fn{ OgreModule::Overlay, "?setAlignment@TextAreaOverlayElement@Ogre@@QAEXW4Alignment@12@@Z" };
+			return TryCallElementSetter(fn, element, outExceptionCode, alignment);
 		}
 
 		bool TryCallTextAreaSetSpaceWidth(::Ogre::TextAreaOverlayElement* element, float width, unsigned int& outExceptionCode)
 		{
-			outExceptionCode = 0;
-			using Fn = void(__thiscall*)(void*, float);
-			static Fn fn = nullptr;
-			if (fn == nullptr)
-			{
-				HMODULE ogreOverlay = GetOgreOverlayModule();
-				if (ogreOverlay == nullptr)
-				{
-					return false;
-				}
-
-				fn = reinterpret_cast<Fn>(
-					GetProcAddress(ogreOverlay, "?setSpaceWidth@TextAreaOverlayElement@Ogre@@QAEXM@Z"));
-			}
-
-			if (fn == nullptr || element == nullptr)
-			{
-				return false;
-			}
-
-			__try
-			{
-				fn(element, width);
-				return true;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				outExceptionCode = GetExceptionCode();
-				return false;
-			}
+			static constinit OgreProc<void(__thiscall*)(void*, float)> fn{ OgreModule::Overlay, "?setSpaceWidth@TextAreaOverlayElement@Ogre@@QAEXM@Z" };
+			return TryCallElementSetter(fn, element, outExceptionCode, width);
 		}
 
 		bool TryCallTextAreaSetColourTop(
@@ -561,36 +338,8 @@ namespace ExtraUtilities::Lua::Overlay
 			const ::Ogre::ColourValue& color,
 			unsigned int& outExceptionCode)
 		{
-			outExceptionCode = 0;
-			using Fn = void(__thiscall*)(void*, const ::Ogre::ColourValue&);
-			static Fn fn = nullptr;
-			if (fn == nullptr)
-			{
-				HMODULE ogreOverlay = GetOgreOverlayModule();
-				if (ogreOverlay == nullptr)
-				{
-					return false;
-				}
-
-				fn = reinterpret_cast<Fn>(
-					GetProcAddress(ogreOverlay, "?setColourTop@TextAreaOverlayElement@Ogre@@QAEXABVColourValue@2@@Z"));
-			}
-
-			if (fn == nullptr || element == nullptr)
-			{
-				return false;
-			}
-
-			__try
-			{
-				fn(element, color);
-				return true;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				outExceptionCode = GetExceptionCode();
-				return false;
-			}
+			static constinit OgreProc<void(__thiscall*)(void*, const ::Ogre::ColourValue&)> fn{ OgreModule::Overlay, "?setColourTop@TextAreaOverlayElement@Ogre@@QAEXABVColourValue@2@@Z" };
+			return TryCallElementSetter(fn, element, outExceptionCode, color);
 		}
 
 		bool TryCallTextAreaSetColourBottom(
@@ -598,36 +347,8 @@ namespace ExtraUtilities::Lua::Overlay
 			const ::Ogre::ColourValue& color,
 			unsigned int& outExceptionCode)
 		{
-			outExceptionCode = 0;
-			using Fn = void(__thiscall*)(void*, const ::Ogre::ColourValue&);
-			static Fn fn = nullptr;
-			if (fn == nullptr)
-			{
-				HMODULE ogreOverlay = GetOgreOverlayModule();
-				if (ogreOverlay == nullptr)
-				{
-					return false;
-				}
-
-				fn = reinterpret_cast<Fn>(
-					GetProcAddress(ogreOverlay, "?setColourBottom@TextAreaOverlayElement@Ogre@@QAEXABVColourValue@2@@Z"));
-			}
-
-			if (fn == nullptr || element == nullptr)
-			{
-				return false;
-			}
-
-			__try
-			{
-				fn(element, color);
-				return true;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				outExceptionCode = GetExceptionCode();
-				return false;
-			}
+			static constinit OgreProc<void(__thiscall*)(void*, const ::Ogre::ColourValue&)> fn{ OgreModule::Overlay, "?setColourBottom@TextAreaOverlayElement@Ogre@@QAEXABVColourValue@2@@Z" };
+			return TryCallElementSetter(fn, element, outExceptionCode, color);
 		}
 	}
 
