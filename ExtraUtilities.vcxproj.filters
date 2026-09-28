@@ -305,6 +305,9 @@
     <ClInclude Include="src\Util\ModulePath.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
+    <ClInclude Include="src\Util\MsvcRtti.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
     <ClInclude Include="src\Util\BzrBuildProfile.generated.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>

@@ -31,6 +31,7 @@
 
 #include "bzr.h"
 #include "Game/GameObjectHandle.h"
+#include "Util/MsvcRtti.h"
 #include "InlinePatch.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
@@ -359,9 +360,8 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 		{
 			__try
 			{
-				const uintptr_t col = *reinterpret_cast<const uintptr_t*>(vftableVa - 4);
-				const uintptr_t typeDescriptor = *reinterpret_cast<const uintptr_t*>(col + 0x0C);
-				const char* name = reinterpret_cast<const char*>(typeDescriptor + 8);
+				const auto* vftable = reinterpret_cast<const MsvcRtti::CompleteObjectLocator* const*>(vftableVa);
+				const char* name = vftable[-1]->pTypeDescriptor->name;
 				for (size_t i = 0; i + 1 < bufferLen; ++i)
 				{
 					buffer[i] = name[i];
