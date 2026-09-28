@@ -25,7 +25,7 @@ Higher layers may depend on lower layers. Lower layers should not depend on Lua 
 
 Version-specific executable knowledge belongs in the address catalog and build-profile tooling:
 
-- `exu.json` is the source catalog for known BZR addresses, types, descriptions, and IDA-style signatures.
+- `exu.json` is the source catalog for known BZR addresses, types, descriptions, and IDA-style signatures. `tools/generate_engine_addresses.py` turns it into `src/Util/EngineAddresses.generated.h` (`ExtraUtilities::EngineAddresses::<Group>::<Name>`); feature code uses those names, and `tools/validate_hardening.py` rejects engine-range literals anywhere else in `src/`.
 - `profiles/` describes which catalog entries qualify a supported executable build.
 - `src/Util/BuildValidation.h` is the in-process fail-closed gate used before native patches activate.
 - `tools/qualify_bzr_build.py` is the offline/new-build qualification utility.
@@ -75,6 +75,6 @@ When a new BZR executable appears:
 2. Run it again with `--catalog` to check every `exu.json` signature, then review matched, relocated, missing, and ambiguous signatures. The Steam executable is SteamStub-packed and cannot be qualified; use the GOG executable or an unpacked image.
 3. Reverse-engineer only targets that failed qualification; never invent replacement signatures.
 4. Add or update a build profile only after the executable and critical targets have been validated.
-5. Regenerate the runtime profile header, run CI, and perform an in-game smoke test.
+5. Regenerate the runtime profile header and the engine address header, run CI, and perform an in-game smoke test.
 
 A new executable should remain unsupported until this process completes. Failing closed is preferable to applying a native patch to an unqualified build.

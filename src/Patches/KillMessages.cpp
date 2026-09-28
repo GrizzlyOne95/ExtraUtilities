@@ -19,6 +19,7 @@
 #include "KillMessages.h"
 
 #include "Hook.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <string>
 #include <unordered_map>
@@ -90,7 +91,7 @@ namespace ExtraUtilities::Patch
 			ret
 		}
 	}
-	Hook killMessageHook(0x0062627f, KillMessageHook, 8, BasicPatch::Status::ACTIVE, { 0x8B, 0x55, 0xA8, 0xC6, 0x44, 0x15, 0xB4, 0x00 });
+	Hook killMessageHook(EngineAddresses::Callbacks::KillMessageHook, KillMessageHook, 8, BasicPatch::Status::ACTIVE, { 0x8B, 0x55, 0xA8, 0xC6, 0x44, 0x15, 0xB4, 0x00 });
 }
 
 namespace ExtraUtilities::Lua::Patches

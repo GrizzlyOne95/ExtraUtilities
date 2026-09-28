@@ -18,6 +18,7 @@
 
 #include "OS.h"
 
+#include "EngineAddresses.generated.h"
 #include "Logging.h"
 #include "NativeSaveFlag.h"
 #include "SavePathPolicy.h"
@@ -670,8 +671,14 @@ namespace ExtraUtilities::Lua::OS
 				0x83, 0x7D, 0x08, 0x0A, 0x0F, 0x8F, -1, -1, -1, -1
 			};
 
+			// mov dword ptr [ebp+disp8], saveGameDesc
+			constexpr uintptr_t kDescription = EngineAddresses::SaveGame::saveGameDesc;
 			constexpr std::array<int, 7> DESCRIPTION_BUFFER_PATTERN = {
-				0xC7, 0x45, -1, 0xD8, 0x86, 0x8E, 0x00
+				0xC7, 0x45, -1,
+				static_cast<int>(kDescription & 0xFF),
+				static_cast<int>((kDescription >> 8) & 0xFF),
+				static_cast<int>((kDescription >> 16) & 0xFF),
+				static_cast<int>((kDescription >> 24) & 0xFF)
 			};
 
 			if (!ContainsBytePattern(functionStart, kWindowSize, SLOT_RANGE_PATTERN))

@@ -299,6 +299,9 @@
     <ClInclude Include="src\Util\BzrBuildProfile.generated.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
+    <ClInclude Include="src\Util\EngineAddresses.generated.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
     <ClInclude Include="src\Util\Logging.h">
       <Filter>Header Files</Filter>
     </ClInclude>
