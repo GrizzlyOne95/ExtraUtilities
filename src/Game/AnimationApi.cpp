@@ -18,8 +18,10 @@
 
 #include "Game/AnimationApi.h"
 
-#include "Game/GameObject.h"
 #include "Game/FirstPersonTarget.h"
+#include "Game/GameObject.h"
+#include "Game/PilotState.h"
+#include "Game/PilotStateSemantics.h"
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
 #include "Util/Logging.h"
@@ -322,7 +324,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 		int GetCapabilities(lua_State* L)
 		{
-			lua_createtable(L, 0, 6);
+			lua_createtable(L, 0, 7);
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "gameObjectTarget");
 			const bool hasFpBridge = OpenShimBridge::HasLocalFirstPersonEntityBridge();
@@ -331,6 +333,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_setfield(L, -2, "localFirstPersonTarget");
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "animationInventory");
+			lua_pushboolean(L, 1);
+			lua_setfield(L, -2, "pilotStateInspection");
 			lua_pushboolean(L, 0);
 			lua_setfield(L, -2, "managedClock");
 			lua_pushstring(L, "unvalidated");
@@ -565,6 +569,145 @@ namespace ExtraUtilities::Lua::AnimationApi
 			return 1;
 		}
 
+		void FormatSignature(std::uint32_t signature, char (&out)[5]) noexcept
+		{
+			out[0] = static_cast<char>((signature >> 24) & 0xFFu);
+			out[1] = static_cast<char>((signature >> 16) & 0xFFu);
+			out[2] = static_cast<char>((signature >> 8) & 0xFFu);
+			out[3] = static_cast<char>(signature & 0xFFu);
+			out[4] = '\0';
+			for (int i = 0; i < 4; ++i)
+			{
+				const unsigned char ch = static_cast<unsigned char>(out[i]);
+				if (ch < 32 || ch > 126)
+				{
+					out[i] = '.';
+				}
+			}
+		}
+
+		void PushPilotState(lua_State* L, const PilotState::Snapshot& snapshot)
+		{
+			lua_createtable(L, 0, 14);
+
+			lua_pushboolean(L, snapshot.available ? 1 : 0);
+			lua_setfield(L, -2, "available");
+
+			lua_pushstring(L, PilotState::SemanticStateName(snapshot.nativeState));
+			lua_setfield(L, -2, "state");
+
+			lua_pushinteger(L, static_cast<lua_Integer>(snapshot.nativeState));
+			lua_setfield(L, -2, "nativeState");
+
+			lua_pushboolean(L, PilotState::IsTransitionState(snapshot.nativeState) ? 1 : 0);
+			lua_setfield(L, -2, "transition");
+
+			lua_pushboolean(L, PilotState::IsFullyCrouchedState(snapshot.nativeState) ? 1 : 0);
+			lua_setfield(L, -2, "crouched");
+
+			lua_pushboolean(L, snapshot.grounded ? 1 : 0);
+			lua_setfield(L, -2, "grounded");
+
+			lua_pushboolean(L, snapshot.sniperSelected ? 1 : 0);
+			lua_setfield(L, -2, "sniperSelected");
+
+			lua_pushinteger(L, static_cast<lua_Integer>(snapshot.animationIndex));
+			lua_setfield(L, -2, "animationIndex");
+
+			if (const char* animationName = PilotState::KnownAnimationName(snapshot.animationIndex))
+			{
+				lua_pushstring(L, animationName);
+			}
+			else
+			{
+				lua_pushnil(L);
+			}
+			lua_setfield(L, -2, "animationName");
+
+			lua_pushinteger(L, static_cast<lua_Integer>(snapshot.animationHandle));
+			lua_setfield(L, -2, "animationHandle");
+
+			lua_pushinteger(L, static_cast<lua_Integer>(snapshot.selectedWeaponMask));
+			lua_setfield(L, -2, "selectedWeaponMask");
+
+			if (snapshot.selectedWeaponSlot >= 0)
+			{
+				lua_pushinteger(L, static_cast<lua_Integer>(snapshot.selectedWeaponSlot));
+				lua_setfield(L, -2, "selectedWeaponSlot");
+
+				lua_pushinteger(L, static_cast<lua_Integer>(snapshot.selectedWeaponSignature));
+				lua_setfield(L, -2, "selectedWeaponSignature");
+
+				char signatureText[5]{};
+				FormatSignature(snapshot.selectedWeaponSignature, signatureText);
+				lua_pushlstring(L, signatureText, 4);
+				lua_setfield(L, -2, "selectedWeaponSignatureText");
+
+				if (snapshot.selectedWeaponOdf[0] != '\0')
+				{
+					lua_pushstring(L, snapshot.selectedWeaponOdf);
+					lua_setfield(L, -2, "selectedWeaponOdf");
+				}
+			}
+		}
+
+		int FpsGetPilotState(lua_State* L)
+		{
+			PilotState::Snapshot snapshot{};
+			if (!PilotState::Capture(snapshot))
+			{
+				lua_settop(L, 0);
+				lua_pushnil(L);
+				return 1;
+			}
+
+			lua_settop(L, 0);
+			PushPilotState(L, snapshot);
+			return 1;
+		}
+
+		int FpsIsCrouched(lua_State* L)
+		{
+			PilotState::Snapshot snapshot{};
+			if (!PilotState::Capture(snapshot))
+			{
+				lua_settop(L, 0);
+				lua_pushnil(L);
+				return 1;
+			}
+			lua_settop(L, 0);
+			lua_pushboolean(L, PilotState::IsFullyCrouchedState(snapshot.nativeState) ? 1 : 0);
+			return 1;
+		}
+
+		int FpsIsGrounded(lua_State* L)
+		{
+			PilotState::Snapshot snapshot{};
+			if (!PilotState::Capture(snapshot))
+			{
+				lua_settop(L, 0);
+				lua_pushnil(L);
+				return 1;
+			}
+			lua_settop(L, 0);
+			lua_pushboolean(L, snapshot.grounded ? 1 : 0);
+			return 1;
+		}
+
+		int FpsIsSniperSelected(lua_State* L)
+		{
+			PilotState::Snapshot snapshot{};
+			if (!PilotState::Capture(snapshot))
+			{
+				lua_settop(L, 0);
+				lua_pushnil(L);
+				return 1;
+			}
+			lua_settop(L, 0);
+			lua_pushboolean(L, snapshot.sniperSelected ? 1 : 0);
+			return 1;
+		}
+
 		int FpsIsAvailable(lua_State* L)
 		{
 			Detail::Target target{};
@@ -661,6 +804,10 @@ namespace ExtraUtilities::Lua::AnimationApi
 		static const luaL_Reg fpsFunctions[] = {
 			{ "IsAvailable", &FpsIsAvailable },
 			{ "GetCapabilities", &FpsGetCapabilities },
+			{ "GetPilotState", &FpsGetPilotState },
+			{ "IsCrouched", &FpsIsCrouched },
+			{ "IsGrounded", &FpsIsGrounded },
+			{ "IsSniperSelected", &FpsIsSniperSelected },
 			{ "ListAnimations", &FpsListAnimations },
 			{ "HasAnimation", &FpsHasAnimation },
 			{ "GetInfo", &FpsGetInfo },
