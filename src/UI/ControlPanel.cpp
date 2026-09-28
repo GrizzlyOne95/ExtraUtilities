@@ -396,7 +396,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		OpenShimGetHudSpriteRectFn ResolveHudSpriteGetRectBridge()
 		{
-			static constinit OpenShimBridge::LatchedExport<OpenShimGetHudSpriteRectFn> bridge{
+			static constinit OpenShimBridge::CachedExport<OpenShimGetHudSpriteRectFn> bridge{
 				"OpenShimGetHudSpriteRect",
 				"[EXU::ControlPanel] OpenShim HUD sprite get-rect bridge unavailable" };
 			return bridge.Get();
@@ -404,7 +404,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		OpenShimSetHudSpriteRectFn ResolveHudSpriteRectBridge()
 		{
-			static constinit OpenShimBridge::LatchedExport<OpenShimSetHudSpriteRectFn> bridge{
+			static constinit OpenShimBridge::CachedExport<OpenShimSetHudSpriteRectFn> bridge{
 				"OpenShimSetHudSpriteRect",
 				"[EXU::ControlPanel] OpenShim HUD sprite rect bridge unavailable" };
 			return bridge.Get();
@@ -412,7 +412,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		OpenShimSetHudSpriteVisibleFn ResolveHudSpriteVisibleBridge()
 		{
-			static constinit OpenShimBridge::LatchedExport<OpenShimSetHudSpriteVisibleFn> bridge{
+			static constinit OpenShimBridge::CachedExport<OpenShimSetHudSpriteVisibleFn> bridge{
 				"OpenShimSetHudSpriteVisible",
 				"[EXU::ControlPanel] OpenShim HUD sprite visibility bridge unavailable" };
 			return bridge.Get();
@@ -420,7 +420,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		OpenShimRestoreHudSpriteFn ResolveRestoreHudSpriteBridge()
 		{
-			static constinit OpenShimBridge::LatchedExport<OpenShimRestoreHudSpriteFn> bridge{
+			static constinit OpenShimBridge::CachedExport<OpenShimRestoreHudSpriteFn> bridge{
 				"OpenShimRestoreHudSprite",
 				"[EXU::ControlPanel] OpenShim HUD sprite restore bridge unavailable" };
 			return bridge.Get();
@@ -428,7 +428,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		OpenShimRestoreAllHudSpritesFn ResolveRestoreAllHudSpritesBridge()
 		{
-			static constinit OpenShimBridge::LatchedExport<OpenShimRestoreAllHudSpritesFn> bridge{
+			static constinit OpenShimBridge::CachedExport<OpenShimRestoreAllHudSpritesFn> bridge{
 				"OpenShimRestoreAllHudSprites",
 				"[EXU::ControlPanel] OpenShim HUD sprite restore-all bridge unavailable" };
 			return bridge.Get();
@@ -436,19 +436,19 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		OpenShimGetScrapPilotHudTopLeftsFn ResolveScrapPilotHudGetBridge()
 		{
-			static constinit OpenShimBridge::LatchedExport<OpenShimGetScrapPilotHudTopLeftsFn> bridge{ "OpenShimGetScrapPilotHudTopLefts" };
+			static constinit OpenShimBridge::CachedExport<OpenShimGetScrapPilotHudTopLeftsFn> bridge{ "OpenShimGetScrapPilotHudTopLefts" };
 			return bridge.Get();
 		}
 
 		OpenShimSetScrapPilotHudTopLeftsFn ResolveScrapPilotHudSetBridge()
 		{
-			static constinit OpenShimBridge::LatchedExport<OpenShimSetScrapPilotHudTopLeftsFn> bridge{ "OpenShimSetScrapPilotHudTopLefts" };
+			static constinit OpenShimBridge::CachedExport<OpenShimSetScrapPilotHudTopLeftsFn> bridge{ "OpenShimSetScrapPilotHudTopLefts" };
 			return bridge.Get();
 		}
 
 		OpenShimRestoreScrapPilotHudStockFn ResolveScrapPilotHudRestoreBridge()
 		{
-			static constinit OpenShimBridge::LatchedExport<OpenShimRestoreScrapPilotHudStockFn> bridge{ "OpenShimRestoreScrapPilotHudStock" };
+			static constinit OpenShimBridge::CachedExport<OpenShimRestoreScrapPilotHudStockFn> bridge{ "OpenShimRestoreScrapPilotHudStock" };
 			return bridge.Get();
 		}
 
