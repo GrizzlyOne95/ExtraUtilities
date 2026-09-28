@@ -20,6 +20,7 @@
 
 #include "bzr.h"
 #include "InlinePatch.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <lua.hpp>
 
@@ -27,13 +28,13 @@
 
 namespace ExtraUtilities::Patch
 {
-	constexpr uintptr_t wingmanWeaponAimVftableEntry = 0x0088A4FC;
-	constexpr uintptr_t hovercraftWeaponAimVftableEntry = 0x00889418;
-	constexpr uintptr_t hovercraftUpdateWeaponAim = 0x005F0930;
-	constexpr uintptr_t walkerUpdateWeaponAim = 0x0060F320;
+	constexpr uintptr_t wingmanWeaponAimVftableEntry = EngineAddresses::ShotConvergence::Wingman_UpdateWeaponAimSlot;
+	constexpr uintptr_t hovercraftWeaponAimVftableEntry = EngineAddresses::ShotConvergence::TurretCraft_UpdateWeaponAimSlot;
+	constexpr uintptr_t hovercraftUpdateWeaponAim = EngineAddresses::ShotConvergence::TurretCraft_UpdateWeaponAim;
+	constexpr uintptr_t walkerUpdateWeaponAim = EngineAddresses::ShotConvergence::Walker_UpdateWeaponAim;
 
-	constexpr uintptr_t carrierGetWeapon = 0x00417F60;
-	constexpr uintptr_t refreshWeaponTransform = 0x00681A00;
+	constexpr uintptr_t carrierGetWeapon = EngineAddresses::ShotConvergence::Carrier_GetWeapon;
+	constexpr uintptr_t refreshWeaponTransform = EngineAddresses::ShotConvergence::RefreshWeaponTransform;
 }
 
 namespace ExtraUtilities::Lua::Patches

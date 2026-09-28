@@ -17,6 +17,7 @@
 */
 
 #include "game_state.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <Windows.h>
 #include <cstdint>
@@ -27,14 +28,14 @@ namespace ExtraUtilities
 	{
 		namespace
 		{
-			constexpr uintptr_t kMultiplayerPauseFlagAddr = 0x00945549;
-			constexpr uintptr_t kMultiplayerPauseRootAddr = 0x0094557C;
-			constexpr uintptr_t kSingleplayerPauseRootAddr = 0x009454EC;
+			constexpr uintptr_t kMultiplayerPauseFlagAddr = EngineAddresses::GameUI::MultiplayerPauseFlag;
+			constexpr uintptr_t kMultiplayerPauseRootAddr = EngineAddresses::GameUI::MultiplayerPauseRoot;
+			constexpr uintptr_t kSingleplayerPauseRootAddr = EngineAddresses::GameUI::SingleplayerPauseRoot;
 
-			constexpr uintptr_t kUiCurrentScreenAddr = 0x00918320;
-			constexpr uintptr_t kEscapeUiWrapperActiveAddr = 0x00918310;
-			constexpr uintptr_t kUiWrapperActiveAddr = 0x00918324;
-			constexpr uintptr_t kUiCurrentScreenTypeAddr = 0x00918328;
+			constexpr uintptr_t kUiCurrentScreenAddr = EngineAddresses::GameUI::UiCurrentScreen;
+			constexpr uintptr_t kEscapeUiWrapperActiveAddr = EngineAddresses::GameUI::EscapeWrapperActive;
+			constexpr uintptr_t kUiWrapperActiveAddr = EngineAddresses::GameUI::MainShellWrapperActive;
+			constexpr uintptr_t kUiCurrentScreenTypeAddr = EngineAddresses::GameUI::UiCurrentScreenType;
 
 			constexpr uint32_t kPauseScreenType = 0x0B;
 			constexpr uint32_t kOptionsScreenType = 0x03;

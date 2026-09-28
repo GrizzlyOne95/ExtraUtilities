@@ -17,6 +17,7 @@
 */
 
 #include "OverlayInternal.h"
+#include "Util/EngineAddresses.generated.h"
 
 // Overlay visibility and suppression: each overlay's requested show state, and
 // the hooks on the stock pause and game-shell wrappers that hide EXU overlays
@@ -36,7 +37,7 @@ namespace ExtraUtilities::Lua::Overlay
 		bool overlayGameShellHooksReady = false;
 		volatile long overlayPauseWrapperDepth = 0;
 		volatile long overlayGameShellWrapperDepth = 0;
-		constexpr uintptr_t kPauseWrapperFunctionAddr = 0x005D4690;
+		constexpr uintptr_t kPauseWrapperFunctionAddr = EngineAddresses::GameUI::PauseWrapper;
 		constexpr uintptr_t kPauseWrapperEntryHookOffset = 0x26;
 		constexpr uintptr_t kPauseWrapperExitHookOffset = 0x1CA;
 		constexpr std::array<uint8_t, 33> kPauseWrapperFunctionPattern = {
@@ -55,7 +56,7 @@ namespace ExtraUtilities::Lua::Overlay
 		constexpr std::array<uint8_t, 7> kPauseWrapperExitHookBytes = {
 			0xC6, 0x05, 0x2B, 0x81, 0x91, 0x00, 0x00
 		};
-		constexpr uintptr_t kGameShellWrapperFunctionAddr = 0x005D42E0;
+		constexpr uintptr_t kGameShellWrapperFunctionAddr = EngineAddresses::GameUI::MainShellWrapper;
 		constexpr uintptr_t kGameShellWrapperEntryHookOffset = 0x32;
 		constexpr uintptr_t kGameShellWrapperExitHookOffset = 0x332;
 		constexpr std::array<uint8_t, 21> kGameShellWrapperFunctionPattern = {
@@ -156,6 +157,16 @@ namespace ExtraUtilities::Lua::Overlay
 			}
 		}
 
+		// Inline assembly cannot name a qualified or constexpr variable as an
+		// immediate, so the catalog addresses the stubs use are re-exported as
+		// unscoped enumerators, which MSVC encodes exactly like the literals.
+		enum : uintptr_t
+		{
+			kAsmPauseWrapperLogFormat = EngineAddresses::GameUI::PauseWrapperLogFormat,
+			kAsmPauseWrapperActive = EngineAddresses::GameUI::PauseWrapperActive,
+			kAsmMainShellWrapperActive = EngineAddresses::GameUI::MainShellWrapperActive,
+		};
+
 		static void __declspec(naked) OverlayPauseWrapperEnterHook()
 		{
 			__asm
@@ -174,7 +185,7 @@ namespace ExtraUtilities::Lua::Overlay
 				pop eax
 				mov ecx, [ebp+0x08]
 				push ecx
-				push 0x00887A64
+				push kAsmPauseWrapperLogFormat
 				jmp eax
 			}
 		}
@@ -183,7 +194,7 @@ namespace ExtraUtilities::Lua::Overlay
 		{
 			__asm
 			{
-				mov byte ptr ds:[0x0091812B], 0
+				mov byte ptr ds:[kAsmPauseWrapperActive], 0
 
 				pushad
 				pushfd
@@ -200,7 +211,7 @@ namespace ExtraUtilities::Lua::Overlay
 		{
 			__asm
 			{
-				mov dword ptr ds:[0x00918324], 1
+				mov dword ptr ds:[kAsmMainShellWrapperActive], 1
 
 				pushad
 				pushfd
@@ -217,7 +228,7 @@ namespace ExtraUtilities::Lua::Overlay
 		{
 			__asm
 			{
-				mov dword ptr ds:[0x00918324], 0
+				mov dword ptr ds:[kAsmMainShellWrapperActive], 0
 
 				pushad
 				pushfd
