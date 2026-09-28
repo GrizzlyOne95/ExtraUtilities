@@ -124,12 +124,13 @@ caps.localFirstPersonTarget == true -- with OpenShim or EXU's native supported-b
 caps.animationInventory == true
 caps.pilotStateInspection == true
 caps.pilotFsmIntercept == true -- when the verified observe-only entry detour is active
+caps.pilotAnimationOverrides == false -- no non-stock pilot animation policy can be applied yet
 caps.managedClock == false
 caps.nativeAdvancement == "unvalidated"
 ```
 
-`pilotStateInspection` and `pilotFsmIntercept` describe the logical pilot/FSM
-tooling used by `exu.fps`; they are independent of whether the first-person
+`pilotStateInspection`, `pilotFsmIntercept`, and `pilotAnimationOverrides`
+describe the logical pilot/FSM tooling used by `exu.fps`; they are independent of whether the first-person
 Ogre target is currently resolvable.
 
 `nativeAdvancement` remains `unvalidated` until the stock `Play`/`Stop`/`Seek` runtime matrix is captured. Target qualification proves that the FP entity is independently controllable, but does not by itself prove every public operation's playback semantics.

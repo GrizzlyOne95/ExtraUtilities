@@ -28,6 +28,7 @@
 --- @field localCalls integer Intercepted calls where the simulated Person was exactly the current local user object.
 --- @field stateChanges integer Local calls whose native FSM state changed across the stock Simulate call.
 --- @field animationChanges integer Local calls whose animation index or handle changed across the stock Simulate call.
+--- @field policyDecision "passThrough"|string? What the pilot animation policy told the seam to do for the most recent local call. nil until a local call has been intercepted. Always "passThrough" in this version.
 --- @field beforeNativeState integer?
 --- @field afterNativeState integer?
 --- @field beforeState string?
@@ -38,6 +39,19 @@
 --- @field afterAnimationName string?
 --- @field beforeAnimationHandle integer?
 --- @field afterAnimationHandle integer?
+
+--- @class ExuPilotPolicySlot
+--- @field mode "stock"|string "stock" means the native Person::Simulate behavior for this slot is untouched. It is the only mode this version can represent.
+--- @field nativeState integer? Native `Person+0x228` value the slot corresponds to. Present for stand/enterCrouch/crouched/exitCrouch (0-3); absent for jump/land, which are animation selections whose native conditions are not yet traced.
+
+--- Effective pilot animation profile. Read-only; one entry per policy slot.
+--- @class ExuPilotAnimationProfile
+--- @field stand ExuPilotPolicySlot
+--- @field enterCrouch ExuPilotPolicySlot
+--- @field crouched ExuPilotPolicySlot
+--- @field exitCrouch ExuPilotPolicySlot
+--- @field jump ExuPilotPolicySlot
+--- @field land ExuPilotPolicySlot
 
 --- @class ExuFpsApi
 local fps = {}
@@ -62,9 +76,20 @@ function fps.GetCapabilities() end
 --- @return ExuPilotState|nil
 function fps.GetPilotState() end
 
+--- Returns the effective mission-scoped pilot animation profile: what EXU's
+--- policy layer will do for each pilot animation slot. In this version every
+--- slot is `mode = "stock"`, so the native animation FSM is left entirely
+--- alone; this call is diagnostic and changes nothing. The profile is reset to
+--- stock at mission/Lua-state boundaries. It reports no stock duration values:
+--- none have been traced yet.
+--- @nodiscard
+--- @return ExuPilotAnimationProfile
+function fps.GetPilotAnimationProfile() end
+
 --- Returns diagnostics for EXU's verified Person::Simulate interception seam.
---- The seam is observe-only in this version: it calls the stock trampoline
---- unchanged and records only local pre/post state transitions.
+--- The seam is observe-only in this version: it consults the pilot animation
+--- policy (which can only answer pass-through), calls the stock trampoline
+--- unchanged, and records local pre/post state transitions.
 --- @nodiscard
 --- @return ExuPilotInterceptStatus
 function fps.GetPilotInterceptStatus() end
