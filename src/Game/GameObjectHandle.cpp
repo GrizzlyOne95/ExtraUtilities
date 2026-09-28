@@ -18,6 +18,8 @@
 
 #include "GameObjectInternal.h"
 
+#include "Util/SignatureResolver.h"
+
 // Raw GameObject memory probes: readable-pointer checks, field reads and
 // handle validation (a handle is live only when GetHandle(obj) returns it).
 
@@ -76,28 +78,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 		bool IsReadablePointer(const void* pointer)
 		{
-			if (pointer == nullptr)
-			{
-				return false;
-			}
-
-			MEMORY_BASIC_INFORMATION mbi{};
-			if (VirtualQuery(pointer, &mbi, sizeof(mbi)) == 0)
-			{
-				return false;
-			}
-
-			if (mbi.State != MEM_COMMIT)
-			{
-				return false;
-			}
-
-			if ((mbi.Protect & PAGE_GUARD) != 0 || (mbi.Protect & PAGE_NOACCESS) != 0)
-			{
-				return false;
-			}
-
-			return true;
+			return SignatureResolver::IsReadableRange(pointer, 1);
 		}
 
 		bool TryResolveHandleValue(uint32_t rawValue, BZR::handle& outHandle, BZR::GameObject*& outObject)
