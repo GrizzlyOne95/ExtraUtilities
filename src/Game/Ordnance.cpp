@@ -25,6 +25,7 @@
 
 #include <Windows.h>
 
+#include <cmath>
 #include <cstring>
 
 namespace ExtraUtilities::Lua::Ordnance
@@ -320,10 +321,18 @@ namespace ExtraUtilities::Lua::Ordnance
 		return 1;
 	}
 
+	// MP-global physics written locally (audit P2-8, same policy as P1-7):
+	// allowed in network games, applies only on the calling peer, and the P1-4
+	// mission reset restores the pre-mission value through the scanner registry.
 	int SetCoeffBallistic(lua_State* L)
 	{
-		float newCoeff = static_cast<float>(luaL_checknumber(L, 1));
-		coeffBallistic.Write(newCoeff);
-		return 0;
+		const lua_Number requested = luaL_checknumber(L, 1);
+		if (!std::isfinite(requested))
+		{
+			return luaL_argerror(L, 1, "ballistic coefficient must be a finite number");
+		}
+
+		lua_pushboolean(L, coeffBallistic.Write(static_cast<float>(requested)) ? 1 : 0);
+		return 1;
 	}
 }
