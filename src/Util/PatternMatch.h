@@ -13,6 +13,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 
 // Byte-pattern matching shared by SignatureResolver (patch/hook targets) and
@@ -176,5 +177,26 @@ namespace ExtraUtilities::PatternMatch
 		}
 
 		return matchAddress;
+	}
+
+	// Target of the x86 `call rel32` (E8 + 4-byte displacement) whose first
+	// byte is at `instruction` and which executes at `instructionAddress`.
+	// False, with a zero target, when the bytes are not a relative call.
+	// Reads five bytes; the caller vouches for them.
+	inline bool TryDecodeRelativeCall(
+		const uint8_t* instruction,
+		uintptr_t instructionAddress,
+		uintptr_t& outTarget) noexcept
+	{
+		outTarget = 0;
+		if (instruction == nullptr || instruction[0] != 0xE8)
+		{
+			return false;
+		}
+
+		int32_t displacement = 0;
+		std::memcpy(&displacement, instruction + 1, sizeof(displacement));
+		outTarget = instructionAddress + 5 + static_cast<uintptr_t>(static_cast<intptr_t>(displacement));
+		return true;
 	}
 }

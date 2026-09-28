@@ -582,15 +582,10 @@ namespace ExtraUtilities::Lua::OS
 
 			for (size_t offset = 0; offset + 5 <= kWindowSize; ++offset)
 			{
-				if (functionStart[offset] != 0xE8)
-				{
-					continue;
-				}
-
-				int32_t displacement = 0;
-				std::memcpy(&displacement, functionStart + offset + 1, sizeof(displacement));
-				const auto* target = functionStart + offset + 5 + displacement;
-				if (target == saveGameAddress)
+				const auto* instruction = functionStart + offset;
+				uintptr_t target = 0;
+				if (PatternMatch::TryDecodeRelativeCall(instruction, reinterpret_cast<uintptr_t>(instruction), target) &&
+					target == reinterpret_cast<uintptr_t>(saveGameAddress))
 				{
 					return true;
 				}
@@ -631,20 +626,14 @@ namespace ExtraUtilities::Lua::OS
 
 				for (size_t offset = 0; offset + 5 <= section.size; ++offset)
 				{
-					if (section.address[offset] != 0xE8)
-					{
-						continue;
-					}
-
-					int32_t displacement = 0;
-					std::memcpy(&displacement, section.address + offset + 1, sizeof(displacement));
-					const auto* target = section.address + offset + 5 + displacement;
-					if (target != saveGameAddress)
-					{
-						continue;
-					}
-
 					const auto* callSite = section.address + offset;
+					uintptr_t target = 0;
+					if (!PatternMatch::TryDecodeRelativeCall(callSite, reinterpret_cast<uintptr_t>(callSite), target) ||
+						target != reinterpret_cast<uintptr_t>(saveGameAddress))
+					{
+						continue;
+					}
+
 					const auto* functionStart = BacktrackFunctionProlog(section, callSite);
 					if (!IsSaveShellGameCandidate(functionStart, saveGameAddress))
 					{

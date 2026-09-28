@@ -129,20 +129,12 @@ namespace ExtraUtilities::Lua::CommandReplacement
 
 		uintptr_t ResolveRelativeCallTarget(uintptr_t callSite) noexcept
 		{
-			if (callSite == 0)
+			uintptr_t target = 0;
+			if (callSite != 0)
 			{
-				return 0;
+				PatternMatch::TryDecodeRelativeCall(reinterpret_cast<const uint8_t*>(callSite), callSite, target);
 			}
-
-			const auto* callInstruction = reinterpret_cast<const uint8_t*>(callSite);
-			if (callInstruction[0] != 0xE8)
-			{
-				return 0;
-			}
-
-			int32_t displacement = 0;
-			std::memcpy(&displacement, callInstruction + 1, sizeof(displacement));
-			return callSite + 5 + static_cast<intptr_t>(displacement);
+			return target;
 		}
 
 		std::string NormalizeStockCommandName(std::string_view input)
