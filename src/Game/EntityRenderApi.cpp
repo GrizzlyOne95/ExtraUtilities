@@ -17,6 +17,7 @@
 */
 
 #include "GameObjectInternal.h"
+#include "Ogre/OgreAnimationInventoryBridge.h"
 #include "Util/SehGuard.h"
 
 // Entity render, light and animation API: the renderable-entity and light
@@ -185,6 +186,53 @@ namespace ExtraUtilities::Lua::GameObject
 			TryGetAnimationWeight(animationState, outInfo.weight) &&
 			TryGetAnimationTimePosition(animationState, outInfo.timePosition) &&
 			TryGetAnimationLength(animationState, outInfo.length);
+	}
+
+	bool GetAnimationInventory(void* entity, std::vector<EntityAnimationSnapshot>& outInventory)
+	{
+		outInventory.clear();
+		if (entity == nullptr)
+		{
+			return false;
+		}
+
+		std::vector<OgreAnimationInventory::AnimationStateRef> states;
+		if (!OgreAnimationInventory::TryEnumerateAnimationStates(entity, states))
+		{
+			return false;
+		}
+
+		outInventory.reserve(states.size());
+		for (const OgreAnimationInventory::AnimationStateRef& state : states)
+		{
+			if (state.state == nullptr)
+			{
+				outInventory.clear();
+				return false;
+			}
+
+			EntityAnimationSnapshot snapshot{};
+			snapshot.name = state.name;
+			if (!TryGetAnimationEnabled(state.state, snapshot.info.enabled) ||
+				!TryGetAnimationLoop(state.state, snapshot.info.loop) ||
+				!TryGetAnimationWeight(state.state, snapshot.info.weight) ||
+				!TryGetAnimationTimePosition(state.state, snapshot.info.timePosition) ||
+				!TryGetAnimationLength(state.state, snapshot.info.length))
+			{
+				outInventory.clear();
+				return false;
+			}
+			outInventory.push_back(std::move(snapshot));
+		}
+
+		std::sort(
+			outInventory.begin(),
+			outInventory.end(),
+			[](const EntityAnimationSnapshot& a, const EntityAnimationSnapshot& b)
+			{
+				return a.name < b.name;
+			});
+		return true;
 	}
 
 	bool SetAnimationEnabled(void* entity, const std::string& name, bool enabled)
