@@ -17,12 +17,32 @@
 */
 
 #include "EnvironmentInternal.h"
+#include "Ogre/OgreResourceScriptBridge.h"
 
 // Particle Lua bindings, including the generic emitter and affector
 // StringInterface parameter bindings.
 
 namespace ExtraUtilities::Lua::Environment
 {
+    int ParseResourceScript(lua_State* L)
+    {
+        Patch::TryInitializeOgre();
+        size_t length = 0;
+        const char* text = luaL_checklstring(L, 1, &length);
+        const char* source = luaL_checkstring(L, 2);
+        const char* group = luaL_optstring(L, 3, "Modable");
+        lua_pushboolean(L, OgreScripts::TryParse(text, length, source, group) ? 1 : 0);
+        return 1;
+    }
+
+    int HasParticleTemplate(lua_State* L)
+    {
+        Patch::TryInitializeOgre();
+        const char* name = luaL_checkstring(L, 1);
+        lua_pushboolean(L, OgreScripts::HasParticleTemplate(name) ? 1 : 0);
+        return 1;
+    }
+
 	int HasParticleSystem(lua_State* L)
 	{
 		Patch::TryInitializeOgre();

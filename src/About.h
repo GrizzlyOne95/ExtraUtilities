@@ -26,5 +26,5 @@ namespace ExtraUtilities
 {
 	// 1.3.0: static geometry, particle emitter/affector control, weather and the
 	// render-effect bridge, plus the 2026-09-27 audit hardening.
-	inline std::string version = "1.3.0";
+	inline std::string version = "1.3.1";
 }
