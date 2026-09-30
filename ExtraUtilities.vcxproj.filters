@@ -183,6 +183,9 @@
     <ClCompile Include="src\Util\SoundOptions.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Util\Soundtrack.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Patches\ShotConvergence.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
@@ -480,6 +483,12 @@
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Util\SoundOptions.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\Soundtrack.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\MusicFade.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\BasicScanner.h">

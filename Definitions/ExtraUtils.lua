@@ -2661,8 +2661,10 @@ function exu.GetInfiniteAmmo(...) end
 --- @param ... any
 function exu.GetInfiniteScrap(...) end
 
---- @param ... any
-function exu.GetMusicTrack(...) end
+--- Returns the engine's selected track (-1 if none), or nil if unavailable.
+--- Stop retains the selection; this is not a playing/audibility test.
+--- @return integer | nil
+function exu.GetMusicTrack() end
 
 --- @param ... any
 function exu.GetOrdnanceVelocMode(...) end
@@ -2676,8 +2678,9 @@ function exu.GetWeaponMask(...) end
 --- @param ... any
 function exu.GetWireframe(...) end
 
---- @param ... any
-function exu.PauseMusic(...) end
+--- Pauses the native soundtrack without releasing its stream; freezes an EXU fade.
+--- @return boolean accepted
+function exu.PauseMusic() end
 
 --- @param ... any
 function exu.ResetMissionHookOverrides(...) end
@@ -2691,8 +2694,9 @@ function exu.RestoreAllHudSprites(...) end
 --- @param ... any
 function exu.RestoreHudSprite(...) end
 
---- @param ... any
-function exu.ResumeMusic(...) end
+--- Resumes a paused soundtrack at the retained position. Does not start stopped music.
+--- @return boolean accepted
+function exu.ResumeMusic() end
 
 --- @param ... any
 function exu.SetAiOdfGameplayTuningEnabled(...) end
@@ -2745,8 +2749,17 @@ function exu.SetInfiniteScrap(enabled) end
 --- @param ... any
 function exu.SetJumpSnipeCrouch(...) end
 
---- @param ... any
-function exu.SetMusicTrack(...) end
+--- Selects and plays a single looping NN.ogg soundtrack through the native manager.
+--- Works with EXU alone on the qualified Redux build. Cancels EXU fades.
+--- Missing content leaves the current track and fade unchanged.
+--- @param track integer 0..255
+--- @return boolean accepted
+function exu.SetMusicTrack(track) end
+
+--- Alias of SetMusicTrack.
+--- @param track integer 0..255
+--- @return boolean accepted
+function exu.PlayMusic(track) end
 
 --- @param ... any
 function exu.SetOrdnanceVelocMode(...) end
@@ -2766,7 +2779,42 @@ function exu.SetWeaponMaskCarrierBiasEnabled(...) end
 --- @param ... any
 function exu.SetWireframe(...) end
 
---- @param ... any
-function exu.StopMusic(...) end
+--- Stops/releases the native soundtrack stream and cancels EXU fades.
+--- Repeated calls are harmless; the selected track remains available for read-back.
+--- @return boolean accepted
+function exu.StopMusic() end
+
+--- Reads native engine state; nil means standalone soundtrack qualification failed.
+--- playing/paused reflect engine flags, not proof that audio is audible.
+--- gain is EXU's temporary 0..1 multiplier; userVolume is the saved 0..10 setting.
+--- @return {track: integer, playing: boolean, paused: boolean, gain: number, fading: boolean, userVolume: integer} | nil
+function exu.GetMusicState() end
+
+--- Fades a temporary soundtrack gain without changing saved options or pause state.
+--- Call UpdateMusic(dt) once per mission Update to advance nonzero durations.
+--- @param gain number 0..1 (0 = silence)
+--- @param seconds? number finite, non-negative; default 1
+--- @return boolean accepted
+function exu.FadeMusic(gain, seconds) end
+
+--- Fades out, selects a looping track, then fades back to the player's volume.
+--- This is a sequential transition; Redux exposes one soundtrack stream.
+--- Call UpdateMusic(dt) once per mission Update. New requests replace old fades.
+--- @param track integer 0..255
+--- @param fadeOut? number finite, non-negative seconds; default 1
+--- @param fadeIn? number finite, non-negative seconds; default 1
+--- @return boolean accepted
+function exu.ChangeMusicTrack(track, fadeOut, fadeIn) end
+
+--- Advances the pending fade on the mission thread and reapplies any temporary gain.
+--- An external track/stream change cancels the gain override. Audio is local per peer.
+--- @param dt number finite, non-negative simulation seconds
+--- @return boolean updated
+function exu.UpdateMusic(dt) end
+
+--- Cancels a transition and restores the player's volume without changing playback.
+--- Also performed on Lua-state teardown.
+--- @return boolean restored
+function exu.ResetMusic() end
 
 return exu
