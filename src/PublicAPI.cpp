@@ -54,6 +54,7 @@
 #include "UI/Renderer.h"
 #include "Util/Logging.h"
 #include "Util/StorageApi.h"
+#include "Util/Soundtrack.h"
 
 #include <Windows.h>
 
@@ -140,6 +141,7 @@ namespace ExtraUtilities::Lua
 	// overrides and engine values into the next mission.
 	void ResetMissionScopedState() noexcept
 	{
+		Soundtrack::ResetMissionState();
 		BasicPatch::ResetRequestedStatusesToDefaults();
 		BasicScanner::RestoreAllWritten();
 		PlayOption::RestoreScriptChanges();

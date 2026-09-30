@@ -205,6 +205,7 @@
     <ClCompile Include="src\Game\StaticGeometry.cpp" />
     <ClCompile Include="src\Patches\ShotConvergence.cpp" />
     <ClCompile Include="src\Util\SoundOptions.cpp" />
+    <ClCompile Include="src\Util\Soundtrack.cpp" />
     <ClCompile Include="src\Util\StorageApi.cpp" />
     <ClCompile Include="src\Util\StorageCodec.cpp" />
     <ClCompile Include="src\Game\Steam.cpp" />
@@ -290,6 +291,8 @@
     <ClInclude Include="src\BasicScanner.h" />
     <ClInclude Include="src\Patches\ShotConvergence.h" />
     <ClInclude Include="src\Util\SoundOptions.h" />
+    <ClInclude Include="src\Util\Soundtrack.h" />
+    <ClInclude Include="src\Util\MusicFade.h" />
     <ClInclude Include="src\Game\Steam.h" />
     <ClInclude Include="src\StockExtensions.h" />
     <ClInclude Include="src\Patches\UnitVo.h" />

@@ -499,5 +499,34 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 154u;
+	namespace Soundtrack
+	{
+		enum : uintptr_t
+		{
+			// void (__cdecl*)(int,int,int,int)
+			SelectTrack = 0x004377C0u,
+			// void (__cdecl*)()
+			Start = 0x004378F0u,
+			// void (__cdecl*)()
+			Stop = 0x00437A70u,
+			// void (__cdecl*)()
+			Pause = 0x004379D0u,
+			// void (__cdecl*)()
+			Resume = 0x00437A20u,
+			// int (__cdecl*)(const char*)
+			ResourceSize = 0x00481A60u,
+			// int*
+			SelectedTrack = 0x008E75F4u,
+			// int*
+			OggSlot = 0x008E75F8u,
+			// int*
+			Started = 0x00915580u,
+			// int*
+			Paused = 0x00915588u,
+			// IDirectSoundBuffer* (__cdecl*)(int)
+			GetDSBuffer = 0x0043F2A0u,
+		};
+	}
+
+	inline constexpr unsigned kEntryCount = 165u;
 }

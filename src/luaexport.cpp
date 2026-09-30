@@ -30,6 +30,7 @@
 #include "Util/BuildValidation.h"
 #include "Util/Logging.h"
 #include "Util/RuntimeGate.h"
+#include "Util/Soundtrack.h"
 #include "LuaHelpers.h"
 #include "LuaCppBarrier.h"
 #include "LuaState.h"
@@ -512,6 +513,7 @@ namespace ExtraUtilities::Lua
 		// every direct engine call or fixed-address write (RuntimeGate).
 		const bool supportedBuild = BuildValidation::IsSupportedBzr2301();
 		RuntimeGate::SetSupported(supportedBuild);
+		Soundtrack::ResetMissionState();
 
 		state = L; // save the state pointer to use in callbacks
 		CommandReplacement::ResetState(L);
@@ -990,10 +992,16 @@ namespace ExtraUtilities::Lua
 			// Sound Options
 			{ "GetMusicVolume",   &SoundOptions::GetMusicVolume },
 			{ "SetMusicTrack",    &SoundOptions::SetMusicTrack },
+			{ "PlayMusic",        &SoundOptions::SetMusicTrack },
 			{ "StopMusic",        &SoundOptions::StopMusic },
 			{ "PauseMusic",       &SoundOptions::PauseMusic },
 			{ "ResumeMusic",      &SoundOptions::ResumeMusic },
 			{ "GetMusicTrack",    &SoundOptions::GetMusicTrack },
+			{ "GetMusicState", &SoundOptions::GetMusicState },
+			{ "FadeMusic", &SoundOptions::FadeMusic },
+			{ "ChangeMusicTrack", &SoundOptions::ChangeMusicTrack },
+			{ "UpdateMusic", &SoundOptions::UpdateMusic },
+			{ "ResetMusic", &SoundOptions::ResetMusic },
 
 			// Steam
 			{ "GetSteam64", &Steam::GetSteam64 },
