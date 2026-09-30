@@ -183,7 +183,7 @@ namespace ExtraUtilities::Soundtrack
             }
             expectedTrack_ = state.track;
             expectedSlot_ = state.slot;
-            gain_ = fadeIn_ > 0 ? 0 : 1;
+            gain_ = fadeIn_ > 0 ? 0.0f : 1.0f;
             if (!backend.SetGain(gain_))
             {
                 Reset(backend);

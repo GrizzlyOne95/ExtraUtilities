@@ -10,6 +10,7 @@
 #include "Util/RuntimeGate.h"
 #include "Util/SehGuard.h"
 #include "OpenShimBridge.h"
+#include <mmreg.h>
 #include <dsound.h>
 #include <cstdio>
 #include <cstring>
