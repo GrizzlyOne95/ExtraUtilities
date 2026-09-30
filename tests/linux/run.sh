@@ -24,6 +24,13 @@ test_python_tools() {
     pass "Python validation tools"
 }
 
+test_native_hud_trace() {
+    python3 "$ROOT/tools/test_native_hud_trace.py"
+    node --check "$ROOT/tools/native_hud_trace/capture.js"
+    node "$ROOT/tools/native_hud_trace/test_capture.js"
+    pass "native HUD qualification instrument host checks"
+}
+
 # The weather billboard textures are generated, not authored, so an edit to the
 # generator that was never re-run would otherwise ship stale art silently.
 test_weather_textures() {
@@ -206,6 +213,7 @@ test_bad_game_path_rejected() {
 }
 
 test_python_tools
+test_native_hud_trace
 test_weather_textures
 test_host_cpp
 test_weather_controller
