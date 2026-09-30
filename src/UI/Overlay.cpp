@@ -800,7 +800,10 @@ namespace ExtraUtilities::Lua::Overlay
 		}
 
 		element->::Ogre::OverlayElement::show();
-		Logging::LogMessage("[EXU::Overlay] ShowOverlayElement name=%s element=%p", name.c_str(), element);
+		if (Logging::IsDebugLoggingEnabled())
+		{
+			Logging::LogMessage("[EXU::Overlay] ShowOverlayElement name=%s element=%p", name.c_str(), element);
+		}
 		return 0;
 	}
 
