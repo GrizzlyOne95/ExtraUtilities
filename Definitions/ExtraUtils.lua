@@ -1,5 +1,5 @@
 --- @meta exu
---- This file provides the lua definitions for Extra Utilities version 1.3.0
+--- This file provides the lua definitions for Extra Utilities version 1.3.1
 --- These definitions also require the stock definitions found in `scriptutils.lua`
 --- for basic types like Handle and Vector
 
@@ -818,6 +818,23 @@ function exu.HasParticleSystem(name) end
 --- @param position Vector? optional Battlezone simulation-space position; defaults to the world origin
 --- @return boolean
 function exu.CreateParticleSystem(name, templateName, position) end
+
+--- Parse an in-memory Ogre script only when the mission needs it. No file I/O.
+--- Resources belong to Ogre; callers must avoid duplicate declarations.
+--- Returns false for unavailable runtime, invalid input or a native exception.
+--- A true result means parsing completed; Ogre's log reports script diagnostics.
+--- Script text must be nonempty, NUL-free and at most 1 MiB.
+---@param text string
+---@param source string Diagnostic source name, not a filesystem path to open.
+---@param group? string Resource group (default "Modable").
+---@return boolean completed
+function exu.ParseResourceScript(text, source, group) end
+
+--- True when Ogre already holds a particle_system template with this name.
+--- Templates outlive mission Lua states, so check before reparsing a script.
+---@param name string
+---@return boolean
+function exu.HasParticleTemplate(name) end
 
 --- Destroys a named Ogre particle system and its EXU-owned scene node if present.
 --- @param name string

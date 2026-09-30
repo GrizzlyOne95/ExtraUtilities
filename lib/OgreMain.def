@@ -1,5 +1,7 @@
 LIBRARY OgreMain.dll
 EXPORTS
+    ?allocateBytes@StdAllocPolicy@Ogre@@SAPAXIPBDH0@Z
+    ?getSingletonPtr@ScriptCompilerManager@Ogre@@SAPAV12@XZ
     ?addResourceLocation@ResourceGroupManager@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@00_N1@Z
     ?createResource@ResourceManager@Ogre@@UAE?AV?$SharedPtr@VResource@Ogre@@@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0_NPAVManualResourceLoader@2@PBV?$map@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V12@U?$less@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@V?$STLAllocator@U?$pair@$$CBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V12@@std@@V?$CategorisedAllocPolicy@$0A@@Ogre@@@Ogre@@@5@@Z
     ?createResourceGroup@ResourceGroupManager@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N@Z

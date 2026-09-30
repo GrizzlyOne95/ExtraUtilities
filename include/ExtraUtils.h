@@ -75,7 +75,7 @@ struct lua_State;
 // 1.3.0 adds static geometry, particle emitter/affector control and weather, plus
 // the 2026-09-27 audit hardening, on top of the 1.2.0 API.
 // ---------------------------------------------------------------------------
-#define EXU_VERSION_EXPECTED "1.3.0"
+#define EXU_VERSION_EXPECTED "1.3.1"
 
 // Result codes returned by EXU_SetMultiplayerNickname. Values 0-5 mirror the
 // stable OpenShim bridge ABI; 0xFFFFFFFF is EXU's graceful "bridge unavailable"
