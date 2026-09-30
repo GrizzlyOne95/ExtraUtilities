@@ -1,0 +1,20 @@
+{
+  "description": "Static-corpus candidates for native HUD qualification; not a supported runtime feature",
+  "sha256": "8d71f56c1314e69a8ad38f4eeaf20a8ff825965a84cf196e5f77ea4cc3377413",
+  "image_base": 4194304,
+  "targets": {
+    "render": 1950464,
+    "sprite": 2673200,
+    "fill": 2666352,
+    "text": 2661648
+  },
+  "viewport_rva": 42913504,
+  "object_offsets": {
+    "hull_label": 16,
+    "hull_bar": 20,
+    "hull_ratio": 24,
+    "ammo_label": 28,
+    "ammo_bar": 32,
+    "ammo_ratio": 36
+  }
+}

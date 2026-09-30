@@ -34,7 +34,7 @@ jobs:
       - name: Install host check dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends lua5.1 python3-pil python3-numpy
+          sudo apt-get install -y --no-install-recommends lua5.1 python3-pil python3-numpy nodejs
 
       - name: Run host-side Linux checks
         run: bash tests/linux/run.sh
