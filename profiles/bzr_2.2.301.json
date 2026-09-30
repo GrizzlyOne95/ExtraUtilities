@@ -77,6 +77,36 @@
       "runtime_gate": true,
       "source_file": "src/Game/CommandReplacement.cpp",
       "reason": "Unique, independently validated 2.2.301 gameplay anchor outside the UI subsystem; prevents the overlay wrappers alone from becoming the entire global native-patch gate."
+    },
+    {
+      "name": "Soundtrack SelectTrack",
+      "source": "catalog",
+      "catalog_path": "Soundtrack.SelectTrack",
+      "match": "expected_va",
+      "expected_va": "0x004377C0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional feature-specific identity. Soundtrack.cpp requires all three at their recorded VAs with unique text matches; missing music support must not disable other EXU features."
+    },
+    {
+      "name": "Soundtrack Start",
+      "source": "catalog",
+      "catalog_path": "Soundtrack.Start",
+      "match": "expected_va",
+      "expected_va": "0x004378F0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional feature-specific identity. Soundtrack.cpp requires all three at their recorded VAs with unique text matches; missing music support must not disable other EXU features."
+    },
+    {
+      "name": "Soundtrack Stop",
+      "source": "catalog",
+      "catalog_path": "Soundtrack.Stop",
+      "match": "expected_va",
+      "expected_va": "0x00437A70",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional feature-specific identity. Soundtrack.cpp requires all three at their recorded VAs with unique text matches; missing music support must not disable other EXU features."
     }
   ]
 }

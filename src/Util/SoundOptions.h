@@ -35,4 +35,9 @@ namespace ExtraUtilities::Lua::SoundOptions
 	int PauseMusic(lua_State* L);
 	int ResumeMusic(lua_State* L);
 	int GetMusicTrack(lua_State* L);
+	int GetMusicState(lua_State* L);
+	int FadeMusic(lua_State* L);
+	int ChangeMusicTrack(lua_State* L);
+	int UpdateMusic(lua_State* L);
+	int ResetMusic(lua_State* L);
 }
