@@ -667,6 +667,8 @@ namespace ExtraUtilities::Lua
 			{ "SetSkyPlaneEnabled", &Environment::SetSkyPlaneEnabled },
 			{ "SetSkyPlane", &Environment::SetSkyPlane },
 			{ "HasParticleSystem", &Environment::HasParticleSystem },
+			{ "ParseResourceScript", &Environment::ParseResourceScript },
+			{ "HasParticleTemplate", &Environment::HasParticleTemplate },
 			{ "CreateParticleSystem", &Environment::CreateParticleSystem },
 			{ "DestroyParticleSystem", &Environment::DestroyParticleSystem },
 			{ "SetParticleSystemPosition", &Environment::SetParticleSystemPosition },

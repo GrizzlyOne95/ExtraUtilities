@@ -186,7 +186,7 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 			}
 
 			g_originalPersonSimulate =
-				g_detour->GetTrampolineAs<PersonSimulateFn>();
+				reinterpret_cast<PersonSimulateFn>(g_detour->GetTrampoline());
 			if (g_originalPersonSimulate == nullptr)
 			{
 				Logging::LogMessage("exu: Person::Simulate interception seam produced no trampoline");
