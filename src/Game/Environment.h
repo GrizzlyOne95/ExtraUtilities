@@ -72,6 +72,8 @@ namespace ExtraUtilities::Lua::Environment
 	int SetSkyPlaneEnabled(lua_State* L);
 	int SetSkyPlane(lua_State* L);
 	int HasParticleSystem(lua_State* L);
+	int ParseResourceScript(lua_State* L);
+	int HasParticleTemplate(lua_State* L);
 	int CreateParticleSystem(lua_State* L);
 	int DestroyParticleSystem(lua_State* L);
 	int SetParticleSystemPosition(lua_State* L);

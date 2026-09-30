@@ -183,6 +183,9 @@
            uses std::tr1::hash for MSVC, which MSVC no longer provides in C++17+ modes. -->
       <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
+    <ClCompile Include="src\Ogre\OgreResourceScriptBridge.cpp">
+      <LanguageStandard>stdcpp14</LanguageStandard>
+    </ClCompile>
     <ClCompile Include="src\Ogre\OgreAnimationInventoryBridge.cpp">
       <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
