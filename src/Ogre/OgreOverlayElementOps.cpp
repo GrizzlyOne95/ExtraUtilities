@@ -557,7 +557,10 @@ namespace ExtraUtilities::Lua::Overlay
 					return false;
 				}
 
-				Logging::LogMessage("[EXU::Overlay] setParameter direct elementName=%s element=%p name=%s value=%s success=1", elementName.c_str(), element, name.c_str(), value.c_str());
+				if (Logging::IsDebugLoggingEnabled())
+				{
+					Logging::LogMessage("[EXU::Overlay] setParameter direct elementName=%s element=%p name=%s value=%s success=1", elementName.c_str(), element, name.c_str(), value.c_str());
+				}
 				return true;
 			}
 
@@ -584,7 +587,10 @@ namespace ExtraUtilities::Lua::Overlay
 					return false;
 				}
 
-				Logging::LogMessage("[EXU::Overlay] setParameter direct elementName=%s element=%p name=%s value=%s success=1", elementName.c_str(), element, name.c_str(), value.c_str());
+				if (Logging::IsDebugLoggingEnabled())
+				{
+					Logging::LogMessage("[EXU::Overlay] setParameter direct elementName=%s element=%p name=%s value=%s success=1", elementName.c_str(), element, name.c_str(), value.c_str());
+				}
 				return true;
 			}
 
@@ -611,7 +617,10 @@ namespace ExtraUtilities::Lua::Overlay
 					return false;
 				}
 
-				Logging::LogMessage("[EXU::Overlay] setParameter direct elementName=%s element=%p name=%s value=%s success=1", elementName.c_str(), element, name.c_str(), value.c_str());
+				if (Logging::IsDebugLoggingEnabled())
+				{
+					Logging::LogMessage("[EXU::Overlay] setParameter direct elementName=%s element=%p name=%s value=%s success=1", elementName.c_str(), element, name.c_str(), value.c_str());
+				}
 				return true;
 			}
 
@@ -641,7 +650,10 @@ namespace ExtraUtilities::Lua::Overlay
 					return false;
 				}
 
-				Logging::LogMessage("[EXU::Overlay] setParameter direct elementName=%s element=%p name=%s value=%s success=1", elementName.c_str(), element, name.c_str(), value.c_str());
+				if (Logging::IsDebugLoggingEnabled())
+				{
+					Logging::LogMessage("[EXU::Overlay] setParameter direct elementName=%s element=%p name=%s value=%s success=1", elementName.c_str(), element, name.c_str(), value.c_str());
+				}
 				return true;
 			}
 
@@ -703,7 +715,10 @@ namespace ExtraUtilities::Lua::Overlay
 					return false;
 				}
 
-				Logging::LogMessage("[EXU::Overlay] setParameter direct elementName=%s element=%p name=%s value=%s success=1", elementName.c_str(), element, name.c_str(), value.c_str());
+				if (Logging::IsDebugLoggingEnabled())
+				{
+					Logging::LogMessage("[EXU::Overlay] setParameter direct elementName=%s element=%p name=%s value=%s success=1", elementName.c_str(), element, name.c_str(), value.c_str());
+				}
 				return true;
 			}
 
@@ -754,7 +769,10 @@ namespace ExtraUtilities::Lua::Overlay
 					return false;
 				}
 
-				Logging::LogMessage("[EXU::Overlay] setParameter direct elementName=%s element=%p name=%s value=%s success=1", elementName.c_str(), element, name.c_str(), value.c_str());
+				if (Logging::IsDebugLoggingEnabled())
+				{
+					Logging::LogMessage("[EXU::Overlay] setParameter direct elementName=%s element=%p name=%s value=%s success=1", elementName.c_str(), element, name.c_str(), value.c_str());
+				}
 				return true;
 			}
 
