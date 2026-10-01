@@ -37,6 +37,7 @@
 #include "OpenShimBridge.h"
 #include "Patches.h"
 #include "UI/Renderer.h"
+#include "UI/NativeHud.h"
 
 #include "lua.hpp"
 #include <Windows.h>
@@ -610,6 +611,15 @@ namespace ExtraUtilities::Lua
 			{ "GetStockCmdReplacement", &CommandReplacement::GetStockCmdReplacement },
 			{ "TriggerStockCmdReplacement", &CommandReplacement::TriggerStockCmdReplacement },
 			{ "UpdateCommandReplacements", &CommandReplacement::UpdateCommandReplacements },
+
+			// Native player meters (optional OpenShim provider)
+			{ "IsNativeHudLayoutAvailable", &NativeHud::IsNativeHudLayoutAvailable },
+			{ "GetNativeHudMeterRect", &NativeHud::GetNativeHudMeterRect },
+			{ "GetNativeHudMeterDefaultRect", &NativeHud::GetNativeHudMeterDefaultRect },
+			{ "SetNativeHudMeterRect", &NativeHud::SetNativeHudMeterRect },
+			{ "SetNativeHudMeterVisible", &NativeHud::SetNativeHudMeterVisible },
+			{ "RestoreNativeHudMeter", &NativeHud::RestoreNativeHudMeter },
+			{ "RestoreAllNativeHudMeters", &NativeHud::RestoreAllNativeHudMeters },
 
 			// Control Panel
 			{ "GetScrapPilotHudOffset", &ControlPanel::GetScrapPilotHudOffset },

@@ -38,6 +38,19 @@ test_weather_textures() {
     pass "weather textures are current"
 }
 
+test_native_hud_controller() {
+    local lua
+    for lua in lua5.1 lua5.4 lua luajit; do
+        if command -v "$lua" >/dev/null 2>&1; then
+            (cd "$ROOT" && "$lua" tests/host/native_hud_controller_test.lua) \
+                || fail "native HUD controller checks failed"
+            pass "native HUD controller ($lua)"
+            return
+        fi
+    done
+    fail "no Lua interpreter found for native HUD controller checks"
+}
+
 # The weather controller talks to the game only through the global exu table,
 # so a fake one exercises every decision it makes with no game present.
 test_weather_controller() {
@@ -216,6 +229,7 @@ test_python_tools
 test_native_hud_trace
 test_weather_textures
 test_host_cpp
+test_native_hud_controller
 test_weather_controller
 test_pilot_fsm_capture
 test_weather_particle_color_contract
