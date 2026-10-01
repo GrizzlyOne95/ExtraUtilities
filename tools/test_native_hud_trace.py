@@ -6,7 +6,7 @@ import struct
 import tempfile
 import unittest
 
-from trace_native_hud import ASSETS, build_config, pe_fingerprints
+from trace_native_hud import ASSETS, build_config, pe_fingerprints, verify_draw_call
 
 
 def fixture():
@@ -64,6 +64,34 @@ class PeBoundaryTests(unittest.TestCase):
         self.assertEqual({name: value + profile["image_base"] for name, value in profile["targets"].items()}, {
             "render": 0x005DC300, "sprite": 0x0068CA30, "fill": 0x0068AF70, "text": 0x00689D10})
         self.assertEqual(profile["viewport_rva"] + profile["image_base"], 0x02CECEE0)
+
+    def test_live_call_requires_matching_disk_bytes_and_destination(self):
+        data = fixture()
+        # rel32 CALL from section RVA 0x1000 to the sprite helper at 0x1010.
+        data[0x200:0x205] = b"\xe8" + struct.pack("<i", 0x1010 - 0x1005)
+        config = {"image_base": 0x400000, "targets": {"sprite": {"rva": 0x1010}}}
+        value = {"event": "sprite", "call_kind": "direct_rel32", "callsite_rva": 0x1000,
+                 "callsite_bytes": list(data[0x200:0x205]), "call_target_rva": 0x1010}
+        self.assertTrue(verify_draw_call(data, config, value))
+        for changes in ({"callsite_bytes": [0xE8, 0, 0, 0, 0]}, {"call_target_rva": 0x1020},
+                        {"callsite_rva": 0x2000}, {"callsite_rva": True}, {"event": "render"}):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                verify_draw_call(data, config, {**value, **changes})
+        with self.assertRaises(ValueError):
+            verify_draw_call(data, {**config, "targets": {"sprite": {"rva": 0x1020}}}, value)
+        self.assertFalse(verify_draw_call(data, config, {**value, "call_kind": "not_direct_rel32"}))
+
+    def test_captured_call_cannot_qualify_data_or_unbacked_memory(self):
+        data = fixture()
+        data[0x200:0x205] = b"\xe8" + struct.pack("<i", 11)
+        config = {"image_base": 0x400000, "targets": {"fill": {"rva": 0x1010}}}
+        value = {"event": "fill", "call_kind": "direct_rel32", "callsite_rva": 0x1000,
+                 "callsite_bytes": list(data[0x200:0x205]), "call_target_rva": 0x1010}
+        struct.pack_into("<I", data, 0x19C, 0x40000040)
+        with self.assertRaises(ValueError):
+            verify_draw_call(data, config, value)
+        with self.assertRaises(ValueError):
+            pe_fingerprints(fixture(), self.profile, length=0)
 
 
 if __name__ == "__main__":

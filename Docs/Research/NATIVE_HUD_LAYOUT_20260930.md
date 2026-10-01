@@ -3,6 +3,16 @@
 Date: 2026-09-30. EXU baseline: `68991210d613d76e20f5fc6bd1531c9012dfbcc2`.
 OpenShim baseline: `fd328e0087e3ca90900024aea2719f88787d46ce`.
 
+## Implementation follow-up
+
+The subsequent controls checkpoint is documented in
+[`../NATIVE_HUD_LAYOUT_API.md`](../NATIVE_HUD_LAYOUT_API.md): EXU Lua/C++ controls,
+mission ownership/reset, an authored-slot/live-value helper, and OpenShim's
+geometry/provider contract are now implemented and host-tested. The native
+render interception is still absent and unqualified; capabilities remain zero
+and the API does not yet move live bars. The research evidence below retains
+its original static-only qualification status.
+
 ## Result and confidence
 
 Native hull/ammo relocation is feasible. Keep the mod-facing layout API in EXU
@@ -185,6 +195,17 @@ pane/quad inputs and displayed ratios, and labels reconstructed full bounds as
 **inferred**. Frida temporarily instruments function entries; the tool does not
 write layout data or replace draw arguments. Changed entry bytes, including a
 foreign entry detour, cause refusal. Do not weaken that guard to collect a trace.
+
+The draw-hook follow-up records the five live bytes immediately before each
+sprite/fill/text return address, decodes direct `CALL rel32` destinations and
+corroborates them with the exact hashed executable's executable sections on the
+host. A verified sample carries `call_kind="direct_rel32"`, `callsite_rva`,
+`callsite_bytes`, `call_target_rva` and `callsite_matches_disk=true`. Indirect or
+foreign calls remain explicitly unqualified observations; a byte/destination
+mismatch aborts capture. Labels are identified again during the draw because
+the renderer selects the current faction after its entry. This supplies the
+missing call-site byte evidence when run on Windows; it does not install or
+qualify a production draw hook by itself.
 
 Use native Windows with Frida already available. Dot-source OpenShim's
 `reverse_engineering/BZRHarness.ps1`, launch with `BZR_FORCE_WINDOWED=1` using

@@ -2817,4 +2817,69 @@ function exu.UpdateMusic(dt) end
 --- @return boolean restored
 function exu.ResetMusic() end
 
+
+--- Native player HUD meters (optional OpenShim adapter)
+--- Physical viewport pixels, top-left origin. IDs are exactly "hull" and "ammo".
+--- No released adapter is qualified yet: availability is currently false.
+--- See Docs/NATIVE_HUD_LAYOUT_API.md for qualification and ownership rules.
+
+--- Returns whether OpenShim has a qualified adapter for this meter.
+--- False also covers older/missing OpenShim and bootstrap-only winmm.dll.
+--- @param meter "hull"|"ammo"
+--- @return boolean
+function exu.IsNativeHudLayoutAvailable(meter) end
+
+--- Gets the effective full bar rectangle, independent of the remaining fill.
+--- Returns nil if the adapter or current frame's stock meter is unavailable.
+--- @param meter "hull"|"ammo"
+--- @return integer? x
+--- @return integer? y
+--- @return integer? width
+--- @return integer? height
+function exu.GetNativeHudMeterRect(meter) end
+
+--- Gets the current stock full bar rectangle before a mission override.
+--- Stock geometry is observed again every frame; it follows resolution/UI scale.
+--- @param meter "hull"|"ammo"
+--- @return integer? x
+--- @return integer? y
+--- @return integer? width
+--- @return integer? height
+function exu.GetNativeHudMeterDefaultRect(meter) end
+
+--- Requests physical-pixel placement/size at the next native meter draw.
+--- Dimensions must be integers in 1..16384; coordinates and far edges must
+--- be within -65535..65535. Fractional/non-finite values are rejected.
+--- The intended adapter transforms live bar/clip, label and ammo marker/readout.
+--- Accepted requests are mission scoped; this checkpoint returns unavailable.
+--- @param meter "hull"|"ammo"
+--- @param x integer
+--- @param y integer
+--- @param width integer
+--- @param height integer
+--- @return boolean accepted
+--- @return string? reason invalid_meter|invalid_rect|unavailable|native_state_unavailable
+function exu.SetNativeHudMeterRect(meter, x, y, width, height) end
+
+--- Sets meter-group visibility without disabling simulation or warning audio.
+--- Requires a boolean. Does not hide unrelated radar, weapons or HUD sprites.
+--- @param meter "hull"|"ammo"
+--- @param visible boolean
+--- @return boolean accepted
+--- @return string? reason
+function exu.SetNativeHudMeterVisible(meter, visible) end
+
+--- Removes this meter's placement and visibility override, using current stock layout.
+--- @param meter "hull"|"ammo"
+--- @return boolean accepted
+--- @return string? reason
+function exu.RestoreNativeHudMeter(meter) end
+
+--- Restores only meter slots successfully changed through EXU this mission.
+--- A no-op with no owned slots succeeds even when the provider is unavailable.
+--- Also runs automatically on EXU mission/Lua teardown, including pinned DLLs.
+--- @return boolean accepted
+--- @return string? reason
+function exu.RestoreAllNativeHudMeters() end
+
 return exu
