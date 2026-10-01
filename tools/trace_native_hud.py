@@ -16,8 +16,10 @@ import time
 ASSETS = Path(__file__).with_name("native_hud_trace")
 
 
-def pe_fingerprints(data, profile):
+def pe_fingerprints(data, profile, length=32):
     """Map target RVAs to raw bytes only inside executable, file-backed sections."""
+    if type(length) is not int or not 1 <= length <= 32:
+        raise ValueError("Invalid fingerprint length")
     def unpack(fmt, offset):
         try:
             return struct.unpack_from(fmt, data, offset)
@@ -46,10 +48,10 @@ def pe_fingerprints(data, profile):
     result = {}
     for name, rva in profile["targets"].items():
         for start, size, offset, characteristics in sections:
-            if start <= rva and rva + 32 <= start + size and characteristics & 0x20000000:
+            if start <= rva and rva + length <= start + size and characteristics & 0x20000000:
                 raw = offset + rva - start
-                fingerprint = data[raw:raw + 32]
-                if len(fingerprint) != 32 or not any(fingerprint):
+                fingerprint = data[raw:raw + length]
+                if len(fingerprint) != length or not any(fingerprint):
                     raise ValueError("Unbacked target: " + name)
                 result[name] = {"rva": rva, "bytes": list(fingerprint)}
                 break
@@ -70,6 +72,30 @@ def build_config(executable, every, max_records):
     return config
 
 
+def verify_draw_call(data, config, value):
+    """Corroborate a captured direct CALL with the exact qualified disk image.
+
+    Unsupported call forms remain observations, never hook candidates. Matching
+    bytes do not qualify draw ABI, group membership or native hook behavior.
+    """
+    if value.get("call_kind") != "direct_rel32":
+        return False
+    target = value.get("event")
+    if target not in ("sprite", "fill", "text"):
+        raise ValueError("Unexpected draw-call target")
+    rva = value.get("callsite_rva")
+    if type(rva) is not int or rva < 0:
+        raise ValueError("Invalid draw-call RVA")
+    profile = {"image_base": config["image_base"], "targets": {"call": rva}}
+    expected = pe_fingerprints(data, profile, length=5)["call"]["bytes"]
+    if value.get("callsite_bytes") != expected or expected[0] != 0xE8:
+        raise ValueError("Live draw-call bytes disagree with the qualified executable")
+    destination = rva + 5 + struct.unpack("<i", bytes(expected[1:]))[0]
+    if destination != config["targets"][target]["rva"] or value.get("call_target_rva") != destination:
+        raise ValueError("Draw-call destination disagrees with the traced native helper")
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pid", type=int, required=True, help="Existing PID from BZRHarness")
@@ -85,6 +111,9 @@ def main():
         parser.error("Capture requires the native Windows Redux process; host tests can run on Linux")
     try:
         config = build_config(args.exe, args.every, args.max_records)
+        data = args.exe.read_bytes()
+        if hashlib.sha256(data).hexdigest() != config["sha256"]:
+            raise ValueError("Executable changed during capture setup; refusing attach")
         import frida  # Optional qualification dependency, never an EXU DLL dependency.
     except (OSError, ValueError, ImportError) as error:
         parser.exit(1, str(error) + "\n")
@@ -106,6 +135,8 @@ def main():
             def on_message(message, _data):
                 try:
                     value = message.get("payload") if message.get("type") == "send" else message
+                    if isinstance(value, dict) and value.get("event") in ("sprite", "fill", "text"):
+                        value["callsite_matches_disk"] = verify_draw_call(data, config, value)
                     write(value)
                     if message.get("type") == "error":
                         failures.append(message.get("description", "Frida script error"))

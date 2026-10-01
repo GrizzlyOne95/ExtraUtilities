@@ -196,6 +196,17 @@ pane/quad inputs and displayed ratios, and labels reconstructed full bounds as
 write layout data or replace draw arguments. Changed entry bytes, including a
 foreign entry detour, cause refusal. Do not weaken that guard to collect a trace.
 
+The draw-hook follow-up records the five live bytes immediately before each
+sprite/fill/text return address, decodes direct `CALL rel32` destinations and
+corroborates them with the exact hashed executable's executable sections on the
+host. A verified sample carries `call_kind="direct_rel32"`, `callsite_rva`,
+`callsite_bytes`, `call_target_rva` and `callsite_matches_disk=true`. Indirect or
+foreign calls remain explicitly unqualified observations; a byte/destination
+mismatch aborts capture. Labels are identified again during the draw because
+the renderer selects the current faction after its entry. This supplies the
+missing call-site byte evidence when run on Windows; it does not install or
+qualify a production draw hook by itself.
+
 Use native Windows with Frida already available. Dot-source OpenShim's
 `reverse_engineering/BZRHarness.ps1`, launch with `BZR_FORCE_WINDOWED=1` using
 the harness, then pass its current PID and exact executable path:
