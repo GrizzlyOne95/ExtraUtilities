@@ -46,6 +46,24 @@ function boundedText(address) {
     while (length < 128 && address.add(length).readU8() !== 0) length++;
     return length === 0 ? '' : address.readUtf8String(length);
 }
+function callsite(returnAddress, target) {
+    // Capture the CALL itself, not just a guessed return RVA. Whole-instruction
+    // guards for a later call-site hook must come from live executable bytes.
+    const site = returnAddress.sub(5);
+    const rva = site.sub(module.base).toInt32();
+    if (rva < 0 || rva + 5 > module.size) {
+        return {call_kind: 'caller_outside_main_module'};
+    }
+    const bytes = Array.from(new Uint8Array(site.readByteArray(5)));
+    const value = {callsite_rva: rva, callsite_bytes: bytes};
+    if (bytes[0] !== 0xe8) return {...value, call_kind: 'not_direct_rel32'};
+    const displacement = bytes[1] | (bytes[2] << 8) | (bytes[3] << 16) | (bytes[4] << 24);
+    const destination = returnAddress.add(displacement);
+    value.call_target_rva = destination.sub(module.base).toInt32();
+    value.call_kind = destination.toString() === targets[target].toString()
+        ? 'direct_rel32' : 'unexpected_target';
+    return value;
+}
 
 try {
     listeners.push(Interceptor.attach(targets.render, {
@@ -58,6 +76,7 @@ try {
             if (!frame.selected) return;
             try {
                 const object = this.context.ecx;
+                frame.object = object;
                 const offsets = config.object_offsets;
                 frame.ids = {};
                 for (const name of ['hull_label', 'hull_bar', 'ammo_label', 'ammo_bar']) {
@@ -85,13 +104,20 @@ try {
             if (!frame || !frame.selected) return;
             try {
                 const id = args[2].toInt32();
+                // Render selects faction labels after entry. Observe the live
+                // per-render fields again so the first frame/vehicle switch
+                // does not classify a current label using the preceding one.
+                for (const name of ['hull_label', 'hull_bar', 'ammo_label', 'ammo_bar']) {
+                    frame.ids[name] = frame.object.add(config.object_offsets[name]).readS32();
+                }
                 const kind = Object.keys(frame.ids).find(name => frame.ids[name] === id) || 'status_sprite';
                 const clip = pane(args[0]);
                 const xywh = [3, 4, 5, 6].map(index => args[index].toInt32());
                 const flags = args[7].toUInt32();
                 const value = {event: 'sprite', frame: frame.number, kind, id, clip, xywh, flags,
                     return_address: this.returnAddress.toString(),
-                    return_rva: this.returnAddress.sub(module.base).toString()};
+                    return_rva: this.returnAddress.sub(module.base).toString(),
+                    ...callsite(this.returnAddress, 'sprite')};
                 if ((kind === 'hull_bar' || kind === 'ammo_bar') && (flags & 0x200000)) {
                     // Native bars submit y=-missing against a pane whose top
                     // has already advanced by missing. Keep this distinct from
@@ -112,7 +138,8 @@ try {
                 record({event: 'fill', frame: frame.number, clip: pane(args[0]),
                     edges: [1, 2, 3, 4].map(index => args[index].toInt32()),
                     color: args[5].toUInt32(), mode: args[6].toInt32(),
-                    return_rva: this.returnAddress.sub(module.base).toString()});
+                    return_rva: this.returnAddress.sub(module.base).toString(),
+                    ...callsite(this.returnAddress, 'fill')});
             } catch (error) { fault('fill', error); }
         }
     }));
@@ -124,12 +151,14 @@ try {
                 record({event: 'text', frame: frame.number, clip: pane(args[1]),
                     xy: [args[2].toInt32(), args[3].toInt32()],
                     text: boundedText(args[4]),
-                    return_rva: this.returnAddress.sub(module.base).toString()});
+                    return_rva: this.returnAddress.sub(module.base).toString(),
+                    ...callsite(this.returnAddress, 'text')});
             } catch (error) { fault('text', error); }
         }
     }));
     Interceptor.flush();
     send({event: 'ready', pid: Process.id, module_path: module.path, base: module.base.toString(),
+        module_size: module.size,
         targets: Object.fromEntries(Object.entries(targets).map(([name, address]) => [name, address.toString()])),
         fingerprints: config.targets, sha256: config.sha256});
 } catch (error) {

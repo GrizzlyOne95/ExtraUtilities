@@ -149,6 +149,8 @@
     <ClCompile Include="src\Game\ContinuityApi.cpp" />
     <ClCompile Include="src\Game\Culling.cpp" />
     <ClCompile Include="src\UI\ControlPanel.cpp" />
+    <ClCompile Include="src\UI\NativeHud.cpp" />
+    <ClCompile Include="src\UI\NativeHudLua.cpp" />
     <ClCompile Include="src\dllmain.cpp" />
     <ClCompile Include="src\Patches\EngineFlameColor.cpp" />
     <ClCompile Include="src\Game\Environment.cpp" />
@@ -228,6 +230,8 @@
     <ClInclude Include="src\Game\CommandReplacement.h" />
     <ClInclude Include="src\Game\Culling.h" />
     <ClInclude Include="src\UI\ControlPanel.h" />
+    <ClInclude Include="src\UI\NativeHud.h" />
+    <ClInclude Include="src\UI\NativeHudControls.h" />
     <ClInclude Include="src\Patches\EngineFlameColor.h" />
     <ClInclude Include="src\Game\Environment.h" />
     <ClInclude Include="src\Ogre\OgreParticleAbi.h" />
