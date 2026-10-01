@@ -51,6 +51,7 @@
 #include "Patches/UnitVo.h"
 #include "Scanner.h"
 #include "UI/ControlPanel.h"
+#include "UI/NativeHud.h"
 #include "UI/Renderer.h"
 #include "Util/Logging.h"
 #include "Util/StorageApi.h"
@@ -145,6 +146,7 @@ namespace ExtraUtilities::Lua
 		BasicPatch::ResetRequestedStatusesToDefaults();
 		BasicScanner::RestoreAllWritten();
 		PlayOption::RestoreScriptChanges();
+		ExtraUtilities::NativeHud::ResetMissionState();
 		ControlPanel::ResetMissionState();
 		Renderer::ResetMissionState();
 		GameObject::ClearMaterialCache();

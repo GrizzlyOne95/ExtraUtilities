@@ -3,6 +3,16 @@
 Date: 2026-09-30. EXU baseline: `68991210d613d76e20f5fc6bd1531c9012dfbcc2`.
 OpenShim baseline: `fd328e0087e3ca90900024aea2719f88787d46ce`.
 
+## Implementation follow-up
+
+The subsequent controls checkpoint is documented in
+[`../NATIVE_HUD_LAYOUT_API.md`](../NATIVE_HUD_LAYOUT_API.md): EXU Lua/C++ controls,
+mission ownership/reset, an authored-slot/live-value helper, and OpenShim's
+geometry/provider contract are now implemented and host-tested. The native
+render interception is still absent and unqualified; capabilities remain zero
+and the API does not yet move live bars. The research evidence below retains
+its original static-only qualification status.
+
 ## Result and confidence
 
 Native hull/ammo relocation is feasible. Keep the mod-facing layout API in EXU

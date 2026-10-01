@@ -138,6 +138,12 @@
     <ClCompile Include="src\UI\ControlPanel.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\UI\NativeHud.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\NativeHudLua.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Patches\BulletHitCallback.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
@@ -414,6 +420,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\ControlPanel.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\NativeHud.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\NativeHudControls.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Radar.h">
