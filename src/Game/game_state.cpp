@@ -1,4 +1,24 @@
+/* Copyright (C) 2026 GrizzlyOne95
+ *
+ * This file is part of Extra Utilities.
+ *
+ * Extra Utilities is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #include "game_state.h"
+#include "Util/SehGuard.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <Windows.h>
 #include <cstdint>
@@ -9,14 +29,14 @@ namespace ExtraUtilities
 	{
 		namespace
 		{
-			constexpr uintptr_t kMultiplayerPauseFlagAddr = 0x00945549;
-			constexpr uintptr_t kMultiplayerPauseRootAddr = 0x0094557C;
-			constexpr uintptr_t kSingleplayerPauseRootAddr = 0x009454EC;
+			constexpr uintptr_t kMultiplayerPauseFlagAddr = EngineAddresses::GameUI::MultiplayerPauseFlag;
+			constexpr uintptr_t kMultiplayerPauseRootAddr = EngineAddresses::GameUI::MultiplayerPauseRoot;
+			constexpr uintptr_t kSingleplayerPauseRootAddr = EngineAddresses::GameUI::SingleplayerPauseRoot;
 
-			constexpr uintptr_t kUiCurrentScreenAddr = 0x00918320;
-			constexpr uintptr_t kEscapeUiWrapperActiveAddr = 0x00918310;
-			constexpr uintptr_t kUiWrapperActiveAddr = 0x00918324;
-			constexpr uintptr_t kUiCurrentScreenTypeAddr = 0x00918328;
+			constexpr uintptr_t kUiCurrentScreenAddr = EngineAddresses::GameUI::UiCurrentScreen;
+			constexpr uintptr_t kEscapeUiWrapperActiveAddr = EngineAddresses::GameUI::EscapeWrapperActive;
+			constexpr uintptr_t kUiWrapperActiveAddr = EngineAddresses::GameUI::MainShellWrapperActive;
+			constexpr uintptr_t kUiCurrentScreenTypeAddr = EngineAddresses::GameUI::UiCurrentScreenType;
 
 			constexpr uint32_t kPauseScreenType = 0x0B;
 			constexpr uint32_t kOptionsScreenType = 0x03;
@@ -95,7 +115,7 @@ namespace ExtraUtilities
 				outState.gameUiOpen = outState.pauseMenuOpen || shellUiOpen;
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outState = {};
 				return false;
@@ -110,26 +130,6 @@ namespace ExtraUtilities
 				return false;
 			}
 			return state.gameUiOpen;
-		}
-
-		bool IsMultiplayerPauseMenuOpen() noexcept
-		{
-			PauseMenuDebugState state{};
-			if (!TryGetPauseMenuDebugState(state))
-			{
-				return false;
-			}
-			return state.multiplayerPauseOpen;
-		}
-
-		bool IsSingleplayerPauseMenuOpen() noexcept
-		{
-			PauseMenuDebugState state{};
-			if (!TryGetPauseMenuDebugState(state))
-			{
-				return false;
-			}
-			return state.singleplayerPauseOpen;
 		}
 
 		bool IsPauseMenuOpen() noexcept

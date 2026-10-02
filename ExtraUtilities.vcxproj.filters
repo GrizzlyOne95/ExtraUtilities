@@ -30,10 +30,61 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\LuaExport.cpp">
+    <ClCompile Include="src\luaexport.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Game\RenderEffects.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Ogre\OgreNativeFontBridge.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Ogre\OgreAnimationInventoryBridge.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Patches\AiTargetSelect.cpp">
+      <Filter>Source Files\Patches</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\Overlay.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Ogre\OgreOverlayElementOps.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Ogre\OgreOverlayRuntime.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\OverlaySuppression.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\OverlayFontAssets.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\PublicAPI.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\AnimationApi.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\FirstPersonTarget.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\PilotAnimationPolicy.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\PilotState.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\PilotFsmIntercept.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\ContinuityApi.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Util\StorageApi.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Util\StorageCodec.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
     <ClCompile Include="src\dllmain.cpp">
@@ -42,14 +93,41 @@
     <ClCompile Include="src\Game\Environment.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Ogre\OgreParticleAbi.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Ogre\OgreSceneRuntime.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\SceneDebug.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\ViewportLightingMode.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\ParticleBindings.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\ParticleRuntime.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\EnvironmentSky.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\EnvironmentLighting.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\EnvironmentLog.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\UI\Reticle.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
     <ClCompile Include="src\Game\Satellite.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
-    <ClCompile Include="src\Util\OS.h">
-      <Filter>Header Files\Exports</Filter>
+    <ClCompile Include="src\Game\StaticGeometry.cpp">
+      <Filter>Source Files\Exports</Filter>
     </ClCompile>
     <ClCompile Include="src\Util\OS.cpp">
       <Filter>Source Files\Exports</Filter>
@@ -60,10 +138,37 @@
     <ClCompile Include="src\UI\ControlPanel.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\UI\NativeHud.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UI\NativeHudLua.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Patches\BulletHitCallback.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
     <ClCompile Include="src\Game\GameObject.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Ogre\OgreEntityRuntime.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Ogre\OgreMaterialRuntime.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\EntityRenderApi.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\MaterialApi.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\TerrainTrn.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\AiInspection.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\GameObjectHandle.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
     <ClCompile Include="src\Game\game_state.cpp">
@@ -82,6 +187,9 @@
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
     <ClCompile Include="src\Util\SoundOptions.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Util\Soundtrack.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
     <ClCompile Include="src\Patches\ShotConvergence.cpp">
@@ -117,9 +225,6 @@
     <ClCompile Include="src\Patches\AddScrapCallback.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
-    <ClCompile Include="src\Util\Vec3.h">
-      <Filter>Header Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\Util\GraphicsOptions.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
@@ -130,6 +235,9 @@
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
     <ClCompile Include="src\Patches\UnitVo.cpp">
+      <Filter>Source Files\Patches</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Patches\AiHudBridges.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
     <ClCompile Include="src\UI\Renderer.cpp">
@@ -143,8 +251,125 @@
     <ClInclude Include="src\About.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\BZR.h">
+    <ClInclude Include="src\bzr.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\OS.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\Vec3.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\AnimationApi.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\FirstPersonTarget.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\ContinuityApi.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\RenderEffects.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\RenderEffectNames.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\RenderEffectBridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\RenderProfileBridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreBuildSettings.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreMaterialShim.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreNativeFontBridge.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreAnimationInventoryBridge.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreOverlayShim.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreParameterValue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreSceneManagerShim.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreStringInterfaceShim.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Patches\AiTargetSelect.h">
+      <Filter>Header Files\Patches</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Patches\ShotConvergenceMath.h">
+      <Filter>Header Files\Patches</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\Overlay.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreOverlayElementOps.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreOverlayRuntime.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\OverlayInternal.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\BuildValidation.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\FiniteCheck.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\AsciiString.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\ModulePath.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\MsvcRtti.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\BzrBuildProfile.generated.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\EngineAddresses.generated.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\Logging.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\SehGuard.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\RuntimeGate.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\NativeSaveFlag.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\SavePathPolicy.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\PatternMatch.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\SignatureResolver.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\StorageApi.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\StorageCodec.h">
+      <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\LuaState.h">
       <Filter>Header Files</Filter>
@@ -153,6 +378,18 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\Environment.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreParticleAbi.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreSceneRuntime.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\EnvironmentLog.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\EnvironmentInternal.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="include\ExtraUtils.h">
@@ -170,13 +407,25 @@
     <ClInclude Include="src\Game\Satellite.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
+    <ClInclude Include="src\Game\StaticGeometry.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
     <ClInclude Include="src\Exports.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\LuaCppBarrier.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\LuaHelpers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\ControlPanel.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\NativeHud.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UI\NativeHudControls.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\UI\Radar.h">
@@ -191,13 +440,43 @@
     <ClInclude Include="src\InlinePatch.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
-    <ClInclude Include="src\Patches\BulletHitCallback.h">
-      <Filter>Header Files\Patches</Filter>
-    </ClInclude>
     <ClInclude Include="src\Patches.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\GameObject.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\PilotAnimationPolicy.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\PilotAnimationProfile.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\PilotState.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\PilotStateSemantics.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\PilotFsmIntercept.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\PilotTrace.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\EntryDetour32.h">
+      <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreEntityRuntime.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreMaterialRuntime.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\GameObjectInternal.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\GameObjectHandle.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\game_state.h">
@@ -218,6 +497,12 @@
     <ClInclude Include="src\Util\SoundOptions.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
+    <ClInclude Include="src\Util\Soundtrack.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Util\MusicFade.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
     <ClInclude Include="src\BasicScanner.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
@@ -225,6 +510,12 @@
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="src\Patches\GlobalTurbo.h">
+      <Filter>Header Files\Patches</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Patches\TurboGate.h">
+      <Filter>Header Files\Patches</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Patches\TurboGateThunk.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\Steam.h">
@@ -245,9 +536,6 @@
     <ClInclude Include="src\Game\Culling.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
-    <ClInclude Include="src\Patches\BulletInitCallback.h">
-      <Filter>Header Files\Patches</Filter>
-    </ClInclude>
     <ClInclude Include="src\Patches\OrdnanceVelocity.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
@@ -257,14 +545,17 @@
     <ClInclude Include="src\Ogre\OgreRenderSpace.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Ogre\OgreRenderOrigin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreProc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\Patches\AddScrapCallback.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="src\Util\GraphicsOptions.h">
       <Filter>Header Files\Exports</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Util\VectorSpider.h">
-      <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>
     <ClInclude Include="src\Patches\KillMessages.h">
       <Filter>Header Files\Patches</Filter>
@@ -273,6 +564,9 @@
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="src\Patches\UnitVo.h">
+      <Filter>Header Files\Patches</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Patches\AiHudBridges.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="src\Patches\WeaponMask.h">

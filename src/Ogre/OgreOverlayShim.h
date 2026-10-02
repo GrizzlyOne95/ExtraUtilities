@@ -112,21 +112,14 @@ namespace Ogre
 		__declspec(dllimport) virtual void removeChild(const String& name);
 	};
 
+	// Panel, BorderPanel and TextArea methods are resolved by mangled name in
+	// OgreOverlayElementOps.cpp, so a missing export cannot stop exu.dll from loading.
 	class PanelOverlayElement : public OverlayElement
 	{
-	public:
-		__declspec(dllimport) void setTiling(Real x, Real y, unsigned short layer = 0);
-		__declspec(dllimport) void setUV(Real u1, Real v1, Real u2, Real v2);
-		__declspec(dllimport) void setTransparent(bool isTransparent);
 	};
 
 	class BorderPanelOverlayElement : public PanelOverlayElement
 	{
-	public:
-		__declspec(dllimport) void setBorderSize(Real size);
-		__declspec(dllimport) void setBorderSize(Real sides, Real topAndBottom);
-		__declspec(dllimport) void setBorderSize(Real left, Real right, Real top, Real bottom);
-		__declspec(dllimport) void setBorderMaterialName(const String& name);
 	};
 
 	class TextAreaOverlayElement : public OverlayElement
@@ -138,11 +131,6 @@ namespace Ogre
 			Right,
 			Center
 		};
-
-		__declspec(dllimport) void setSpaceWidth(Real width);
-		__declspec(dllimport) void setColourTop(const ColourValue& col);
-		__declspec(dllimport) void setColourBottom(const ColourValue& col);
-		__declspec(dllimport) void setAlignment(Alignment a);
 	};
 
 	class Overlay

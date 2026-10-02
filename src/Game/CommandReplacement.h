@@ -18,12 +18,16 @@
 
 #pragma once
 
-#include "BZR.h"
+#include "bzr.h"
 
 #include <lua.hpp>
 
 namespace ExtraUtilities::Lua::CommandReplacement
 {
+	// Resolves and creates the native Wingman Hunt hook. Called from Init
+	// after the build gate is recorded and before patch activation.
+	void InstallNativeHooks();
+
 	void ResetState(lua_State* L);
 	void ReleaseState(lua_State* L);
 

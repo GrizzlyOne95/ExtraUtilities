@@ -1,3 +1,21 @@
+/* Copyright (C) 2026 GrizzlyOne95
+ *
+ * This file is part of Extra Utilities.
+ *
+ * Extra Utilities is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+*/
+
 /* Optional OpenShim render-effect bridge.
  *
  * EXU expresses mission-scoped intent. OpenShim decides whether a renderer
@@ -48,73 +66,40 @@ namespace ExtraUtilities::RenderEffectBridge
 
 	namespace Detail
 	{
-		struct Table
-		{
-			HMODULE module = nullptr;
-			bool resolved = false;
-			GetApiVersionFn getApiVersion = nullptr;
-			SetEnabledFn setEnabled = nullptr;
-			SetFloatFn setFloat = nullptr;
-			GetStatusFn getStatus = nullptr;
-			ResetFn reset = nullptr;
-		};
-
 		// Resolving five exports on every call would be wasteful, but latching
 		// a failure forever is worse: EXU can run before winmm is where we
 		// expect it, and a permanently latched "absent" would survive OpenShim
-		// actually being there. Keying the cache on the module handle gets
-		// both - one resolve per module, and an automatic re-resolve if the
-		// handle ever changes or appears late.
-		inline Table& Resolve() noexcept
-		{
-			static Table table;
-			const HMODULE current = OpenShimBridge::GetModule();
-
-			if (table.resolved && table.module == current)
-			{
-				return table;
-			}
-
-			table = Table{};
-			table.module = current;
-			table.resolved = true;
-
-			if (current == nullptr)
-			{
-				return table;
-			}
-
-			table.getApiVersion =
-				OpenShimBridge::Resolve<GetApiVersionFn>("OpenShimGetRenderEffectApiVersion");
-			table.setEnabled =
-				OpenShimBridge::Resolve<SetEnabledFn>("OpenShimSetRenderEffectEnabled");
-			table.setFloat =
-				OpenShimBridge::Resolve<SetFloatFn>("OpenShimSetRenderEffectFloat");
-			table.getStatus =
-				OpenShimBridge::Resolve<GetStatusFn>("OpenShimGetRenderEffectStatus");
-			table.reset =
-				OpenShimBridge::Resolve<ResetFn>("OpenShimResetRenderEffects");
-
-			return table;
-		}
+		// actually being there. CachedExport keys each on the module handle:
+		// one resolve per module, and an automatic re-resolve if the handle
+		// ever changes or appears late.
+		inline constinit OpenShimBridge::CachedExport<GetApiVersionFn> getApiVersion{ "OpenShimGetRenderEffectApiVersion" };
+		inline constinit OpenShimBridge::CachedExport<SetEnabledFn> setEnabled{ "OpenShimSetRenderEffectEnabled" };
+		inline constinit OpenShimBridge::CachedExport<SetFloatFn> setFloat{ "OpenShimSetRenderEffectFloat" };
+		inline constinit OpenShimBridge::CachedExport<GetStatusFn> getStatus{ "OpenShimGetRenderEffectStatus" };
+		inline constinit OpenShimBridge::CachedExport<ResetFn> reset{ "OpenShimResetRenderEffects" };
 	}
 
 	// A winmm.dll that happens to be loaded is not necessarily OpenShim, and
 	// an OpenShim older than this ABI will not have these exports. Successful
 	// resolution of the exports is therefore the capability test, not the
-	// presence of the module.
+	// presence of the module. A live provider older than the winmm.dll thunks
+	// still resolves them but answers 0 (== kResultAccepted), so the API
+	// version, which shipped with the same exports and is never 0 when
+	// implemented, must also be non-zero.
 	inline bool IsAvailable() noexcept
 	{
-		const Detail::Table& table = Detail::Resolve();
-		return table.setEnabled != nullptr
-			&& table.setFloat != nullptr
-			&& table.getStatus != nullptr;
+		const GetApiVersionFn getApiVersion = Detail::getApiVersion.Get();
+		return Detail::setEnabled.Get() != nullptr
+			&& Detail::setFloat.Get() != nullptr
+			&& Detail::getStatus.Get() != nullptr
+			&& getApiVersion != nullptr
+			&& getApiVersion() != 0u;
 	}
 
 	inline std::uint32_t ApiVersion() noexcept
 	{
-		const Detail::Table& table = Detail::Resolve();
-		return table.getApiVersion ? static_cast<std::uint32_t>(table.getApiVersion()) : 0u;
+		const GetApiVersionFn getApiVersion = Detail::getApiVersion.Get();
+		return getApiVersion ? static_cast<std::uint32_t>(getApiVersion()) : 0u;
 	}
 
 	// Returns the OpenShim result code, or kResultRejectedEffect when the
@@ -123,24 +108,22 @@ namespace ExtraUtilities::RenderEffectBridge
 	// the status query is where the difference is explained.
 	inline std::uint32_t SetEnabled(std::uint32_t effectId, bool enabled) noexcept
 	{
-		const Detail::Table& table = Detail::Resolve();
-		if (!table.setEnabled)
+		if (!IsAvailable())
 		{
 			return RenderEffects::Abi::kResultRejectedEffect;
 		}
 		return static_cast<std::uint32_t>(
-			table.setEnabled(static_cast<DWORD>(effectId), enabled ? TRUE : FALSE));
+			Detail::setEnabled.Get()(static_cast<DWORD>(effectId), enabled ? TRUE : FALSE));
 	}
 
 	inline std::uint32_t SetFloat(std::uint32_t effectId, std::uint32_t paramId, float value) noexcept
 	{
-		const Detail::Table& table = Detail::Resolve();
-		if (!table.setFloat)
+		if (!IsAvailable())
 		{
 			return RenderEffects::Abi::kResultRejectedEffect;
 		}
 		return static_cast<std::uint32_t>(
-			table.setFloat(static_cast<DWORD>(effectId), static_cast<DWORD>(paramId), value));
+			Detail::setFloat.Get()(static_cast<DWORD>(effectId), static_cast<DWORD>(paramId), value));
 	}
 
 	// Fails closed to "nothing requested, nothing supported, OpenShim absent"
@@ -150,15 +133,15 @@ namespace ExtraUtilities::RenderEffectBridge
 		outStatus = Status{};
 		outStatus.size = sizeof(Status);
 
-		const Detail::Table& table = Detail::Resolve();
-		if (!table.getStatus)
+		const GetStatusFn getStatus = Detail::getStatus.Get();
+		if (!getStatus)
 		{
 			outStatus.version = RenderEffects::Abi::kStatusVersion;
 			outStatus.reasonCode = RenderEffects::Abi::kReasonNotImplemented;
 			return false;
 		}
 
-		return table.getStatus(
+		return getStatus(
 			static_cast<DWORD>(effectId), &outStatus, static_cast<DWORD>(sizeof(Status))) != FALSE;
 	}
 
@@ -166,7 +149,7 @@ namespace ExtraUtilities::RenderEffectBridge
 	// lifecycle seam, so this is belt and braces rather than the only defence.
 	inline bool Reset() noexcept
 	{
-		const Detail::Table& table = Detail::Resolve();
-		return table.reset ? table.reset() != FALSE : false;
+		const ResetFn reset = Detail::reset.Get();
+		return reset ? reset() != FALSE : false;
 	}
 }

@@ -18,15 +18,12 @@
 
 #pragma once
 
-#include "BZR.h"
+#include "bzr.h"
 #include "Scanner.h"
-#include "Util/VectorSpider.h"
 
 #include <lua.hpp>
 
 #include <string>
-#include <unordered_map>
-#include <fstream>
 namespace ExtraUtilities::Lua::Ordnance
 {
 	inline Scanner coeffBallistic(BZR::Ordnance::coeffBallistic);
@@ -44,8 +41,6 @@ namespace ExtraUtilities::Lua::Ordnance
 
 	int BuildOrdnance(lua_State* L);
 	int GetOrdnanceAttribute(lua_State* L);
-	int SetOrdnanceAttribute(lua_State* L);
-	int SetOrdnanceVelocity(lua_State* L);
 
 	int GetCoeffBallistic(lua_State* L);
 	int SetCoeffBallistic(lua_State* L);

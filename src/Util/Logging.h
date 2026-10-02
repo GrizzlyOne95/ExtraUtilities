@@ -1,3 +1,21 @@
+/* Copyright (C) 2026 GrizzlyOne95
+ *
+ * This file is part of Extra Utilities.
+ *
+ * Extra Utilities is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+*/
+
 #pragma once
 
 #include <Windows.h>
@@ -13,6 +31,21 @@ namespace ExtraUtilities
 {
 	namespace Logging
 	{
+		// Verbose subsystem tracing (exu_environment_debug.log,
+		// exu_material_debug.log and success-path lines) is opt-in through
+		// EXU_DEBUG_LOG=1 in the game's environment. Fault lines still reach
+		// exu.log unconditionally. Read once per DLL load.
+		inline bool IsDebugLoggingEnabled() noexcept
+		{
+			static const bool enabled = []() noexcept
+			{
+				char value[8]{};
+				const DWORD length = GetEnvironmentVariableA("EXU_DEBUG_LOG", value, sizeof(value));
+				return length > 0 && length < sizeof(value) && value[0] != '0';
+			}();
+			return enabled;
+		}
+
 		inline std::string GetLogFilePath(const char* path)
 		{
 			const char* safeName = (path != nullptr && path[0] != '\0') ? path : "exu.log";
@@ -88,13 +121,10 @@ namespace ExtraUtilities
 			return log;
 		}
 
-		inline void LogMessage(const char* format, ...)
+		inline void LogMessageV(const char* format, va_list args)
 		{
 			char buffer[1024]{};
-			va_list args;
-			va_start(args, format);
 			vsnprintf_s(buffer, sizeof(buffer), _TRUNCATE, format, args);
-			va_end(args);
 
 			OutputDebugStringA(buffer);
 			OutputDebugStringA("\n");
@@ -116,6 +146,58 @@ namespace ExtraUtilities
 					buffer
 				);
 				std::fclose(log);
+			}
+		}
+
+		inline void LogMessage(const char* format, ...)
+		{
+			va_list args;
+			va_start(args, format);
+			LogMessageV(format, args);
+			va_end(args);
+		}
+
+		// One untimestamped line to the debugger and to a subsystem's own
+		// session log (logs\<path>, truncated on the process's first write).
+		// Serialised so concurrent lines do not interleave.
+		inline void WriteSessionLogLine(const char* path, const char* line)
+		{
+			static std::mutex mutex;
+			std::lock_guard<std::mutex> lock(mutex);
+
+			OutputDebugStringA(line);
+			OutputDebugStringA("\n");
+
+			if (FILE* log = OpenSessionLogFile(path))
+			{
+				std::fprintf(log, "%s\n", line);
+				std::fclose(log);
+			}
+		}
+
+		// Subsystem tracing to its own session log, only with EXU_DEBUG_LOG=1.
+		inline void LogDebugToV(const char* path, const char* format, va_list args)
+		{
+			if (!IsDebugLoggingEnabled())
+			{
+				return;
+			}
+
+			char buffer[1024]{};
+			vsnprintf_s(buffer, sizeof(buffer), _TRUNCATE, format, args);
+			WriteSessionLogLine(path, buffer);
+		}
+
+		// A subsystem fault: always exu.log, and also the subsystem's own
+		// session log when EXU_DEBUG_LOG=1 so its trace stays complete.
+		inline void LogFaultToV(const char* path, const char* format, va_list args)
+		{
+			char buffer[1024]{};
+			vsnprintf_s(buffer, sizeof(buffer), _TRUNCATE, format, args);
+			LogMessage("%s", buffer);
+			if (IsDebugLoggingEnabled())
+			{
+				WriteSessionLogLine(path, buffer);
 			}
 		}
 	}

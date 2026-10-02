@@ -17,7 +17,7 @@
       "expected_va": "0x0061D120",
       "required": false,
       "runtime_gate": false,
-      "reason": "Legacy catalog diagnostic retained for camera-address repair; the shipped 2.2.301 executable does not match this stale preimage, so it must not disable unrelated native hooks."
+      "reason": "Diagnostic for the camera-view call target. The catalog pattern was re-derived from the shipped 2.2.301 executable on 2026-09-27; it stays non-gating so a camera change cannot disable unrelated native hooks."
     },
     {
       "name": "Camera.View_Record_MainCam reference",
@@ -26,7 +26,7 @@
       "match": "executable_contains",
       "required": false,
       "runtime_gate": false,
-      "reason": "Legacy catalog diagnostic retained for camera-address repair; the shipped 2.2.301 executable does not contain this stale reference pattern."
+      "reason": "Diagnostic reference to a camera global. The catalog pattern was re-derived from the shipped 2.2.301 executable on 2026-09-27; it stays non-gating."
     },
     {
       "name": "Camera.zoomFactorFPP reference",
@@ -35,17 +35,17 @@
       "match": "executable_contains",
       "required": false,
       "runtime_gate": false,
-      "reason": "Legacy catalog diagnostic retained for camera-address repair; the shipped 2.2.301 executable does not contain this stale reference pattern."
+      "reason": "Diagnostic reference to a camera global. The catalog pattern was re-derived from the shipped 2.2.301 executable on 2026-09-27; it stays non-gating."
     },
     {
       "name": "Overlay pause wrapper",
-      "source": "inline",
-      "pattern": "55 8B EC 51 83 3D 2C 83 91 00 00 74 05 E9 ? ? ? ? 0F B6 05 2B 81 91 00 85 C0 0F 85 ? ? ? ?",
+      "source": "catalog",
+      "catalog_path": "GameUI.PauseWrapper",
       "match": "expected_va",
       "expected_va": "0x005D4690",
       "required": true,
       "runtime_gate": true,
-      "source_file": "src/UI/Overlay.cpp",
+      "source_file": "src/UI/OverlaySuppression.cpp",
       "reason": "Existing overlay hook preimage from a separate BZR subsystem; used here to avoid a single-anchor build identity."
     },
     {
@@ -59,6 +59,16 @@
       "reason": "Validates the long-lived shell boundary that suppresses custom overlays on mission-success, mission-failure, and all other stock shell pages."
     },
     {
+      "name": "Lua dummynode",
+      "source": "catalog",
+      "catalog_path": "Lua.setnodevector",
+      "match": "expected_va",
+      "expected_va": "0x00831635",
+      "required": true,
+      "runtime_gate": true,
+      "reason": "EXU's statically linked Lua core hard-codes the executable's dummynode address (Lua5.1-BZR/src/ltable.c). luaopen_exu checks this anchor before creating any table and refuses to load when it fails."
+    },
+    {
       "name": "Wingman Hunt activation",
       "source": "inline",
       "pattern": "83 7D 08 0D 75 10 6A 14 8B 4D FC E8 ? ? ? ? B0 01 EB ? EB ? 83 7D 08 10 75 ? A1 ? ? ? ? 50 6A 06 8B 4D FC E8 ? ? ? ?",
@@ -67,6 +77,36 @@
       "runtime_gate": true,
       "source_file": "src/Game/CommandReplacement.cpp",
       "reason": "Unique, independently validated 2.2.301 gameplay anchor outside the UI subsystem; prevents the overlay wrappers alone from becoming the entire global native-patch gate."
+    },
+    {
+      "name": "Soundtrack SelectTrack",
+      "source": "catalog",
+      "catalog_path": "Soundtrack.SelectTrack",
+      "match": "expected_va",
+      "expected_va": "0x004377C0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional feature-specific identity. Soundtrack.cpp requires all three at their recorded VAs with unique text matches; missing music support must not disable other EXU features."
+    },
+    {
+      "name": "Soundtrack Start",
+      "source": "catalog",
+      "catalog_path": "Soundtrack.Start",
+      "match": "expected_va",
+      "expected_va": "0x004378F0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional feature-specific identity. Soundtrack.cpp requires all three at their recorded VAs with unique text matches; missing music support must not disable other EXU features."
+    },
+    {
+      "name": "Soundtrack Stop",
+      "source": "catalog",
+      "catalog_path": "Soundtrack.Stop",
+      "match": "expected_va",
+      "expected_va": "0x00437A70",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional feature-specific identity. Soundtrack.cpp requires all three at their recorded VAs with unique text matches; missing music support must not disable other EXU features."
     }
   ]
 }

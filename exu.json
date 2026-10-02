@@ -1,10 +1,11 @@
 {
   "$comment": "Machine-readable address catalog for Extra Utilities G1 (BZR 2.2.301).",
   "$comment2": "Each entry carries the known hardcoded address alongside a 'pattern' field.",
-  "$comment3": "Patterns are IDA-style byte sequences (? = wildcard byte). Where no pattern has",
-  "$comment3b": "been derived yet the field is null — address was taken from the 2.2.301 PDB.",
-  "$comment4": "Future contributors: run Ghidra + pyghidra to derive patterns from the EXE bytes",
-  "$comment4b": "that surround each function/data location, then fill in the null pattern fields.",
+  "$comment3": "Patterns are IDA-style byte sequences (?? = wildcard byte). Where no pattern has",
+  "$comment3b": "been derived the field is null and a 'note' says why.",
+  "$comment3c": "pattern_kind 'code': the pattern starts at 'address' (functions, hook and patch sites). pattern_kind 'reference': the pattern is a unique instruction sequence elsewhere that contains the address bytes (data globals, vftables, strings); 'note' names the matching instruction.",
+  "$comment4": "Verify with: python tools/qualify_bzr_build.py <exe> --catalog. Feature code names these addresses through src/Util/EngineAddresses.generated.h (python tools/generate_engine_addresses.py; --check in CI); tools/validate_hardening.py fails when src/ spells an engine-range literal anywhere else.",
+  "$comment4b": "Derive new signatures from the GOG executable; the Steam executable is SteamStub-packed.",
   "target": {
     "game": "Battlezone 98 Redux",
     "version": "2.2.301",
@@ -14,18 +15,117 @@
     "note": "BZR is a 32-bit process. All absolute addresses are virtual addresses in the default load image."
   },
   "addresses": {
+    "Lua": {
+      "dummynode": {
+        "address": "0x0086EEF0",
+        "type": "Node (static, 32 zero bytes)",
+        "description": "The executable's Lua 5.1 dummynode_. EXU links its own Lua core against the game's lua_State, and Lua5.1-BZR/src/ltable.c hard-codes this address as dummynode so both cores agree on the empty-table sentinel. If it moves, EXU's luaH_resize frees the host's static node (heap corruption).",
+        "pattern": null
+      },
+      "setnodevector": {
+        "address": "0x00831635",
+        "type": "function: void __cdecl(lua_State*, Table*, int)",
+        "description": "Lua 5.1 setnodevector; the size==0 branch stores t->node = dummynode. Required runtime anchor: its signature embeds the dummynode address, so a build where the address moved fails before EXU creates any table.",
+        "pattern": "55 8B EC 53 56 8B 75 10 85 F6 75 0E 8B 4D 0C 33 DB C7 41 10 F0 EE 86 00 EB 79",
+        "note": "Unique in GOG 2.2.301 .text (verified 2026-09-27). The executable has 7 imm32 references to dummynode, all in the Lua core.",
+        "pattern_kind": "code"
+      },
+      "LuaCheckStatus": {
+        "address": "0x004FF600",
+        "type": "function: bool __cdecl(int pcallCode, lua_State*, const char* message)",
+        "description": "The game's Lua error reporter: logs a failed pcall result and does not raise. LuaHelpers.h calls it for event-callback errors, only when the runtime build gate passed.",
+        "pattern": "55 8B EC 51 83 7D 08 00 74 27",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      }
+    },
     "GameUI": {
       "EscapeWrapperActive": {
         "address": "0x00918310",
         "type": "uint32_t*",
         "description": "Nonzero for the full blocking lifetime of the Escape/in-game UI wrapper, including nested pause, options, save, load, and restart pages. The signature is the unique helper that reads this global.",
-        "pattern": "55 8B EC 83 3D 10 83 91 00 00 74 07 C6 05 DF 55 94 00 01 5D C3"
+        "pattern": "55 8B EC 83 3D 10 83 91 00 00 74 07 C6 05 DF 55 94 00 01 5D C3",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches the helper at 0x005D4670 that reads the flag, verified unique in GOG 2.2.301 executable sections 2026-09-27."
       },
       "MainShellWrapper": {
         "address": "0x005D42E0",
         "type": "function: void __cdecl()",
         "description": "Long-lived stock shell wrapper used by the title shell and by mission-success/failure screens. Overlay suppression hooks its active-flag writes so mission HUD overlays cannot leak into any shell page.",
-        "pattern": "55 8B EC 83 EC 34 A1 00 70 8E 00 33 C5 89 45 FC 68 28 79 88 00"
+        "pattern": "55 8B EC 83 EC 34 A1 00 70 8E 00 33 C5 89 45 FC 68 28 79 88 00",
+        "pattern_kind": "code"
+      },
+      "PauseWrapper": {
+        "address": "0x005D4690",
+        "type": "function: void __cdecl(int dialog)",
+        "description": "Stock Escape/in-game UI wrapper (logs 'Starting escape/in game UI wrapper with dialog'). src/UI/OverlaySuppression.cpp verifies its prologue and hooks +0x26 (entry) and +0x1CA (exit) to track overlay pause depth. Also the 'Overlay pause wrapper' runtime-gate anchor in profiles/bzr_2.2.301.json.",
+        "pattern": "55 8B EC 51 83 3D 2C 83 91 00 00 74 05 E9 ?? ?? ?? ?? 0F B6 05 2B 81 91 00 85 C0 0F 85 ?? ?? ?? ??",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27. This is the runtime-gate preimage formerly inline in the build profile; it keeps the 0x0091832C and PauseWrapperActive operands literal, which is stricter than the shortest unique pattern and matches kPauseWrapperFunctionPattern in src/UI/OverlaySuppression.cpp."
+      },
+      "PauseWrapperActive": {
+        "address": "0x0091812B",
+        "type": "uint8_t*",
+        "description": "Byte flag the pause wrapper sets to 1 while its UI loop runs and clears on exit. Overlay's exit hook replays the stock 'mov byte ptr [0x0091812B], 0' it overwrites.",
+        "pattern": "0F B6 05 2B 81 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'movzx eax, byte ptr [0x91812b]' at 0x005D46A2, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "PauseWrapperLogFormat": {
+        "address": "0x00887A64",
+        "type": "const char* (.rdata)",
+        "description": "Format string 'Starting escape/in game UI wrapper with dialog ...'. Overlay's pause-wrapper entry hook replays the stock 'push 0x00887A64' it overwrites.",
+        "pattern": "68 64 7A 88 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'push 0x887a64' at 0x005D46BA, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "UiCurrentScreen": {
+        "address": "0x00918320",
+        "type": "void**",
+        "description": "Current stock UI screen object. game_state.cpp compares it against the singleplayer pause root for pause-menu diagnostics.",
+        "pattern": "A1 20 83 91 00 50",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov eax, dword ptr [0x918320]' at 0x005D50A5, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "MainShellWrapperActive": {
+        "address": "0x00918324",
+        "type": "uint32_t*",
+        "description": "Set to 1/0 by MainShellWrapper on entry/exit. game_state.cpp reads it as 'shell UI open'; Overlay's shell-wrapper hooks replay the stock stores to it.",
+        "pattern": "A1 24 83 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov eax, dword ptr [0x918324]' at 0x00437829, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "UiCurrentScreenType": {
+        "address": "0x00918328",
+        "type": "uint32_t*",
+        "description": "Current stock UI screen type id (0x03 options, 0x0B pause, 0x11 save, 0x12 load, 0x13 mission failed, 0x14 mission success, 0x17 restart, per game_state.cpp).",
+        "pattern": "83 3D 28 83 91 00 01",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'cmp dword ptr [0x918328], 1' at 0x005D4595, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "SingleplayerPauseRoot": {
+        "address": "0x009454EC",
+        "type": "void**",
+        "description": "Singleplayer pause-menu root screen object; game_state.cpp compares it with UiCurrentScreen.",
+        "pattern": "89 0D EC 54 94 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [0x9454ec], ecx' at 0x00789076, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "MultiplayerPauseFlag": {
+        "address": "0x00945549",
+        "type": "uint8_t*",
+        "description": "Multiplayer pause-menu open flag; game_state.cpp treats nonzero (with a visible cursor) as the multiplayer pause menu being open.",
+        "pattern": "0F B6 15 49 55 94 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'movzx edx, byte ptr [0x945549]' at 0x007A7768, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "MultiplayerPauseRoot": {
+        "address": "0x0094557C",
+        "type": "void**",
+        "description": "Multiplayer pause-menu root screen object; nonzero (with a visible cursor) means the multiplayer pause menu is open.",
+        "pattern": "89 0D 7C 55 94 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [0x94557c], ecx' at 0x007A4C0C, verified unique in GOG 2.2.301 executable sections 2026-09-27."
       }
     },
     "Camera": {
@@ -33,13 +133,17 @@
         "address": "0x008EAAE0",
         "type": "BZR_Camera*",
         "description": "Pointer to the primary in-game camera record. Contains projection matrix, frustum planes, position, and zoom.",
-        "pattern": "A1 E0 AA 8E 00"
+        "pattern": "B8 E0 AA 8E 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov eax, 0x8eaae0' at 0x00439E63, verified unique in GOG 2.2.301 executable sections 2026-09-27. Replaces the stale pattern 'A1 E0 AA 8E 00', which did not occur in the executable."
       },
       "zoomFactorFPP": {
         "address": "0x008EAD10",
         "type": "float*",
         "description": "First-person (cockpit/FPP) camera zoom factor. Stock value ~1.0.",
-        "pattern": "D9 05 10 AD 8E 00"
+        "pattern": "0F 2F 05 10 AD 8E 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'comiss xmm0, dword ptr [0x8ead10]' at 0x0061A709, verified unique in GOG 2.2.301 executable sections 2026-09-27. Replaces the stale pattern 'D9 05 10 AD 8E 00', which did not occur in the executable."
       },
       "zoomFactorTPP": {
         "address": "0x008EAB10",
@@ -75,7 +179,9 @@
         "address": "0x0061D120",
         "type": "function: void __cdecl(tagENTITY*, int)",
         "description": "Sets the active camera view. Second parameter is a Camera::View enum value.",
-        "pattern": "55 8B EC 8B 45 08 50 8B 4D 0C 51 E8 ? ? ? ? 83 C4 08 5D C3"
+        "pattern": "55 8B EC 51 83 3D ?? ?? ?? ?? 05",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27. Replaces the stale pattern '55 8B EC 8B 45 08 50 8B 4D 0C 51 E8 ? ? ? ? 83 C4 08 5D C3', which matched four other functions and not this address. The pattern proves the bytes EXU calls; the Set_View semantics are not re-verified."
       }
     },
     "Math": {
@@ -98,6 +204,30 @@
         "type": "bool*",
         "description": "True when the in-game editor (CTRL+E / Terrain Edit) mode is active.",
         "pattern": null
+      },
+      "InfiniteAmmoHook": {
+        "address": "0x004A7709",
+        "type": "hook site (8 bytes)",
+        "description": "Stores the xor-0x33333333 obfuscated ammo value to [obj+0x210]. The infinite-ammo hook forces 10000.",
+        "pattern": "8B 45 08 35 33 33 33 33 8B 4D FC 89 81 10",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "InfiniteScrapHook": {
+        "address": "0x005E10D7",
+        "type": "hook site (8 bytes)",
+        "description": "Stores the xor-0x33333333 obfuscated scrap value to [obj+0x16C]. The infinite-scrap hook forces 10000.",
+        "pattern": "8B 45 08 35 33 33 33 33 8B 4D FC 89 81 6C",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "WeaponMaskCaptureHook": {
+        "address": "0x0060A8C6",
+        "type": "hook site (9 bytes)",
+        "description": "'mov [ecx+0x1C], edx' that stores the weapon mask; WeaponMask.cpp records edx and replays the stock instructions.",
+        "pattern": "89 51 1C 8B 85",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
       }
     },
     "ControlPanel": {
@@ -124,6 +254,126 @@
         "type": "function: void __thiscall(ControlPanel*, GameObject*)",
         "description": "Adds a unit to the current command panel selection.",
         "pattern": null
+      },
+      "HudPaletteSelector": {
+        "address": "0x0047C070",
+        "type": "function: char __thiscall(void*)",
+        "description": "Returns the HUD palette selector character (compared against 'a' by the caller). Called with ecx = HudPaletteSelectorThis; ControlPanel's scrap/pilot draw hook replays that call.",
+        "pattern": "55 8B EC 83 EC 0C 89 4D F4 C6 45 FF 61",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "HudPaletteSelectorThis": {
+        "address": "0x0094F4B0",
+        "type": "void* (static object)",
+        "description": "Static object passed as 'this' to HudPaletteSelector and many other HUD helpers.",
+        "pattern": "B9 B0 F4 94 00 E8 ?? ?? ?? ?? 5D",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov ecx, 0x94f4b0' at 0x00866723, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "ScrapPilotHudDrawHook": {
+        "address": "0x005C6FF0",
+        "type": "hook site (10 bytes)",
+        "description": "Scrap/pilot HUD draw: 'mov ecx, 0x0094F4B0; call HudPaletteSelector'. ControlPanel hooks it to apply scrap/pilot text offsets before drawing.",
+        "pattern": "B9 ?? ?? ?? ?? E8 ?? ?? ?? ?? 88 45 E7",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "ScrapLabelColorHook": {
+        "address": "0x005C712B",
+        "type": "hook site (6 bytes)",
+        "description": "Loads the stock HUD text colour (dword at 0x0091755C) for the scrap label. ControlPanel substitutes its scrap colour when OpenShim does not own HUD colour.",
+        "pattern": "A1 ?? ?? ?? ?? 50 8B 0D ?? ?? ?? ?? 51 68 ?? ?? ?? ?? 68 ?? ?? ?? ?? E8",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "ScrapValueColorHook": {
+        "address": "0x005C719B",
+        "type": "hook site (7 bytes)",
+        "description": "Loads the stock HUD text colour for the scrap value.",
+        "pattern": "8B 15 ?? ?? ?? ?? 52 A1 ?? ?? ?? ?? 50 8D 4D EC",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "PilotLabelColorHook": {
+        "address": "0x005C72F1",
+        "type": "hook site (7 bytes)",
+        "description": "Loads the stock HUD text colour for the pilot label.",
+        "pattern": "8B 15 ?? ?? ?? ?? 52 A1 ?? ?? ?? ?? 50 68 ?? ?? ?? ?? 68 ?? ?? ?? ?? E8",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "PilotValueColorHook": {
+        "address": "0x005C7361",
+        "type": "hook site (7 bytes)",
+        "description": "Loads the stock HUD text colour for the pilot value.",
+        "pattern": "8B 0D ?? ?? ?? ?? 51 8B 15 ?? ?? ?? ?? 52 8D 45 EC",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "scrapLabelX": {
+        "address": "0x0091829C",
+        "type": "int*",
+        "description": "Scrap label text X position; written by the HUD layout and read by the scrap/pilot draw. First of ControlPanel's four HUD text points.",
+        "pattern": "89 0D 9C 82 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [0x91829c], ecx' at 0x005C6E9E, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "scrapLabelY": {
+        "address": "0x009182A0",
+        "type": "int*",
+        "description": "Scrap label text Y position.",
+        "pattern": "89 15 A0 82 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [0x9182a0], edx' at 0x005C6EAD, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "scrapValueX": {
+        "address": "0x0091826C",
+        "type": "int*",
+        "description": "Scrap value text X position.",
+        "pattern": "A3 6C 82 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [0x91826c], eax' at 0x005C6EBB, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "scrapValueY": {
+        "address": "0x00918270",
+        "type": "int*",
+        "description": "Scrap value text Y position.",
+        "pattern": "89 0D 70 82 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [0x918270], ecx' at 0x005C6EC9, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "pilotLabelX": {
+        "address": "0x00918280",
+        "type": "int*",
+        "description": "Pilot label text X position.",
+        "pattern": "A3 80 82 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [0x918280], eax' at 0x005C6EF2, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "pilotLabelY": {
+        "address": "0x00918284",
+        "type": "int*",
+        "description": "Pilot label text Y position.",
+        "pattern": "A1 84 82 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov eax, dword ptr [0x918284]' at 0x005C7319, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "pilotValueX": {
+        "address": "0x00918278",
+        "type": "int*",
+        "description": "Pilot value text X position.",
+        "pattern": "89 15 78 82 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [0x918278], edx' at 0x005C6F0F, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "pilotValueY": {
+        "address": "0x0091827C",
+        "type": "int*",
+        "description": "Pilot value text Y position.",
+        "pattern": "A3 7C 82 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [0x91827c], eax' at 0x005C6F1D, verified unique in GOG 2.2.301 executable sections 2026-09-27."
       }
     },
     "Environment": {
@@ -156,6 +406,46 @@
         "type": "function: void __cdecl()",
         "description": "Forces terrain lighting recalculation after directional light changes.",
         "pattern": null
+      },
+      "FogReset": {
+        "address": "0x00683370",
+        "type": "function (SetFog wrapper)",
+        "description": "Engine SetFog wrapper (SceneManager::setFog(FOG_LINEAR, ...) plus a cached clear colour). exu.SetFog patches its first byte to ret so script fog is not overwritten.",
+        "pattern": "55 8B EC 83 EC 20 51",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "ViewportSetMaterialSchemeIat": {
+        "address": "0x00869810",
+        "type": "IAT slot (.rdata)",
+        "description": "Import slot for Ogre::Viewport::setMaterialScheme.",
+        "pattern": "FF 15 10 98 86 00 EB B0",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'call dword ptr [0x869810]' at 0x00681585, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "ViewportSchemeCallSite0": {
+        "address": "0x00681585",
+        "type": "call site (call [IAT])",
+        "description": "Settings reassert loop that re-applies the material scheme to every viewport; Environment rewrites the scheme inside this call.",
+        "pattern": "FF 15 ?? ?? ?? ?? EB B0 8D",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "ViewportSchemeCallSite1": {
+        "address": "0x00682AA0",
+        "type": "call site (call [IAT])",
+        "description": "Secondary viewport creation ('low-noshadow' scheme).",
+        "pattern": "FF 15 ?? ?? ?? ?? C7 45 FC FF FF FF FF 8D 4D 8C E8 ?? ?? ?? ?? EB",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "ViewportSchemeCallSite2": {
+        "address": "0x00682EA7",
+        "type": "call site (call [IAT])",
+        "description": "Tertiary viewport creation ('low-noshadow' scheme).",
+        "pattern": "FF 15 ?? ?? ?? ?? C7 45 FC FF FF FF FF 8D 4D A4",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
       }
     },
     "GameObject": {
@@ -168,8 +458,20 @@
       "GetObj_base": {
         "address": "0x0260DB20",
         "type": "uintptr_t (base of object table)",
-        "description": "Base of the flat GameObject pointer table. Used in: (h >> 0x14) * 0x400 + base.",
+        "description": "Base of the static GameObject arena: 0x1000 slots of 0x400 bytes. Slot for handle h: base + ((h >> 20) & 0xFFF) * 0x400.",
         "pattern": null
+      },
+      "GetObjByHandle": {
+        "address": "0x004DA060",
+        "type": "function: GameObject* __cdecl(handle)",
+        "description": "Engine handle-to-object lookup. Returns null for handle 0 and whenever the slot's serial at +0x15C differs from the handle's low 20 bits (dead or recycled). BZR::GameObject::GetObj mirrors it.",
+        "pattern": "55 8B EC 83 EC 08 83 7D 08 00 75 04 33 C0 EB 39 8B 45 08 89 45 FC 8B 4D FC C1 E9 14 81 E1 FF 0F 00 00 C1 E1 0A 81 C1 20 DB 60 02 89 4D F8 8B 55 FC 81 E2 FF FF 0F 00 8B 45 F8 39 90 5C 01 00 00 74 04 33 C0 EB 03 8B 45 F8 8B E5 5D C3",
+        "note": "Pattern is the whole function, unique in GOG 2.2.301 .text (verified 2026-09-27).",
+        "pattern_kind": "code"
+      },
+      "serialOffset": {
+        "value": "0x15C",
+        "description": "Offset of the live-object serial in a GameObject arena slot; 0 means the slot is free. Compared against handle & 0xFFFFF."
       },
       "SetAsUser": {
         "address": "0x004DB930",
@@ -235,24 +537,34 @@
         "type": "function: void()",
         "description": "Forces the scoreboard to refresh with the current life count value.",
         "pattern": null
+      },
+      "BuildObjectSyncBranch": {
+        "address": "0x005C833B",
+        "type": "patch site (2-byte je)",
+        "description": "'je' in the engine's object-build path. exu.BuildSyncObject NOPs it for the duration of one stock BuildObject call so the object is built as a sync object.",
+        "pattern": "74 0B 8B 4D FC 83 C1",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "BuildObjectSyncCall": {
+        "address": "0x005C833D",
+        "type": "patch site (11 bytes)",
+        "description": "'mov ecx,[ebp-4]; add ecx,0x18; call' that follows BuildObjectSyncBranch. exu.BuildAsyncObject NOPs it for the duration of one stock BuildObject call so the object is built as an async object.",
+        "pattern": "8B 4D FC 83 C1 18 E8 ?? ?? ?? ?? E8",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "SkipStartingRecycler": {
+        "address": "0x0056F014",
+        "type": "patch site (5 bytes)",
+        "description": "MultSTMission code that spawns the starting recycler; EXU writes a jmp +0xBC over it.",
+        "pattern": "8B 45 9C 50 8B 4D 98 51 E8 ?? ?? ?? ?? 83 C4 08 89 45 90",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
       }
     },
     "Ogre": {
-      "_note": "These are RVAs (relative virtual addresses) within OgreMain.dll, not absolute EXE addresses.",
-      "getAmbientLightOffset":       { "rva": "0x3C8D90", "description": "SceneManager::getAmbientLight" },
-      "setAmbientLightOffset":       { "rva": "0x3D35E0", "description": "SceneManager::setAmbientLight" },
-      "getDiffuseColorOffset":       { "rva": "0x18219",  "description": "Light::getDiffuseColour" },
-      "setDiffuseColorOffset":       { "rva": "0x220280", "description": "Light::setDiffuseColour" },
-      "getSpecularColorOffset":      { "rva": "0x21F490", "description": "Light::getSpecularColour" },
-      "setSpecularColorOffset":      { "rva": "0x2204B0", "description": "Light::setSpecularColour" },
-      "setSpotlightRangeOffset":     { "rva": "0x220550", "description": "Light::setSpotlightRange" },
-      "setVisibleOffset":            { "rva": "0x220EF0", "description": "MovableObject::setVisible" },
-      "getSkyBoxGenParametersOffset":{ "rva": "0x2E4C9",  "description": "SceneManager::getSkyBoxGenParameters" },
-      "getSkyBoxNodeOffset":         { "rva": "0x21855",  "description": "SceneManager::getSkyBoxNode" },
-      "getSkyDomeGenParametersOffset":{ "rva": "0x2A509", "description": "SceneManager::getSkyDomeGenParameters" },
-      "getSkyDomeNodeOffset":        { "rva": "0x11987",  "description": "SceneManager::getSkyDomeNode" },
-      "getSkyPlaneGenParametersOffset":{ "rva": "0x3F41D","description": "SceneManager::getSkyPlaneGenParameters" },
-      "getSkyPlaneNodeOffset":       { "rva": "0x01983",  "description": "SceneManager::getSkyPlaneNode" },
+      "_note": "Executable addresses that lead to Ogre objects. OgreMain.dll functions are resolved by mangled export name in src/Ogre/Ogre.h, not by offset.",
       "terrain_masterlight": {
         "address": "0x00920CA0",
         "type": "void** (BZR EXE absolute)",
@@ -262,6 +574,14 @@
         "address": "0x00920EA0",
         "type": "void** (BZR EXE absolute)",
         "description": "Base of an Ogre structure from which the SceneManager is reached at offset 0x08."
+      },
+      "worldRenderOrigin": {
+        "address": "0x025F8E4C",
+        "type": "VECTOR_3D*",
+        "description": "Per-map Ogre render origin. Redux renders simulation position p at (p.x - o.x, p.y - o.y, -p.z - o.z); see src/Ogre/OgreRenderSpace.h.",
+        "pattern": "B9 4C 8E 5F 02",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov ecx, 0x25f8e4c' at 0x0040E913, verified unique in GOG 2.2.301 executable sections 2026-09-27."
       }
     },
     "Ordnance": {
@@ -282,6 +602,30 @@
         "type": "float*",
         "description": "Global ballistic coefficient for ordnance arc. Default 4.9.",
         "pattern": null
+      },
+      "VelocityInheritanceHook": {
+        "address": "0x004803D4",
+        "type": "hook site (8 bytes)",
+        "description": "Stores the new ordnance velocity vector; OrdnanceVelocity adds the shooter's velocity here when inheritance is enabled.",
+        "pattern": "8B 4D F0 89 08 8B 55 F4 89 50 04 8B 4D F8 89 48 08 8B 55 E0",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "CannonLeadPositionHook": {
+        "address": "0x0048F658",
+        "type": "hook site (6 bytes)",
+        "description": "Cannon target-lead calculation ([ebp-0x20] = cannon this); OrdnanceVelocity subtracts shooter velocity from target velocity.",
+        "pattern": "8B 45 E0 8B 48 0C F3",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "CannonVelocityToleranceBranch": {
+        "address": "0x0048F639",
+        "type": "patch site (6-byte jbe)",
+        "description": "Skips lead calculation for targets slower than 0.1 m/s; OrdnanceVelocity NOPs it so shooter speed still affects lead on still targets.",
+        "pattern": "0F 86 ?? ?? ?? ?? 8B 4D 0C E8 ?? ?? ?? ?? 8B 10 89 55 E4 8B 48 04 89 4D E8 8B 50 08 89 55 EC 8B 45 E0",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
       }
     },
     "PlayOption": {
@@ -347,22 +691,42 @@
         "description": "Float base for command panel horizontal positioning.",
         "pattern": null
       },
-      "commandPanelLeft": {
+      "cockpitWireframeCenterX": {
         "address": "0x008E7924",
         "type": "int*",
-        "description": "Computed left pixel position for the command panel.",
+        "description": "Screen-space X centre of the cockpit radar wireframe: the world origin (player) projects onto this point (0x00493330 adds centerX and subtracts from centerY). Formerly catalogued as commandPanelLeft; bzr.h has always used it as the wireframe centre.",
         "pattern": null
       },
-      "commandPanelBottom": {
+      "cockpitWireframeCenterY": {
         "address": "0x008E7928",
         "type": "int*",
-        "description": "Bottom pixel position for the command panel.",
+        "description": "Screen-space Y centre of the cockpit radar wireframe (see cockpitWireframeCenterX). Formerly catalogued as commandPanelBottom.",
         "pattern": null
       },
-      "edgeMinX": { "address": "0x00917388", "type": "float*", "description": "Edge path X minimum bound.", "pattern": null },
-      "edgeMaxX": { "address": "0x0091738C", "type": "float*", "description": "Edge path X maximum bound.", "pattern": null },
-      "edgeMinZ": { "address": "0x00917390", "type": "float*", "description": "Edge path Z minimum bound.", "pattern": null },
-      "edgeMaxZ": { "address": "0x00917394", "type": "float*", "description": "Edge path Z maximum bound.", "pattern": null },
+      "edgeMinX": {
+        "address": "0x00917388",
+        "type": "float*",
+        "description": "Edge path X minimum bound.",
+        "pattern": null
+      },
+      "edgeMaxX": {
+        "address": "0x0091738C",
+        "type": "float*",
+        "description": "Edge path X maximum bound.",
+        "pattern": null
+      },
+      "edgeMinZ": {
+        "address": "0x00917390",
+        "type": "float*",
+        "description": "Edge path Z minimum bound.",
+        "pattern": null
+      },
+      "edgeMaxZ": {
+        "address": "0x00917394",
+        "type": "float*",
+        "description": "Edge path Z maximum bound.",
+        "pattern": null
+      },
       "RefreshCockpitWireframeAnchor": {
         "address": "0x00404CF0",
         "type": "function: void __cdecl()",
@@ -386,6 +750,22 @@
         "type": "function: void __thiscall(void* self)",
         "description": "Recalculates min/max XZ bounds for all edge paths.",
         "pattern": null
+      },
+      "RefreshLayoutCallSite0": {
+        "address": "0x0049325F",
+        "type": "call site (call RefreshLayout)",
+        "description": "First engine call to Radar.RefreshLayout; retargeted to EXU's concentric wrapper unless OpenShim owns radar layout.",
+        "pattern": "E8 ?? ?? ?? ?? 83 C4 04 B9 04 00 00 00 6B D1 00 A1",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "RefreshLayoutCallSite1": {
+        "address": "0x0049405B",
+        "type": "call site (call RefreshLayout)",
+        "description": "Second engine call to Radar.RefreshLayout (cockpit HUD rebuild).",
+        "pattern": "E8 ?? ?? ?? ?? 83 C4 04 8B 8D D8",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
       }
     },
     "Reticle": {
@@ -478,21 +858,377 @@
         "pattern": null,
         "note": "Aliased with PlayOption::userProfilePtr — same base address, different typed interpretation."
       },
-      "soundStruct2": {
-        "address": "0x00915594",
-        "type": "uint32_t*",
-        "description": "Base of a second sound struct. SFX real value at +0x08, voice real value at +0x0C.",
-        "pattern": null
-      },
-      "musicOffset":  { "value": "0x2A", "description": "Byte offset from soundStruct1 to the music volume display byte." },
-      "sfxOffset":    { "value": "0x08", "description": "Byte offset from soundStruct2 to the SFX volume real value." },
-      "voiceOffset":  { "value": "0x0C", "description": "Byte offset from soundStruct2 to the voice volume real value." }
+      "musicOffset": {
+        "value": "0x2A",
+        "description": "Byte offset from soundStruct1 to the music volume display byte."
+      }
     },
     "Steam": {
       "steam64": {
         "address": "0x0260B1D0",
         "type": "uint64_t*",
         "description": "Local player's 64-bit Steam ID.",
+        "pattern": null
+      }
+    },
+    "SaveGame": {
+      "SaveGame": {
+        "address": "0x004FD190",
+        "type": "function (native mission save)",
+        "description": "Stock save routine that src/Util/OS.cpp resolves at runtime with SAVE_GAME_SIGNATURE. The missionSave flag address is decoded from its body (NativeSaveFlag.h).",
+        "pattern": "55 8B EC 81 EC 94 00 00 00 C6",
+        "pattern_kind": "code",
+        "note": "EXU does not use this address directly; it scans for SAVE_GAME_SIGNATURE. Catalogued so qualification reports when that scan would move or fail. Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "SaveShellGame": {
+        "address": "0x004FDC80",
+        "type": "function: slot-save wrapper around SaveGame",
+        "description": "Stock slot-save wrapper. src/Util/OS.cpp finds it as the caller of SaveGame whose first 0x140 bytes check slot 1..10 and whose first 0x40 bytes store the saveGameDesc buffer address; the binarySave flag and -binarysave switch are decoded from it.",
+        "pattern": "55 8B EC 81 EC 80 00 00 00 A1 ?? ?? ?? ?? 33 C5 89 45 FC 8B",
+        "pattern_kind": "code",
+        "note": "EXU does not use this address directly; it is found through IsSaveShellGameCandidate. Catalogued so qualification reports drift. Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "saveGameDesc": {
+        "address": "0x008E86D8",
+        "type": "char[] (save description buffer)",
+        "description": "Save-game description buffer. IsSaveShellGameCandidate in src/Util/OS.cpp builds the byte pattern C7 45 ?? <address> from this entry to recognise SaveShellGame.",
+        "pattern": "C7 45 94 D8 86 8E 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [ebp - 0x6c], 0x8e86d8' at 0x004FDC99, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "saveDirectory": {
+        "address": "0x02CEEFE0",
+        "type": "char[0x1000] (engine save directory)",
+        "description": "The engine's save directory. The startup routine (0x00618FF0, called from WinMain) fills it once with _getcwd() + \"\\save\", before any Lua runs, and nothing writes it afterwards. SaveShellGame builds <saveDirectory>\\game<slot>.sav from it and SaveGame creates it before writing. src/Util/OS.cpp reads it (behind the runtime build gate) to build exu.SaveGame slot paths; SavePathPolicy.h's BuildSlotSavePath fails closed when it is empty, unterminated or not an absolute drive path.",
+        "pattern": "68 E0 EF CE 02 E8 ?? ?? ?? ?? 83 C4 04 0F B6 05 B7 73 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'push 0x2ceefe0; call <ensure directory>; add esp, 4; movzx eax, byte ptr [missionSave]' in SaveGame at 0x004FD1A8, verified unique in GOG 2.2.301 executable sections 2026-09-28. The next global the executable references is 0x02CEFFE0, so the buffer is 0x1000 bytes."
+      },
+      "missionSave": {
+        "address": "0x009173B7",
+        "type": "uint8_t* (bool; decoded at runtime, verification entry)",
+        "description": "The engine's missionSave flag. src/Util/OS.cpp does not use this constant: it decodes the address from the resolved SaveGame body (NativeSaveFlag.h ReadMissionSaveFlagAddress, the movzx at SaveGame+37) and fails closed if the decode drifts. Catalogued so qualification reports when that instruction moves.",
+        "pattern": "83 C4 04 0F B6 05 B7 73 91 00 85 C0 0F 84 ?? ?? ?? ?? 6A 2E",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'add esp, 4; movzx eax, byte ptr [0x9173b7]; test eax, eax; je ...; push 0x2e' in SaveGame at 0x004FD1B2, verified unique in GOG 2.2.301 executable sections 2026-09-28. The operand sits at SaveGame+40, where ReadMissionSaveFlagAddress reads it."
+      },
+      "binarySave": {
+        "address": "0x009173B6",
+        "type": "uint8_t* (bool; decoded at runtime, verification entry)",
+        "description": "The byte SaveGame reads to choose the binary writer. src/Util/OS.cpp does not use this constant: FindBinarySaveAddresses decodes it from SaveShellGame and requires it to be missionSave - 1.",
+        "pattern": "8A 55 8C 88 15 B6 73 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dl, byte ptr [ebp - 0x74]; mov byte ptr [0x9173b6], dl' in SaveShellGame at 0x004FDD58, verified unique in GOG 2.2.301 executable sections 2026-09-28."
+      },
+      "binarySaveSwitch": {
+        "address": "0x008EAAB4",
+        "type": "int32_t* (-binarysave option; decoded at runtime, verification entry)",
+        "description": "The -binarysave command-line option. src/Util/OS.cpp does not use this constant: FindBinarySaveAddresses decodes it from SaveShellGame's 'mov byte ptr [missionSave], 0; cmp dword ptr [switch], 0' sequence.",
+        "pattern": "C6 05 B7 73 91 00 00 83 3D B4 AA 8E 00 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov byte ptr [0x9173b7], 0; cmp dword ptr [0x8eaab4], 0' in SaveShellGame at 0x004FDD38, verified unique in GOG 2.2.301 executable sections 2026-09-28 (the cmp alone also appears at 0x004FBF14)."
+      }
+    },
+    "AiTargetSelect": {
+      "VectorMagnitude": {
+        "address": "0x00462070",
+        "type": "function: float __cdecl(const float* vector)",
+        "description": "Distance metric called by the stock target searches. AiTargetSelect retargets six of its call sites and calls it for the base distance.",
+        "pattern": "55 8B EC 51 8B 45 08 8B 4D 08",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "OffensiveProcess_ChooseAttackTarget": {
+        "address": "0x00583500",
+        "type": "function: GameObject* __thiscall(void* process, float* rangeLimit)",
+        "description": "Shared ChooseAttackTarget implementation (vftable slot 57, +0xE4) of WingmanProcess, RocketTankProcess, TankProcess and BomberProcess.",
+        "pattern": "55 8B EC 51 89 4D FC 8B 45 08 50 8B 4D FC 8B 51 34 52 E8 ?? ?? ?? ?? 83 C4 08 8B E5 5D C2 04 00 55 8B EC 83",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27. The Offensive and Scout ChooseAttackTarget thunks are byte-identical apart from the call target, so the pattern runs past the ret into the first bytes of the next function."
+      },
+      "ScoutProcess_ChooseAttackTarget": {
+        "address": "0x00614020",
+        "type": "function: GameObject* __thiscall(void* process, float* rangeLimit)",
+        "description": "ScoutProcess ChooseAttackTarget (vftable slot 57, +0xE4).",
+        "pattern": "55 8B EC 51 89 4D FC 8B 45 08 50 8B 4D FC 8B 51 34 52 E8 ?? ?? ?? ?? 83 C4 08 8B E5 5D C2 04 00 55 8B EC 6A",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27. The Offensive and Scout ChooseAttackTarget thunks are byte-identical apart from the call target, so the pattern runs past the ret into the first bytes of the next function."
+      },
+      "ScoreCall0": {
+        "address": "0x004634A5",
+        "type": "call site (call VectorMagnitude)",
+        "description": "Target-search distance evaluation, lane 0 of the first search. AiTargetSelect rewrites the rel32 after checking it calls VectorMagnitude.",
+        "pattern": "E8 ?? ?? ?? ?? 83 C4 04 D9 9D 78 FF FF FF F3 0F 10 45 A0",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "ScoreCall1": {
+        "address": "0x00463593",
+        "type": "call site (call VectorMagnitude)",
+        "description": "Target-search distance evaluation, lane 1 of the first search.",
+        "pattern": "E8 ?? ?? ?? ?? 83 C4 04 D9 5D 98 8B 4D A4 E8 ?? ?? ?? ?? 85 C0 74 1D F3 0F 10 45 90",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "ScoreCall2": {
+        "address": "0x00463670",
+        "type": "call site (call VectorMagnitude)",
+        "description": "Target-search distance evaluation, lane 2 of the first search.",
+        "pattern": "E8 ?? ?? ?? ?? 83 C4 04 D9 5D 80 8B 4D A4 3B 8D 74 FF FF FF 0F 84 ?? ?? ?? ?? 8B 4D A4 E8 ?? ?? ?? ?? 50 E8 ?? ?? ?? ?? 83 C4 04 89 45 84",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "ScoreCall3": {
+        "address": "0x00463A46",
+        "type": "call site (call VectorMagnitude)",
+        "description": "Target-search distance evaluation, lane 0 of the second search.",
+        "pattern": "E8 ?? ?? ?? ?? 83 C4 04 D9 9D 7C FF FF FF F3 0F 10 45 A0 0F 2F 85 7C FF FF FF 76",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "ScoreCall4": {
+        "address": "0x00463B34",
+        "type": "call site (call VectorMagnitude)",
+        "description": "Target-search distance evaluation, lane 1 of the second search.",
+        "pattern": "E8 ?? ?? ?? ?? 83 C4 04 D9 5D 98 8B 4D A4 E8 ?? ?? ?? ?? 85 C0 74 1D F3 0F 10 45 A0",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "ScoreCall5": {
+        "address": "0x00463C11",
+        "type": "call site (call VectorMagnitude)",
+        "description": "Target-search distance evaluation, lane 2 of the second search.",
+        "pattern": "E8 ?? ?? ?? ?? 83 C4 04 D9 5D 80 8B 4D A4 3B 8D 74 FF FF FF 0F 84 ?? ?? ?? ?? 8B 4D A4 E8 ?? ?? ?? ?? 50 E8 ?? ?? ?? ?? 83 C4 04 89 45 88",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "WingmanProcess_vftable": {
+        "address": "0x0088A6EC",
+        "type": "vftable (.rdata)",
+        "description": "WingmanProcess vftable (RTTI .?AVWingmanProcess@@). AiTargetSelect replaces slot 57 (+0xE4) after checking RTTI and the stock implementation.",
+        "pattern": "C7 00 EC A6 88 00 8B 45 FC",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [eax], 0x88a6ec' at 0x00613992, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "RocketTankProcess_vftable": {
+        "address": "0x0088A5C0",
+        "type": "vftable (.rdata)",
+        "description": "RocketTankProcess vftable (RTTI .?AVRocketTankProcess@@); slot 57 hooked by AiTargetSelect.",
+        "pattern": "C7 00 C0 A5 88 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [eax], 0x88a5c0' at 0x00614B12, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "TankProcess_vftable": {
+        "address": "0x0088AB9C",
+        "type": "vftable (.rdata)",
+        "description": "TankProcess vftable (RTTI .?AVTankProcess@@); slot 57 hooked by AiTargetSelect.",
+        "pattern": "C7 00 9C AB 88 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [eax], 0x88ab9c' at 0x00613EF2, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "BomberProcess_vftable": {
+        "address": "0x0088B178",
+        "type": "vftable (.rdata)",
+        "description": "BomberProcess vftable (RTTI .?AVBomberProcess@@); slot 57 hooked by AiTargetSelect.",
+        "pattern": "C7 00 78 B1 88 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [eax], 0x88b178' at 0x00614282, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "ScoutProcess_vftable": {
+        "address": "0x0088AF98",
+        "type": "vftable (.rdata)",
+        "description": "ScoutProcess vftable (RTTI .?AVScoutProcess@@); slot 57 hooked by AiTargetSelect.",
+        "pattern": "C7 00 98 AF 88 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [eax], 0x88af98' at 0x00614102, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      }
+    },
+    "ShotConvergence": {
+      "Wingman_UpdateWeaponAimSlot": {
+        "address": "0x0088A4FC",
+        "type": "vftable slot (.rdata, uintptr_t)",
+        "description": "Slot 38 (+0x98) of the Wingman vftable at 0x0088A464 (RTTI .?AVWingman@@); stock value 0x004EB590. The shot-convergence patch writes Walker_UpdateWeaponAim into it.",
+        "pattern": null,
+        "note": "No pattern: a vftable slot in .rdata that no instruction references directly. The InlinePatch expected bytes (stock slot value) qualify it."
+      },
+      "TurretCraft_UpdateWeaponAimSlot": {
+        "address": "0x00889418",
+        "type": "vftable slot (.rdata, uintptr_t)",
+        "description": "Slot 38 (+0x98) of the TurretCraft vftable at 0x00889380 (RTTI .?AVTurretCraft@@); stock value TurretCraft_UpdateWeaponAim. The player-reticle convergence patch writes EXU's hook into it.",
+        "pattern": null,
+        "note": "No pattern: a vftable slot in .rdata that no instruction references directly. The InlinePatch expected bytes (stock slot value) qualify it."
+      },
+      "TurretCraft_UpdateWeaponAim": {
+        "address": "0x005F0930",
+        "type": "function: void __thiscall(GameObject*, float)",
+        "description": "Stock hovercraft/TurretCraft UpdateWeaponAim; EXU's reticle hook calls it before adjusting weapon transforms.",
+        "pattern": "55 8B EC 81 EC 68 03 00 00 A1 ?? ?? ?? ?? 33 C5 89 45 FC 56 57 89 8D D0",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "Walker_UpdateWeaponAim": {
+        "address": "0x0060F320",
+        "type": "function: void __thiscall(GameObject*, float)",
+        "description": "Walker UpdateWeaponAim, which converges shots on the aim point. The shot-convergence patch installs it in the Wingman vftable slot.",
+        "pattern": "55 8B EC 81 EC 90 04 00 00 A1 ?? ?? ?? ?? 33 C5 89 45 FC 56 57 89 8D 20",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "Carrier_GetWeapon": {
+        "address": "0x00417F60",
+        "type": "function: Weapon* __thiscall(void* carrier, int slot)",
+        "description": "Returns the weapon in a weapon slot of the carrier at GameObject+0x1A0.",
+        "pattern": "55 8B EC 51 89 4D FC B8 01 00 00 00 8B 4D 08 D3 E0 8B 4D FC 23",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "RefreshWeaponTransform": {
+        "address": "0x00681A00",
+        "type": "function: void __cdecl(OBJ76*, MAT_3D*)",
+        "description": "Refreshes a weapon object's transform from a matrix; used after EXU adjusts the weapon mount orientation.",
+        "pattern": "55 8B EC 83 EC 3C A1 ?? ?? ?? ?? 33 C5 89 45 FC 83",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      }
+    },
+    "Callbacks": {
+      "BulletInitHook": {
+        "address": "0x00480363",
+        "type": "hook site (6 bytes)",
+        "description": "Ordnance initialisation ([ebp-0x20] = ordnance this); drives exu's bullet-init callback.",
+        "pattern": "8B 55 E0 8B 42 14 83 C0 20 50 8D 4D D0",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "BulletHitHook": {
+        "address": "0x00480771",
+        "type": "hook site (6 bytes)",
+        "description": "Ordnance hit handling (eax = ordnance this); drives exu's bullet-hit callback.",
+        "pattern": "8B 48 14 83 C1 38 51 8B 55",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "AddScrapHook": {
+        "address": "0x005E1016",
+        "type": "hook site (6 bytes)",
+        "description": "Scrap-add path; drives exu's AddScrap callback, which runs under lua_pcall.",
+        "pattern": "89 4D FC 8B 4D FC E8 ?? ?? ?? ?? 89 45 F8 8B 4D",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "KillMessageHook": {
+        "address": "0x0062627F",
+        "type": "hook site (8 bytes)",
+        "description": "Kill-message string construction; drives exu's kill-message handling.",
+        "pattern": "8B 55 A8 C6 44",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      }
+    },
+    "Turbo": {
+      "TurboPatchBegin": {
+        "address": "0x00601C92",
+        "type": "hook site (6 bytes)",
+        "description": "Start of the hovercraft AI turbo decision ('mov eax,[ebp-0x70]; fstp [eax+8]'). GlobalTurbo's data-gate hook runs the stolen instructions, then sets the two operand floats for this unit.",
+        "pattern": "8B 45 90 D9 58 08",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "TurboToleranceOperand": {
+        "address": "0x00601CA3",
+        "type": "disp32 operand (float*)",
+        "description": "Memory operand of 'comiss xmm0, [0x008A2604]' (stock 1.0f) at 0x00601CA0, the throttle tolerance compare. GlobalTurbo points it once at a per-unit EXU float.",
+        "pattern": "04 26 8A 00 72 1A F3 0F 10 05",
+        "pattern_kind": "code",
+        "note": "Pattern starts at the operand (inside the comiss), verified unique in GOG 2.2.301 executable sections 2026-09-27. The InlinePatch expected bytes 04 26 8A 00 check the operand."
+      },
+      "TurboGateOperand": {
+        "address": "0x00601CAD",
+        "type": "disp32 operand (float*)",
+        "description": "Memory operand of 'movss xmm0, [0x008A25C8]' (stock 0.8f) at 0x00601CA9, compared against [ebp-0x54] before the final 'jbe' that vetoes turbo. GlobalTurbo points it once at a per-unit EXU float.",
+        "pattern": "C8 25 8A 00 0F 2F 45 AC 76 0C",
+        "pattern_kind": "code",
+        "note": "Pattern starts at the operand (inside the movss), verified unique in GOG 2.2.301 executable sections 2026-09-27. The InlinePatch expected bytes C8 25 8A 00 check the operand."
+      }
+    },
+    "PersonRuntime": {
+      "PersonSimulate": {
+        "address": "0x0059D340",
+        "type": "function: void __thiscall(Person*, float)",
+        "description": "Local/all-Person simulation entry. Owns the on-foot pilot animation FSM at Person+0x228 and invokes the WORLD and first-person Ogre animation apply helpers.",
+        "pattern": "55 8B EC 6A FF 68 D6 C1 84 00 64 A1 00 00 00 00 50 81 EC E8 06 00 00",
+        "pattern_kind": "code",
+        "note": "GOG Redux 2.2.301 Person::Simulate, re-derived from the shipped executable during the jump-sniping and pilot-animation investigations. The first 10 bytes are reloc-free stack/SEH-frame setup and are the only bytes stolen by EXU's entry detour."
+      }
+    },
+    "Soundtrack": {
+      "SelectTrack": {
+        "address": "0x004377C0",
+        "type": "void (__cdecl*)(int,int,int,int)",
+        "description": "Redux soundtrack track/loop selector, void __cdecl (int track, int loopFirst, int loopSkip, int loopLast), on exact GOG Redux 2.2.301. The world loader FUN_00780160 reads [World] MusicTrack/MusicLoopFirst/MusicLoopSkip/MusicLoopLast from the .trn and passes them here in that order; the shell (FUN_007BEFD0, FUN_004341C0) calls it with one track in every slot to loop a single track. It calls Music::Stop (0x00437A70) only when the track differs from the current one, then stores the four values; the end-of-track advancer FUN_00437B00 consumes them. Selects only: playback starts in Music::Start. Unique on the GOG image with every absolute and rel32 operand wildcarded.",
+        "pattern_kind": "code",
+      "pattern": "55 8B EC 8B 45 08 3B 05 ?? ?? ?? ?? 74 05 E8 ?? ?? ?? ?? 8B 4D 0C 89 0D ?? ?? ?? ?? 8B 55 10 89 15 ?? ?? ?? ?? 8B 45 14 A3 ?? ?? ?? ?? 8B 4D 08 89 0D ?? ?? ?? ?? 5D C3"
+      },
+      "Start": {
+        "address": "0x004378F0",
+        "type": "void (__cdecl*)()",
+        "description": "Redux soundtrack start, void __cdecl (void), on exact GOG Redux 2.2.301 -- the real playback entry, not the legacy _StartMusic 0x00406670, which is a dead identity stub on this build (live_scan_findings_20260706.md #17). If nothing is playing it formats the selected track with \"%02d.ogg\", sizes and loads it through the resource layer (0x00481A60/0x00481AF0), opens it through the thunk 0x0043F9B0 to OggManager::Setup (0x0043F050, which logs \"Starting Music Playback Index %d\"), and when the options music volume byte is non-zero sets the playing flag and calls the thunk 0x0043F9E0 to OggManager::Play (0x0043F320) and the volume setter FUN_00437800. Called by the mission start FUN_00617110, the shell FUN_007BEFD0 and the advancer FUN_00437B00. A no-op while music is already playing. Unique on the GOG image with every absolute and rel32 operand wildcarded.",
+        "pattern_kind": "code",
+      "pattern": "55 8B EC 83 EC 2C A1 ?? ?? ?? ?? 33 C5 89 45 FC 83 3D ?? ?? ?? ?? 00 74 05 E9 ?? ?? ?? ?? A1 ?? ?? ?? ?? 50 68 ?? ?? ?? ?? 8D 4D DC 51 FF 15 ?? ?? ?? ?? 83 C4 0C 8D 55 DC 52 E8 ?? ?? ?? ?? 83 C4 04"
+      },
+      "Stop": {
+        "address": "0x00437A70",
+        "type": "void (__cdecl*)()",
+        "description": "Redux soundtrack stop, void __cdecl (void), on exact GOG Redux 2.2.301 -- the real stop, not the legacy _StopMusic 0x004068E0 stub. If an Ogg slot is open it calls the thunk 0x0043FA20 to OggManager::Pause (0x0043F5C0) while playing, then the thunk 0x0043FA60 to OggManager::Release (0x0043F780), releases the \"%02d.ogg\" resource (0x00481990), and clears the slot, playing and paused flags. Called by Music::SelectTrack on a track change, by the mission teardown FUN_00618370 and FUN_00439FB0, and by the advancer before moving to the next track. Idempotent. Unique on the GOG image with every absolute and rel32 operand wildcarded.",
+        "pattern_kind": "code",
+      "pattern": "55 8B EC 83 EC 24 A1 ?? ?? ?? ?? 33 C5 89 45 FC 83 3D ?? ?? ?? ?? FF 74 ?? 83 3D ?? ?? ?? ?? 00 74 ?? A1 ?? ?? ?? ?? 50 E8 ?? ?? ?? ?? 83 C4 04 8B 0D ?? ?? ?? ?? 51 E8 ?? ?? ?? ?? 83 C4 04 8B 15 ?? ?? ?? ?? 52 68 ?? ?? ?? ?? 8D 45 DC 50 FF 15"
+      },
+      "Pause": {
+        "address": "0x004379D0",
+        "type": "void (__cdecl*)()",
+        "description": "Redux soundtrack pause, void __cdecl(void), on exact GOG Redux 2.2.301. Identified in live_scan_findings_20260706.md #17 and the matching GOG corpus: pause retains the Ogg stream and sets the paused flag only while started and not paused; resume clears it only while started and paused. The released-build layout is anchored to the already verified unique Music::Stop entry, at the recorded negative offset. This is a fixed-layout resolve, not a newly qualified standalone signature; reject on build or anchor mismatch. New runtime validation is still required before release.",
+        "pattern": null
+      },
+      "Resume": {
+        "address": "0x00437A20",
+        "type": "void (__cdecl*)()",
+        "description": "Redux soundtrack resume, void __cdecl(void), on exact GOG Redux 2.2.301. Identified in live_scan_findings_20260706.md #17 and the matching GOG corpus: pause retains the Ogg stream and sets the paused flag only while started and not paused; resume clears it only while started and paused. The released-build layout is anchored to the already verified unique Music::Stop entry, at the recorded negative offset. This is a fixed-layout resolve, not a newly qualified standalone signature; reject on build or anchor mismatch. New runtime validation is still required before release.",
+        "pattern": null
+      },
+      "ResourceSize": {
+        "address": "0x00481A60",
+        "type": "int (__cdecl*)(const char*)",
+        "description": "Resource-layer file size query, int __cdecl (const char* name), on exact GOG Redux 2.2.301, taken from the first call in Music::Start, which passes the formatted \"%02d.ogg\" name and gives up on the track when the result is below 1. It forwards to FUN_00481A80(nullptr, name), which returns the cached entry's size (+0x10) or the on-disk size and has no side effects; the same query sizes wave files elsewhere. OpenShimSetMusicTrack uses it to refuse a track that does not exist before touching the engine's music state.",
+        "pattern": null
+      },
+      "SelectedTrack": {
+        "address": "0x008E75F4",
+        "type": "int*",
+        "description": "Selected soundtrack track global. Decode the cmp eax,[abs32] operand at Music::SelectTrack+8, which compares the requested track before deciding whether to call Stop; the final store in the same selector writes that same global. Start formats it as %02d.ogg and the playlist advancer updates it. This is the selected track, not proof of playing, and Stop retains it.",
+        "pattern": null
+      },
+      "OggSlot": {
+        "address": "0x008E75F8",
+        "type": "int*",
+        "description": "Redux native soundtrack OggSlot. Fixed address for the existing qualified 2.2.301 layout; only used after the full EXU build gate and all three soundtrack anchors match their recorded addresses uniquely. See Docs/NATIVE_SOUNDTRACK.md for identity and validation limits.",
+        "pattern": null
+      },
+      "Started": {
+        "address": "0x00915580",
+        "type": "int*",
+        "description": "Redux native soundtrack Started. Fixed address for the existing qualified 2.2.301 layout; only used after the full EXU build gate and all three soundtrack anchors match their recorded addresses uniquely. See Docs/NATIVE_SOUNDTRACK.md for identity and validation limits.",
+        "pattern": null
+      },
+      "Paused": {
+        "address": "0x00915588",
+        "type": "int*",
+        "description": "Redux native soundtrack Paused. Fixed address for the existing qualified 2.2.301 layout; only used after the full EXU build gate and all three soundtrack anchors match their recorded addresses uniquely. See Docs/NATIVE_SOUNDTRACK.md for identity and validation limits.",
+        "pattern": null
+      },
+      "GetDSBuffer": {
+        "address": "0x0043F2A0",
+        "type": "IDirectSoundBuffer* (__cdecl*)(int)",
+        "description": "Redux native soundtrack GetDSBuffer. Fixed address for the existing qualified 2.2.301 layout; only used after the full EXU build gate and all three soundtrack anchors match their recorded addresses uniquely. See Docs/NATIVE_SOUNDTRACK.md for identity and validation limits.",
         "pattern": null
       }
     }

@@ -29,6 +29,7 @@
 // Needs no Windows, no OpenShim and no Lua.
 
 #include "Game/RenderEffectNames.h"
+#include "HostTest.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -39,16 +40,7 @@ using namespace ExtraUtilities::RenderEffects;
 
 namespace
 {
-	int g_failures = 0;
-
-	void Expect(bool condition, const std::string& what)
-	{
-		if (!condition)
-		{
-			std::cerr << "FAIL: " << what << '\n';
-			++g_failures;
-		}
-	}
+	using HostTest::Expect;
 
 	void ExpectEffect(const char* name, std::uint32_t expected)
 	{
@@ -56,14 +48,14 @@ namespace
 		if (!EffectIdFromName(name, actual))
 		{
 			std::cerr << "FAIL: \"" << name << "\" should be a known effect\n";
-			++g_failures;
+			HostTest::CountFailure();
 			return;
 		}
 		if (actual != expected)
 		{
 			std::cerr << "FAIL: \"" << name << "\" should map to " << expected
 			          << ", got " << actual << '\n';
-			++g_failures;
+			HostTest::CountFailure();
 		}
 	}
 
@@ -73,14 +65,14 @@ namespace
 		if (!ParameterIdFromName(name, actual))
 		{
 			std::cerr << "FAIL: \"" << name << "\" should be a known parameter\n";
-			++g_failures;
+			HostTest::CountFailure();
 			return;
 		}
 		if (actual != expected)
 		{
 			std::cerr << "FAIL: \"" << name << "\" should map to " << expected
 			          << ", got " << actual << '\n';
-			++g_failures;
+			HostTest::CountFailure();
 		}
 	}
 
@@ -91,7 +83,7 @@ namespace
 		{
 			std::cerr << "FAIL: reason " << code << " should be \"" << expected
 			          << "\", got \"" << actual << "\"\n";
-			++g_failures;
+			HostTest::CountFailure();
 		}
 	}
 
@@ -188,12 +180,5 @@ int main()
 	TestOpenShimUnavailableReasonIsDistinct();
 	TestResultCodes();
 
-	if (g_failures != 0)
-	{
-		std::cerr << g_failures << " render-effect name check(s) failed\n";
-		return EXIT_FAILURE;
-	}
-
-	std::cout << "All render-effect name checks passed.\n";
-	return EXIT_SUCCESS;
+	return HostTest::Finish("render-effect name");
 }

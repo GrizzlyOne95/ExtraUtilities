@@ -86,13 +86,6 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			size_t size = 0;
 		};
 
-		struct ExecutableSection
-		{
-			const uint8_t* address = nullptr;
-			size_t size = 0;
-			std::string name;
-		};
-
 		using SetCommandIntFn = void(__thiscall*)(BZR::GameObject*, int);
 
 		constexpr std::array<int, 44> WINGMAN_HUNT_ACTIVATION_SIGNATURE = {
@@ -134,82 +127,14 @@ namespace ExtraUtilities::Lua::CommandReplacement
 		SetCommandIntFn g_wingmanHuntSetCommand = nullptr;
 		bool g_lastWingmanHuntHandled = false;
 
-		std::vector<ExecutableSection> GetExecutableSections()
-		{
-			std::vector<ExecutableSection> sections;
-
-			HMODULE module = GetModuleHandleA("Battlezone98Redux.exe");
-			if (module == nullptr)
-			{
-				module = GetModuleHandleA(nullptr);
-			}
-
-			if (module == nullptr)
-			{
-				return sections;
-			}
-
-			const auto* base = reinterpret_cast<const uint8_t*>(module);
-			const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
-			if (dos->e_magic != IMAGE_DOS_SIGNATURE)
-			{
-				return sections;
-			}
-
-			const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
-			if (nt->Signature != IMAGE_NT_SIGNATURE)
-			{
-				return sections;
-			}
-
-			auto* section = IMAGE_FIRST_SECTION(nt);
-			for (WORD index = 0; index < nt->FileHeader.NumberOfSections; ++index, ++section)
-			{
-				if ((section->Characteristics & IMAGE_SCN_MEM_EXECUTE) == 0)
-				{
-					continue;
-				}
-
-				const size_t size = std::max<size_t>(section->Misc.VirtualSize, section->SizeOfRawData);
-				if (size == 0)
-				{
-					continue;
-				}
-
-				char sectionName[9]{};
-				std::memcpy(sectionName, section->Name, sizeof(section->Name));
-
-				sections.push_back({
-					base + section->VirtualAddress,
-					size,
-					sectionName
-				});
-			}
-
-			return sections;
-		}
-
-		const uint8_t* FindPattern(const uint8_t* start, size_t size, const auto& pattern)
-		{
-			return SignatureResolver::FindPattern(start, size, pattern);
-		}
-
 		uintptr_t ResolveRelativeCallTarget(uintptr_t callSite) noexcept
 		{
-			if (callSite == 0)
+			uintptr_t target = 0;
+			if (callSite != 0)
 			{
-				return 0;
+				PatternMatch::TryDecodeRelativeCall(reinterpret_cast<const uint8_t*>(callSite), callSite, target);
 			}
-
-			const auto* callInstruction = reinterpret_cast<const uint8_t*>(callSite);
-			if (callInstruction[0] != 0xE8)
-			{
-				return 0;
-			}
-
-			int32_t displacement = 0;
-			std::memcpy(&displacement, callInstruction + 1, sizeof(displacement));
-			return callSite + 5 + static_cast<intptr_t>(displacement);
+			return target;
 		}
 
 		std::string NormalizeStockCommandName(std::string_view input)
@@ -259,6 +184,44 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			entry.callbackRef = LUA_NOREF;
 		}
 
+		std::vector<uint64_t> SnapshotReplacementKeys()
+		{
+			std::vector<uint64_t> keys;
+			keys.reserve(g_replacements.size());
+			for (const auto& [key, entry] : g_replacements)
+			{
+				keys.push_back(key);
+			}
+			return keys;
+		}
+
+		// Replacements registered for units that have since died are dropped,
+		// so the per-tick polling does not grow with every unit a mission ever
+		// registered.
+		void PruneDeadReplacements(lua_State* L)
+		{
+			// Liveness comes from the object arena, which is only trusted on
+			// the qualified build; the Lua-only polling path must keep working
+			// elsewhere.
+			if (!RuntimeGate::IsSupported())
+			{
+				return;
+			}
+
+			for (auto it = g_replacements.begin(); it != g_replacements.end();)
+			{
+				const BZR::handle handle = static_cast<BZR::handle>(it->first >> 32);
+				if (BZR::GameObject::GetObj(handle) != nullptr)
+				{
+					++it;
+					continue;
+				}
+
+				ReleaseEntry(L, it->second);
+				it = g_replacements.erase(it);
+			}
+		}
+
 		std::unordered_map<uint64_t, ReplacementEntry>::iterator FindReplacement(
 			BZR::handle handle,
 			StockCommandId stockCommand)
@@ -266,46 +229,17 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			return g_replacements.find(MakeReplacementKey(handle, stockCommand));
 		}
 
-		std::optional<ModuleSection> FindMainModuleSection(std::string_view sectionName) noexcept
+		std::optional<ModuleSection> FindMainModuleSection(const char* sectionName) noexcept
 		{
-			const HMODULE module = GetModuleHandleA(nullptr);
-			if (module == nullptr)
+			const uint8_t* data = nullptr;
+			size_t size = 0;
+			uintptr_t address = 0;
+			if (!SignatureResolver::TryGetModuleSection(GetModuleHandleA(nullptr), sectionName, data, size, address))
 			{
 				return std::nullopt;
 			}
 
-			const auto* dosHeader = reinterpret_cast<const IMAGE_DOS_HEADER*>(module);
-			if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE)
-			{
-				return std::nullopt;
-			}
-
-			const auto* ntHeaders = reinterpret_cast<const IMAGE_NT_HEADERS*>(
-				reinterpret_cast<const uint8_t*>(module) + dosHeader->e_lfanew);
-			if (ntHeaders->Signature != IMAGE_NT_SIGNATURE)
-			{
-				return std::nullopt;
-			}
-
-			const auto* section = IMAGE_FIRST_SECTION(ntHeaders);
-			for (uint16_t index = 0; index < ntHeaders->FileHeader.NumberOfSections; ++index, ++section)
-			{
-				const std::string_view currentName(
-					reinterpret_cast<const char*>(section->Name),
-					strnlen_s(reinterpret_cast<const char*>(section->Name), IMAGE_SIZEOF_SHORT_NAME));
-
-				if (currentName != sectionName)
-				{
-					continue;
-				}
-
-				return ModuleSection{
-					reinterpret_cast<uint8_t*>(module) + section->VirtualAddress,
-					static_cast<size_t>(section->Misc.VirtualSize)
-				};
-			}
-
-			return std::nullopt;
+			return ModuleSection{ const_cast<uint8_t*>(data), size };
 		}
 
 		const char* FindCStringInSection(const ModuleSection& section, std::string_view value) noexcept
@@ -404,7 +338,7 @@ namespace ExtraUtilities::Lua::CommandReplacement
 
 		bool WriteHuntLabelPointer(const char* label) noexcept
 		{
-			if (!EnsureHuntLabelPointerResolved())
+			if (!RuntimeGate::IsSupported() || !EnsureHuntLabelPointerResolved())
 			{
 				return false;
 			}
@@ -641,7 +575,7 @@ namespace ExtraUtilities::Lua::CommandReplacement
 
 		uintptr_t InitializeWingmanHuntActivationHook()
 		{
-			const auto sections = GetExecutableSections();
+			const auto sections = SignatureResolver::GetExecutableSections(GetModuleHandleA(nullptr));
 			if (sections.empty())
 			{
 				Logging::LogMessage("exu: failed to enumerate executable sections for Wingman Hunt hook");
@@ -650,7 +584,7 @@ namespace ExtraUtilities::Lua::CommandReplacement
 
 			for (const auto& section : sections)
 			{
-				const auto* match = FindPattern(section.address, section.size, WINGMAN_HUNT_ACTIVATION_SIGNATURE);
+				const auto* match = SignatureResolver::FindPattern(section.address, section.size, WINGMAN_HUNT_ACTIVATION_SIGNATURE);
 				if (match == nullptr)
 				{
 					continue;
@@ -686,21 +620,20 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			return 0;
 		}
 
-		inline uintptr_t g_wingmanHuntActivationHookInitialized = InitializeWingmanHuntActivationHook();
-		inline std::unique_ptr<Hook> g_wingmanHuntActivationHook = g_wingmanHuntActivationHookAddress != 0
-			? std::make_unique<Hook>(
-				g_wingmanHuntActivationHookAddress,
-				&WingmanHuntActivationHook,
-				10,
-				BasicPatch::Status::ACTIVE)
-			: nullptr;
+		// Created by InstallNativeHooks from Init. Resolving it in a static
+		// initializer ran a full .text scan and file logging inside DllMain
+		// (loader lock) on every mission load.
+		std::unique_ptr<Hook> g_wingmanHuntActivationHook;
 
 		void UpdateHuntLabelOverride(lua_State* L)
 		{
 			size_t selectedReplacementCount = 0;
 			std::string selectedLabel;
 
-			for (const auto& [key, entry] : g_replacements)
+			// IsSelected is a Lua global a mission can override, so the registry
+			// may change under this loop; iterate a snapshot of keys and look
+			// each entry up again after the call.
+			for (const uint64_t key : SnapshotReplacementKeys())
 			{
 				const auto stockCommand = static_cast<StockCommandId>(key & 0xFFFFFFFF);
 				if (stockCommand != StockCommandId::HUNT)
@@ -715,8 +648,14 @@ namespace ExtraUtilities::Lua::CommandReplacement
 					continue;
 				}
 
+				const auto entryIt = g_replacements.find(key);
+				if (entryIt == g_replacements.end())
+				{
+					continue;
+				}
+
 				selectedReplacementCount += 1;
-				selectedLabel = entry.replacementLabel;
+				selectedLabel = entryIt->second.replacementLabel;
 				if (selectedReplacementCount > 1)
 				{
 					break;
@@ -731,6 +670,27 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			{
 				RestoreStockHuntLabel();
 			}
+		}
+	}
+
+	void InstallNativeHooks()
+	{
+		static bool attempted = false;
+		if (attempted || !RuntimeGate::IsSupported())
+		{
+			return;
+		}
+		attempted = true;
+
+		if (InitializeWingmanHuntActivationHook() != 0)
+		{
+			// The signature is a required build-profile anchor; the hook
+			// captures the verified bytes as its preimage.
+			g_wingmanHuntActivationHook = std::make_unique<Hook>(
+				g_wingmanHuntActivationHookAddress,
+				&WingmanHuntActivationHook,
+				10,
+				BasicPatch::Status::ACTIVE);
 		}
 	}
 
@@ -960,6 +920,7 @@ namespace ExtraUtilities::Lua::CommandReplacement
 		}
 		g_lastUpdateAt = now;
 
+		PruneDeadReplacements(L);
 		UpdateHuntLabelOverride(L);
 
 		const bool nativeHuntHookActive =
@@ -970,7 +931,20 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			return 0;
 		}
 
-		for (auto& [key, entry] : g_replacements)
+		// Every step below calls into mission Lua (GetCurrentCommand,
+		// IsSelected, the replacement callback), which can add or remove
+		// replacements. Iterate a snapshot of keys and re-find the entry after
+		// each call instead of holding an iterator or reference across it.
+		const auto setLastObserved = [](uint64_t key, int command)
+		{
+			const auto entryIt = g_replacements.find(key);
+			if (entryIt != g_replacements.end())
+			{
+				entryIt->second.lastObservedCommand = command;
+			}
+		};
+
+		for (const uint64_t key : SnapshotReplacementKeys())
 		{
 			const auto stockCommand = static_cast<StockCommandId>(key & 0xFFFFFFFF);
 			const BZR::handle handle = static_cast<BZR::handle>(key >> 32);
@@ -978,16 +952,17 @@ namespace ExtraUtilities::Lua::CommandReplacement
 			int currentCommand = -1;
 			if (!TryGetCurrentCommand(L, handle, currentCommand))
 			{
-				entry.lastObservedCommand = -1;
+				setLastObserved(key, -1);
 				continue;
 			}
 
-			if (currentCommand == entry.lastObservedCommand)
+			const auto entryIt = g_replacements.find(key);
+			if (entryIt == g_replacements.end() || currentCommand == entryIt->second.lastObservedCommand)
 			{
 				continue;
 			}
 
-			entry.lastObservedCommand = currentCommand;
+			entryIt->second.lastObservedCommand = currentCommand;
 
 			if (stockCommand != StockCommandId::HUNT || currentCommand != kCmdHunt)
 			{
@@ -1013,7 +988,7 @@ namespace ExtraUtilities::Lua::CommandReplacement
 				commandAfterCallback = kCmdNone;
 			}
 
-			entry.lastObservedCommand = commandAfterCallback;
+			setLastObserved(key, commandAfterCallback);
 		}
 
 		return 0;

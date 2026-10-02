@@ -1,4 +1,4 @@
-/* Copyright (C) 2023-2026 VTrider
+/* Copyright (C) 2026 GrizzlyOne95
  *
  * This file is part of Extra Utilities.
  *
@@ -14,11 +14,29 @@
  *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #pragma once
 
+#include <string>
+#include <vector>
+
 namespace ExtraUtilities
 {
+	namespace OgreAnimationInventory
+	{
+		struct AnimationStateRef
+		{
+			std::string name;
+			void* state = nullptr;
+		};
 
+		// Snapshot the current AnimationStateSet without retaining Ogre pointers
+		// after the caller finishes the operation. The bridge is compiled in
+		// C++14 against the vendored Ogre headers so the STL-backed iterator ABI
+		// stays isolated from the rest of EXU.
+		bool TryEnumerateAnimationStates(
+			void* entity,
+			std::vector<AnimationStateRef>& outStates) noexcept;
+	}
 }

@@ -21,6 +21,7 @@
 #include "BasicPatch.h"
 
 #include <cstring>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -55,7 +56,7 @@ namespace ExtraUtilities
 				LogPatchIssue("failed to restore inline patch memory protection", m_address, m_length);
 			}
 
-			m_status = Status::ACTIVE;
+			MarkPatched();
 		}
 
 	public:
@@ -86,6 +87,13 @@ namespace ExtraUtilities
 				DoPatch();
 			}
 		}
+
+		// A function pointer is a value to write, never a buffer to copy from.
+		// MSVC converts one to const void* silently, and the buffer overload
+		// then copies the function's first code bytes into the target. Write
+		// an address through the value overload as a uintptr_t instead.
+		template <typename T, std::enable_if_t<std::is_function_v<std::remove_pointer_t<T>>, int> = 0>
+		InlinePatch(uintptr_t, T, size_t, Status, std::vector<uint8_t> = {}) = delete;
 
 		// Shellcode inline patch
 		InlinePatch(

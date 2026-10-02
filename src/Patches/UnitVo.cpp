@@ -21,17 +21,22 @@
 #include "Hook.h"
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
+#include "Util/AsciiString.h"
 #include "Util/Logging.h"
+#include "Util/RuntimeGate.h"
+#include "Util/SignatureResolver.h"
 #include "bzr.h"
 
 #include <Windows.h>
 
+#include <algorithm>
 #include <array>
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <string_view>
@@ -44,30 +49,11 @@ namespace ExtraUtilities::Patch
 
 	std::string NormalizeFilename(const char* filename)
 	{
-		std::string normalized;
-		if (filename == nullptr)
-		{
-			return normalized;
-		}
-
-		normalized.reserve(std::strlen(filename));
-		for (const unsigned char c : std::string_view(filename))
-		{
-			normalized.push_back(static_cast<char>(std::tolower(c)));
-		}
-
-		return normalized;
+		return filename == nullptr ? std::string() : AsciiString::ToLowerAscii(filename);
 	}
 
 	namespace
 	{
-		struct ExecutableSection
-		{
-			const uint8_t* address = nullptr;
-			size_t size = 0;
-			std::string name;
-		};
-
 		struct UnitVoQueueItem
 		{
 			char name[16];
@@ -113,95 +99,26 @@ namespace ExtraUtilities::Patch
 
 		uintptr_t g_unitVoSayQueueCallSite = 0;
 		uintptr_t g_unitVoRecycleTaskQueueCallSite = 0;
-		UnitVoQueueFn g_unitVoQueue = nullptr;
+		// Each hooked call site forwards to the target it originally called.
+		UnitVoQueueFn g_unitVoSayQueue = nullptr;
+		UnitVoQueueFn g_unitVoRecycleTaskQueue = nullptr;
 		UnitVoKillQueueFn g_unitVoKillQueue = nullptr;
 		uintptr_t g_unitVoQueueListStorageAddress = 0;
+		// True when OpenShim owns the global unit-VO policy: its queue
+		// interceptor already sits behind these call sites, or its bridge is
+		// live. EXU then only substitutes alternate lines and forwards;
+		// mute/throttle/depth/stale are OpenShim's (EXU's setters bridge to it).
+		bool g_unitVoPolicyOwnedByOpenShim = false;
+		std::unique_ptr<Hook> g_unitVoSayQueueHook;
+		std::unique_ptr<Hook> g_unitVoRecycleTaskQueueHook;
 
-		std::vector<ExecutableSection> GetExecutableSections()
+		bool IsInExecutableImage(uintptr_t address) noexcept
 		{
-			std::vector<ExecutableSection> sections;
-
-			HMODULE module = GetModuleHandleA("Battlezone98Redux.exe");
-			if (module == nullptr)
-			{
-				module = GetModuleHandleA(nullptr);
-			}
-
-			if (module == nullptr)
-			{
-				return sections;
-			}
-
-			auto* const base = reinterpret_cast<const uint8_t*>(module);
-			auto* const dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
-			if (dos->e_magic != IMAGE_DOS_SIGNATURE)
-			{
-				return sections;
-			}
-
-			auto* const nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
-			if (nt->Signature != IMAGE_NT_SIGNATURE)
-			{
-				return sections;
-			}
-
-			auto* section = IMAGE_FIRST_SECTION(nt);
-			for (WORD index = 0; index < nt->FileHeader.NumberOfSections; ++index, ++section)
-			{
-				if ((section->Characteristics & IMAGE_SCN_MEM_EXECUTE) == 0)
-				{
-					continue;
-				}
-
-				const size_t size = section->Misc.VirtualSize > section->SizeOfRawData
-					? static_cast<size_t>(section->Misc.VirtualSize)
-					: static_cast<size_t>(section->SizeOfRawData);
-				if (size == 0)
-				{
-					continue;
-				}
-
-				char sectionName[9]{};
-				std::memcpy(sectionName, section->Name, sizeof(section->Name));
-
-				sections.push_back({
-					base + section->VirtualAddress,
-					size,
-					sectionName
-				});
-			}
-
-			return sections;
-		}
-
-		const uint8_t* FindPattern(const uint8_t* start, size_t size, const auto& pattern)
-		{
-			if (start == nullptr || size < pattern.size())
-			{
-				return nullptr;
-			}
-
-			const size_t lastOffset = size - pattern.size();
-			for (size_t offset = 0; offset <= lastOffset; ++offset)
-			{
-				bool matched = true;
-				for (size_t index = 0; index < pattern.size(); ++index)
-				{
-					const int expected = pattern[index];
-					if (expected >= 0 && start[offset + index] != static_cast<uint8_t>(expected))
-					{
-						matched = false;
-						break;
-					}
-				}
-
-				if (matched)
-				{
-					return start + offset;
-				}
-			}
-
-			return nullptr;
+			const auto* base = reinterpret_cast<const uint8_t*>(GetModuleHandleA(nullptr));
+			const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
+			const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+			const uintptr_t start = reinterpret_cast<uintptr_t>(base);
+			return address >= start && address < start + nt->OptionalHeader.SizeOfImage;
 		}
 
 		uintptr_t ResolveRelativeCallTarget(uintptr_t callSite, const char* label)
@@ -211,16 +128,13 @@ namespace ExtraUtilities::Patch
 				return 0;
 			}
 
-			const auto* callInstruction = reinterpret_cast<const uint8_t*>(callSite);
-			if (callInstruction[0] != 0xE8)
+			uintptr_t target = 0;
+			if (!PatternMatch::TryDecodeRelativeCall(reinterpret_cast<const uint8_t*>(callSite), callSite, target))
 			{
 				Logging::LogMessage("[EXU::UnitVo] %s at %p is not a relative call", label, reinterpret_cast<void*>(callSite));
 				return 0;
 			}
 
-			int32_t displacement = 0;
-			std::memcpy(&displacement, callInstruction + 1, sizeof(displacement));
-			const uintptr_t target = callSite + 5 + static_cast<intptr_t>(displacement);
 			Logging::LogMessage(
 				"[EXU::UnitVo] resolved %s target %p from call site %p",
 				label,
@@ -232,7 +146,7 @@ namespace ExtraUtilities::Patch
 
 		uintptr_t ResolveCallSite(const auto& pattern, size_t callOffset, const char* label)
 		{
-			const auto sections = GetExecutableSections();
+			const auto sections = SignatureResolver::GetExecutableSections(GetModuleHandleA(nullptr));
 			if (sections.empty())
 			{
 				Logging::LogMessage("[EXU::UnitVo] failed to enumerate executable sections for %s", label);
@@ -241,7 +155,7 @@ namespace ExtraUtilities::Patch
 
 			for (const auto& section : sections)
 			{
-				const auto* match = FindPattern(section.address, section.size, pattern);
+				const auto* match = SignatureResolver::FindPattern(section.address, section.size, pattern);
 				if (match == nullptr)
 				{
 					continue;
@@ -499,6 +413,13 @@ namespace ExtraUtilities::Patch
 			const DWORD now = GetTickCount();
 			std::lock_guard<std::mutex> lock(g_unitVoMutex);
 
+			if (g_unitVoPolicyOwnedByOpenShim)
+			{
+				// No queue inspection: the list storage is only resolved from
+				// the engine's own QueueCB. Alternates still apply.
+				return { SelectUnitVoFilenameLocked(normalized, filename, {}), false, false };
+			}
+
 			if (unitVoMuted)
 			{
 				return { {}, true, false };
@@ -548,9 +469,9 @@ namespace ExtraUtilities::Patch
 			return decision;
 		}
 
-		int __cdecl QueueUnitVo(const char* filename, void* owner, int priority)
+		int QueueUnitVo(UnitVoQueueFn target, const char* filename, void* owner, int priority)
 		{
-			if (g_unitVoQueue == nullptr)
+			if (target == nullptr)
 			{
 				return 0;
 			}
@@ -566,7 +487,17 @@ namespace ExtraUtilities::Patch
 				g_unitVoKillQueue(0);
 			}
 
-			return g_unitVoQueue(decision.filename.c_str(), owner, priority);
+			return target(decision.filename.c_str(), owner, priority);
+		}
+
+		int __cdecl QueueUnitVoFromSay(const char* filename, void* owner, int priority)
+		{
+			return QueueUnitVo(g_unitVoSayQueue, filename, owner, priority);
+		}
+
+		int __cdecl QueueUnitVoFromRecycleTask(const char* filename, void* owner, int priority)
+		{
+			return QueueUnitVo(g_unitVoRecycleTaskQueue, filename, owner, priority);
 		}
 
 		static void __declspec(naked) UnitVoSayQueueHook()
@@ -579,7 +510,7 @@ namespace ExtraUtilities::Patch
 				push eax
 				mov eax, [esp+12]
 				push eax
-				call QueueUnitVo
+				call QueueUnitVoFromSay
 				add esp, 0x0C
 				ret 0x0C
 			}
@@ -595,62 +526,87 @@ namespace ExtraUtilities::Patch
 				push eax
 				mov eax, [esp+12]
 				push eax
-				call QueueUnitVo
+				call QueueUnitVoFromRecycleTask
 				add esp, 0x0C
 				ret 0x0C
 			}
 		}
 
-		uintptr_t InitializeUnitVoQueueHooks()
+		UnitVoQueueFn ResolveSiteTarget(uintptr_t callSite, const char* label)
 		{
-			g_unitVoSayQueueCallSite = ResolveCallSite(UNIT_VO_SAY_QUEUE_CALL_SIGNATURE, 24, "Say->QueueCB");
-			g_unitVoRecycleTaskQueueCallSite = ResolveCallSite(
-				UNIT_VO_RECYCLE_TASK_QUEUE_CALL_SIGNATURE,
-				24,
-				"RecycleTask::Say->QueueCB");
-
-			const uintptr_t queueTarget = g_unitVoSayQueueCallSite != 0
-				? ResolveRelativeCallTarget(g_unitVoSayQueueCallSite, "QueueCB")
-				: ResolveRelativeCallTarget(g_unitVoRecycleTaskQueueCallSite, "QueueCB");
-			g_unitVoQueue = reinterpret_cast<UnitVoQueueFn>(queueTarget);
-			g_unitVoQueueListStorageAddress = ResolveQueueListStorageAddress(queueTarget);
-			g_unitVoKillQueue = ResolveKillQueueFunction(queueTarget, g_unitVoQueueListStorageAddress);
-			return g_unitVoSayQueueCallSite;
+			return reinterpret_cast<UnitVoQueueFn>(ResolveRelativeCallTarget(callSite, label));
 		}
-
-		inline uintptr_t g_unitVoQueueHooksInitialized = InitializeUnitVoQueueHooks();
 	}
 
-	Hook unitVoSayQueueHook(g_unitVoSayQueueCallSite, &UnitVoSayQueueHook, 8, BasicPatch::Status::ACTIVE);
-	Hook unitVoRecycleTaskQueueHook(g_unitVoRecycleTaskQueueCallSite, &UnitVoRecycleTaskQueueHook, 8, BasicPatch::Status::ACTIVE);
+	void InstallUnitVoQueueHooks()
+	{
+		// Resolved from Init, not a static initializer: the two .text scans and
+		// their log lines used to run inside DllMain on every mission load.
+		static bool attempted = false;
+		if (attempted || !RuntimeGate::IsSupported())
+		{
+			return;
+		}
+		attempted = true;
+
+		g_unitVoSayQueueCallSite = ResolveCallSite(UNIT_VO_SAY_QUEUE_CALL_SIGNATURE, 24, "Say->QueueCB");
+		g_unitVoRecycleTaskQueueCallSite = ResolveCallSite(
+			UNIT_VO_RECYCLE_TASK_QUEUE_CALL_SIGNATURE,
+			24,
+			"RecycleTask::Say->QueueCB");
+
+		g_unitVoSayQueue = ResolveSiteTarget(g_unitVoSayQueueCallSite, "Say QueueCB");
+		g_unitVoRecycleTaskQueue = ResolveSiteTarget(g_unitVoRecycleTaskQueueCallSite, "RecycleTask QueueCB");
+
+		// OpenShim rewrites these call sites to its own interceptor at startup,
+		// so a target outside the executable means OpenShim owns the policy.
+		// Probing that interceptor for the engine's queue list would walk
+		// OpenShim memory as a linked list.
+		const auto isForeign = [](UnitVoQueueFn target)
+		{
+			return target != nullptr && !IsInExecutableImage(reinterpret_cast<uintptr_t>(target));
+		};
+		g_unitVoPolicyOwnedByOpenShim =
+			isForeign(g_unitVoSayQueue) || isForeign(g_unitVoRecycleTaskQueue) ||
+			OpenShimBridge::HasExport("OpenShimGetUnitVoThrottle");
+
+		if (!g_unitVoPolicyOwnedByOpenShim && g_unitVoSayQueue != nullptr)
+		{
+			const uintptr_t queueTarget = reinterpret_cast<uintptr_t>(g_unitVoSayQueue);
+			g_unitVoQueueListStorageAddress = ResolveQueueListStorageAddress(queueTarget);
+			g_unitVoKillQueue = ResolveKillQueueFunction(queueTarget, g_unitVoQueueListStorageAddress);
+		}
+
+		Logging::LogMessage(
+			"[EXU::UnitVo] queue policy owner=%s say=%p recycle=%p",
+			g_unitVoPolicyOwnedByOpenShim ? "OpenShim (EXU substitutes alternates only)" : "EXU",
+			reinterpret_cast<void*>(g_unitVoSayQueue),
+			reinterpret_cast<void*>(g_unitVoRecycleTaskQueue));
+
+		// The call-site signatures verify the surrounding bytes, and the
+		// hooks capture whatever call (engine or OpenShim) sits there as their
+		// original.
+		if (g_unitVoSayQueueCallSite != 0 && g_unitVoSayQueue != nullptr)
+		{
+			g_unitVoSayQueueHook = std::make_unique<Hook>(
+				g_unitVoSayQueueCallSite, &UnitVoSayQueueHook, 8, BasicPatch::Status::ACTIVE);
+		}
+		if (g_unitVoRecycleTaskQueueCallSite != 0 && g_unitVoRecycleTaskQueue != nullptr)
+		{
+			g_unitVoRecycleTaskQueueHook = std::make_unique<Hook>(
+				g_unitVoRecycleTaskQueueCallSite, &UnitVoRecycleTaskQueueHook, 8, BasicPatch::Status::ACTIVE);
+		}
+	}
 }
 
 namespace ExtraUtilities::Lua::Patches
 {
 	namespace
 	{
-		using OpenShimSetUnderAttackAlertModeFn = BOOL(WINAPI*)(int);
-		using OpenShimSetTargetReticlePopupModeFn = BOOL(WINAPI*)(int);
 		using OpenShimGetUnitVoValueFn = DWORD(WINAPI*)();
 		using OpenShimSetUnitVoValueFn = BOOL(WINAPI*)(DWORD);
 		using OpenShimGetUnitVoMutedFn = BOOL(WINAPI*)();
 		using OpenShimSetUnitVoMutedFn = BOOL(WINAPI*)(BOOL);
-		using OpenShimSetBomberAiRangeEnabledFn = BOOL(WINAPI*)(BOOL);
-		using OpenShimSetHowitzerVolleyEnabledFn = BOOL(WINAPI*)(BOOL);
-		using OpenShimSetWeaponMaskCarrierBiasEnabledFn = BOOL(WINAPI*)(BOOL);
-        using OpenShimSetAiOdfGameplayTuningEnabledFn = BOOL(WINAPI*)(BOOL);
-        using OpenShimSetAiUnitTuningFn = BOOL(WINAPI*)(void*, float, float, float);
-        using OpenShimSetAiUnitTuningV2Fn = BOOL(WINAPI*)(void*, float, float, float,
-                                                          float, float, float, BOOL);
-        using OpenShimSetAiUnitTuningV3Fn = BOOL(WINAPI*)(void*, float, float, float,
-                                                          float, float, float, BOOL,
-                                                          float, float);
-        using OpenShimClearAiUnitTuningFn = BOOL(WINAPI*)(void*);
-        using OpenShimClearAllAiUnitTuningFn = BOOL(WINAPI*)();
-        using OpenShimSetTurretAimPitchEnabledFn = BOOL(WINAPI*)(BOOL);
-        using OpenShimSetAttackRevealEnabledFn = BOOL(WINAPI*)(BOOL);
-        using OpenShimSetJumpSnipeCrouchEnabledFn = BOOL(WINAPI*)(BOOL);
-		using OpenShimResetMissionHookOverridesFn = BOOL(WINAPI*)();
 
 		struct OpenShimUnitVoBridge
 		{
@@ -692,341 +648,18 @@ namespace ExtraUtilities::Lua::Patches
 			return bridge;
 		}
 
-		OpenShimSetUnderAttackAlertModeFn ResolveUnderAttackAlertBridge()
-		{
-			static OpenShimSetUnderAttackAlertModeFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimSetUnderAttackAlertModeFn>(
-				"OpenShimSetUnderAttackAlertMode");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::UnitVo] OpenShim under-attack alert bridge unavailable");
-			}
-
-			return fn;
-		}
-
-		OpenShimSetTargetReticlePopupModeFn ResolveTargetReticlePopupBridge()
-		{
-			static OpenShimSetTargetReticlePopupModeFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimSetTargetReticlePopupModeFn>(
-				"OpenShimSetTargetReticlePopupMode");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::UnitVo] OpenShim target reticle popup bridge unavailable");
-			}
-
-			return fn;
-		}
-
-		OpenShimSetBomberAiRangeEnabledFn ResolveBomberAiRangeBridge()
-		{
-			static OpenShimSetBomberAiRangeEnabledFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimSetBomberAiRangeEnabledFn>(
-				"OpenShimSetBomberAiRangeEnabled");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::UnitVo] OpenShim bomber AI range bridge unavailable");
-			}
-
-			return fn;
-		}
-
-		OpenShimSetHowitzerVolleyEnabledFn ResolveHowitzerVolleyBridge()
-		{
-			static OpenShimSetHowitzerVolleyEnabledFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimSetHowitzerVolleyEnabledFn>(
-				"OpenShimSetHowitzerVolleyEnabled");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::UnitVo] OpenShim howitzer volley bridge unavailable");
-			}
-
-			return fn;
-		}
-
-		OpenShimSetWeaponMaskCarrierBiasEnabledFn ResolveWeaponMaskCarrierBiasBridge()
-		{
-			static OpenShimSetWeaponMaskCarrierBiasEnabledFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimSetWeaponMaskCarrierBiasEnabledFn>(
-				"OpenShimSetWeaponMaskCarrierBiasEnabled");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::UnitVo] OpenShim weapon-mask carrier bias bridge unavailable");
-			}
-
-			return fn;
-		}
-
-        OpenShimSetAiOdfGameplayTuningEnabledFn ResolveAiOdfGameplayTuningBridge()
-        {
-            static OpenShimSetAiOdfGameplayTuningEnabledFn fn = nullptr;
-            static bool attempted = false;
-            static bool loggedMissing = false;
-            if (attempted)
-            {
-                return fn;
-            }
-
-            attempted = true;
-            fn = OpenShimBridge::Resolve<OpenShimSetAiOdfGameplayTuningEnabledFn>(
-                "OpenShimSetAiOdfGameplayTuningEnabled");
-
-            if (!fn && !loggedMissing)
-            {
-                loggedMissing = true;
-                Logging::LogMessage("[EXU::UnitVo] OpenShim AI ODF gameplay tuning bridge unavailable");
-            }
-
-            return fn;
-        }
-
-        OpenShimSetAiUnitTuningFn ResolveAiUnitTuningSetBridge()
-        {
-            static OpenShimSetAiUnitTuningFn fn = nullptr;
-            static bool attempted = false;
-            static bool loggedMissing = false;
-            if (attempted)
-            {
-                return fn;
-            }
-
-            attempted = true;
-            fn = OpenShimBridge::Resolve<OpenShimSetAiUnitTuningFn>(
-                "OpenShimSetAiUnitTuning");
-
-            if (!fn && !loggedMissing)
-            {
-                loggedMissing = true;
-                Logging::LogMessage("[EXU::UnitVo] OpenShim per-unit AI tuning bridge unavailable");
-            }
-
-            return fn;
-        }
-
-        OpenShimSetAiUnitTuningV2Fn ResolveAiUnitTuningSetV2Bridge()
-        {
-            static OpenShimSetAiUnitTuningV2Fn fn = nullptr;
-            static bool attempted = false;
-            if (!attempted)
-            {
-                attempted = true;
-                fn = OpenShimBridge::Resolve<OpenShimSetAiUnitTuningV2Fn>(
-                    "OpenShimSetAiUnitTuningV2");
-            }
-            return fn;
-        }
-
-        OpenShimSetAiUnitTuningV3Fn ResolveAiUnitTuningSetV3Bridge()
-        {
-            static OpenShimSetAiUnitTuningV3Fn fn = nullptr;
-            static bool attempted = false;
-            if (!attempted)
-            {
-                attempted = true;
-                fn = OpenShimBridge::Resolve<OpenShimSetAiUnitTuningV3Fn>(
-                    "OpenShimSetAiUnitTuningV3");
-            }
-            return fn;
-        }
-
-        OpenShimClearAiUnitTuningFn ResolveAiUnitTuningClearBridge()
-        {
-            static OpenShimClearAiUnitTuningFn fn = nullptr;
-            static bool attempted = false;
-            static bool loggedMissing = false;
-            if (attempted)
-            {
-                return fn;
-            }
-
-            attempted = true;
-            fn = OpenShimBridge::Resolve<OpenShimClearAiUnitTuningFn>(
-                "OpenShimClearAiUnitTuning");
-
-            if (!fn && !loggedMissing)
-            {
-                loggedMissing = true;
-                Logging::LogMessage("[EXU::UnitVo] OpenShim per-unit AI tuning clear bridge unavailable");
-            }
-
-            return fn;
-        }
-
-        OpenShimClearAllAiUnitTuningFn ResolveAiUnitTuningClearAllBridge()
-        {
-            static OpenShimClearAllAiUnitTuningFn fn = nullptr;
-            static bool attempted = false;
-            static bool loggedMissing = false;
-            if (attempted)
-            {
-                return fn;
-            }
-
-            attempted = true;
-            fn = OpenShimBridge::Resolve<OpenShimClearAllAiUnitTuningFn>(
-                "OpenShimClearAllAiUnitTuning");
-
-            if (!fn && !loggedMissing)
-            {
-                loggedMissing = true;
-                Logging::LogMessage("[EXU::UnitVo] OpenShim per-unit AI tuning clear-all bridge unavailable");
-            }
-
-            return fn;
-        }
-
-        OpenShimSetTurretAimPitchEnabledFn ResolveTurretAimPitchBridge()
-        {
-            static OpenShimSetTurretAimPitchEnabledFn fn = nullptr;
-            static bool attempted = false;
-            static bool loggedMissing = false;
-            if (attempted)
-            {
-                return fn;
-            }
-
-            attempted = true;
-            fn = OpenShimBridge::Resolve<OpenShimSetTurretAimPitchEnabledFn>(
-                "OpenShimSetTurretAimPitchEnabled");
-
-            if (!fn && !loggedMissing)
-            {
-                loggedMissing = true;
-                Logging::LogMessage("[EXU::UnitVo] OpenShim turret aim pitch bridge unavailable");
-            }
-
-            return fn;
-        }
-
-        OpenShimSetAttackRevealEnabledFn ResolveAttackRevealBridge()
-        {
-            static OpenShimSetAttackRevealEnabledFn fn = nullptr;
-            static bool attempted = false;
-            static bool loggedMissing = false;
-            if (attempted)
-            {
-                return fn;
-            }
-
-            attempted = true;
-            fn = OpenShimBridge::Resolve<OpenShimSetAttackRevealEnabledFn>(
-                "OpenShimSetAttackRevealEnabled");
-
-            if (!fn && !loggedMissing)
-            {
-                loggedMissing = true;
-                Logging::LogMessage("[EXU::UnitVo] OpenShim attack reveal bridge unavailable");
-            }
-
-            return fn;
-        }
-
-        OpenShimSetJumpSnipeCrouchEnabledFn ResolveJumpSnipeCrouchBridge()
-        {
-            static OpenShimSetJumpSnipeCrouchEnabledFn fn = nullptr;
-            static bool attempted = false;
-            static bool loggedMissing = false;
-            if (attempted)
-            {
-                return fn;
-            }
-
-            attempted = true;
-            fn = OpenShimBridge::Resolve<OpenShimSetJumpSnipeCrouchEnabledFn>(
-                "OpenShimSetJumpSnipeCrouchEnabled");
-
-            if (!fn && !loggedMissing)
-            {
-                loggedMissing = true;
-                Logging::LogMessage("[EXU::UnitVo] OpenShim jump-snipe crouch bridge unavailable");
-            }
-
-            return fn;
-        }
-
-		OpenShimResetMissionHookOverridesFn ResolveMissionHookResetBridge()
-		{
-			static OpenShimResetMissionHookOverridesFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimResetMissionHookOverridesFn>(
-				"OpenShimResetMissionHookOverrides");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::UnitVo] OpenShim mission-hook reset bridge unavailable");
-			}
-
-			return fn;
-		}
-
 		constexpr uint32_t kMaxUnitVoThrottleMs = 60000;
 		constexpr uint32_t kMaxUnitVoQueueDepth = 8;
 		constexpr uint32_t kMaxUnitVoQueueStaleMs = 60000;
 		constexpr size_t kMaxUnitVoAlternateCount = 16;
 		constexpr size_t kMaxUnitVoFilenameLength = 15;
 
-		std::string CheckUnitVoFilename(lua_State* L, int index)
+		// Returns the Lua string itself, so nothing needs destroying if the
+		// check raises.
+		const char* CheckUnitVoFilename(lua_State* L, int index)
 		{
 			size_t length{};
-			std::string filename = luaL_checklstring(L, index, &length);
+			const char* filename = luaL_checklstring(L, index, &length);
 			if (length == 0 || length > kMaxUnitVoFilenameLength)
 			{
 				luaL_argerror(L, index, "Extra Utilities Error: Unit VO filename must be 1-15 characters");
@@ -1139,24 +772,62 @@ namespace ExtraUtilities::Lua::Patches
 		return 0;
 	}
 
+	namespace
+	{
+		// Plain copy of one filename's alternates. Taken under the lock and
+		// pushed to Lua after it is released: a Lua error (out of memory in
+		// lua_newtable or lua_pushlstring) would otherwise skip the lock's
+		// destructor and leave g_unitVoMutex held.
+		struct UnitVoAlternatesSnapshot
+		{
+			size_t count = 0;
+			size_t lengths[kMaxUnitVoAlternateCount] = {};
+			char names[kMaxUnitVoAlternateCount][kMaxUnitVoFilenameLength + 1] = {};
+		};
+
+		bool CopyUnitVoAlternates(const char* filename, UnitVoAlternatesSnapshot& outSnapshot)
+		{
+			const std::string normalized = Patch::NormalizeFilename(filename);
+			std::lock_guard<std::mutex> lock(Patch::g_unitVoMutex);
+			const auto alternateIt = Patch::unitVoAlternates.find(normalized);
+			if (alternateIt == Patch::unitVoAlternates.end())
+			{
+				return false;
+			}
+
+			for (const std::string& alternate : alternateIt->second)
+			{
+				if (outSnapshot.count == kMaxUnitVoAlternateCount)
+				{
+					break;
+				}
+
+				const size_t length = (std::min)(alternate.size(), kMaxUnitVoFilenameLength);
+				std::memcpy(outSnapshot.names[outSnapshot.count], alternate.data(), length);
+				outSnapshot.lengths[outSnapshot.count] = length;
+				++outSnapshot.count;
+			}
+
+			return true;
+		}
+	}
+
 	int GetUnitVoAlternates(lua_State* L)
 	{
-		const std::string normalized = Patch::NormalizeFilename(CheckUnitVoFilename(L, 1).c_str());
+		const char* const filename = CheckUnitVoFilename(L, 1);
 
-		std::lock_guard<std::mutex> lock(Patch::g_unitVoMutex);
-		const auto alternateIt = Patch::unitVoAlternates.find(normalized);
-		if (alternateIt == Patch::unitVoAlternates.end())
+		UnitVoAlternatesSnapshot snapshot;
+		if (!CopyUnitVoAlternates(filename, snapshot))
 		{
 			lua_pushnil(L);
 			return 1;
 		}
 
 		lua_newtable(L);
-		lua_Integer index = 1;
-		for (const std::string& alternate : alternateIt->second)
+		for (size_t i = 0; i < snapshot.count; ++i)
 		{
-			lua_pushlstring(L, alternate.c_str(), alternate.size());
-			lua_rawseti(L, -2, index++);
+			lua_pushlstring(L, snapshot.names[i], snapshot.lengths[i]);
+			lua_rawseti(L, -2, static_cast<int>(i + 1));
 		}
 
 		return 1;
@@ -1164,10 +835,11 @@ namespace ExtraUtilities::Lua::Patches
 
 	int SetUnitVoAlternates(lua_State* L)
 	{
-		const std::string normalized = Patch::NormalizeFilename(CheckUnitVoFilename(L, 1).c_str());
+		const char* const filename = CheckUnitVoFilename(L, 1);
 
 		if (lua_isnil(L, 2))
 		{
+			const std::string normalized = Patch::NormalizeFilename(filename);
 			std::lock_guard<std::mutex> lock(Patch::g_unitVoMutex);
 			Patch::unitVoAlternates.erase(normalized);
 			Logging::LogMessage("[EXU::UnitVo] cleared alternates filename=%s", normalized.c_str());
@@ -1182,9 +854,8 @@ namespace ExtraUtilities::Lua::Patches
 			return luaL_argerror(L, 2, "Extra Utilities Error: Unit VO alternate table must contain 1-16 filenames");
 		}
 
-		std::vector<std::string> alternates;
-		alternates.reserve(static_cast<size_t>(count));
-
+		// Validate every entry first; the strings and the vector are built
+		// only once no argument error can be raised.
 		for (int i = 1; i <= count; ++i)
 		{
 			lua_rawgeti(L, 2, i);
@@ -1201,8 +872,16 @@ namespace ExtraUtilities::Lua::Patches
 				lua_pop(L, 1);
 				return luaL_argerror(L, 2, "Extra Utilities Error: Unit VO alternate filenames must be 1-15 characters");
 			}
+			lua_pop(L, 1);
+		}
 
-			alternates.emplace_back(Patch::NormalizeFilename(value));
+		const std::string normalized = Patch::NormalizeFilename(filename);
+		std::vector<std::string> alternates;
+		alternates.reserve(static_cast<size_t>(count));
+		for (int i = 1; i <= count; ++i)
+		{
+			lua_rawgeti(L, 2, i);
+			alternates.emplace_back(Patch::NormalizeFilename(lua_tostring(L, -1)));
 			lua_pop(L, 1);
 		}
 
@@ -1214,421 +893,5 @@ namespace ExtraUtilities::Lua::Patches
 			count,
 			Patch::unitVoAlternates[normalized].empty() ? "" : Patch::unitVoAlternates[normalized].front().c_str());
 		return 0;
-	}
-
-	int SetUnderAttackAlertMode(lua_State* L)
-	{
-		lua_Integer requested = luaL_checkinteger(L, 1);
-		if (requested < 1 || requested > 3)
-		{
-			return luaL_argerror(L, 1, "Extra Utilities Error: under-attack alert mode must be 1-3");
-		}
-
-		if (OpenShimSetUnderAttackAlertModeFn fn = ResolveUnderAttackAlertBridge())
-		{
-			lua_pushboolean(L, fn(static_cast<int>(requested)) ? 1 : 0);
-			return 1;
-		}
-
-		lua_pushboolean(L, 0);
-		return 1;
-	}
-
-	int SetTargetReticlePopupMode(lua_State* L)
-	{
-		lua_Integer requested = luaL_checkinteger(L, 1);
-		if (requested < 1 || requested > 3)
-		{
-			return luaL_argerror(L, 1, "Extra Utilities Error: target reticle popup mode must be 1-3");
-		}
-
-		if (OpenShimSetTargetReticlePopupModeFn fn = ResolveTargetReticlePopupBridge())
-		{
-			lua_pushboolean(L, fn(static_cast<int>(requested)) ? 1 : 0);
-			return 1;
-		}
-
-		lua_pushboolean(L, 0);
-		return 1;
-	}
-
-	int SetBomberAiRangeEnabled(lua_State* L)
-	{
-		const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
-		if (OpenShimSetBomberAiRangeEnabledFn fn = ResolveBomberAiRangeBridge())
-		{
-			lua_pushboolean(L, fn(requested) ? 1 : 0);
-			return 1;
-		}
-
-		lua_pushboolean(L, 0);
-		return 1;
-	}
-
-	int SetHowitzerVolleyEnabled(lua_State* L)
-	{
-		const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
-		if (OpenShimSetHowitzerVolleyEnabledFn fn = ResolveHowitzerVolleyBridge())
-		{
-			lua_pushboolean(L, fn(requested) ? 1 : 0);
-			return 1;
-		}
-
-		lua_pushboolean(L, 0);
-		return 1;
-	}
-
-	int SetWeaponMaskCarrierBiasEnabled(lua_State* L)
-	{
-		const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
-		if (OpenShimSetWeaponMaskCarrierBiasEnabledFn fn = ResolveWeaponMaskCarrierBiasBridge())
-		{
-			lua_pushboolean(L, fn(requested) ? 1 : 0);
-			return 1;
-		}
-
-		lua_pushboolean(L, 0);
-		return 1;
-	}
-
-    int SetAiOdfGameplayTuningEnabled(lua_State* L)
-    {
-        const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
-        if (OpenShimSetAiOdfGameplayTuningEnabledFn fn = ResolveAiOdfGameplayTuningBridge())
-        {
-            lua_pushboolean(L, fn(requested) ? 1 : 0);
-            return 1;
-        }
-
-        lua_pushboolean(L, 0);
-        return 1;
-    }
-
-    // exu.SetAiUnitTuning(handle, { engageRange = m, weaponRangeMin = m,
-    //   retargetPeriod = s, kiteDesiredRange = m, kiteEnterRange = m,
-    //   kiteExitRange = m, kitePreserveLos = bool })
-    // Values act as per-unit floors applied by the OpenShim CalcRange/retarget hooks;
-    // they win over ODF-level tuning. Omitted/nil keys are unset; an empty table clears.
-    int SetAiUnitTuning(lua_State* L)
-    {
-        const BZR::handle h = CheckHandle(L, 1);
-
-        float engageRange = -1.0f;
-        float weaponRangeMin = -1.0f;
-        float retargetPeriod = -1.0f;
-        float kiteDesiredRange = -1.0f;
-        float kiteEnterRange = -1.0f;
-        float kiteExitRange = -1.0f;
-        BOOL kitePreserveLos = FALSE;
-        float kiteStrafe = -1.0f;
-        float kiteSwitchPeriod = -1.0f;
-
-        if (!lua_isnoneornil(L, 2))
-        {
-            luaL_checktype(L, 2, LUA_TTABLE);
-
-            lua_getfield(L, 2, "engageRange");
-            if (lua_isnumber(L, -1))
-            {
-                engageRange = static_cast<float>(lua_tonumber(L, -1));
-            }
-            lua_pop(L, 1);
-
-            lua_getfield(L, 2, "weaponRangeMin");
-            if (lua_isnumber(L, -1))
-            {
-                weaponRangeMin = static_cast<float>(lua_tonumber(L, -1));
-            }
-            lua_pop(L, 1);
-
-            lua_getfield(L, 2, "retargetPeriod");
-            if (lua_isnumber(L, -1))
-            {
-                retargetPeriod = static_cast<float>(lua_tonumber(L, -1));
-            }
-            lua_pop(L, 1);
-
-            lua_getfield(L, 2, "kiteDesiredRange");
-            if (lua_isnumber(L, -1))
-            {
-                kiteDesiredRange = static_cast<float>(lua_tonumber(L, -1));
-            }
-            lua_pop(L, 1);
-
-            lua_getfield(L, 2, "kiteEnterRange");
-            if (lua_isnumber(L, -1))
-            {
-                kiteEnterRange = static_cast<float>(lua_tonumber(L, -1));
-            }
-            lua_pop(L, 1);
-
-            lua_getfield(L, 2, "kiteExitRange");
-            if (lua_isnumber(L, -1))
-            {
-                kiteExitRange = static_cast<float>(lua_tonumber(L, -1));
-            }
-            lua_pop(L, 1);
-
-            lua_getfield(L, 2, "kitePreserveLos");
-            if (lua_isboolean(L, -1))
-            {
-                kitePreserveLos = lua_toboolean(L, -1) ? TRUE : FALSE;
-            }
-            lua_pop(L, 1);
-
-            lua_getfield(L, 2, "kiteStrafe");
-            if (lua_isnumber(L, -1))
-            {
-                kiteStrafe = static_cast<float>(lua_tonumber(L, -1));
-            }
-            lua_pop(L, 1);
-
-            lua_getfield(L, 2, "kiteSwitchPeriod");
-            if (lua_isnumber(L, -1))
-            {
-                kiteSwitchPeriod = static_cast<float>(lua_tonumber(L, -1));
-            }
-            lua_pop(L, 1);
-        }
-
-        OpenShimSetAiUnitTuningV3Fn fnV3 = ResolveAiUnitTuningSetV3Bridge();
-        OpenShimSetAiUnitTuningV2Fn fnV2 = ResolveAiUnitTuningSetV2Bridge();
-        OpenShimSetAiUnitTuningFn fn = ResolveAiUnitTuningSetBridge();
-        const bool requestedKite = kiteDesiredRange > 0.0f ||
-                                   kiteEnterRange > 0.0f ||
-                                   kiteExitRange > 0.0f;
-        const bool requestedStrafe = kiteStrafe > 0.0f || kiteSwitchPeriod > 0.0f;
-        if (!fnV3 && requestedStrafe)
-        {
-            lua_pushboolean(L, 0);
-            return 1;
-        }
-        if (!fnV3 && !fnV2 && (!fn || requestedKite))
-        {
-            lua_pushboolean(L, 0);
-            return 1;
-        }
-
-        BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-        if (obj == nullptr)
-        {
-            lua_pushboolean(L, 0);
-            return 1;
-        }
-
-        const BOOL ok = fnV3
-            ? fnV3(obj,
-                   engageRange,
-                   weaponRangeMin,
-                   retargetPeriod,
-                   kiteDesiredRange,
-                   kiteEnterRange,
-                   kiteExitRange,
-                   kitePreserveLos,
-                   kiteStrafe,
-                   kiteSwitchPeriod)
-            : fnV2
-            ? fnV2(obj,
-                   engageRange,
-                   weaponRangeMin,
-                   retargetPeriod,
-                   kiteDesiredRange,
-                   kiteEnterRange,
-                   kiteExitRange,
-                   kitePreserveLos)
-            : fn(obj, engageRange, weaponRangeMin, retargetPeriod);
-        if (ok)
-        {
-            const bool hasEngage = engageRange > 0.0f;
-            const bool hasWeaponMin = weaponRangeMin > 0.0f;
-            const bool hasRetarget = retargetPeriod > 0.0f;
-            const bool hasKite = kiteDesiredRange > 0.0f &&
-                                 kiteEnterRange > 0.0f &&
-                                 kiteExitRange > kiteEnterRange &&
-                                 kiteDesiredRange > kiteEnterRange &&
-                                 kiteDesiredRange < kiteExitRange;
-            if (hasEngage || hasWeaponMin || hasRetarget || hasKite)
-            {
-                Patch::AiUnitTuningMirror mirror = {};
-                mirror.hasEngageRange = hasEngage;
-                mirror.engageRange = hasEngage ? engageRange : 0.0f;
-                mirror.hasWeaponRangeMin = hasWeaponMin;
-                mirror.weaponRangeMin = hasWeaponMin ? weaponRangeMin : 0.0f;
-                mirror.hasRetargetPeriod = hasRetarget;
-                mirror.retargetPeriod = hasRetarget ? retargetPeriod : 0.0f;
-                mirror.hasKiteRanges = hasKite;
-                mirror.kiteDesiredRange = hasKite ? kiteDesiredRange : 0.0f;
-                mirror.kiteEnterRange = hasKite ? kiteEnterRange : 0.0f;
-                mirror.kiteExitRange = hasKite ? kiteExitRange : 0.0f;
-                mirror.kitePreserveLos = hasKite && kitePreserveLos != FALSE;
-                mirror.kiteStrafe = hasKite && kiteStrafe > 0.0f ? kiteStrafe : 0.0f;
-                mirror.kiteSwitchPeriod = hasKite && kiteSwitchPeriod > 0.0f ? kiteSwitchPeriod : 0.0f;
-                Patch::aiUnitTuning[static_cast<uint32_t>(h)] = mirror;
-            }
-            else
-            {
-                Patch::aiUnitTuning.erase(static_cast<uint32_t>(h));
-            }
-        }
-        lua_pushboolean(L, ok ? 1 : 0);
-        return 1;
-    }
-
-    int GetAiUnitTuning(lua_State* L)
-    {
-        const BZR::handle h = CheckHandle(L, 1);
-        const auto it = Patch::aiUnitTuning.find(static_cast<uint32_t>(h));
-        if (it == Patch::aiUnitTuning.end())
-        {
-            lua_pushnil(L);
-            return 1;
-        }
-
-        lua_createtable(L, 0, 9);
-        if (it->second.hasEngageRange)
-        {
-            lua_pushnumber(L, it->second.engageRange);
-            lua_setfield(L, -2, "engageRange");
-        }
-        if (it->second.hasWeaponRangeMin)
-        {
-            lua_pushnumber(L, it->second.weaponRangeMin);
-            lua_setfield(L, -2, "weaponRangeMin");
-        }
-        if (it->second.hasRetargetPeriod)
-        {
-            lua_pushnumber(L, it->second.retargetPeriod);
-            lua_setfield(L, -2, "retargetPeriod");
-        }
-        if (it->second.hasKiteRanges)
-        {
-            lua_pushnumber(L, it->second.kiteDesiredRange);
-            lua_setfield(L, -2, "kiteDesiredRange");
-            lua_pushnumber(L, it->second.kiteEnterRange);
-            lua_setfield(L, -2, "kiteEnterRange");
-            lua_pushnumber(L, it->second.kiteExitRange);
-            lua_setfield(L, -2, "kiteExitRange");
-            lua_pushboolean(L, it->second.kitePreserveLos ? 1 : 0);
-            lua_setfield(L, -2, "kitePreserveLos");
-            if (it->second.kiteStrafe > 0.0f)
-            {
-                lua_pushnumber(L, it->second.kiteStrafe);
-                lua_setfield(L, -2, "kiteStrafe");
-            }
-            if (it->second.kiteSwitchPeriod > 0.0f)
-            {
-                lua_pushnumber(L, it->second.kiteSwitchPeriod);
-                lua_setfield(L, -2, "kiteSwitchPeriod");
-            }
-        }
-        return 1;
-    }
-
-    int ClearAiUnitTuning(lua_State* L)
-    {
-        const BZR::handle h = CheckHandle(L, 1);
-        Patch::aiUnitTuning.erase(static_cast<uint32_t>(h));
-
-        OpenShimClearAiUnitTuningFn fn = ResolveAiUnitTuningClearBridge();
-        if (!fn)
-        {
-            lua_pushboolean(L, 0);
-            return 1;
-        }
-
-        BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-        if (obj == nullptr)
-        {
-            lua_pushboolean(L, 0);
-            return 1;
-        }
-
-        lua_pushboolean(L, fn(obj) ? 1 : 0);
-        return 1;
-    }
-
-    int ClearAllAiUnitTuning(lua_State* L)
-    {
-        Patch::aiUnitTuning.clear();
-        if (OpenShimClearAllAiUnitTuningFn fn = ResolveAiUnitTuningClearAllBridge())
-        {
-            lua_pushboolean(L, fn() ? 1 : 0);
-            return 1;
-        }
-
-        lua_pushboolean(L, 0);
-        return 1;
-    }
-
-    int SetTurretAimPitchEnabled(lua_State* L)
-    {
-        const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
-        if (OpenShimSetTurretAimPitchEnabledFn fn = ResolveTurretAimPitchBridge())
-        {
-            lua_pushboolean(L, fn(requested) ? 1 : 0);
-            return 1;
-        }
-
-        lua_pushboolean(L, 0);
-        return 1;
-    }
-
-    int SetAttackRevealEnabled(lua_State* L)
-    {
-        const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
-        if (OpenShimSetAttackRevealEnabledFn fn = ResolveAttackRevealBridge())
-        {
-            lua_pushboolean(L, fn(requested) ? 1 : 0);
-            return 1;
-        }
-
-        lua_pushboolean(L, 0);
-        return 1;
-    }
-
-    int SetJumpSnipeCrouch(lua_State* L)
-    {
-        const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
-        if (OpenShimSetJumpSnipeCrouchEnabledFn fn = ResolveJumpSnipeCrouchBridge())
-        {
-            // Returns the effective state; false means the shim suppressed it
-            // (e.g. multiplayer, or the patch site did not match this build).
-            lua_pushboolean(L, fn(requested) ? 1 : 0);
-            return 1;
-        }
-
-        lua_pushboolean(L, 0);
-        return 1;
-    }
-
-    void ApplyJumpSnipeCrouchDefault()
-    {
-        if (OpenShimSetJumpSnipeCrouchEnabledFn fn = ResolveJumpSnipeCrouchBridge())
-        {
-            fn(TRUE);
-        }
-    }
-
-	int ResetMissionHookOverrides(lua_State* L)
-	{
-		UNREFERENCED_PARAMETER(L);
-		if (OpenShimResetMissionHookOverridesFn fn = ResolveMissionHookResetBridge())
-		{
-			lua_pushboolean(L, fn() ? 1 : 0);
-			return 1;
-		}
-
-		lua_pushboolean(L, 0);
-		return 1;
-	}
-
-	void ResetOpenShimMissionOverrides()
-	{
-		// The shim-side reset also clears its per-unit AI tuning map.
-		Patch::aiUnitTuning.clear();
-		if (OpenShimResetMissionHookOverridesFn fn = ResolveMissionHookResetBridge())
-		{
-			fn();
-		}
 	}
 }

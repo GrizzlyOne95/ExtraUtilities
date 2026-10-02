@@ -70,6 +70,20 @@ is_exu_dll() {
     [[ -f "$path" ]] && grep -a -q "exu.dll loaded" "$path"
 }
 
+# Each deploy backs up the previous exu.dll; keep only the newest few so the
+# game directory does not collect one file per install forever.
+prune_exu_backups() {
+    local dest="$1" keep=3
+    local backups=("$dest".bak-*)
+    [[ -e "${backups[0]}" ]] || return 0
+    # Stamps are YYYYmmdd-HHMMSS and glob results are sorted, so the oldest
+    # come first.
+    local count=${#backups[@]}
+    if (( count > keep )); then
+        rm -f -- "${backups[@]:0:count-keep}"
+    fi
+}
+
 deploy_one() {
     local game_dir="$1"
     local dest="$game_dir/exu.dll"
@@ -85,6 +99,7 @@ deploy_one() {
     stamp="$(date +%Y%m%d-%H%M%S)"
     if [[ -f "$dest" ]]; then
         cp -f "$dest" "$dest.bak-$stamp"
+        prune_exu_backups "$dest"
     fi
     cp -f "$DLL" "$dest"
     echo "  deployed exu.dll ($(stat -c %s "$dest") bytes)"

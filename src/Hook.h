@@ -88,7 +88,7 @@ namespace ExtraUtilities
 				LogPatchIssue("failed to restore hook memory protection", m_address, m_length);
 			}
 
-			m_status = Status::ACTIVE;
+			MarkPatched();
 		}
 
 	public:

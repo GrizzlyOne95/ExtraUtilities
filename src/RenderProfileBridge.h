@@ -1,3 +1,21 @@
+/* Copyright (C) 2026 GrizzlyOne95
+ *
+ * This file is part of Extra Utilities.
+ *
+ * Extra Utilities is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ * FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+*/
+
 /* Optional OpenShim renderer-profile bridge shared by ExtraUtilities modules.
  *
  * OpenShim owns renderer capability/policy state; EXU owns content intent.
@@ -58,15 +76,19 @@ namespace ExtraUtilities::RenderProfileBridge
 	using GetCapabilitiesFn = DWORD(WINAPI*)();
 	using SupportsFn = BOOL(WINAPI*)(DWORD);
 
-	inline bool HasRenderProfileApi() noexcept
-	{
-		return OpenShimBridge::HasExport("OpenShimRequestRenderProfile");
-	}
-
 	inline std::uint32_t ApiVersion() noexcept
 	{
 		const auto fn = OpenShimBridge::Resolve<GetApiVersionFn>("OpenShimGetRenderApiVersion");
 		return fn ? fn() : 0u;
+	}
+
+	// A live provider can still lack this family when winmm.dll is newer than
+	// plugins\openshim.dll; the thunk then returns 0, which is AppliedLive for
+	// OpenShimRequestRenderProfile. The version export shipped in the same
+	// OpenShim change and is never 0 when implemented, so it is the probe.
+	inline bool HasRenderProfileApi() noexcept
+	{
+		return OpenShimBridge::HasExport("OpenShimRequestRenderProfile") && ApiVersion() != 0u;
 	}
 
 	// Forwards a content render-profile request to OpenShim. Returns false
@@ -75,7 +97,7 @@ namespace ExtraUtilities::RenderProfileBridge
 	inline bool Forward(Request request) noexcept
 	{
 		const auto fn = OpenShimBridge::Resolve<RequestFn>("OpenShimRequestRenderProfile");
-		if (!fn)
+		if (!fn || ApiVersion() == 0u)
 		{
 			return false;
 		}

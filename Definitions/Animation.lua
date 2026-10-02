@@ -24,7 +24,11 @@
 
 --- @class ExuAnimationCapabilities
 --- @field gameObjectTarget boolean
---- @field localFirstPersonTarget boolean False until the `aspilo_fp` ownership/resolver path is validated live.
+--- @field localFirstPersonTarget boolean True when either the optional OpenShim resolver or EXU's native BZR resolver is available.
+--- @field animationInventory boolean True when `List` is available.
+--- @field pilotStateInspection boolean True when the read-only local Person FSM snapshot API is compiled in.
+--- @field pilotFsmIntercept boolean True when the verified observe-only Person::Simulate entry detour is active.
+--- @field pilotAnimationOverrides boolean False: this build only represents the stock pilot animation policy and cannot apply an override.
 --- @field managedClock boolean False while Redux/Ogre remains responsible for animation time advancement.
 --- @field nativeAdvancement "unvalidated"|string
 --- @field firstPersonStatus string
@@ -37,6 +41,13 @@ local animation = {}
 --- @param h Handle
 --- @return ExuAnimationTarget
 function animation.Target(h) end
+
+--- Resolves the local first-person pilot entity (`aspilo_fp`) as an animation
+--- target. OpenShim remains the preferred resolver when installed; otherwise EXU
+--- resolves the current Person render bridge directly. The Ogre pointer is
+--- re-resolved on every operation and never cached. See Docs/ANIMATION_API.md.
+--- @return ExuAnimationTarget
+function animation.TargetLocalFirstPerson() end
 
 --- Returns the currently implemented target/clock capabilities.
 --- @nodiscard
@@ -57,6 +68,14 @@ function animation.Has(target, name) end
 --- @param name string
 --- @return ExuAnimationInfo|nil
 function animation.GetInfo(target, name) end
+
+--- Returns a deterministic name-sorted snapshot of every Ogre AnimationState
+--- currently exposed by the target. Returns nil when the target or state set
+--- cannot be resolved; a valid target with no states returns an empty array.
+--- @nodiscard
+--- @param target Handle|ExuAnimationTarget
+--- @return ExuAnimationInfo[]|nil
+function animation.List(target) end
 
 --- Enables and configures a named Ogre animation state.
 --- EXU does not install a separate animation clock; Redux/Ogre owns time advancement.

@@ -22,6 +22,9 @@
 
 namespace ExtraUtilities::Lua::Renderer
 {
+	// Forgets the mission's wireframe request; the next mission's camera is new.
+	void ResetMissionState() noexcept;
+
 	int SetWireframe(lua_State* L);
 	int GetWireframe(lua_State* L);
 

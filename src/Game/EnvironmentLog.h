@@ -18,7 +18,21 @@
 
 #pragma once
 
-namespace ExtraUtilities
-{
+#include <lua.hpp>
 
+#include <string>
+
+// Environment logging: per-call tracing (EXU_DEBUG_LOG=1) to
+// exu_environment_debug.log, and fault lines that always reach exu.log.
+
+namespace ExtraUtilities::Lua::Environment
+{
+	namespace Detail
+	{
+		void LogEnvironmentDebug(const char* fmt, ...);
+		void LogEnvironmentFault(const char* fmt, ...);
+	}
+
+	using namespace Detail;
+	std::string DescribeLuaCaller(lua_State* L);
 }

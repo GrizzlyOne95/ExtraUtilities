@@ -497,7 +497,8 @@ function Weather.Init(options)
     state.initialized = true
 end
 
---- Switches to a named profile, fading the old one out and the new one in.
+--- Switches to a named profile. Weather profiles fade in from the mission
+--- baseline; clear removes the active systems and restores that baseline.
 --- @param name string a key in Weather.Profiles
 --- @param transitionSeconds number? optional, defaults to 6
 --- @return boolean
@@ -516,6 +517,18 @@ function Weather.SetProfile(name, transitionSeconds)
     state.profile = profile
 
     DestroyAllSystems()
+
+    -- `clear` has no authored fog or lighting target. Leaving it to the
+    -- normal profile path would therefore skip every environment write and
+    -- strand the previous profile's fog/light settings indefinitely.
+    if name == "clear" then
+        RestoreBaseline()
+        state.intensity = 0.0
+        state.targetIntensity = 0.0
+        state.transitionRate = 0.0
+        return true
+    end
+
     for _, spec in ipairs(profile.systems) do
         CreateSystem(spec)
     end

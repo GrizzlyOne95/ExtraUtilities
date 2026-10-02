@@ -1,5 +1,5 @@
 --- @meta exu
---- This file provides the lua definitions for Extra Utilities version 1.2.0
+--- This file provides the lua definitions for Extra Utilities version 1.3.1
 --- These definitions also require the stock definitions found in `scriptutils.lua`
 --- for basic types like Handle and Vector
 
@@ -97,6 +97,10 @@ error("This is a definition file, use require(\"exu\")")
 --- @class AnimationCapabilities
 --- @field gameObjectTarget boolean
 --- @field localFirstPersonTarget boolean
+--- @field animationInventory boolean
+--- @field pilotStateInspection boolean
+--- @field pilotFsmIntercept boolean
+--- @field pilotAnimationOverrides boolean
 --- @field managedClock boolean
 --- @field nativeAdvancement string
 --- @field firstPersonStatus string
@@ -107,6 +111,7 @@ error("This is a definition file, use require(\"exu\")")
 --- @field GetCapabilities fun(): AnimationCapabilities
 --- @field Has fun(target: Handle|AnimationTarget, animationName: string): boolean
 --- @field GetInfo fun(target: Handle|AnimationTarget, animationName: string): AnimationInfo?
+--- @field List fun(target: Handle|AnimationTarget): AnimationInfo[]?
 --- @field Play fun(target: Handle|AnimationTarget, animationName: string, options?: AnimationPlayOptions): boolean
 --- @field Stop fun(target: Handle|AnimationTarget, animationName: string, reset?: boolean): boolean
 --- @field Restart fun(target: Handle|AnimationTarget, animationName: string): boolean
@@ -115,9 +120,113 @@ error("This is a definition file, use require(\"exu\")")
 --- @field SetWeight fun(target: Handle|AnimationTarget, animationName: string, weight: number): boolean
 --- @field Seek fun(target: Handle|AnimationTarget, animationName: string, timePosition: number): boolean
 
+--- @class PilotStateInfo
+--- @field available boolean
+--- @field state "standing"|"enteringCrouch"|"crouched"|"exitingCrouch"|"unknown"
+--- @field nativeState integer
+--- @field transition boolean
+--- @field crouched boolean
+--- @field grounded boolean
+--- @field sniperSelected boolean
+--- @field animationIndex integer
+--- @field animationName string?
+--- @field animationHandle integer
+--- @field selectedWeaponMask integer
+--- @field selectedWeaponSlot integer?
+--- @field selectedWeaponSignature integer?
+--- @field selectedWeaponSignatureText string?
+--- @field selectedWeaponOdf string?
+
+--- @class PilotInterceptStatus
+--- @field installed boolean
+--- @field active boolean
+--- @field observeOnly boolean
+--- @field hasLocalSample boolean
+--- @field calls integer
+--- @field localCalls integer
+--- @field stateChanges integer
+--- @field animationChanges integer
+--- @field policyDecision "passThrough"|string?
+--- @field beforeNativeState integer?
+--- @field afterNativeState integer?
+--- @field beforeState string?
+--- @field afterState string?
+--- @field beforeAnimationIndex integer?
+--- @field afterAnimationIndex integer?
+--- @field beforeAnimationName string?
+--- @field afterAnimationName string?
+--- @field beforeAnimationHandle integer?
+--- @field afterAnimationHandle integer?
+
+--- @class PilotTraceOptions
+--- @field changesOnly boolean?
+
+--- @class PilotTraceSample
+--- @field call integer
+--- @field dt number
+--- @field time number
+--- @field beforeNativeState integer
+--- @field afterNativeState integer
+--- @field beforeAnimationIndex integer
+--- @field afterAnimationIndex integer
+--- @field beforeAnimationHandle integer
+--- @field afterAnimationHandle integer
+
+--- @class PilotTraceDwell
+--- @field nativeState integer
+--- @field count integer
+--- @field last number?
+--- @field min number?
+--- @field max number?
+--- @field mean number?
+--- @field lastCalls integer?
+
+--- @class PilotTrace
+--- @field enabled boolean
+--- @field changesOnly boolean
+--- @field capacity integer
+--- @field localCalls integer
+--- @field recorded integer
+--- @field time number
+--- @field samples PilotTraceSample[]
+--- @field dwell table<"standing"|"enteringCrouch"|"crouched"|"exitingCrouch", PilotTraceDwell>
+
+--- @class PilotPolicySlotInfo
+--- @field mode "stock"|string
+--- @field nativeState integer?
+
+--- @class PilotAnimationProfile
+--- @field stand PilotPolicySlotInfo
+--- @field enterCrouch PilotPolicySlotInfo
+--- @field crouched PilotPolicySlotInfo
+--- @field exitCrouch PilotPolicySlotInfo
+--- @field jump PilotPolicySlotInfo
+--- @field land PilotPolicySlotInfo
+
+--- @class FpsAnimationApi
+--- @field IsAvailable fun(): boolean
+--- @field GetCapabilities fun(): AnimationCapabilities
+--- @field GetPilotState fun(): PilotStateInfo?
+--- @field GetPilotAnimationProfile fun(): PilotAnimationProfile
+--- @field GetPilotInterceptStatus fun(): PilotInterceptStatus
+--- @field StartPilotTrace fun(options?: PilotTraceOptions): boolean
+--- @field StopPilotTrace fun()
+--- @field GetPilotTrace fun(limit?: integer): PilotTrace?
+--- @field IsCrouched fun(): boolean?
+--- @field IsGrounded fun(): boolean?
+--- @field IsSniperSelected fun(): boolean?
+--- @field ListAnimations fun(): AnimationInfo[]?
+--- @field HasAnimation fun(animationName: string): boolean
+--- @field GetInfo fun(animationName: string): AnimationInfo?
+--- @field Play fun(animationName: string, options?: AnimationPlayOptions): boolean
+--- @field Stop fun(animationName: string, reset?: boolean): boolean
+--- @field Restart fun(animationName: string): boolean
+--- @field Seek fun(animationName: string, timePosition: number): boolean
+
 --- @class exu
 --- @field Origins CameraOrigins
 --- @field animation AnimationApi
+--- @field fps FpsAnimationApi
 local exu = {}
 
 --- Enums
@@ -192,6 +301,8 @@ exu.ORDNANCE = {
     INIT_TRANSFORM = 2, -- The initial transform of the ordnance when it was spawned/shot
     OWNER = 3,          -- The handle of the ordnance's owner (usually who shot it unless it's been spawned manually, then it could be anything)
     INIT_TIME = 4,      -- The time that the ordnance was spawned/shot
+    VELOCITY = 5,       -- The current velocity vector of the ordnance
+    LIFE_TIME = 6,      -- How long the ordnance has existed
 }
 
 --- @class RadarState
@@ -454,8 +565,9 @@ function exu.UpdateCommandReplacements() end
 --- These functions can query and modify attributes about the environment like gravity and lighting.
 
 --- Returns a table with the current map fog parameters.
+--- Returns nil while the scene is not ready (for example during loading).
 --- @nodiscard
---- @return Fog
+--- @return Fog?
 function exu.GetFog() end
 
 --- Sets the current map fog parameters. Can take either five number parameters or a fog table.
@@ -491,8 +603,9 @@ function exu.SetGravity(x, y, z) end
 function exu.SetGravity(v) end
 
 --- Returns a table with the current scene ambient light parameters.
+--- Returns nil while the scene is not ready (for example during loading).
 --- @nodiscard
---- @return Color
+--- @return Color?
 function exu.GetAmbientLight() end
 
 --- Sets the current scene ambient light parameters. Can take either three or four number parameters or a color table.
@@ -507,8 +620,9 @@ function exu.SetAmbientLight(r, g, b, a) end
 function exu.SetAmbientLight(newColor) end
 
 --- Returns a table with the current sun ambient parameters.
+--- Returns nil while the scene is not ready (for example during loading).
 --- @nodiscard
---- @return Color
+--- @return Color?
 function exu.GetSunAmbient() end
 
 --- Sets the current map sun ambient parameters. Can take either three number parameters or a color table.
@@ -522,8 +636,9 @@ function exu.SetSunAmbient(r, g, b) end
 function exu.SetSunAmbient(newColor) end
 
 --- Returns a table with the current sun diffuse parameters.
+--- Returns nil while the scene is not ready (for example during loading).
 --- @nodiscard
---- @return Color
+--- @return Color?
 function exu.GetSunDiffuse() end
 
 --- Sets the current map sun diffuse parameters. Can take either three number parameters or a color table.
@@ -537,8 +652,9 @@ function exu.SetSunDiffuse(r, g, b) end
 function exu.SetSunDiffuse(newColor) end
 
 --- Returns a table with the current sun specular parameters.
+--- Returns nil while the scene is not ready (for example during loading).
 --- @nodiscard
---- @return Color
+--- @return Color?
 function exu.GetSunSpecular() end
 
 --- Sets the current map sun specular parameters. Can take either three number parameters or a color table.
@@ -552,8 +668,9 @@ function exu.SetSunSpecular(r, g, b) end
 function exu.SetSunSpecular(newColor) end
 
 --- Returns the current sun direction vector.
+--- Returns nil while the scene is not ready (for example during loading).
 --- @nodiscard
---- @return Vector
+--- @return Vector?
 function exu.GetSunDirection() end
 
 --- Sets the current sun direction vector. Can take either a vector or three number parameters.
@@ -701,6 +818,23 @@ function exu.HasParticleSystem(name) end
 --- @param position Vector? optional Battlezone simulation-space position; defaults to the world origin
 --- @return boolean
 function exu.CreateParticleSystem(name, templateName, position) end
+
+--- Parse an in-memory Ogre script only when the mission needs it. No file I/O.
+--- Resources belong to Ogre; callers must avoid duplicate declarations.
+--- Returns false for unavailable runtime, invalid input or a native exception.
+--- A true result means parsing completed; Ogre's log reports script diagnostics.
+--- Script text must be nonempty, NUL-free and at most 1 MiB.
+---@param text string
+---@param source string Diagnostic source name, not a filesystem path to open.
+---@param group? string Resource group (default "Modable").
+---@return boolean completed
+function exu.ParseResourceScript(text, source, group) end
+
+--- True when Ogre already holds a particle_system template with this name.
+--- Templates outlive mission Lua states, so check before reparsing a script.
+---@param name string
+---@return boolean
+function exu.HasParticleTemplate(name) end
 
 --- Destroys a named Ogre particle system and its EXU-owned scene node if present.
 --- @param name string
@@ -1299,10 +1433,27 @@ function exu.SetOverlayColor(name, color) end
 function exu.SetOverlayCaption(name, text) end
 
 --- Sets the font name of a text area created through `CreateOverlayElement("TextArea", ...)`.
+---
+--- `"CRBZoneOverlayFont"` is EXU's default overlay font (the name is kept for Campaign Reimagined
+--- compatibility). EXU builds it on first use from `CRBZoneOverlay.fontdef` or `BZONE.ttf`, found first in
+--- directories registered with `exu.AddOverlayFontDirectory`, then in an `OverlayFont` folder next to EXU,
+--- the game root, `addon`, `mods`, `packaged_mods` or the Steam Workshop content folder; with none of those
+--- it is built from the stock `bzfont.dds`. Any other name must already be a loaded Ogre font, for example
+--- one defined by a `.fontdef` in a registered directory.
 --- @param name string
 --- @param fontName string
---- @return boolean success True when the font was bound successfully.
+--- @return boolean success True when the font was bound successfully; false for an unknown font name.
 function exu.SetOverlayTextFont(name, fontName) end
+
+--- Registers a directory of overlay font assets for this mission (cleared when the mission's Lua state closes).
+--- `directory` is absolute or relative to the game root. The directory, and an `OverlayFont` folder inside it,
+--- are searched before EXU's built-in locations for the default font's assets; call it before the first
+--- `SetOverlayTextFont`, since the default font is built once per game session. Every other `.fontdef` in the
+--- directory is parsed, so the fonts it defines can be bound by name with `exu.SetOverlayTextFont`.
+--- @param directory string
+--- @return boolean registered false when the path is not an existing directory or Ogre rejected it
+--- @return integer parsedScripts number of font scripts parsed from the directory
+function exu.AddOverlayFontDirectory(directory) end
 
 --- Sets the top and bottom text colors of a text area created through `CreateOverlayElement("TextArea", ...)`.
 --- Can take either four number parameters or a color table.
@@ -1338,10 +1489,11 @@ function exu.SetAsUser(h) end
 --- @return boolean
 function exu.IsCommTowerPowered(h) end
 
---- Converts a GameObject* into a handle that can be used in lua.
+--- Converts a GameObject* (as returned by exu.GetObj) into a handle that can be used in lua.
+--- Returns nil when obj is not a live GameObject.
 --- @nodiscard
 --- @param obj GameObject*
---- @return integer
+--- @return Handle?
 function exu.GetHandle(obj) end
 
 --- Gets whether the object's Ogre entity is currently visible.
@@ -1449,6 +1601,45 @@ function exu.GetMaterialName(h, subEntityIndex) end
 --- @param materialName string
 --- @param resourceGroup string? optional
 function exu.SetEntityMaterial(h, materialName, resourceGroup) end
+
+--- Builds one mission-scoped Ogre StaticGeometry object from a mesh/material
+--- template and a bulk list of transforms. Each instance accepts `position`
+--- (`{x,y,z}`), `yaw` in radians or `orientation` (`{w,x,y,z}`), and `scale`
+--- as either one number or `{x,y,z}`. Options accept `regionDimensions`,
+--- `origin`, `renderingDistance`, `castShadows`, and `visible`.
+--- Positions and `origin` are ordinary simulation coordinates, the same ones
+--- `GetPosition` returns; EXU converts them into Redux's render space.
+--- Reusing an EXU-owned name replaces its previous geometry. On success the
+--- returned table includes `instanceCount`, estimated `regionCount`, and
+--- `buildMilliseconds`. Mission Lua teardown destroys all tracked geometry.
+--- @param name string
+--- @param mesh string
+--- @param material string|nil
+--- @param instances table[]
+--- @param options? table
+--- @return table|nil info
+--- @return string? error
+function exu.CreateStaticGeometry(name, mesh, material, instances, options) end
+
+--- Destroys one EXU-owned StaticGeometry object.
+--- @param name string
+--- @return boolean destroyed
+function exu.DestroyStaticGeometry(name) end
+
+--- Destroys all StaticGeometry objects owned by the current mission Lua state.
+--- @return integer trackedCount
+function exu.DestroyAllStaticGeometry() end
+
+--- Returns build and lifecycle information for an EXU-owned StaticGeometry object.
+--- @param name string
+--- @return table|nil info
+function exu.GetStaticGeometryInfo(name) end
+
+--- Shows or hides all regions in an EXU-owned StaticGeometry object.
+--- @param name string
+--- @param visible boolean
+--- @return boolean changed
+function exu.SetStaticGeometryVisible(name, visible) end
 
 --- Sets the material name used by a specific sub-entity.
 --- The resource group defaults to "General".
@@ -1711,19 +1902,24 @@ function exu.SetLightDirection(h, direction) end
 function exu.SetLightAttenuation(h, range, constant, linear, quadratic) end
 
 --- Gets the mass of the given object (most ships default to 1750 KG afaik).
+--- Returns nil when the handle no longer refers to a live object.
 --- @nodiscard
 --- @param h Handle
---- @return number
+--- @return number?
 function exu.GetMass(h) end
 
 --- Sets the mass of the given object. This affects collisions and knockback.
+--- Does nothing when the handle no longer refers to a live object.
 --- @param h Handle
-function exu.SetMass(h) end
+--- @param mass number finite and greater than 0
+function exu.SetMass(h, mass) end
 
 --- Converts a handle into a GameObject* that can be used in patching and debugging.
+--- Returns nil when the handle no longer refers to a live object (the unit died
+--- or its slot was reused).
 --- @nodiscard
 --- @param h Handle
---- @return GameObject*
+--- @return GameObject*?
 function exu.GetObj(h) end
 
 --- Gets live construction-menu selection state for a construction rig.
@@ -1805,11 +2001,15 @@ function exu.GetAiTaskFieldScan(h) end
 --- @return table | nil
 function exu.GetAiTaskState(h) end
 
---- Updates selected fields on the primary live AI task for the object.
---- Supported fields currently include `braccel`, `strafe`, `steer`, `omega`,
---- `omegaScale`, `pitch`, `gotoForce`, `gotoDir`, and `turbo`.
+--- Updates selected fields on the primary live UnitTask (any stock task except
+--- RecycleTask) for the object. Supported fields: `braccel`, `strafe`, `steer`,
+--- `omega`, `omegaScale`, `pitch`, `gotoForce`, `gotoDir`, and `turbo`.
+--- Numbers and vector components must be finite and within +/-10000; an invalid
+--- field raises an error before anything is written. Returns false, writing
+--- nothing, when the handle is dead or a task field is given and the object has no UnitTask.
 --- @param h Handle
 --- @param state table
+--- @return boolean
 function exu.SetAiTaskState(h, state) end
 
 --- Gets a typed snapshot of the active recycle subtask when the object's AI task is a recycle task.
@@ -1873,7 +2073,7 @@ function exu.GetUIScaling() end
 ---
 --- These functions handle input/output that the stock game doesn't provide.
 
---- Gets whether or not a key is held.
+--- Gets whether or not a key is held. Always false while the game window is not in the foreground.
 --- A full list of keys can be found here.
 --- @nodiscard
 --- @param key string
@@ -1970,11 +2170,11 @@ function exu.SetTargetReticlePopupMode(mode) end
 --- You must also provide an owner handle since the game appears to require this.
 --- The owner of an ordnance will not be hit by it if it is created inside its hitbox, otherwise it can be hit.
 --- Returns a handle to the ordnance object that can be used in exu.GetOrdnanceAttribute().
---- Ordnances are short lived, DO NOT access this value for longer than its lifespan.
---- If you need to hold on to a handle you should verify it still exists by checking current time minus its init time
---- (from GetOrdnanceAttribute) is less than the lifespan defined in the odf.
---- You can also use the exu.BulletHit callback to detect if the value is no longer valid,
---- however this does not account for ordnance despawning or being destroyed through other means.
+--- Ordnances are short lived. exu.GetOrdnanceAttribute returns nil once the object is gone,
+--- but a freed round's memory can be reused by a newer round, so do not hold on to the value
+--- past its lifespan: check that current time minus its init time is below the ODF lifespan,
+--- or use the exu.BulletHit callback. The odf name is matched case-insensitively, without
+--- the .odf extension, against the ordnance classes loaded so far.
 ---
 --- Multiplayer remarks: You should not Send() another player a local ordnance handle,
 --- they are likely client side and I haven't rigorously tested it in MP.
@@ -1985,6 +2185,7 @@ function exu.SetTargetReticlePopupMode(mode) end
 function exu.BuildOrdnance(odf, transform, owner) end
 
 --- Queries an ordnance handle for certain values. See the valid attribute codes in the ORDNANCE enum.
+--- Returns nil when the value is no longer a live ordnance object.
 --- @nodiscard
 --- @param ordnanceHandle Ordnance*
 --- @param attribute OrdnanceAttributes
@@ -1997,10 +2198,11 @@ function exu.GetOrdnanceAttribute(ordnanceHandle, attribute) end
 function exu.GetCoeffBallistic() end
 
 --- Sets the global ballistic coefficient.
----
---- Multiplayer remarks: this is clientside, it should be set to the same value on ALL clients
---- if you changed it at any point.
+--- In multiplayer this is local to each machine: every peer's mission script must make the same call,
+--- or mortar trajectories differ between peers. EXU restores the pre-mission value when the mission's
+--- Lua state closes. Raises an error for a non-finite value.
 --- @param coeff number
+--- @return boolean applied false on an unqualified game build
 function exu.SetCoeffBallistic(coeff) end
 
 --- OS
@@ -2019,9 +2221,14 @@ function exu.MessageBox(message) end
 
 --- Triggers the game's native save serializer.
 --- Pass either a save slot number (1-10, mapped to `Save\\game<slot>.sav`) or a save path string.
+--- A path string must name a file inside the game's `Save` directory. Relative paths are taken from the
+--- game directory, so `"Save\\auto.sav"` works; an absolute path under `<game>\\Save` also works.
+--- Any other path (outside `Save`, `..` above it, network or device paths) returns false and a reason.
+--- The save is binary when the game was started with `-binarysave`, as the game's own saves are.
 --- The optional `saveType` argument defaults to 0 and maps to the native second parameter.
 --- You may also pass a description override as the second argument, or as the third argument after `saveType`.
---- Description overrides only rewrite the `saveGameDesc` field in text saves after the native save succeeds.
+--- Description overrides only rewrite the `saveGameDesc` field in text saves after the native save succeeds;
+--- they are skipped for binary saves.
 --- This should be called during active gameplay, not from shell menus or loading screens.
 --- @param slotOrPath integer | string
 --- @param saveType integer | string?
@@ -2065,7 +2272,10 @@ function exu.ClearTeamEngineFlameColor(team) end
 function exu.GetGlobalTurbo() end
 
 --- Sets the state of the global turbo mode patch.
+--- In multiplayer this is local to each machine: every peer's mission script must make the same call.
+--- Returns false when enabling fails because the turbo hooks are not installed (unsupported build or site already patched).
 --- @param state boolean
+--- @return boolean applied
 function exu.SetGlobalTurbo(state) end
 
 --- Gets whether a unit has turbo enabled (off by default).
@@ -2075,8 +2285,12 @@ function exu.SetGlobalTurbo(state) end
 function exu.GetUnitTurbo(h) end
 
 --- Sets turbo for an individual unit that overrides the global setting.
+--- `false` is an override too: that unit keeps stock turbo behaviour even while global turbo is on.
+--- In multiplayer this is local to each machine: every peer's mission script must make the same call.
+--- Returns false for a dead handle, or when enabling fails because the turbo hooks are not installed.
 --- @param h Handle
 --- @param state boolean
+--- @return boolean applied
 function exu.SetUnitTurbo(h, state) end
 
 --- Gets the state of the ordnance velocity inheritance patch (see below).
@@ -2085,7 +2299,9 @@ function exu.SetUnitTurbo(h, state) end
 function exu.GetOrdnanceVelocInheritance() end
 
 --- Makes projectiles inherit the velocity of the shooter, and patches the TLI for both the player and AI to account for this, currently does NOT work in multiplayer, and the TLI on mortars is not accurate.
+--- In multiplayer this is local to each machine: every peer's mission script must make the same call.
 --- @param state boolean
+--- @return boolean applied
 function exu.SetOrdnanceVelocInheritance(state) end
 
 --- Returns whether or not the hovercraft shot convergence patch is enabled.
@@ -2179,6 +2395,7 @@ function exu.GetDifficulty() end
 --- Sets the local player's difficulty setting. See the difficulty enum for options.
 --- Note that it won't change what it says in the menu, but it will in fact change in-game.
 --- It also won't work in multiplayer where the difficulty is locked to very hard.
+--- Values outside 0-4 raise an error. The previous value is restored when the mission ends.
 --- @param difficulty number
 function exu.SetDifficulty(difficulty) end
 
@@ -2364,24 +2581,6 @@ function exu.GetSteam64() end
 --- @return number
 function exu.GetMusicVolume() end
 
---- Gets the value of the effects slider from 0-10.
---- @nodiscard
---- @return number
-function exu.GetEffectsVolume() end
-
---- Sets the value of the effects slider from 0-10.
---- @param volume number
-function exu.SetEffectsVolume(volume) end
-
---- Gets the value of the voice slider from 0-10.
---- @nodiscard
---- @return number
-function exu.GetVoiceVolume() end
-
---- Sets the value of the voice slider from 0-10.
---- @param volume number
-function exu.SetVoiceVolume(volume) end
-
 --- Stock Extensions
 ---
 --- These functions are either existing in game but unbound in stock lua, or are in stock lua but were removed.
@@ -2420,14 +2619,23 @@ function exu.ClearAiUnitTuning(...) end
 --- @param ... any
 function exu.ClearAllAiUnitTuning(...) end
 
---- @param ... any
-function exu.ClearVisuals(...) end
+--- Placeholder: clears nothing. Debug line and box drawing is not implemented yet;
+--- the function exists so scripts that call it keep working.
+function exu.ClearVisuals() end
 
---- @param ... any
-function exu.DrawBox(...) end
+--- Placeholder: checks its arguments and draws nothing. Debug line and box drawing
+--- is not implemented yet; the function exists so scripts that call it keep working.
+--- @param min Vector
+--- @param max Vector
+--- @param color Color
+function exu.DrawBox(min, max, color) end
 
---- @param ... any
-function exu.DrawLine(...) end
+--- Placeholder: checks its arguments and draws nothing. Debug line and box drawing
+--- is not implemented yet; the function exists so scripts that call it keep working.
+--- @param from Vector
+--- @param to Vector
+--- @param color Color
+function exu.DrawLine(from, to, color) end
 
 --- @param ... any
 function exu.GetAiTargetScoringEnabled(...) end
@@ -2453,8 +2661,10 @@ function exu.GetInfiniteAmmo(...) end
 --- @param ... any
 function exu.GetInfiniteScrap(...) end
 
---- @param ... any
-function exu.GetMusicTrack(...) end
+--- Returns the engine's selected track (-1 if none), or nil if unavailable.
+--- Stop retains the selection; this is not a playing/audibility test.
+--- @return integer | nil
+function exu.GetMusicTrack() end
 
 --- @param ... any
 function exu.GetOrdnanceVelocMode(...) end
@@ -2468,8 +2678,9 @@ function exu.GetWeaponMask(...) end
 --- @param ... any
 function exu.GetWireframe(...) end
 
---- @param ... any
-function exu.PauseMusic(...) end
+--- Pauses the native soundtrack without releasing its stream; freezes an EXU fade.
+--- @return boolean accepted
+function exu.PauseMusic() end
 
 --- @param ... any
 function exu.ResetMissionHookOverrides(...) end
@@ -2483,8 +2694,9 @@ function exu.RestoreAllHudSprites(...) end
 --- @param ... any
 function exu.RestoreHudSprite(...) end
 
---- @param ... any
-function exu.ResumeMusic(...) end
+--- Resumes a paused soundtrack at the retained position. Does not start stopped music.
+--- @return boolean accepted
+function exu.ResumeMusic() end
 
 --- @param ... any
 function exu.SetAiOdfGameplayTuningEnabled(...) end
@@ -2504,11 +2716,14 @@ function exu.SetAttackRevealEnabled(...) end
 --- @param ... any
 function exu.SetBomberAiRangeEnabled(...) end
 
---- @param ... any
-function exu.SetCullDistance(...) end
+--- Sets the camera distance beyond which units are hidden while culling is enabled.
+--- @param distance number finite, non-negative
+function exu.SetCullDistance(distance) end
 
---- @param ... any
-function exu.SetCullingEnabled(...) end
+--- Enables or disables distance culling of units. Disabling it (or raising the distance)
+--- shows again every unit culling hid; units hidden by the game itself are not touched.
+--- @param enabled boolean
+function exu.SetCullingEnabled(enabled) end
 
 --- @param ... any
 function exu.SetHowitzerVolleyEnabled(...) end
@@ -2519,17 +2734,32 @@ function exu.SetHudSpriteRect(...) end
 --- @param ... any
 function exu.SetHudSpriteVisible(...) end
 
---- @param ... any
-function exu.SetInfiniteAmmo(...) end
+--- Enables or disables infinite ammo for the local player.
+--- In multiplayer this is local to each machine: every peer's mission script must make the same call.
+--- @param enabled boolean
+--- @return boolean applied
+function exu.SetInfiniteAmmo(enabled) end
 
---- @param ... any
-function exu.SetInfiniteScrap(...) end
+--- Enables or disables infinite scrap.
+--- In multiplayer this is local to each machine: every peer's mission script must make the same call.
+--- @param enabled boolean
+--- @return boolean applied
+function exu.SetInfiniteScrap(enabled) end
 
 --- @param ... any
 function exu.SetJumpSnipeCrouch(...) end
 
---- @param ... any
-function exu.SetMusicTrack(...) end
+--- Selects and plays a single looping NN.ogg soundtrack through the native manager.
+--- Works with EXU alone on the qualified Redux build. Cancels EXU fades.
+--- Missing content leaves the current track and fade unchanged.
+--- @param track integer 0..255
+--- @return boolean accepted
+function exu.SetMusicTrack(track) end
+
+--- Alias of SetMusicTrack.
+--- @param track integer 0..255
+--- @return boolean accepted
+function exu.PlayMusic(track) end
 
 --- @param ... any
 function exu.SetOrdnanceVelocMode(...) end
@@ -2549,7 +2779,107 @@ function exu.SetWeaponMaskCarrierBiasEnabled(...) end
 --- @param ... any
 function exu.SetWireframe(...) end
 
---- @param ... any
-function exu.StopMusic(...) end
+--- Stops/releases the native soundtrack stream and cancels EXU fades.
+--- Repeated calls are harmless; the selected track remains available for read-back.
+--- @return boolean accepted
+function exu.StopMusic() end
+
+--- Reads native engine state; nil means standalone soundtrack qualification failed.
+--- playing/paused reflect engine flags, not proof that audio is audible.
+--- gain is EXU's temporary 0..1 multiplier; userVolume is the saved 0..10 setting.
+--- @return {track: integer, playing: boolean, paused: boolean, gain: number, fading: boolean, userVolume: integer} | nil
+function exu.GetMusicState() end
+
+--- Fades a temporary soundtrack gain without changing saved options or pause state.
+--- Call UpdateMusic(dt) once per mission Update to advance nonzero durations.
+--- @param gain number 0..1 (0 = silence)
+--- @param seconds? number finite, non-negative; default 1
+--- @return boolean accepted
+function exu.FadeMusic(gain, seconds) end
+
+--- Fades out, selects a looping track, then fades back to the player's volume.
+--- This is a sequential transition; Redux exposes one soundtrack stream.
+--- Call UpdateMusic(dt) once per mission Update. New requests replace old fades.
+--- @param track integer 0..255
+--- @param fadeOut? number finite, non-negative seconds; default 1
+--- @param fadeIn? number finite, non-negative seconds; default 1
+--- @return boolean accepted
+function exu.ChangeMusicTrack(track, fadeOut, fadeIn) end
+
+--- Advances the pending fade on the mission thread and reapplies any temporary gain.
+--- An external track/stream change cancels the gain override. Audio is local per peer.
+--- @param dt number finite, non-negative simulation seconds
+--- @return boolean updated
+function exu.UpdateMusic(dt) end
+
+--- Cancels a transition and restores the player's volume without changing playback.
+--- Also performed on Lua-state teardown.
+--- @return boolean restored
+function exu.ResetMusic() end
+
+
+--- Native player HUD meters (optional OpenShim adapter)
+--- Physical viewport pixels, top-left origin. IDs are exactly "hull" and "ammo".
+--- No released adapter is qualified yet: availability is currently false.
+--- See Docs/NATIVE_HUD_LAYOUT_API.md for qualification and ownership rules.
+
+--- Returns whether OpenShim has a qualified adapter for this meter.
+--- False also covers older/missing OpenShim and bootstrap-only winmm.dll.
+--- @param meter "hull"|"ammo"
+--- @return boolean
+function exu.IsNativeHudLayoutAvailable(meter) end
+
+--- Gets the effective full bar rectangle, independent of the remaining fill.
+--- Returns nil if the adapter or current frame's stock meter is unavailable.
+--- @param meter "hull"|"ammo"
+--- @return integer? x
+--- @return integer? y
+--- @return integer? width
+--- @return integer? height
+function exu.GetNativeHudMeterRect(meter) end
+
+--- Gets the current stock full bar rectangle before a mission override.
+--- Stock geometry is observed again every frame; it follows resolution/UI scale.
+--- @param meter "hull"|"ammo"
+--- @return integer? x
+--- @return integer? y
+--- @return integer? width
+--- @return integer? height
+function exu.GetNativeHudMeterDefaultRect(meter) end
+
+--- Requests physical-pixel placement/size at the next native meter draw.
+--- Dimensions must be integers in 1..16384; coordinates and far edges must
+--- be within -65535..65535. Fractional/non-finite values are rejected.
+--- The intended adapter transforms live bar/clip, label and ammo marker/readout.
+--- Accepted requests are mission scoped; this checkpoint returns unavailable.
+--- @param meter "hull"|"ammo"
+--- @param x integer
+--- @param y integer
+--- @param width integer
+--- @param height integer
+--- @return boolean accepted
+--- @return string? reason invalid_meter|invalid_rect|unavailable|native_state_unavailable
+function exu.SetNativeHudMeterRect(meter, x, y, width, height) end
+
+--- Sets meter-group visibility without disabling simulation or warning audio.
+--- Requires a boolean. Does not hide unrelated radar, weapons or HUD sprites.
+--- @param meter "hull"|"ammo"
+--- @param visible boolean
+--- @return boolean accepted
+--- @return string? reason
+function exu.SetNativeHudMeterVisible(meter, visible) end
+
+--- Removes this meter's placement and visibility override, using current stock layout.
+--- @param meter "hull"|"ammo"
+--- @return boolean accepted
+--- @return string? reason
+function exu.RestoreNativeHudMeter(meter) end
+
+--- Restores only meter slots successfully changed through EXU this mission.
+--- A no-op with no owned slots succeeds even when the provider is unavailable.
+--- Also runs automatically on EXU mission/Lua teardown, including pinned DLLs.
+--- @return boolean accepted
+--- @return string? reason
+function exu.RestoreAllNativeHudMeters() end
 
 return exu
