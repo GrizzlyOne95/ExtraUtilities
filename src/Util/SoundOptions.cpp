@@ -17,183 +17,99 @@
 */
 
 #include "SoundOptions.h"
-#include "Logging.h"
-#include "OpenShimBridge.h"
-
-#include <Windows.h>
-
-#include <cstring>
+#include "Util/Soundtrack.h"
+#include <cmath>
 
 namespace ExtraUtilities::Lua::SoundOptions
 {
-	namespace
-	{
-		using OpenShimSetMusicTrackFn = BOOL(WINAPI*)(int);
-		using OpenShimSimpleMusicFn = BOOL(WINAPI*)();
-		using OpenShimGetMusicTrackFn = BOOL(WINAPI*)(int*);
+    namespace
+    {
+        int TrackArgument(lua_State* L)
+        {
+            const lua_Number value = luaL_checknumber(L, 1);
+            if (!std::isfinite(value) || value < 0 || value > 255 || std::floor(value) != value)
+                luaL_argerror(L, 1, "music track must be an integer between 0 and 255");
+            return static_cast<int>(value);
+        }
 
-		bool ShouldLogMissingExport(const char* exportName)
-		{
-			static bool loggedSet = false;
-			static bool loggedStop = false;
-			static bool loggedPause = false;
-			static bool loggedResume = false;
-			static bool loggedGet = false;
+        double DurationArgument(lua_State* L, int argument, double fallback)
+        {
+            const double seconds = luaL_optnumber(L, argument, fallback);
+            if (!Soundtrack::ValidDuration(seconds))
+                luaL_argerror(L, argument, "duration must be finite and non-negative");
+            return seconds;
+        }
 
-			bool* flag = nullptr;
-			if (std::strcmp(exportName, "OpenShimSetMusicTrack") == 0)
-				flag = &loggedSet;
-			else if (std::strcmp(exportName, "OpenShimStopMusic") == 0)
-				flag = &loggedStop;
-			else if (std::strcmp(exportName, "OpenShimPauseMusic") == 0)
-				flag = &loggedPause;
-			else if (std::strcmp(exportName, "OpenShimResumeMusic") == 0)
-				flag = &loggedResume;
-			else if (std::strcmp(exportName, "OpenShimGetMusicTrack") == 0)
-				flag = &loggedGet;
+        int Result(lua_State* L, bool result)
+        {
+            lua_pushboolean(L, result);
+            return 1;
+        }
+    }
 
-			if (!flag || *flag)
-				return false;
+    int GetMusicVolume(lua_State* L)
+    {
+        lua_pushnumber(L, musicVolume.Read());
+        return 1;
+    }
 
-			*flag = true;
-			return true;
-		}
+    int SetMusicTrack(lua_State* L) { return Result(L, Soundtrack::Play(TrackArgument(L))); }
+    int StopMusic(lua_State* L) { return Result(L, Soundtrack::Stop()); }
+    int PauseMusic(lua_State* L) { return Result(L, Soundtrack::Pause()); }
+    int ResumeMusic(lua_State* L) { return Result(L, Soundtrack::Resume()); }
 
-		template<typename T>
-		T ResolveOpenShimMusicBridge(const char* exportName)
-		{
-			static bool loggedMissingModule = false;
-			if (!OpenShimBridge::GetModule())
-			{
-				if (!loggedMissingModule)
-				{
-					loggedMissingModule = true;
-					Logging::LogMessage("[EXU::SoundOptions] OpenShim winmm.dll bridge unavailable");
-				}
-				return nullptr;
-			}
+    int GetMusicTrack(lua_State* L)
+    {
+        int track = -1;
+        if (Soundtrack::GetTrack(track))
+            lua_pushinteger(L, track);
+        else
+            lua_pushnil(L);
+        return 1;
+    }
 
-			T fn = OpenShimBridge::Resolve<T>(exportName);
-			if (!fn && ShouldLogMissingExport(exportName))
-			{
-				Logging::LogMessage("[EXU::SoundOptions] OpenShim export missing: %s", exportName);
-			}
-			return fn;
-		}
-	}
+    int GetMusicState(lua_State* L)
+    {
+        Soundtrack::State state;
+        if (!Soundtrack::GetState(state))
+        {
+            lua_pushnil(L);
+            return 1;
+        }
+        lua_createtable(L, 0, 6);
+        lua_pushinteger(L, state.track); lua_setfield(L, -2, "track");
+        lua_pushboolean(L, state.started && !state.paused); lua_setfield(L, -2, "playing");
+        lua_pushboolean(L, state.paused); lua_setfield(L, -2, "paused");
+        lua_pushnumber(L, Soundtrack::GetGain()); lua_setfield(L, -2, "gain");
+        lua_pushboolean(L, Soundtrack::IsFading()); lua_setfield(L, -2, "fading");
+        lua_pushinteger(L, state.userVolume); lua_setfield(L, -2, "userVolume");
+        return 1;
+    }
 
-	int GetMusicVolume(lua_State* L)
-	{
-		lua_pushnumber(L, musicVolume.Read());
-		return 1;
-	}
+    int FadeMusic(lua_State* L)
+    {
+        const double gain = luaL_checknumber(L, 1);
+        if (!std::isfinite(gain) || gain < 0 || gain > 1)
+            return luaL_argerror(L, 1, "gain must be finite and between 0 and 1");
+        const double seconds = DurationArgument(L, 2, 1);
+        return Result(L, Soundtrack::Fade(static_cast<float>(gain), seconds));
+    }
 
-	int SetMusicTrack(lua_State* L)
-	{
-		lua_Integer requested = luaL_checkinteger(L, 1);
-		if (requested < 0 || requested > 255)
-		{
-			return luaL_argerror(L, 1, "Extra Utilities Error: music track must be between 0 and 255");
-		}
+    int ChangeMusicTrack(lua_State* L)
+    {
+        const int track = TrackArgument(L);
+        const double fadeOut = DurationArgument(L, 2, 1);
+        const double fadeIn = DurationArgument(L, 3, 1);
+        return Result(L, Soundtrack::Change(track, fadeOut, fadeIn));
+    }
 
-		if (OpenShimSetMusicTrackFn fn =
-			ResolveOpenShimMusicBridge<OpenShimSetMusicTrackFn>("OpenShimSetMusicTrack"))
-		{
-			lua_pushboolean(L, fn(static_cast<int>(requested)) ? 1 : 0);
-			return 1;
-		}
+    int UpdateMusic(lua_State* L)
+    {
+        const double seconds = luaL_checknumber(L, 1);
+        if (!Soundtrack::ValidDuration(seconds))
+            return luaL_argerror(L, 1, "timestep must be finite and non-negative");
+        return Result(L, Soundtrack::Update(seconds));
+    }
 
-		lua_pushboolean(L, 0);
-		return 1;
-	}
-
-	int StopMusic(lua_State* L)
-	{
-		if (OpenShimSimpleMusicFn fn =
-			ResolveOpenShimMusicBridge<OpenShimSimpleMusicFn>("OpenShimStopMusic"))
-		{
-			lua_pushboolean(L, fn() ? 1 : 0);
-			return 1;
-		}
-
-		lua_pushboolean(L, 0);
-		return 1;
-	}
-
-	int PauseMusic(lua_State* L)
-	{
-		if (OpenShimSimpleMusicFn fn =
-			ResolveOpenShimMusicBridge<OpenShimSimpleMusicFn>("OpenShimPauseMusic"))
-		{
-			lua_pushboolean(L, fn() ? 1 : 0);
-			return 1;
-		}
-
-		lua_pushboolean(L, 0);
-		return 1;
-	}
-
-	int ResumeMusic(lua_State* L)
-	{
-		if (OpenShimSimpleMusicFn fn =
-			ResolveOpenShimMusicBridge<OpenShimSimpleMusicFn>("OpenShimResumeMusic"))
-		{
-			lua_pushboolean(L, fn() ? 1 : 0);
-			return 1;
-		}
-
-		lua_pushboolean(L, 0);
-		return 1;
-	}
-
-	int GetMusicTrack(lua_State* L)
-	{
-		int track = -1;
-		if (OpenShimGetMusicTrackFn fn =
-			ResolveOpenShimMusicBridge<OpenShimGetMusicTrackFn>("OpenShimGetMusicTrack"))
-		{
-			if (fn(&track))
-			{
-				lua_pushinteger(L, track);
-				return 1;
-			}
-		}
-
-		lua_pushnil(L);
-		return 1;
-	}
-
-	//int GetEffectsVolume(lua_State* L)
-	//{
-	//	lua_pushnumber(L, sfxVolume.Read());
-	//	return 1;
-	//}
-
-	//int SetEffectsVolume(lua_State* L)
-	//{
-	//	int newVolume = luaL_checkinteger(L, 1);
-	//	if (newVolume < 0 || newVolume > 10)
-	//	{
-	//		luaL_argerror(L, 1, "Value must be between 0 and 10");
-	//	}
-	//	sfxVolume.Write(newVolume);
-	//	return 0;
-	//}
-
-	//int GetVoiceVolume(lua_State* L)
-	//{
-	//	lua_pushnumber(L, voiceVolume.Read());
-	//	return 1;
-	//}
-
-	//int SetVoiceVolume(lua_State* L)
-	//{
-	//	int newVolume = luaL_checkinteger(L, 1);
-	//	if (newVolume < 0 || newVolume > 10)
-	//	{
-	//		luaL_argerror(L, 1, "Value must be between 0 and 10");
-	//	}
-	//	voiceVolume.Write(newVolume);
-	//	return 0;
-	//}
+    int ResetMusic(lua_State* L) { return Result(L, Soundtrack::Reset()); }
 }

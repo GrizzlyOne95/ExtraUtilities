@@ -12,6 +12,7 @@
 
 #include "OpenShimBridge.h"
 #include "Util/BzrBuildProfile.generated.h"
+#include "Util/PatternMatch.h"
 #include "Util/SignatureResolver.h"
 
 #include <Windows.h>
@@ -27,58 +28,8 @@ namespace ExtraUtilities::BuildValidation
 
 	namespace Detail
 	{
-		inline bool PatternMatches(
-			const uint8_t* data,
-			size_t dataSize,
-			const int* pattern,
-			size_t patternSize) noexcept
-		{
-			if (data == nullptr || pattern == nullptr || patternSize == 0 || dataSize < patternSize)
-			{
-				return false;
-			}
-
-			for (size_t index = 0; index < patternSize; ++index)
-			{
-				const int expected = pattern[index];
-				if (expected >= 0 && data[index] != static_cast<uint8_t>(expected))
-				{
-					return false;
-				}
-			}
-
-			return true;
-		}
-
-		inline size_t CountPatternMatches(
-			const uint8_t* data,
-			size_t dataSize,
-			const int* pattern,
-			size_t patternSize,
-			size_t stopAfter = (std::numeric_limits<size_t>::max)()) noexcept
-		{
-			if (data == nullptr || pattern == nullptr || patternSize == 0 || dataSize < patternSize)
-			{
-				return 0;
-			}
-
-			size_t matches = 0;
-			for (size_t offset = 0; offset <= dataSize - patternSize; ++offset)
-			{
-				if (!PatternMatches(data + offset, dataSize - offset, pattern, patternSize))
-				{
-					continue;
-				}
-
-				++matches;
-				if (matches >= stopAfter)
-				{
-					return matches;
-				}
-			}
-
-			return matches;
-		}
+		using PatternMatch::CountPatternMatches;
+		using PatternMatch::PatternMatches;
 
 		inline size_t CountTextMatches(
 			HMODULE module,
@@ -222,6 +173,31 @@ namespace ExtraUtilities::BuildValidation
 		}
 
 		return true;
+	}
+
+	inline constexpr const char* kLuaCoreAnchorName = "Lua dummynode";
+
+	// EXU's statically linked Lua core points its empty-table sentinel at the
+	// executable's dummynode (Lua5.1-BZR/src/ltable.c). This checks only that
+	// anchor, which is cheap (one fixed-address compare), so luaopen_exu can run
+	// it before creating a single table. Fails closed if the anchor is missing
+	// from the generated profile.
+	inline bool IsLuaCoreCompatible() noexcept
+	{
+		HMODULE module = GetModuleHandleA(nullptr);
+		if (!Detail::ValidatePeIdentity(module))
+		{
+			return false;
+		}
+
+		for (const BzrBuildProfile::AnchorSpec& anchor : BzrBuildProfile::kRuntimeAnchors)
+		{
+			if (std::strcmp(anchor.name, kLuaCoreAnchorName) == 0)
+			{
+				return Detail::MatchAnchor(module, anchor);
+			}
+		}
+		return false;
 	}
 
 	// Prefer OpenShim's qualified result when available. Older/no-OpenShim

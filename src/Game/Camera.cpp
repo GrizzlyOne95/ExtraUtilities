@@ -20,6 +20,7 @@
 
 #include "LuaHelpers.h"
 #include "Ogre/Ogre.h"
+#include "Util/SehGuard.h"
 
 #include <cmath>
 
@@ -27,7 +28,7 @@ namespace ExtraUtilities::Lua::Camera
 {
 	namespace
 	{
-		void* GetCurrentOgreCamera()
+		void* GetCurrentOgreCameraSeh()
 		{
 			void* sceneManager = Ogre::sceneManager.Read();
 			if (sceneManager == nullptr)
@@ -45,10 +46,15 @@ namespace ExtraUtilities::Lua::Camera
 
 				return Ogre::GetViewportCamera(viewport);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return nullptr;
 			}
+		}
+
+		void* GetCurrentOgreCamera()
+		{
+			return Seh::CatchCpp("GetCurrentOgreCamera", [&] { return GetCurrentOgreCameraSeh(); }, nullptr);
 		}
 	}
 
@@ -75,7 +81,18 @@ namespace ExtraUtilities::Lua::Camera
 
 	int GetTransformMatrix(lua_State* L)
 	{
-		BZR::MAT_3D viewMatrix = mainCam.Get()->Matrix;
+		if (!RuntimeGate::IsSupported())
+		{
+			return PushUnsupportedBuild(L);
+		}
+
+		BZR::BZR_Camera* cam = mainCam.Get();
+		if (cam == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		BZR::MAT_3D viewMatrix = cam->Matrix;
 		
 		BZR::MAT_3D transformMatrix;
 		BZR::Matrix_Inverse(&transformMatrix, &viewMatrix);
@@ -143,18 +160,21 @@ namespace ExtraUtilities::Lua::Camera
 			return 2;
 		}
 
-		__try
-		{
-			lua_pushnumber(L, Ogre::GetCameraNearClipDistance(camera));
-			lua_pushnumber(L, Ogre::GetCameraFarClipDistance(camera));
-			return 2;
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		float nearClip = 0.0f;
+		float farClip = 0.0f;
+		if (!Seh::Guard("GetCameraClipDistances", [&] {
+				nearClip = Ogre::GetCameraNearClipDistance(camera);
+				farClip = Ogre::GetCameraFarClipDistance(camera);
+			}))
 		{
 			lua_pushnil(L);
 			lua_pushnil(L);
 			return 2;
 		}
+
+		lua_pushnumber(L, nearClip);
+		lua_pushnumber(L, farClip);
+		return 2;
 	}
 
 	int SetClipDistances(lua_State* L)
@@ -176,14 +196,10 @@ namespace ExtraUtilities::Lua::Camera
 			return 0;
 		}
 
-		__try
-		{
+		Seh::Guard("SetCameraClipDistances", [&] {
 			Ogre::SetFrustumNearClipDistance(camera, nearClip);
 			Ogre::SetFrustumFarClipDistance(camera, farClip);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-		}
+		});
 
 		return 0;
 	}
@@ -197,16 +213,15 @@ namespace ExtraUtilities::Lua::Camera
 			return 1;
 		}
 
-		__try
-		{
-			lua_pushnumber(L, Ogre::GetFrustumAspectRatio(camera));
-			return 1;
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		float ratio = 0.0f;
+		if (!Seh::Guard("GetCameraAspectRatio", [&] { ratio = Ogre::GetFrustumAspectRatio(camera); }))
 		{
 			lua_pushnil(L);
 			return 1;
 		}
+
+		lua_pushnumber(L, ratio);
+		return 1;
 	}
 
 	int SetAspectRatio(lua_State* L)
@@ -223,13 +238,7 @@ namespace ExtraUtilities::Lua::Camera
 			return 0;
 		}
 
-		__try
-		{
-			Ogre::SetFrustumAspectRatio(camera, ratio);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-		}
+		Seh::Guard("SetCameraAspectRatio", [&] { Ogre::SetFrustumAspectRatio(camera, ratio); });
 
 		return 0;
 	}
@@ -243,16 +252,15 @@ namespace ExtraUtilities::Lua::Camera
 			return 1;
 		}
 
-		__try
-		{
-			lua_pushinteger(L, Ogre::GetFrustumProjectionType(camera));
-			return 1;
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		int projectionType = 0;
+		if (!Seh::Guard("GetCameraProjectionType", [&] { projectionType = Ogre::GetFrustumProjectionType(camera); }))
 		{
 			lua_pushnil(L);
 			return 1;
 		}
+
+		lua_pushinteger(L, projectionType);
+		return 1;
 	}
 
 	int SetProjectionType(lua_State* L)
@@ -269,13 +277,7 @@ namespace ExtraUtilities::Lua::Camera
 			return 0;
 		}
 
-		__try
-		{
-			Ogre::SetFrustumProjectionType(camera, projectionType);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-		}
+		Seh::Guard("SetCameraProjectionType", [&] { Ogre::SetFrustumProjectionType(camera, projectionType); });
 
 		return 0;
 	}
@@ -289,16 +291,15 @@ namespace ExtraUtilities::Lua::Camera
 			return 1;
 		}
 
-		__try
-		{
-			lua_pushinteger(L, Ogre::GetCameraPolygonMode(camera));
-			return 1;
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		int polygonMode = 0;
+		if (!Seh::Guard("GetCameraPolygonMode", [&] { polygonMode = Ogre::GetCameraPolygonMode(camera); }))
 		{
 			lua_pushnil(L);
 			return 1;
 		}
+
+		lua_pushinteger(L, polygonMode);
+		return 1;
 	}
 
 	int SetPolygonMode(lua_State* L)
@@ -315,13 +316,7 @@ namespace ExtraUtilities::Lua::Camera
 			return 0;
 		}
 
-		__try
-		{
-			Ogre::SetCameraPolygonMode(camera, polygonMode);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-		}
+		Seh::Guard("SetCameraPolygonMode", [&] { Ogre::SetCameraPolygonMode(camera, polygonMode); });
 
 		return 0;
 	}
@@ -350,7 +345,12 @@ namespace ExtraUtilities::Lua::Camera
 			return 0;
 		}
 
-		BZR::Camera::Set_View(userEntity.Read(), view);
+		BZR::tagENTITY* entity = userEntity.Read();
+		if (!RuntimeGate::IsSupported() || entity == nullptr)
+		{
+			return 0;
+		}
+		BZR::Camera::Set_View(entity, view);
 
 		return 0;
 	}

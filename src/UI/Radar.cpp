@@ -22,6 +22,8 @@
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
 #include "Util/Logging.h"
+#include "Util/EngineAddresses.generated.h"
+#include "Util/PatternMatch.h"
 
 #include <cmath>
 #include <cstdint>
@@ -166,14 +168,9 @@ namespace ExtraUtilities::Lua::Radar
 			if (!std::isfinite(requestedScale) || std::fabs(requestedScale - 1.0f) < 0.001f)
 			{
 				// At scale 1 the native layout is already aligned, so the
-				// correction is skipped. If the second-mission offset were
-				// caused by the scale global being reset under us, it would
-				// show up here as an unexpected passthrough.
-				Logging::LogMessage(
-					"[EXU::Radar] refreshLayout passthrough screenHeight=%d scale=%.4f base=%.6f",
-					screenHeight,
-					static_cast<double>(requestedScale),
-					static_cast<double>(scaledProjectionBase));
+				// correction is skipped. No logging here: one of the two
+				// patched call sites is inside CockpitRadar::Render, so this
+				// runs every frame in radar mode.
 				BZR::Radar::RefreshLayout(screenHeight);
 				return;
 			}
@@ -235,8 +232,8 @@ namespace ExtraUtilities::Lua::Radar
 		// The engine re-runs RefreshLayout when it (re)builds the cockpit HUD,
 		// which would restore the misaligned native layout, so both of its
 		// call sites are retargeted at the concentric wrapper above.
-		constexpr uintptr_t kRefreshLayoutCallSites[] = { 0x0049325F, 0x0049405B };
-		constexpr uintptr_t kRefreshLayoutEntry = 0x00492EC0;
+		constexpr uintptr_t kRefreshLayoutCallSites[] = { EngineAddresses::Radar::RefreshLayoutCallSite0, EngineAddresses::Radar::RefreshLayoutCallSite1 };
+		constexpr uintptr_t kRefreshLayoutEntry = EngineAddresses::Radar::RefreshLayout;
 
 		void InstallRefreshLayoutCallSiteHooks()
 		{
@@ -263,11 +260,9 @@ namespace ExtraUtilities::Lua::Radar
 
 			for (uintptr_t site : kRefreshLayoutCallSites)
 			{
-				const uint8_t* bytes = reinterpret_cast<const uint8_t*>(site);
-				int32_t rel = 0;
-				std::memcpy(&rel, bytes + 1, sizeof(rel));
-				const uintptr_t target = site + 5 + static_cast<uintptr_t>(rel);
-				if (bytes[0] != 0xE8 || target != kRefreshLayoutEntry)
+				uintptr_t target = 0;
+				if (!PatternMatch::TryDecodeRelativeCall(reinterpret_cast<const uint8_t*>(site), site, target) ||
+					target != kRefreshLayoutEntry)
 				{
 					// Unexpected code — leave the site alone rather than corrupt it.
 					continue;
@@ -280,14 +275,9 @@ namespace ExtraUtilities::Lua::Radar
 			}
 		}
 
-		int AbsoluteIndex(lua_State* L, int idx)
-		{
-			return idx > 0 ? idx : lua_gettop(L) + idx + 1;
-		}
-
 		BZR::Radar::EdgePathPoint CheckEdgePathPoint(lua_State* L, int idx)
 		{
-			idx = AbsoluteIndex(L, idx);
+			idx = AbsoluteStackIndex(L, idx);
 
 			BZR::Radar::EdgePathPoint point{};
 			if (lua_isuserdata(L, idx))
@@ -335,7 +325,7 @@ namespace ExtraUtilities::Lua::Radar
 
 		bool IsMissionLoaded()
 		{
-			return BZR::GameObject::user_entity_ptr != nullptr && *BZR::GameObject::user_entity_ptr != nullptr;
+			return RuntimeGate::IsSupported() && BZR::GameObject::user_entity_ptr != nullptr && *BZR::GameObject::user_entity_ptr != nullptr;
 		}
 	}
 
@@ -352,12 +342,13 @@ namespace ExtraUtilities::Lua::Radar
 
 	int SetState(lua_State* L)
 	{
-		uint8_t newState = static_cast<uint8_t>(luaL_checkinteger(L, 1));
-		if (newState != 0 && newState != 1)
+		// Range-check before narrowing: 256 would otherwise truncate to 0.
+		const lua_Integer requested = luaL_checkinteger(L, 1);
+		if (requested != 0 && requested != 1)
 		{
-			luaL_error(L, "Invalid input: options are: 0, 1");
+			return luaL_error(L, "Invalid input: options are: 0, 1");
 		}
-		state.Write(newState);
+		state.Write(static_cast<uint8_t>(requested));
 		return 0;
 	}
 
@@ -375,9 +366,9 @@ namespace ExtraUtilities::Lua::Radar
 	int SetSizeScale(lua_State* L)
 	{
 		float newScale = static_cast<float>(luaL_checknumber(L, 1));
-		if (newScale <= 0.f)
+		if (!std::isfinite(newScale) || newScale <= 0.f)
 		{
-			luaL_error(L, "Invalid input: radar size scale must be greater than 0");
+			return luaL_error(L, "Invalid input: radar size scale must be a finite number greater than 0");
 		}
 
 		if (const auto fn = ResolveRadarScaleSetBridge())
@@ -387,6 +378,11 @@ namespace ExtraUtilities::Lua::Radar
 				return luaL_error(L, "OpenShim rejected the radar size scale");
 			}
 			return 0;
+		}
+
+		if (!RuntimeGate::IsSupported())
+		{
+			return PushUnsupportedBuild(L);
 		}
 
 		// Order matters: the stock base is derived from

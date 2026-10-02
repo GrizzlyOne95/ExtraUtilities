@@ -18,15 +18,22 @@
 
 #pragma once
 
-#include "BZR.h"
+#include "bzr.h"
 #include "Scanner.h"
 
 #include <lua.hpp>
 
 namespace ExtraUtilities::Lua::PlayOption
 {
-	// This value is a packed byte of bits that serve as flags for the following options
-	inline Scanner playOption((uint8_t*)BZR::PlayOption::userProfilePtr, { BZR::PlayOption::playOptionOffset });
+	// This value is a packed byte of bits that serve as flags for the following
+	// options. It is the player's profile, and the in-mission options menu
+	// writes the same byte, so restoring the whole byte would revert the
+	// player's own changes: only the bits a script changed are put back
+	// (RestoreScriptChanges).
+	inline Scanner playOption((uint8_t*)BZR::PlayOption::userProfilePtr, { BZR::PlayOption::playOptionOffset }, BasicScanner::Restore::DISABLED);
+
+	// Puts back the play-option bits scripts changed during this Lua state.
+	void RestoreScriptChanges() noexcept;
 
 	inline Scanner difficulty(BZR::PlayOption::difficulty);
 

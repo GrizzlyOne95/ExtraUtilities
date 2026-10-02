@@ -44,8 +44,8 @@ namespace ExtraUtilities::Patch
 		}
 	}
 
-	Hook infiniteAmmoHook(BZR::Cheats::InfiniteAmmoAddr, &InfiniteAmmoCallback, 8, BasicPatch::Status::INACTIVE);
-	Hook infiniteScrapHook(BZR::Cheats::InfiniteScrapAddr, &InfiniteScrapCallback, 8, BasicPatch::Status::INACTIVE);
+	Hook infiniteAmmoHook(BZR::Cheats::InfiniteAmmoAddr, &InfiniteAmmoCallback, 8, BasicPatch::Status::INACTIVE, { 0x8B, 0x45, 0x08, 0x35, 0x33, 0x33, 0x33, 0x33 });
+	Hook infiniteScrapHook(BZR::Cheats::InfiniteScrapAddr, &InfiniteScrapCallback, 8, BasicPatch::Status::INACTIVE, { 0x8B, 0x45, 0x08, 0x35, 0x33, 0x33, 0x33, 0x33 });
 }
 
 namespace ExtraUtilities::Lua::Patches
@@ -58,9 +58,10 @@ namespace ExtraUtilities::Lua::Patches
 
 	int SetInfiniteAmmo(lua_State* L)
 	{
-		bool enable = lua_toboolean(L, 1);
+		const bool enable = lua_toboolean(L, 1);
 		Patch::infiniteAmmoHook.SetStatus(enable);
-		return 0;
+		lua_pushboolean(L, 1);
+		return 1;
 	}
 
 	int GetInfiniteScrap(lua_State* L)
@@ -71,8 +72,9 @@ namespace ExtraUtilities::Lua::Patches
 
 	int SetInfiniteScrap(lua_State* L)
 	{
-		bool enable = lua_toboolean(L, 1);
+		const bool enable = lua_toboolean(L, 1);
 		Patch::infiniteScrapHook.SetStatus(enable);
-		return 0;
+		lua_pushboolean(L, 1);
+		return 1;
 	}
 }

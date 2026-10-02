@@ -10,14 +10,14 @@ Windows/GOG, Windows/Steam, Linux/Steam via Proton, and Linux/GOG through a comp
 
 - **Camera and display** — camera modes, matrices, origins, field of view, zoom limits, clip distances, aspect ratio, projection mode, polygon mode, game resolution, UI scaling, and fullscreen state.
 - **Environment and lighting** — fog, gravity, ambient and sun lighting, time of day, shadow distance, skybox/skydome/skyplane controls, visibility masks, retro-lighting schemes, and viewport shadow or overlay toggles.
-- **Particles and debug rendering** — create and control Ogre particle systems, attach them to the camera, a game object, or a skeleton bone, tune live emitter rate/direction/velocity/lifetime/spread/colour, draw lines and boxes, toggle wireframe, show bounding boxes, and clear temporary visuals.
+- **Particles and debug rendering** — create and control Ogre particle systems, attach them to the camera, a game object, or a skeleton bone, tune live emitter rate/direction/velocity/lifetime/spread/colour, toggle wireframe, and show bounding boxes. (`DrawLine`, `DrawBox` and `ClearVisuals` are placeholders that draw nothing yet.)
 - **Materials, terrain, and entities** — inspect and replace entity or sub-entity materials, clone materials, modify textures and pass colors, control visibility and render queues, manipulate lights and animations, and re-theme the live terrain material without reloading the map.
 - **Overlays and HUD layout** — create Ogre overlays and text elements, position and style them, move or recolor stock scrap and pilot readouts, manipulate HUD sprite rectangles, and inspect the command-menu bounds.
 - **Radar, reticle, and satellite** — radar mode and scale, edge-path layout, reticle position/range/object data, satellite positions, pan speed, zoom, and state.
 - **Game objects and AI** — object pointers and handles, mass, radar and jamming values, weapon selection masks, construction-rig selection, AI process/task inspection, selected task-state writes, and Lua replacement of the selected-unit Hunt command.
 - **Gameplay hooks** — global and per-unit turbo, shot convergence, ordnance velocity inheritance, engine-flame colors, silent scrap changes, infinite ammo/scrap controls, unit-VO behavior, AI targeting and tuning, turret pitch, attack reveal, and mission-scoped hook resets.
 - **Ordnance and physics** — build ordnance, inspect ordnance attributes, adjust the ballistic coefficient, and use matrix/vector helpers including screen-to-world conversion.
-- **Multiplayer** — synchronized or asynchronous object creation, lives, scoreboard visibility, network player ID, custom kill messages, and starting-recycler control.
+- **Multiplayer** — synchronized or asynchronous object creation, lives, scoreboard visibility, network player ID, custom kill messages, and starting-recycler control. Gameplay and physics setters (turbo, infinite ammo/scrap, ordnance velocity inheritance, the ballistic coefficient) stay available in network games but apply only on the calling machine: every peer's mission script must make the same call.
 - **Input, preferences, and system utilities** — game-key state, pause-menu detection, play and sound settings, native save requests, screen resolution, Steam ID, and diagnostic message boxes.
 - **OpenShim integration** — optional runtime bridges for shared turbo, HUD, convergence, reticle-range, music, radar, and related ownership. EXU retains standalone fallbacks where supported and fails closed when an optional bridge is unavailable.
 - **Native consumers** — a small exported C API for version checks, access to the registered Lua state, and selected integration callbacks.
@@ -35,6 +35,8 @@ Install `exu.dll` through the EXU Steam Workshop item or download it from the [l
 ```lua
 local exu = require("exu")
 ```
+
+`exu.dll` needs the **Microsoft Visual C++ 2015-2022 Redistributable (x86)**, which the game itself does not install. Without it, `require("exu")` fails as if the module could not be found. Under Proton, Wine's built-in runtime is used and nothing extra is needed.
 
 Depending on the shared Workshop installation is preferred to bundling a private DLL copy with each mod. A shared installation receives fixes and avoids conflicts when multiple mods expect different EXU versions.
 
@@ -95,11 +97,15 @@ The optional `third_party/ogre-1.10.0-bzr/Build-Ogre-BZR.ps1` workflow is only f
 ## Updating for a game patch
 
 - Revalidate the addresses and signatures documented in `exu.json` against the new executable.
-- Update the corresponding declarations in `src/BZR.h` and record the verified game version.
-- Run `python tools/qualify_bzr_build.py <path-to-bzr.exe> --write-report` and review missing/ambiguous targets.
-- Regenerate/check the build profile with `python tools/generate_bzr_build_profile.py --check`.
+- Update the corresponding declarations in `src/bzr.h` and record the verified game version.
+- Run `python tools/qualify_bzr_build.py <path-to-battlezone98redux.exe> --write-report` and review missing/ambiguous targets. Qualify the GOG executable or an unpacked image: the Steam executable's code is SteamStub-encrypted on disk and every anchor reports MISS.
+- Regenerate the build profile with `python tools/generate_bzr_build_profile.py`, then confirm with `--check` and `python tools/validate_hardening.py`.
 - Build **Release|x86**, run the validation suites, and smoke-test Lua loading plus the affected feature groups in game.
-- Update the EXU version in `src/About.h`, `include/ExtraUtils.h`, and `Definitions/ExtraUtils.lua` together before tagging a release.
+- Update the EXU version in `src/About.h`, `include/ExtraUtils.h`, `Definitions/ExtraUtils.lua`, and `Resource/Resource.rc` together before tagging a release.
+
+## Diagnostics
+
+EXU writes `logs/exu.log` next to the game executable (falling back to the game folder). Failures and patch refusals always land there. Verbose per-call tracing (`exu_environment_debug.log`, `exu_material_debug.log`, and success lines for overlay setters) is off by default because several of those bindings run every frame; set `EXU_DEBUG_LOG=1` in the game's environment (Steam launch options: `EXU_DEBUG_LOG=1 %command%`) to enable it for a session.
 
 ## Workshop publication
 

@@ -25,7 +25,7 @@ Higher layers may depend on lower layers. Lower layers should not depend on Lua 
 
 Version-specific executable knowledge belongs in the address catalog and build-profile tooling:
 
-- `exu.json` is the source catalog for known BZR addresses, types, descriptions, and IDA-style signatures.
+- `exu.json` is the source catalog for known BZR addresses, types, descriptions, and IDA-style signatures. `tools/generate_engine_addresses.py` turns it into `src/Util/EngineAddresses.generated.h` (`ExtraUtilities::EngineAddresses::<Group>::<Name>`); feature code uses those names, and `tools/validate_hardening.py` rejects engine-range literals anywhere else in `src/`.
 - `profiles/` describes which catalog entries qualify a supported executable build.
 - `src/Util/BuildValidation.h` is the in-process fail-closed gate used before native patches activate.
 - `tools/qualify_bzr_build.py` is the offline/new-build qualification utility.
@@ -35,6 +35,8 @@ Do not add new raw BZR addresses or signatures inside feature code when they can
 ### Ogre runtime knowledge
 
 Ogre-specific ABI and runtime assumptions belong under `src/Ogre/` or a future dedicated runtime layer. Feature code should consume those helpers rather than duplicating Ogre offsets or signatures.
+
+**Any feature that hands Ogre a position, direction, or orientation must convert it through `src/Ogre/OgreRenderSpace.h` first.** Redux keeps simulation/Lua coordinates in one space but recentres the actual render world around a per-map origin and mirrors Z; every renderable the exe draws goes through that conversion before Ogre sees it. A feature that skips it builds without error, logs success, and is placed thousands of units outside the render world — invisible on every backend, with nothing in the log to say why. This shipped bug-for-bug in `StaticGeometry.cpp` for the feature's entire life (fixed in PR #29); the particle path (now `src/Game/ParticleRuntime.cpp`) had the conversion from the start. When adding a new Ogre-facing feature, call `OgreRenderSpace::SimPositionToRender`/`SimOrientationToRender` rather than re-deriving the transform, and add a host test in `tests/host/render_space_tests.cpp` alongside it if the new call site has its own edge cases.
 
 ### Features
 
@@ -60,14 +62,19 @@ EXU code should distinguish these lifetimes explicitly:
 
 Do not assume that module initialization, Lua initialization, mission loading, and process startup are equivalent events.
 
+Two facts about how EXU is loaded shape every lifetime above:
+
+- **`exu.dll` is reloaded per mission Lua state.** It is loaded by `require("exu")`, nothing pins it, and Lua 5.1's `loadlib` finalizer calls `FreeLibrary` when the mission state closes. Namespace-scope statics therefore live for one Lua state in practice, and static initializers run inside `DllMain` (loader lock) on every mission load. Code must not rely on the reload for cleanup: a C++ consumer that links `exu.lib` or holds the module pins it, and everything that is only reset by DLL unload then leaks into the next mission. Reset per-mission state explicitly from `HandleLuaStateClosing`/`Init`, and keep static initializers trivial (no signature scans, no file I/O).
+- **Two Lua cores.** `exu.dll` statically links its own Lua 5.1.5 (`Lua5.1-BZR/`) and runs it against the game's `lua_State`. The single shared sentinel that matters, the table `dummynode`, is reconciled by pointing EXU's copy at the executable's static (`Lua5.1-BZR/src/ltable.c`); every other sentinel comparison stays inside the copy that produced the pointer. That address is build-specific like any other and belongs under the same qualification as the address catalog.
+
 ## Supported-build workflow
 
 When a new BZR executable appears:
 
 1. Run `python tools/qualify_bzr_build.py <path-to-bzr.exe> --write-report`.
-2. Review matched, relocated, missing, and ambiguous signatures.
+2. Run it again with `--catalog` to check every `exu.json` signature, then review matched, relocated, missing, and ambiguous signatures. The Steam executable is SteamStub-packed and cannot be qualified; use the GOG executable or an unpacked image.
 3. Reverse-engineer only targets that failed qualification; never invent replacement signatures.
 4. Add or update a build profile only after the executable and critical targets have been validated.
-5. Regenerate the runtime profile header, run CI, and perform an in-game smoke test.
+5. Regenerate the runtime profile header and the engine address header, run CI, and perform an in-game smoke test.
 
 A new executable should remain unsupported until this process completes. Failing closed is preferable to applying a native patch to an unqualified build.

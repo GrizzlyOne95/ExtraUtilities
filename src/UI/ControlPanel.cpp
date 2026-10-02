@@ -22,6 +22,8 @@
 #include "Util/Logging.h"
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
+#include "Util/SehGuard.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <algorithm>
 #include <array>
@@ -33,12 +35,12 @@ namespace ExtraUtilities::Lua::ControlPanel
 {
 	namespace
 	{
-		constexpr uintptr_t kScrapPilotHudDrawHookAddress = 0x005C6FF0;
+		constexpr uintptr_t kScrapPilotHudDrawHookAddress = EngineAddresses::ControlPanel::ScrapPilotHudDrawHook;
 		constexpr size_t kScrapPilotHudDrawHookLength = 10;
-		constexpr uintptr_t kScrapLabelColorHookAddress = 0x005C712B;
-		constexpr uintptr_t kScrapValueColorHookAddress = 0x005C719B;
-		constexpr uintptr_t kPilotLabelColorHookAddress = 0x005C72F1;
-		constexpr uintptr_t kPilotValueColorHookAddress = 0x005C7361;
+		constexpr uintptr_t kScrapLabelColorHookAddress = EngineAddresses::ControlPanel::ScrapLabelColorHook;
+		constexpr uintptr_t kScrapValueColorHookAddress = EngineAddresses::ControlPanel::ScrapValueColorHook;
+		constexpr uintptr_t kPilotLabelColorHookAddress = EngineAddresses::ControlPanel::PilotLabelColorHook;
+		constexpr uintptr_t kPilotValueColorHookAddress = EngineAddresses::ControlPanel::PilotValueColorHook;
 		constexpr size_t kScrapHudTextColorHookLength = 6;
 		constexpr size_t kPilotHudTextColorHookLength = 7;
 		constexpr size_t kScrapGroupStartIndex = 0;
@@ -86,13 +88,13 @@ namespace ExtraUtilities::Lua::ControlPanel
 			Pilot = 1
 		};
 
-		inline HudPaletteSelectorFn g_hudPaletteSelector = reinterpret_cast<HudPaletteSelectorFn>(0x0047C070);
-		inline void* g_hudPaletteSelectorThis = reinterpret_cast<void*>(0x0094F4B0);
+		inline HudPaletteSelectorFn g_hudPaletteSelector = reinterpret_cast<HudPaletteSelectorFn>(EngineAddresses::ControlPanel::HudPaletteSelector);
+		inline void* g_hudPaletteSelectorThis = reinterpret_cast<void*>(EngineAddresses::ControlPanel::HudPaletteSelectorThis);
 		inline std::array<HudTextPoint, 4> g_scrapPilotHudTextPoints{ {
-			{ reinterpret_cast<int*>(0x0091829C), reinterpret_cast<int*>(0x009182A0) },
-			{ reinterpret_cast<int*>(0x0091826C), reinterpret_cast<int*>(0x00918270) },
-			{ reinterpret_cast<int*>(0x00918280), reinterpret_cast<int*>(0x00918284) },
-			{ reinterpret_cast<int*>(0x00918278), reinterpret_cast<int*>(0x0091827C) }
+			{ reinterpret_cast<int*>(EngineAddresses::ControlPanel::scrapLabelX), reinterpret_cast<int*>(EngineAddresses::ControlPanel::scrapLabelY) },
+			{ reinterpret_cast<int*>(EngineAddresses::ControlPanel::scrapValueX), reinterpret_cast<int*>(EngineAddresses::ControlPanel::scrapValueY) },
+			{ reinterpret_cast<int*>(EngineAddresses::ControlPanel::pilotLabelX), reinterpret_cast<int*>(EngineAddresses::ControlPanel::pilotLabelY) },
+			{ reinterpret_cast<int*>(EngineAddresses::ControlPanel::pilotValueX), reinterpret_cast<int*>(EngineAddresses::ControlPanel::pilotValueY) }
 		} };
 		inline std::array<int, 8> g_scrapPilotHudBaseline{};
 		inline std::array<int, 8> g_scrapPilotHudOriginalBaseline{};
@@ -143,6 +145,12 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		void CaptureScrapPilotHudBaseline() noexcept
 		{
+			if (!RuntimeGate::IsSupported())
+			{
+				g_scrapPilotHudBaselineValid = false;
+				return;
+			}
+
 			size_t baselineIndex = 0;
 			for (const HudTextPoint& point : g_scrapPilotHudTextPoints)
 			{
@@ -243,6 +251,11 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		void ApplyScrapPilotHudOffset() noexcept
 		{
+			if (!RuntimeGate::IsSupported())
+			{
+				return;
+			}
+
 			if (!ScrapPilotHudMatchesExpectedLayout())
 			{
 				CaptureScrapPilotHudBaseline();
@@ -385,141 +398,60 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 		OpenShimGetHudSpriteRectFn ResolveHudSpriteGetRectBridge()
 		{
-			static OpenShimGetHudSpriteRectFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimGetHudSpriteRectFn>(
-				"OpenShimGetHudSpriteRect");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::ControlPanel] OpenShim HUD sprite get-rect bridge unavailable");
-			}
-
-			return fn;
+			static constinit OpenShimBridge::CachedExport<OpenShimGetHudSpriteRectFn> bridge{
+				"OpenShimGetHudSpriteRect",
+				"[EXU::ControlPanel] OpenShim HUD sprite get-rect bridge unavailable" };
+			return bridge.Get();
 		}
 
 		OpenShimSetHudSpriteRectFn ResolveHudSpriteRectBridge()
 		{
-			static OpenShimSetHudSpriteRectFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimSetHudSpriteRectFn>(
-				"OpenShimSetHudSpriteRect");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::ControlPanel] OpenShim HUD sprite rect bridge unavailable");
-			}
-
-			return fn;
+			static constinit OpenShimBridge::CachedExport<OpenShimSetHudSpriteRectFn> bridge{
+				"OpenShimSetHudSpriteRect",
+				"[EXU::ControlPanel] OpenShim HUD sprite rect bridge unavailable" };
+			return bridge.Get();
 		}
 
 		OpenShimSetHudSpriteVisibleFn ResolveHudSpriteVisibleBridge()
 		{
-			static OpenShimSetHudSpriteVisibleFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimSetHudSpriteVisibleFn>(
-				"OpenShimSetHudSpriteVisible");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::ControlPanel] OpenShim HUD sprite visibility bridge unavailable");
-			}
-
-			return fn;
+			static constinit OpenShimBridge::CachedExport<OpenShimSetHudSpriteVisibleFn> bridge{
+				"OpenShimSetHudSpriteVisible",
+				"[EXU::ControlPanel] OpenShim HUD sprite visibility bridge unavailable" };
+			return bridge.Get();
 		}
 
 		OpenShimRestoreHudSpriteFn ResolveRestoreHudSpriteBridge()
 		{
-			static OpenShimRestoreHudSpriteFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimRestoreHudSpriteFn>(
-				"OpenShimRestoreHudSprite");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::ControlPanel] OpenShim HUD sprite restore bridge unavailable");
-			}
-
-			return fn;
+			static constinit OpenShimBridge::CachedExport<OpenShimRestoreHudSpriteFn> bridge{
+				"OpenShimRestoreHudSprite",
+				"[EXU::ControlPanel] OpenShim HUD sprite restore bridge unavailable" };
+			return bridge.Get();
 		}
 
 		OpenShimRestoreAllHudSpritesFn ResolveRestoreAllHudSpritesBridge()
 		{
-			static OpenShimRestoreAllHudSpritesFn fn = nullptr;
-			static bool attempted = false;
-			static bool loggedMissing = false;
-			if (attempted)
-			{
-				return fn;
-			}
-
-			attempted = true;
-			fn = OpenShimBridge::Resolve<OpenShimRestoreAllHudSpritesFn>(
-				"OpenShimRestoreAllHudSprites");
-
-			if (!fn && !loggedMissing)
-			{
-				loggedMissing = true;
-				Logging::LogMessage("[EXU::ControlPanel] OpenShim HUD sprite restore-all bridge unavailable");
-			}
-
-			return fn;
+			static constinit OpenShimBridge::CachedExport<OpenShimRestoreAllHudSpritesFn> bridge{
+				"OpenShimRestoreAllHudSprites",
+				"[EXU::ControlPanel] OpenShim HUD sprite restore-all bridge unavailable" };
+			return bridge.Get();
 		}
 
 		OpenShimGetScrapPilotHudTopLeftsFn ResolveScrapPilotHudGetBridge()
 		{
-			static const auto fn =
-				OpenShimBridge::Resolve<OpenShimGetScrapPilotHudTopLeftsFn>(
-					"OpenShimGetScrapPilotHudTopLefts");
-			return fn;
+			static constinit OpenShimBridge::CachedExport<OpenShimGetScrapPilotHudTopLeftsFn> bridge{ "OpenShimGetScrapPilotHudTopLefts" };
+			return bridge.Get();
 		}
 
 		OpenShimSetScrapPilotHudTopLeftsFn ResolveScrapPilotHudSetBridge()
 		{
-			static const auto fn =
-				OpenShimBridge::Resolve<OpenShimSetScrapPilotHudTopLeftsFn>(
-					"OpenShimSetScrapPilotHudTopLefts");
-			return fn;
+			static constinit OpenShimBridge::CachedExport<OpenShimSetScrapPilotHudTopLeftsFn> bridge{ "OpenShimSetScrapPilotHudTopLefts" };
+			return bridge.Get();
 		}
 
 		OpenShimRestoreScrapPilotHudStockFn ResolveScrapPilotHudRestoreBridge()
 		{
-			static const auto fn =
-				OpenShimBridge::Resolve<OpenShimRestoreScrapPilotHudStockFn>(
-					"OpenShimRestoreScrapPilotHudStock");
-			return fn;
+			static constinit OpenShimBridge::CachedExport<OpenShimRestoreScrapPilotHudStockFn> bridge{ "OpenShimRestoreScrapPilotHudStock" };
+			return bridge.Get();
 		}
 
 		bool IsReasonableCommandMenuRect(const CommandMenuRect& rect) noexcept
@@ -592,7 +524,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 				return (rects[kCommandMenuButtonCount - 1].bottom - first.top) >= 200;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 			}
 
@@ -635,7 +567,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 			}
 
@@ -754,7 +686,7 @@ namespace ExtraUtilities::Lua::ControlPanel
 
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 			}
 
@@ -829,41 +761,71 @@ namespace ExtraUtilities::Lua::ControlPanel
 			}
 		}
 
-		BasicPatch::Status ScrapPilotColorHookInitialStatus()
+		// The colour hooks start off; ApplyHudColorOwnership turns them on
+		// from Init when OpenShim does not own HUD text colour. Deciding in the
+		// static initializer called into winmm.dll under the loader lock and
+		// froze the answer for the life of the DLL.
+		constexpr BasicPatch::Status ScrapPilotColorHookInitialStatus()
 		{
-			// OpenShim owns the persistent stock/legacy HUD policy. Its legacy
-			// implementation patches these same color-load instructions directly;
-			// installing EXU's white-default hooks afterward masks those colors.
-			return OpenShimBridge::HasExport("OpenShimRestoreScrapPilotHudStock")
-				? BasicPatch::Status::INACTIVE
-				: BasicPatch::Status::ACTIVE;
+			return BasicPatch::Status::INACTIVE;
 		}
 
 		inline Hook g_scrapPilotHudDrawHook(
 			kScrapPilotHudDrawHookAddress,
 			&ScrapPilotHudDrawHook,
 			kScrapPilotHudDrawHookLength,
-			BasicPatch::Status::ACTIVE);
+			BasicPatch::Status::ACTIVE,
+			{ 0xB9, 0xB0, 0xF4, 0x94, 0x00, 0xE8, 0x76, 0x50, 0xEB, 0xFF });
 		inline Hook g_scrapLabelColorHook(
 			kScrapLabelColorHookAddress,
 			&ScrapLabelColorHook,
 			kScrapHudTextColorHookLength,
-			ScrapPilotColorHookInitialStatus());
+			ScrapPilotColorHookInitialStatus(),
+			{ 0xA1, 0x5C, 0x75, 0x91, 0x00, 0x50 });
 		inline Hook g_scrapValueColorHook(
 			kScrapValueColorHookAddress,
 			&ScrapValueColorHook,
 			kPilotHudTextColorHookLength,
-			ScrapPilotColorHookInitialStatus());
+			ScrapPilotColorHookInitialStatus(),
+			{ 0x8B, 0x15, 0x5C, 0x75, 0x91, 0x00, 0x52 });
 		inline Hook g_pilotLabelColorHook(
 			kPilotLabelColorHookAddress,
 			&PilotLabelColorHook,
 			kPilotHudTextColorHookLength,
-			ScrapPilotColorHookInitialStatus());
+			ScrapPilotColorHookInitialStatus(),
+			{ 0x8B, 0x15, 0x5C, 0x75, 0x91, 0x00, 0x52 });
 		inline Hook g_pilotValueColorHook(
 			kPilotValueColorHookAddress,
 			&PilotValueColorHook,
 			kPilotHudTextColorHookLength,
-			ScrapPilotColorHookInitialStatus());
+			ScrapPilotColorHookInitialStatus(),
+			{ 0x8B, 0x0D, 0x5C, 0x75, 0x91, 0x00, 0x51 });
+	}
+
+	bool ApplyHudColorOwnership()
+	{
+		// OpenShim owns the persistent stock/legacy HUD policy. Its legacy
+		// implementation patches these same color-load instructions directly;
+		// installing EXU's white-default hooks afterward masks those colors.
+		const bool openShimOwns = OpenShimBridge::HasExport("OpenShimRestoreScrapPilotHudStock");
+		for (Hook* hook : { &g_scrapLabelColorHook, &g_scrapValueColorHook, &g_pilotLabelColorHook, &g_pilotValueColorHook })
+		{
+			hook->SetStatus(!openShimOwns);
+		}
+		return openShimOwns;
+	}
+
+	void ResetMissionState() noexcept
+	{
+		const bool moved =
+			g_scrapPilotHudOffsetX[0] != 0 || g_scrapPilotHudOffsetX[1] != 0 ||
+			g_scrapPilotHudOffsetY[0] != 0 || g_scrapPilotHudOffsetY[1] != 0;
+		if (moved)
+		{
+			RestoreScrapPilotHudOriginalBaseline();
+		}
+		g_scrapHudColor = kDefaultHudTextColor;
+		g_pilotHudColor = kDefaultHudTextColor;
 	}
 
 	bool TryGetScrapPilotHudTopLefts(int& scrapLeft, int& scrapTop, int& pilotLeft, int& pilotTop) noexcept
@@ -1270,13 +1232,19 @@ namespace ExtraUtilities::Lua::ControlPanel
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-		BZR::ControlPanel::SelectAdd(controlPanel, obj);
+		if (obj != nullptr)
+		{
+			BZR::ControlPanel::SelectAdd(controlPanel, obj);
+		}
 		return 0;
 	}
 
 	int SelectNone(lua_State*)
 	{
-		BZR::ControlPanel::SelectNone(controlPanel);
+		if (RuntimeGate::IsSupported())
+		{
+			BZR::ControlPanel::SelectNone(controlPanel);
+		}
 		return 0;
 	}
 
@@ -1284,7 +1252,10 @@ namespace ExtraUtilities::Lua::ControlPanel
 	{
 		BZR::handle h = CheckHandle(L, 1);
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
-		BZR::ControlPanel::SelectOne(controlPanel, obj);
+		if (obj != nullptr)
+		{
+			BZR::ControlPanel::SelectOne(controlPanel, obj);
+		}
 		return 0;
 	}
 }

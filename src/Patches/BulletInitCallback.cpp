@@ -16,71 +16,102 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "BulletInitCallback.h"
 
-#include "BZR.h"
+#include "bzr.h"
 #include "Hook.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
+#include "LuaCppBarrier.h"
+#include "Util/EngineAddresses.generated.h"
 
 namespace ExtraUtilities::Patch
 {
+	namespace
+	{
+		struct BulletInitArgs
+		{
+			const char* odf;
+			BZR::GameObject* shooter;
+			BZR::MAT_3D* transform;
+			BZR::Ordnance* ordnance;
+		};
+
+		// Runs under lua_cpcall; see BulletHitCallback.cpp.
+		int ProtectedBulletInit(lua_State* L)
+		{
+			const auto* args = static_cast<const BulletInitArgs*>(lua_touserdata(L, 1));
+			lua_settop(L, 0);
+
+			lua_getglobal(L, "exu");
+			if (!lua_istable(L, -1))
+			{
+				return 0;
+			}
+			lua_getfield(L, -1, "BulletInit");
+			if (!lua_isfunction(L, -1))
+			{
+				return 0;
+			}
+
+			// odf is the engine's char[16] ODF name. Strip a trailing ".odf" only
+			// when it is present; never underflow on a short name.
+			size_t odfLength = strnlen(args->odf, 16);
+			if (odfLength >= 4 && _strnicmp(args->odf + odfLength - 4, ".odf", 4) == 0)
+			{
+				odfLength -= 4;
+			}
+			lua_pushlstring(L, args->odf, odfLength);
+
+			if (args->shooter == nullptr)
+			{
+				lua_pushnil(L);
+			}
+			else
+			{
+				lua_pushlightuserdata(L, reinterpret_cast<void*>(BZR::GameObject::GetHandle(args->shooter)));
+			}
+
+			if (args->transform == nullptr)
+			{
+				lua_pushnil(L);
+			}
+			else
+			{
+				Lua::PushMatrix(L, *args->transform);
+			}
+
+			if (args->ordnance == nullptr)
+			{
+				lua_pushnil(L);
+			}
+			else
+			{
+				lua_pushlightuserdata(L, reinterpret_cast<void*>(args->ordnance));
+			}
+
+			lua_call(L, 4, 0);
+			return 0;
+		}
+	}
+
 	static void __cdecl LuaCallback(const char* odf,
 									BZR::GameObject* shooter,
 									BZR::MAT_3D* transform,
 									BZR::Ordnance* ordnanceHandle)
 	{
 		lua_State* L = Lua::state;
-		StackGuard guard(L);
-
-		lua_getglobal(L, "exu");
-		lua_getfield(L, -1, "BulletInit");
-
-		if (!lua_isfunction(L, -1))
+		if (L == nullptr || odf == nullptr)
 		{
 			return;
 		}
 
-		int len = strlen(odf);
-		char formattedODF[16]; // this should be enough room given the 8 char limit
-
-		strncpy(formattedODF, odf, len - 4); // strip the ".odf" from the name
-
-		lua_pushlstring(L, formattedODF, len - 4); // First param
-
-		// Second param
-		if (shooter == nullptr)
+		StackGuard guard(L);
+		BulletInitArgs args{ odf, shooter, transform, ordnanceHandle };
+		const int status = lua_cpcall(L, &Lua::CppBarrier<&ProtectedBulletInit>, &args);
+		if (status != 0)
 		{
-			lua_pushnil(L);
+			LuaCheckStatus(status, L, "Extra Utilities BulletInit error:\n%s");
 		}
-		else
-		{
-			lua_pushlightuserdata(L, reinterpret_cast<void*>(BZR::GameObject::GetHandle(shooter)));
-		}
-
-		// Third param
-		if (transform == nullptr)
-		{
-			lua_pushnil(L);
-		}
-		else
-		{
-			Lua::PushMatrix(L, *transform);
-
-		}
-
-		// Fourth param
-		if (ordnanceHandle == nullptr)
-		{
-			lua_pushnil(L);
-		}
-		else
-		{
-			lua_pushlightuserdata(L, reinterpret_cast<void*>(ordnanceHandle));
-		}
-		
-		int status = lua_pcall(L, 4, 0, 0);
-		LuaCheckStatus(status, L, "Extra Utilities BulletInit error:\n%s");
 	}
 
 	static void __declspec(naked) BulletInitCallback()
@@ -125,5 +156,5 @@ namespace ExtraUtilities::Patch
 			ret
 		}
 	}
-	Hook bulletInitCallback(0x00480363, &BulletInitCallback, 6, BasicPatch::Status::ACTIVE);
+	Hook bulletInitCallback(EngineAddresses::Callbacks::BulletInitHook, &BulletInitCallback, 6, BasicPatch::Status::ACTIVE, { 0x8B, 0x55, 0xE0, 0x8B, 0x42, 0x14 });
 }

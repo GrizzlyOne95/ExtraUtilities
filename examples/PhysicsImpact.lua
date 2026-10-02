@@ -170,13 +170,9 @@ function exu.BulletHit(odf, shooter, hitObject, transform, ordnanceHandle)
             local spawnPos = shotPos + (normal * 0.2)
             local bounceMat = BuildDirectionalMatrix(spawnPos, reflected)
             
-            local newOrd = exu.BuildOrdnance(odf, bounceMat, shooter)
-            
-            -- Apply Strength (Velocity multiplier)
-            if bConfig.strength ~= 1.0 and newOrd then
-                local currentVel = exu.GetOrdnanceAttribute(newOrd, exu.ORDNANCE.VELOCITY)
-                exu.SetOrdnanceVelocity(newOrd, currentVel * bConfig.strength)
-            end
+            -- bConfig.strength is not applied: EXU can read an ordnance's
+            -- velocity (exu.ORDNANCE.VELOCITY) but exposes no setter for it.
+            exu.BuildOrdnance(odf, bounceMat, shooter)
         end
     end
 

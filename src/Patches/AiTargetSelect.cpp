@@ -29,10 +29,15 @@
 
 #include "AiTargetSelect.h"
 
-#include "BZR.h"
+#include "bzr.h"
+#include "Game/GameObjectHandle.h"
+#include "Util/MsvcRtti.h"
+#include "InlinePatch.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
 #include "Util/Logging.h"
+#include "Util/SehGuard.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <Windows.h>
 
@@ -43,6 +48,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iterator>
+#include <memory>
 
 namespace ExtraUtilities::Patch::AiTargetSelect
 {
@@ -53,13 +59,13 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 
 		// Validated 2026-07-12 against GOG battlezone98redux.exe (image base 0x400000).
 		constexpr uintptr_t kSlotByteOffset = 0xE4; // vtable slot 57
-		constexpr uintptr_t kSharedImplAddr = 0x00583500; // OffensiveProcess::ChooseAttackTarget
-		constexpr uintptr_t kScoutImplAddr  = 0x00614020; // ScoutProcess::ChooseAttackTarget
+		constexpr uintptr_t kSharedImplAddr = EngineAddresses::AiTargetSelect::OffensiveProcess_ChooseAttackTarget; // OffensiveProcess::ChooseAttackTarget
+		constexpr uintptr_t kScoutImplAddr  = EngineAddresses::AiTargetSelect::ScoutProcess_ChooseAttackTarget; // ScoutProcess::ChooseAttackTarget
 
 		// Offset of the searching GameObject inside the process, taken from the
 		// verified disassembly of both implementations (mov edx,[ecx+0x34]).
 		constexpr uintptr_t kProcessOwnerOffset = 0x34;
-		constexpr uintptr_t kVectorMagnitudeAddr = 0x00462070;
+		constexpr uintptr_t kVectorMagnitudeAddr = EngineAddresses::AiTargetSelect::VectorMagnitude;
 
 		// These are the six distance evaluations inside the two stock target
 		// searches. Replacing only their call destinations lets us adjust the
@@ -69,13 +75,14 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 		{
 			uintptr_t callSite;
 			uint8_t lane;
-			std::array<uint8_t, 5> original = {};
-			bool patched = false;
+			// Retargets the call's rel32 operand; created once the site is
+			// verified to call kVectorMagnitudeAddr.
+			std::unique_ptr<InlinePatch> patch;
 		};
 
 		ScoreCallPatch g_scoreCalls[] = {
-			{ 0x004634A5, 0 }, { 0x00463593, 1 }, { 0x00463670, 2 },
-			{ 0x00463A46, 0 }, { 0x00463B34, 1 }, { 0x00463C11, 2 },
+			{ EngineAddresses::AiTargetSelect::ScoreCall0, 0 }, { EngineAddresses::AiTargetSelect::ScoreCall1, 1 }, { EngineAddresses::AiTargetSelect::ScoreCall2, 2 },
+			{ EngineAddresses::AiTargetSelect::ScoreCall3, 0 }, { EngineAddresses::AiTargetSelect::ScoreCall4, 1 }, { EngineAddresses::AiTargetSelect::ScoreCall5, 2 },
 		};
 
 		BZR::GameObject* __fastcall HookShared(void* process, void* edx, float* rangeLimit);
@@ -87,27 +94,25 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 			uintptr_t vftableVa;
 			uintptr_t expectedImpl;
 			void* hookFn;
-			uintptr_t original;
-			bool patched;
+			// Writes hookFn into the slot; created once RTTI and the current
+			// implementation are verified.
+			std::unique_ptr<InlinePatch> patch;
 		};
 
 		SlotPatch g_slots[] = {
-			{ ".?AVWingmanProcess@@",    0x0088A6EC, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), 0, false },
-			{ ".?AVRocketTankProcess@@", 0x0088A5C0, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), 0, false },
-			{ ".?AVTankProcess@@",       0x0088AB9C, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), 0, false },
-			{ ".?AVBomberProcess@@",     0x0088B178, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), 0, false },
-			{ ".?AVScoutProcess@@",      0x0088AF98, kScoutImplAddr,  reinterpret_cast<void*>(&HookScout),  0, false },
+			{ ".?AVWingmanProcess@@",    EngineAddresses::AiTargetSelect::WingmanProcess_vftable, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
+			{ ".?AVRocketTankProcess@@", EngineAddresses::AiTargetSelect::RocketTankProcess_vftable, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
+			{ ".?AVTankProcess@@",       EngineAddresses::AiTargetSelect::TankProcess_vftable, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
+			{ ".?AVBomberProcess@@",     EngineAddresses::AiTargetSelect::BomberProcess_vftable, kSharedImplAddr, reinterpret_cast<void*>(&HookShared), nullptr },
+			{ ".?AVScoutProcess@@",      EngineAddresses::AiTargetSelect::ScoutProcess_vftable, kScoutImplAddr,  reinterpret_cast<void*>(&HookScout),  nullptr },
 		};
 
-		bool g_installAttempted = false;
-		bool g_installSucceeded = false;
 		bool g_inCallback = false;
-		bool g_scoreInstallAttempted = false;
-		bool g_scoreInstallSucceeded = false;
 		bool g_inScoreCallback = false;
 		int g_scoreSearchDepth = 0;
 
-		bool TryGetHandleForObject(BZR::GameObject* object, BZR::handle* outHandle);
+		using Lua::GameObject::Detail::TryGetHandleFromObject;
+		using Lua::GameObject::Detail::TryResolveHandleValue;
 
 		float DispatchScore(const float* vector,
 		                    BZR::GameObject* owner,
@@ -140,8 +145,8 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 
 			BZR::handle ownerHandle = 0;
 			BZR::handle candidateHandle = 0;
-			if (!TryGetHandleForObject(owner, &ownerHandle) ||
-				!TryGetHandleForObject(candidate, &candidateHandle))
+			if (!TryGetHandleFromObject(owner, ownerHandle) ||
+				!TryGetHandleFromObject(candidate, candidateHandle))
 			{
 				return baseDistanceSq;
 			}
@@ -255,102 +260,110 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 			}
 		}
 
-		bool WriteRelativeCall(ScoreCallPatch& patch, void* destination)
+		std::array<uint8_t, 4> ToBytes(uint32_t value)
 		{
-			auto* site = reinterpret_cast<uint8_t*>(patch.callSite);
+			std::array<uint8_t, 4> bytes{};
+			std::memcpy(bytes.data(), &value, sizeof(value));
+			return bytes;
+		}
+
+		// Reads the rel32 operand of an E8 call; plain data only, so it can sit
+		// in an SEH frame.
+		bool TryReadRelativeCall(uintptr_t callSite, int32_t& outRelative) noexcept
+		{
+			const auto* site = reinterpret_cast<const uint8_t*>(callSite);
 			__try
 			{
 				if (site[0] != 0xE8)
 				{
 					return false;
 				}
-				int32_t existingRel = 0;
-				std::memcpy(&existingRel, site + 1, sizeof(existingRel));
-				const uintptr_t existingTarget = patch.callSite + 5 + existingRel;
-				if (existingTarget != kVectorMagnitudeAddr)
-				{
-					return false;
-				}
-				std::memcpy(patch.original.data(), site, patch.original.size());
+				std::memcpy(&outRelative, site + 1, sizeof(outRelative));
+				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return false;
+			}
+		}
+
+		// Creates the rel32 retarget for one score call after checking the
+		// site still calls the engine's vector magnitude.
+		bool PrepareScoreCallPatch(ScoreCallPatch& call)
+		{
+			if (call.patch != nullptr)
+			{
+				return true;
+			}
+
+			int32_t existingRel = 0;
+			if (!TryReadRelativeCall(call.callSite, existingRel) ||
+				call.callSite + 5 + existingRel != kVectorMagnitudeAddr)
 			{
 				return false;
 			}
 
-			const intptr_t displacement = reinterpret_cast<uintptr_t>(destination) - (patch.callSite + 5);
+			const intptr_t displacement =
+				reinterpret_cast<uintptr_t>(ScoreStubForLane(call.lane)) - (call.callSite + 5);
 			if (displacement < INT32_MIN || displacement > INT32_MAX)
 			{
 				return false;
 			}
-			const int32_t relative = static_cast<int32_t>(displacement);
-			DWORD oldProtect = 0;
-			if (!VirtualProtect(site, patch.original.size(), PAGE_EXECUTE_READWRITE, &oldProtect))
-			{
-				return false;
-			}
-			std::memcpy(site + 1, &relative, sizeof(relative));
-			FlushInstructionCache(GetCurrentProcess(), site, patch.original.size());
-			DWORD restored = 0;
-			VirtualProtect(site, patch.original.size(), oldProtect, &restored);
-			patch.patched = true;
-			return true;
-		}
 
-		void RestoreScoreCalls()
-		{
-			for (ScoreCallPatch& patch : g_scoreCalls)
-			{
-				if (!patch.patched)
-				{
-					continue;
-				}
-				auto* site = reinterpret_cast<uint8_t*>(patch.callSite);
-				DWORD oldProtect = 0;
-				if (VirtualProtect(site, patch.original.size(), PAGE_EXECUTE_READWRITE, &oldProtect))
-				{
-					std::memcpy(site, patch.original.data(), patch.original.size());
-					FlushInstructionCache(GetCurrentProcess(), site, patch.original.size());
-					DWORD restored = 0;
-					VirtualProtect(site, patch.original.size(), oldProtect, &restored);
-				}
-				patch.patched = false;
-			}
+			const auto expected = ToBytes(static_cast<uint32_t>(existingRel));
+			call.patch = std::make_unique<InlinePatch>(
+				call.callSite + 1,
+				static_cast<int32_t>(displacement),
+				BasicPatch::Status::INACTIVE,
+				std::vector<uint8_t>(expected.begin(), expected.end()));
+			return true;
 		}
 
 		bool InstallScoreCalls()
 		{
-			if (g_scoreInstallAttempted)
+			if (!RuntimeGate::IsSupported())
 			{
-				return g_scoreInstallSucceeded;
+				return false;
 			}
-			g_scoreInstallAttempted = true;
+
 			int installed = 0;
-			for (ScoreCallPatch& patch : g_scoreCalls)
+			for (ScoreCallPatch& call : g_scoreCalls)
 			{
-				if (WriteRelativeCall(patch, ScoreStubForLane(patch.lane)))
+				if (!PrepareScoreCallPatch(call))
 				{
-					++installed;
-				}
-				else
-				{
-					RestoreScoreCalls();
 					break;
 				}
+				call.patch->SetStatus(true);
+				if (!call.patch->IsActive())
+				{
+					break;
+				}
+				++installed;
 			}
-			g_scoreInstallSucceeded = installed == static_cast<int>(std::size(g_scoreCalls));
+
+			const bool succeeded = installed == static_cast<int>(std::size(g_scoreCalls));
+			if (!succeeded)
+			{
+				// All six evaluations must agree on the metric, or none.
+				for (ScoreCallPatch& call : g_scoreCalls)
+				{
+					if (call.patch != nullptr)
+					{
+						call.patch->SetStatus(false);
+					}
+				}
+			}
 			Logging::LogMessage("[EXU::AiTargetSelect] installed %d/%d native candidate-score call hooks",
-				installed, static_cast<int>(std::size(g_scoreCalls)));
-			return g_scoreInstallSucceeded;
+				succeeded ? installed : 0, static_cast<int>(std::size(g_scoreCalls)));
+			return succeeded;
 		}
 
 		bool TryReadRttiName(uintptr_t vftableVa, char* buffer, size_t bufferLen)
 		{
 			__try
 			{
-				const uintptr_t col = *reinterpret_cast<const uintptr_t*>(vftableVa - 4);
-				const uintptr_t typeDescriptor = *reinterpret_cast<const uintptr_t*>(col + 0x0C);
-				const char* name = reinterpret_cast<const char*>(typeDescriptor + 8);
+				const auto* vftable = reinterpret_cast<const MsvcRtti::CompleteObjectLocator* const*>(vftableVa);
+				const char* name = vftable[-1]->pTypeDescriptor->name;
 				for (size_t i = 0; i + 1 < bufferLen; ++i)
 				{
 					buffer[i] = name[i];
@@ -362,7 +375,7 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 				buffer[bufferLen - 1] = '\0';
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return false;
 			}
@@ -375,23 +388,10 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 				outValue = *reinterpret_cast<const uintptr_t*>(slotVa);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return false;
 			}
-		}
-
-		bool WriteSlot(uintptr_t slotVa, uintptr_t value)
-		{
-			DWORD oldProtect = 0;
-			if (!VirtualProtect(reinterpret_cast<void*>(slotVa), sizeof(uintptr_t), PAGE_READWRITE, &oldProtect))
-			{
-				return false;
-			}
-			*reinterpret_cast<uintptr_t*>(slotVa) = value;
-			DWORD restored = 0;
-			VirtualProtect(reinterpret_cast<void*>(slotVa), sizeof(uintptr_t), oldProtect, &restored);
-			return true;
 		}
 
 		bool TryGetProcessOwner(void* process, BZR::GameObject** outOwner)
@@ -402,50 +402,13 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 					reinterpret_cast<uint8_t*>(process) + kProcessOwnerOffset);
 				return true;
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return false;
 			}
 		}
 
-		bool TryGetHandleForObject(BZR::GameObject* object, BZR::handle* outHandle)
-		{
-			__try
-			{
-				*outHandle = BZR::GameObject::GetHandle(object);
-				return *outHandle != 0;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				return false;
-			}
-		}
-
-		// A handle returned from Lua is only accepted when the object it maps to
-		// round-trips back to the same handle; anything else is ignored.
-		bool TryResolveHandle(BZR::handle h, BZR::GameObject** outObject)
-		{
-			__try
-			{
-				BZR::GameObject* object = BZR::GameObject::GetObj(h);
-				if (object == nullptr)
-				{
-					return false;
-				}
-				if (BZR::GameObject::GetHandle(object) != h)
-				{
-					return false;
-				}
-				*outObject = object;
-				return true;
-			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
-			{
-				return false;
-			}
-		}
-
-		bool TryGetHorizontalDistanceSq(BZR::GameObject* first,
+		bool TryGetHorizontalDistanceSqSeh(BZR::GameObject* first,
 		                                BZR::GameObject* second,
 		                                float& outDistanceSq)
 		{
@@ -465,10 +428,17 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 				outDistanceSq = (dx * dx) + (dz * dz);
 				return std::isfinite(outDistanceSq);
 			}
-			__except (EXCEPTION_EXECUTE_HANDLER)
+			__except (Seh::Filter(GetExceptionCode()))
 			{
 				return false;
 			}
+		}
+
+		bool TryGetHorizontalDistanceSq(BZR::GameObject* first,
+		                                BZR::GameObject* second,
+		                                float& outDistanceSq)
+		{
+			return Seh::CatchCpp("TryGetHorizontalDistanceSq", [&] { return TryGetHorizontalDistanceSqSeh(first, second, outDistanceSq); }, false);
 		}
 
 		BZR::GameObject* Dispatch(void* process, float* rangeLimit, ChooseAttackTargetFn original)
@@ -509,13 +479,13 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 			BZR::GameObject* owner = nullptr;
 			BZR::handle ownerHandle = 0;
 			if (!TryGetProcessOwner(process, &owner) || owner == nullptr ||
-				!TryGetHandleForObject(owner, &ownerHandle))
+				!TryGetHandleFromObject(owner, ownerHandle))
 			{
 				return candidate;
 			}
 
 			BZR::handle candidateHandle = 0;
-			if (candidate != nullptr && !TryGetHandleForObject(candidate, &candidateHandle))
+			if (candidate != nullptr && !TryGetHandleFromObject(candidate, candidateHandle))
 			{
 				return candidate;
 			}
@@ -569,8 +539,11 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 			{
 				const BZR::handle overrideHandle =
 					reinterpret_cast<BZR::handle>(lua_touserdata(L, -1));
+				// Only a handle whose object round-trips back to the same
+				// handle is accepted; anything else is ignored.
+				BZR::handle resolvedHandle = 0;
 				BZR::GameObject* overrideObject = nullptr;
-				if (overrideHandle != 0 && TryResolveHandle(overrideHandle, &overrideObject))
+				if (TryResolveHandleValue(overrideHandle, resolvedHandle, overrideObject))
 				{
 					result = overrideObject;
 				}
@@ -599,101 +572,78 @@ namespace ExtraUtilities::Patch::AiTargetSelect
 	{
 		dispatchEnabled = false;
 		scoreDispatchEnabled = false;
-		RestoreScoreCalls();
+		for (ScoreCallPatch& call : g_scoreCalls)
+		{
+			if (call.patch != nullptr)
+			{
+				call.patch->SetStatus(false);
+			}
+		}
 		for (SlotPatch& slot : g_slots)
 		{
-			if (!slot.patched || slot.original == 0)
+			if (slot.patch != nullptr)
 			{
-				continue;
+				slot.patch->SetStatus(false);
 			}
-			const uintptr_t slotVa = slot.vftableVa + kSlotByteOffset;
-			uintptr_t current = 0;
-			if (TryReadSlot(slotVa, current) &&
-				current == reinterpret_cast<uintptr_t>(slot.hookFn))
-			{
-				WriteSlot(slotVa, slot.original);
-			}
-			slot.patched = false;
 		}
-		g_installAttempted = false;
-		g_installSucceeded = false;
-		g_scoreInstallAttempted = false;
-		g_scoreInstallSucceeded = false;
 	}
 
-	namespace
-	{
-		// Static-destruction guard: FreeLibrary runs static dtors, restoring
-		// the game vtables before the module's code pages disappear.
-		struct SlotRestoreGuard
-		{
-			~SlotRestoreGuard() { Uninstall(); }
-		};
-		SlotRestoreGuard g_slotRestoreGuard;
-	}
-
+	// The patches are ordinary BasicPatch objects: build-gated, unloaded with
+	// every other patch when the Lua state closes, reset to off by the mission
+	// reset, and never restored over another module's later patch. They are
+	// created on first use, after RTTI and the current slot value are checked.
 	bool Install()
 	{
-		if (g_installAttempted)
+		if (!RuntimeGate::IsSupported())
 		{
-			return g_installSucceeded;
+			return false;
 		}
-		g_installAttempted = true;
 
 		int patchedCount = 0;
 		for (SlotPatch& slot : g_slots)
 		{
-			char rttiName[64] = {};
-			if (!TryReadRttiName(slot.vftableVa, rttiName, sizeof(rttiName)) ||
-				strcmp(rttiName, slot.rttiName) != 0)
+			if (slot.patch == nullptr)
 			{
-				Logging::LogMessage(
-					"[EXU::AiTargetSelect] RTTI mismatch for %s at 0x%08X (got '%s'); slot skipped",
-					slot.rttiName, static_cast<unsigned>(slot.vftableVa), rttiName);
-				continue;
+				char rttiName[64] = {};
+				if (!TryReadRttiName(slot.vftableVa, rttiName, sizeof(rttiName)) ||
+					strcmp(rttiName, slot.rttiName) != 0)
+				{
+					Logging::LogMessage(
+						"[EXU::AiTargetSelect] RTTI mismatch for %s at 0x%08X (got '%s'); slot skipped",
+						slot.rttiName, static_cast<unsigned>(slot.vftableVa), rttiName);
+					continue;
+				}
+
+				const uintptr_t slotVa = slot.vftableVa + kSlotByteOffset;
+				uintptr_t current = 0;
+				if (!TryReadSlot(slotVa, current) || current != slot.expectedImpl)
+				{
+					Logging::LogMessage(
+						"[EXU::AiTargetSelect] slot value mismatch for %s (got 0x%08X expected 0x%08X); slot skipped",
+						slot.rttiName, static_cast<unsigned>(current), static_cast<unsigned>(slot.expectedImpl));
+					continue;
+				}
+
+				const auto expected = ToBytes(static_cast<uint32_t>(slot.expectedImpl));
+				slot.patch = std::make_unique<InlinePatch>(
+					slotVa,
+					reinterpret_cast<uintptr_t>(slot.hookFn),
+					BasicPatch::Status::INACTIVE,
+					std::vector<uint8_t>(expected.begin(), expected.end()));
 			}
 
-			const uintptr_t slotVa = slot.vftableVa + kSlotByteOffset;
-			uintptr_t current = 0;
-			if (!TryReadSlot(slotVa, current))
+			slot.patch->SetStatus(true);
+			if (slot.patch->IsActive())
 			{
-				Logging::LogMessage(
-					"[EXU::AiTargetSelect] slot read failed for %s; slot skipped", slot.rttiName);
-				continue;
-			}
-
-			if (current == reinterpret_cast<uintptr_t>(slot.hookFn))
-			{
-				slot.patched = true;
 				++patchedCount;
-				continue;
 			}
-
-			if (current != slot.expectedImpl)
-			{
-				Logging::LogMessage(
-					"[EXU::AiTargetSelect] slot value mismatch for %s (got 0x%08X expected 0x%08X); slot skipped",
-					slot.rttiName, static_cast<unsigned>(current), static_cast<unsigned>(slot.expectedImpl));
-				continue;
-			}
-
-			if (!WriteSlot(slotVa, reinterpret_cast<uintptr_t>(slot.hookFn)))
-			{
-				Logging::LogMessage(
-					"[EXU::AiTargetSelect] VirtualProtect failed for %s; slot skipped", slot.rttiName);
-				continue;
-			}
-
-			slot.original = current;
-			slot.patched = true;
-			++patchedCount;
 		}
 
-		g_installSucceeded = patchedCount == static_cast<int>(std::size(g_slots));
+		const bool succeeded = patchedCount == static_cast<int>(std::size(g_slots));
 		Logging::LogMessage(
 			"[EXU::AiTargetSelect] installed %d/%d ChooseAttackTarget slot hooks",
 			patchedCount, static_cast<int>(std::size(g_slots)));
-		return g_installSucceeded;
+		return succeeded;
 	}
 }
 

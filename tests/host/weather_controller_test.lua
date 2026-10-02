@@ -77,6 +77,7 @@ local function makeFakeExu(options)
     end
 
     function api.SetAmbientLight(r, g, b)
+        self.ambient = { r = r, g = g, b = b, a = self.ambient.a }
         log("SetAmbientLight", r, g, b)
     end
 
@@ -85,6 +86,7 @@ local function makeFakeExu(options)
     end
 
     function api.SetSunDiffuse(r, g, b)
+        self.sunDiffuse = { r = r, g = g, b = b, a = self.sunDiffuse.a }
         log("SetSunDiffuse", r, g, b)
     end
 
@@ -419,6 +421,42 @@ local function TestShutdownRestoresBaseline()
     end)
 end
 
+local function TestClearProfileRestoresBaseline()
+    withFake({ affectorTypes = STOCK_AFFECTORS }, function(Weather, f)
+        local originalFog = {
+            r = f.fog.r, g = f.fog.g, b = f.fog.b,
+            start = f.fog.start, ending = f.fog.ending,
+        }
+        local originalAmbient = {
+            r = f.ambient.r, g = f.ambient.g, b = f.ambient.b,
+        }
+        local originalSun = {
+            r = f.sunDiffuse.r, g = f.sunDiffuse.g, b = f.sunDiffuse.b,
+        }
+
+        Weather.Init()
+        Weather.SetProfile("rain_heavy", 0.0)
+        Weather.Update(0.5)
+
+        check(f.fog.start ~= originalFog.start, "weather changed the fog before clearing")
+        check(f.ambient.r ~= originalAmbient.r, "weather changed ambient light before clearing")
+        check(f.sunDiffuse.r ~= originalSun.r, "weather changed sun light before clearing")
+
+        check(Weather.SetProfile("clear", 4.0) == true, "clear is accepted")
+        check(countSystems(f) == 0, "clear destroys the active weather systems")
+        checkNear(f.fog.r, originalFog.r, 1e-9, "clear restores fog colour")
+        checkNear(f.fog.start, originalFog.start, 1e-9, "clear restores fog start")
+        checkNear(f.fog.ending, originalFog.ending, 1e-9, "clear restores fog end")
+        checkNear(f.ambient.r, originalAmbient.r, 1e-9, "clear restores ambient light")
+        checkNear(f.sunDiffuse.r, originalSun.r, 1e-9, "clear restores sun light")
+
+        -- A later frame must not reapply the weather profile that was cleared.
+        Weather.Update(1.0)
+        checkNear(f.fog.start, originalFog.start, 1e-9,
+            "clear keeps the baseline restored on subsequent updates")
+    end)
+end
+
 -- Two machines running the same mission must see the same dust, without
 -- anything being synchronised across the wire.
 local function TestPulseIsDeterministic()
@@ -465,6 +503,7 @@ TestUpdateDrivesFollowers()
 TestUpdateBeforeInitIsSafe()
 TestBadDeltaIsIgnored()
 TestShutdownRestoresBaseline()
+TestClearProfileRestoresBaseline()
 TestPulseIsDeterministic()
 TestProfileSwitchReplacesSystems()
 

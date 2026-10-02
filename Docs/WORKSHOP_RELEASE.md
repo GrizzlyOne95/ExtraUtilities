@@ -9,7 +9,8 @@ The Workshop uploader consumes:
 - everything under `Workshop/` - `squish.py` walks that folder recursively, so a file
   added there ships without any change here. It currently holds `ExtraUtilities.ini`,
   `RequireFix.lua`, `monkey.jpg`, and the weather set (`exu_weather.lua`,
-  `exu_weather.particle`, `exu_weather.material`, and the four `exu_*.png` textures).
+  `exu_weather.particle`, `exu_weather.material`, the Ogre-particle shaders/program,
+  and the four `exu_*.png` textures).
 - everything under `Definitions/` and `Release/`
 - `workshop_description.txt`
 - `workshop_changenote.txt`
@@ -17,9 +18,17 @@ The Workshop uploader consumes:
 
 ### Packaged layout
 
-`squish.py` flattens those sources into `Build/`, then `post_build()` sorts a few by
-role: `exu.dll`/`exu.pdb` to `Bin/`, `monkey.jpg` to `Assets/`, and the runtime Lua
-modules to `Scripts/`. Anything it does not name stays at the `Build/` root.
+`squish.py` rebuilds `Build/` from scratch with a declared layout:
+
+- `Release/exu.dll` and `Release/exu.pdb` go to `Bin/` (the build fails if either is missing);
+- `Workshop/` is copied to the `Build/` root, keeping any subfolders;
+- `Definitions/` is copied to `Build/Definitions/`;
+- `RequireFix.lua`, `exu_weather.lua` and `ExtraUtils.lua` are moved to `Scripts/`, and
+  `monkey.jpg` to `Assets/`.
+
+Two sources that would land on the same path (compared case-insensitively) fail the build
+instead of silently overwriting each other. The script resolves paths from its own location,
+so it can run from any directory; pass `--no-pause` when scripting it.
 
 Runtime Lua must end up in `Scripts/`. That folder is already on the default Lua path -
 `RequireFix.lua` lives there and missions require it by bare name before any path setup
@@ -28,7 +37,12 @@ runs. A module left at the `Build/` root resolves only after an explicit
 
 `Definitions/*.lua` are editor metadata (`--- @meta exu`) rather than runtime modules;
 `ExtraUtils.lua` raises an error if it is ever required. They are shipped for tooling
-only and their position is not a precedent for a real module.
+only and their position is not a precedent for a real module. The others sit in
+`Definitions/` rather than at the mod root, so generic names such as `Storage.lua` cannot
+shadow a mission's own module once `RequireFix.Initialize` adds the mod root to the Lua path.
+
+The release DLL is linked with `/PDBALTPATH:%_PDB%`, so `exu.dll` records only `exu.pdb`
+rather than the build machine's absolute path.
 
 `upload_workshop.py` generates the local `workshop.vdf` manifest and invokes SteamCMD using credentials/path settings from `.env`. The generated manifest and `.env` are intentionally ignored by Git.
 

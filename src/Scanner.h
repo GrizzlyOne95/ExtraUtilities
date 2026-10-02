@@ -25,6 +25,7 @@
 #pragma once
 
 #include "BasicScanner.h"
+#include "Util/RuntimeGate.h"
 #include "Util/SignatureResolver.h"
 
 #include <Windows.h>
@@ -37,6 +38,13 @@
 
 namespace ExtraUtilities
 {
+	// Reads and writes one value at a fixed engine address (optionally at the
+	// end of a pointer chain resolved once, at construction).
+	//
+	// Restore::ENABLED means: when the DLL unloads, put back the value that was
+	// there before EXU's first Write. A scanner that was never written leaves
+	// the game alone, so read-only scanners never write, and a value the
+	// player changed in the game is not reverted unless a script changed it.
 	template <class T>
 	class Scanner : public BasicScanner
 	{
@@ -45,10 +53,7 @@ namespace ExtraUtilities
 		T* m_address = nullptr;
 		Restore m_restoreData;
 		T m_originalData{};
-
-		DWORD m_oldProtect{};
-		bool m_protectionChanged = false;
-		static inline DWORD m_dummyProtect{};
+		bool m_written = false;
 
 		T* ResolveBase(T* offset) const noexcept
 		{
@@ -56,36 +61,57 @@ namespace ExtraUtilities
 			return reinterpret_cast<T*>(resolved);
 		}
 
-		bool PrepareFinalAddress(T* finalAddress) noexcept
+		void PrepareFinalAddress(T* finalAddress) noexcept
 		{
+			// No protection change here: these are data pages, and changing
+			// them at load (inside DllMain, for every scanner) made heap and
+			// .data pages executable for the life of the DLL.
 			m_address = finalAddress;
-			if (m_address == nullptr ||
-				!SignatureResolver::IsReadableRange(m_address, sizeof(T)))
+			if (m_address != nullptr && !SignatureResolver::IsReadableRange(m_address, sizeof(T)))
 			{
 				m_address = nullptr;
-				return false;
 			}
-
-			if (!VirtualProtect(m_address, sizeof(T), PAGE_EXECUTE_READWRITE, &m_oldProtect))
-			{
-				m_address = nullptr;
-				return false;
-			}
-
-			m_protectionChanged = true;
-			m_originalData = *m_address;
-			return true;
 		}
 
-		void RestoreProtection() noexcept
+		static bool IsWritableProtection(DWORD protection) noexcept
 		{
-			if (!m_protectionChanged || m_address == nullptr)
+			switch (protection & 0xFFu)
 			{
-				return;
+			case PAGE_READWRITE:
+			case PAGE_WRITECOPY:
+			case PAGE_EXECUTE_READWRITE:
+			case PAGE_EXECUTE_WRITECOPY:
+				return (protection & PAGE_GUARD) == 0;
+			default:
+				return false;
+			}
+		}
+
+		// Stores value, unprotecting the page only for the duration of the
+		// store when it is not already writable.
+		bool Store(const T& value) noexcept
+		{
+			MEMORY_BASIC_INFORMATION mbi{};
+			if (VirtualQuery(m_address, &mbi, sizeof(mbi)) == 0 || mbi.State != MEM_COMMIT)
+			{
+				return false;
 			}
 
-			VirtualProtect(m_address, sizeof(T), m_oldProtect, &m_dummyProtect);
-			m_protectionChanged = false;
+			if (IsWritableProtection(mbi.Protect))
+			{
+				*m_address = value;
+				return true;
+			}
+
+			DWORD oldProtect = 0;
+			if (!VirtualProtect(m_address, sizeof(T), PAGE_READWRITE, &oldProtect))
+			{
+				return false;
+			}
+			*m_address = value;
+			DWORD ignored = 0;
+			VirtualProtect(m_address, sizeof(T), oldProtect, &ignored);
+			return true;
 		}
 
 	public:
@@ -96,11 +122,10 @@ namespace ExtraUtilities
 			: m_baseAddress(baseAddress), m_restoreData(restoreData)
 		{
 			PrepareFinalAddress(ResolveBase(address));
+			Register();
 		}
 
-		// Traverse a multi-level pointer chain. Protection is changed only after
-		// the final pointee has been resolved, so m_oldProtect always belongs to
-		// the same page that the destructor later restores.
+		// Traverse a multi-level pointer chain.
 		Scanner(
 			T* address,
 			const std::initializer_list<uint8_t>& offsetsList,
@@ -131,6 +156,7 @@ namespace ExtraUtilities
 			}
 
 			PrepareFinalAddress(reinterpret_cast<T*>(resolvedAddress));
+			Register();
 		}
 
 		Scanner(const Scanner&) = delete;
@@ -140,14 +166,23 @@ namespace ExtraUtilities
 
 		~Scanner()
 		{
-			if (m_address != nullptr &&
-				m_restoreData == Restore::ENABLED &&
-				SignatureResolver::IsReadableRange(m_address, sizeof(T)))
+			RestoreIfWritten();
+			Unregister();
+		}
+
+		// Puts back the value that preceded EXU's first Write, if this scanner
+		// restores and was written. Safe to call more than once.
+		void RestoreIfWritten() noexcept override
+		{
+			if (!m_written || m_restoreData != Restore::ENABLED ||
+				m_address == nullptr ||
+				!SignatureResolver::IsReadableRange(m_address, sizeof(T)))
 			{
-				*m_address = m_originalData;
+				return;
 			}
 
-			RestoreProtection();
+			Store(m_originalData);
+			m_written = false;
 		}
 
 		T Read() const noexcept
@@ -161,15 +196,30 @@ namespace ExtraUtilities
 			return *m_address;
 		}
 
-		void Write(T value) noexcept
+		// Writes only on the qualified executable: on any other build the
+		// fixed address belongs to something else. Returns whether the value
+		// was stored.
+		bool Write(T value) noexcept
 		{
-			if (m_address == nullptr ||
+			if (!RuntimeGate::IsSupported() ||
+				m_address == nullptr ||
 				!SignatureResolver::IsReadableRange(m_address, sizeof(T)))
 			{
-				return;
+				return false;
 			}
 
-			*m_address = value;
+			const T previous = *m_address;
+			if (!Store(value))
+			{
+				return false;
+			}
+
+			if (!m_written)
+			{
+				m_originalData = previous;
+				m_written = true;
+			}
+			return true;
 		}
 
 		T* Get() const noexcept

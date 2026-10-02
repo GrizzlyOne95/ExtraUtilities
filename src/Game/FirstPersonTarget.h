@@ -1,4 +1,4 @@
-/* Copyright (C) 2023-2026 VTrider
+/* Copyright (C) 2026 GrizzlyOne95
  *
  * This file is part of Extra Utilities.
  *
@@ -14,30 +14,19 @@
  *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #pragma once
 
-#include <vector>
-
-namespace ExtraUtilities
+namespace ExtraUtilities::Lua::FirstPersonTarget
 {
-	// Crawls an std::vector in memory from the given address
-	template <typename T>
-	std::vector<T> VectorSpider(const void* address)
-	{
-		std::vector<T> results;
+	// True when EXU's native BZR 2.2.301 runtime gate is open. This describes
+	// resolver capability, not whether the player currently has an on-foot
+	// first-person entity.
+	bool IsNativeResolverAvailable() noexcept;
 
-		T*** p = (T***)address;
-		T* begin = **p;
-		T* end = *(*p + 1);
-
-		while (begin != end)
-		{
-			results.push_back(reinterpret_cast<T>(*begin));
-			begin++;
-		}
-		
-		return results;
-	}
+	// Resolves the current local pilot's dedicated first-person Ogre::Entity.
+	// The result is a one-operation snapshot owned by Redux/Ogre. Callers must
+	// not retain it between public API operations.
+	bool ResolveNativeLocalFirstPersonEntity(void*& outEntity) noexcept;
 }

@@ -21,6 +21,8 @@
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
 
+#include <cmath>
+
 namespace
 {
 	using OpenShimGetSmartReticleRangeFn = float(WINAPI*)();
@@ -49,7 +51,12 @@ namespace ExtraUtilities::Lua::Reticle
 
 	int SetRange(lua_State* L)
 	{
-		float newRange = static_cast<float>(luaL_checknumber(L, 1));
+		const float newRange = static_cast<float>(luaL_checknumber(L, 1));
+		if (!std::isfinite(newRange) || newRange < 0.f)
+		{
+			return luaL_argerror(L, 1, "reticle range must be a finite, non-negative number");
+		}
+
 		const auto bridge = OpenShimBridge::Resolve<OpenShimSetSmartReticleRangeFn>(
 			"OpenShimSetSmartReticleRange");
 		if (bridge)

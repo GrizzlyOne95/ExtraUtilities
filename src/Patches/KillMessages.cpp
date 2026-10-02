@@ -19,6 +19,7 @@
 #include "KillMessages.h"
 
 #include "Hook.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <string>
 #include <unordered_map>
@@ -27,6 +28,11 @@ namespace ExtraUtilities::Patch
 {
 	constexpr size_t TEAM_MAX_LENGTH = 0x20;
 	std::unordered_map<int, std::string> messageMap;
+
+	void ResetKillMessages() noexcept
+	{
+		messageMap.clear();
+	}
 
 	static void __cdecl ProcessKillMessage(int killedTeam, int killerTeam, char* killedTeamName, char* killerTeamName)
 	{
@@ -85,7 +91,7 @@ namespace ExtraUtilities::Patch
 			ret
 		}
 	}
-	Hook killMessageHook(0x0062627f, KillMessageHook, 8, BasicPatch::Status::ACTIVE);
+	Hook killMessageHook(EngineAddresses::Callbacks::KillMessageHook, KillMessageHook, 8, BasicPatch::Status::ACTIVE, { 0x8B, 0x55, 0xA8, 0xC6, 0x44, 0x15, 0xB4, 0x00 });
 }
 
 namespace ExtraUtilities::Lua::Patches
@@ -117,12 +123,13 @@ namespace ExtraUtilities::Lua::Patches
 		else
 		{
 			size_t length{};
-			std::string message = luaL_checklstring(L, 2, &length);
+			const char* const messageArg = luaL_checklstring(L, 2, &length);
 
 			if (length > Patch::TEAM_MAX_LENGTH)
 			{
 				return luaL_argerror(L, 2, "Extra Utilities Error: Kill message string must be under 32 characters");
 			}
+			std::string message(messageArg);
 
 			// insert_or_assign, not emplace: emplace leaves an existing entry
 			// untouched, so setting a team's kill message a second time silently

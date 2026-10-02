@@ -22,14 +22,22 @@
 
 #include "About.h"
 #include "Game/Culling.h"
+#include "Game/PilotAnimationPolicy.h"
+#include "Game/PilotFsmIntercept.h"
 #include "Game/RenderEffects.h"
+#include "Game/StaticGeometry.h"
 #include "Exports.h"
+#include "Util/BuildValidation.h"
 #include "Util/Logging.h"
+#include "Util/RuntimeGate.h"
+#include "Util/Soundtrack.h"
 #include "LuaHelpers.h"
+#include "LuaCppBarrier.h"
 #include "LuaState.h"
 #include "OpenShimBridge.h"
 #include "Patches.h"
 #include "UI/Renderer.h"
+#include "UI/NativeHud.h"
 
 #include "lua.hpp"
 #include <Windows.h>
@@ -62,6 +70,31 @@ namespace ExtraUtilities::Lua
 		int g_originalSetObjectiveOnRef = LUA_NOREF;
 		int g_originalSetObjectiveOffRef = LUA_NOREF;
 		std::vector<BZR::handle> g_activeObjectiveHandles;
+
+		// The Lua state whose registry holds the refs above. Refs are only
+		// meaningful in that state: they are never unref'd in another one, and
+		// the wrappers are installed once per state (a second luaopen_exu on the
+		// same state used to wrap the wrappers, which then called themselves).
+		lua_State* g_stockBindingOwner = nullptr;
+
+		// Drops refs that belong to a state other than L without touching L's
+		// registry.
+		void ForgetForeignStockBindings(lua_State* L)
+		{
+			if (g_stockBindingOwner == nullptr || g_stockBindingOwner == L)
+			{
+				return;
+			}
+
+			for (auto& patch : g_sanitizedStockStringFunctions)
+			{
+				patch.originalRef = LUA_NOREF;
+			}
+			g_originalSetObjectiveOnRef = LUA_NOREF;
+			g_originalSetObjectiveOffRef = LUA_NOREF;
+			g_activeObjectiveHandles.clear();
+			g_stockBindingOwner = nullptr;
+		}
 
 		void ResetSanitizedStockStringPatchState(lua_State* L)
 		{
@@ -184,7 +217,7 @@ namespace ExtraUtilities::Lua
 
 				patch.originalRef = luaL_ref(L, LUA_REGISTRYINDEX);
 				lua_pushinteger(L, patch.originalRef);
-				lua_pushcclosure(L, PatchedSanitizedStockStringFunction, 1);
+				lua_pushcclosure(L, &CppBarrier<&PatchedSanitizedStockStringFunction>, 1);
 				lua_setglobal(L, patch.name);
 			}
 		}
@@ -234,7 +267,7 @@ namespace ExtraUtilities::Lua
 		int PatchedObjectiveObjects(lua_State* L)
 		{
 			lua_pushinteger(L, 0);
-			lua_pushcclosure(L, PatchedObjectiveObjectsNext, 1);
+			lua_pushcclosure(L, &CppBarrier<&PatchedObjectiveObjectsNext>, 1);
 			return 1;
 		}
 
@@ -260,13 +293,13 @@ namespace ExtraUtilities::Lua
 			}
 			g_originalSetObjectiveOffRef = luaL_ref(L, LUA_REGISTRYINDEX);
 
-			lua_pushcfunction(L, PatchedSetObjectiveOn);
+			lua_pushcfunction(L, &CppBarrier<&PatchedSetObjectiveOn>);
 			lua_setglobal(L, "SetObjectiveOn");
 
-			lua_pushcfunction(L, PatchedSetObjectiveOff);
+			lua_pushcfunction(L, &CppBarrier<&PatchedSetObjectiveOff>);
 			lua_setglobal(L, "SetObjectiveOff");
 
-			lua_pushcfunction(L, PatchedObjectiveObjects);
+			lua_pushcfunction(L, &CppBarrier<&PatchedObjectiveObjects>);
 			lua_setglobal(L, "ObjectiveObjects");
 
 			Logging::LogMessage("exu: patched stock ObjectiveObjects iterator");
@@ -275,13 +308,14 @@ namespace ExtraUtilities::Lua
 
 	void ReleaseLuaStateBindings(lua_State* L) noexcept
 	{
-		if (L == nullptr)
+		if (L == nullptr || g_stockBindingOwner != L)
 		{
 			return;
 		}
 
 		ResetSanitizedStockStringPatchState(L);
 		ResetObjectiveObjectPatchState(L);
+		g_stockBindingOwner = nullptr;
 		Logging::LogMessage("exu: released Lua-owned stock function bindings");
 	}
 
@@ -440,6 +474,12 @@ namespace ExtraUtilities::Lua
 		lua_pushinteger(L, Ordnance::AttributeCode::INIT_TIME);
 		lua_setfield(L, -2, "INIT_TIME");
 
+		lua_pushinteger(L, Ordnance::AttributeCode::VELOCITY);
+		lua_setfield(L, -2, "VELOCITY");
+
+		lua_pushinteger(L, Ordnance::AttributeCode::LIFE_TIME);
+		lua_setfield(L, -2, "LIFE_TIME");
+
 		lua_setfield(L, exuIdx, "ORDNANCE"); // end ordnance enum
 
 		// Radar state enum
@@ -465,30 +505,48 @@ namespace ExtraUtilities::Lua
 		lua_setfield(L, exuIdx, "SATELLITE"); // end satellite state enum
 	}
 
-	void DoEventHooks(lua_State*)
-	{
-
-	}
-
 	int Init(lua_State* L)
 	{
 		StackGuard guard(L);
+
+		// Decide once, before anything touches the engine, whether this is the
+		// qualified executable. The same result gates native patches below and
+		// every direct engine call or fixed-address write (RuntimeGate).
+		const bool supportedBuild = BuildValidation::IsSupportedBzr2301();
+		RuntimeGate::SetSupported(supportedBuild);
+		Soundtrack::ResetMissionState();
+
 		state = L; // save the state pointer to use in callbacks
 		CommandReplacement::ResetState(L);
+		PilotFsmIntercept::ResetStats();
+		PilotAnimationPolicy::ResetMissionState();
 		Logging::LogMessage("exu: Init starting");
 		Patches::ResetOpenShimMissionOverrides();
 		// Scripted content gets the legacy jump-snipe crouch fix on by default.
 		// OpenShim keeps it off for stock/MP; a mission can opt out with
 		// exu.SetJumpSnipeCrouch(false).
 		Patches::ApplyJumpSnipeCrouchDefault();
-		BasicPatch::EnableDeferredPatchActivation();
-		Logging::LogMessage("exu: deferred patches activated");
+		Patch::InstallUnitVoQueueHooks();
+		CommandReplacement::InstallNativeHooks();
+		const bool openShimOwnsHudColor = ControlPanel::ApplyHudColorOwnership();
+
+		// The build was validated above; do not scan .text a second time.
+		if (supportedBuild && BasicPatch::EnableDeferredPatchActivation(false))
+		{
+			Logging::LogMessage("exu: deferred patches activated");
+			PilotFsmIntercept::Install();
+		}
+		else
+		{
+			Logging::LogMessage(
+				"exu: unsupported or modified BZR build; native patches and direct engine calls are disabled for this session");
+		}
 		// Which module owns the scrap/pilot HUD text colour. The colour hooks
 		// stand themselves down at construction when OpenShim is present, and
 		// that is otherwise completely silent -- which is how "the legacy HUD
 		// text went white" became a debugging session rather than one grep.
 		Logging::LogMessage(
-			OpenShimBridge::HasExport("OpenShimRestoreScrapPilotHudStock")
+			openShimOwnsHudColor
 				? "exu: scrap/pilot colour hooks stood down; OpenShim owns HUD text colour"
 				: "exu: scrap/pilot colour hooks active; no OpenShim HUD text bridge present");
 
@@ -502,9 +560,13 @@ namespace ExtraUtilities::Lua
 		lua_setfield(L, exuIdx, "VERSION");
 
 		MakeEnums(L, exuIdx);
-		DoEventHooks(L);
-		InstallSanitizedStockStringPatches(L);
-		InstallObjectiveObjectsPatch(L);
+		ForgetForeignStockBindings(L);
+		if (g_stockBindingOwner != L)
+		{
+			InstallSanitizedStockStringPatches(L);
+			InstallObjectiveObjectsPatch(L);
+			g_stockBindingOwner = L;
+		}
 		Radar::InstallRefreshLayoutHooks();
 		Environment::InstallGameViewportSchemeHooks();
 		// This runs once per Lua state, i.e. once per mission load. The scene
@@ -549,6 +611,15 @@ namespace ExtraUtilities::Lua
 			{ "GetStockCmdReplacement", &CommandReplacement::GetStockCmdReplacement },
 			{ "TriggerStockCmdReplacement", &CommandReplacement::TriggerStockCmdReplacement },
 			{ "UpdateCommandReplacements", &CommandReplacement::UpdateCommandReplacements },
+
+			// Native player meters (optional OpenShim provider)
+			{ "IsNativeHudLayoutAvailable", &NativeHud::IsNativeHudLayoutAvailable },
+			{ "GetNativeHudMeterRect", &NativeHud::GetNativeHudMeterRect },
+			{ "GetNativeHudMeterDefaultRect", &NativeHud::GetNativeHudMeterDefaultRect },
+			{ "SetNativeHudMeterRect", &NativeHud::SetNativeHudMeterRect },
+			{ "SetNativeHudMeterVisible", &NativeHud::SetNativeHudMeterVisible },
+			{ "RestoreNativeHudMeter", &NativeHud::RestoreNativeHudMeter },
+			{ "RestoreAllNativeHudMeters", &NativeHud::RestoreAllNativeHudMeters },
 
 			// Control Panel
 			{ "GetScrapPilotHudOffset", &ControlPanel::GetScrapPilotHudOffset },
@@ -608,6 +679,8 @@ namespace ExtraUtilities::Lua
 			{ "SetSkyPlaneEnabled", &Environment::SetSkyPlaneEnabled },
 			{ "SetSkyPlane", &Environment::SetSkyPlane },
 			{ "HasParticleSystem", &Environment::HasParticleSystem },
+			{ "ParseResourceScript", &Environment::ParseResourceScript },
+			{ "HasParticleTemplate", &Environment::HasParticleTemplate },
 			{ "CreateParticleSystem", &Environment::CreateParticleSystem },
 			{ "DestroyParticleSystem", &Environment::DestroyParticleSystem },
 			{ "SetParticleSystemPosition", &Environment::SetParticleSystemPosition },
@@ -676,6 +749,14 @@ namespace ExtraUtilities::Lua
 			{ "HasSkyDomeNode", &Environment::HasSkyDomeNode },
 			{ "HasSkyPlaneNode", &Environment::HasSkyPlaneNode },
 
+			// Mission-scoped Ogre StaticGeometry. Create performs a bulk build so
+			// Lua never needs one native call per instance per frame.
+			{ "CreateStaticGeometry", &StaticGeometry::Create },
+			{ "DestroyStaticGeometry", &StaticGeometry::Destroy },
+			{ "DestroyAllStaticGeometry", &StaticGeometry::DestroyAll },
+			{ "GetStaticGeometryInfo", &StaticGeometry::GetInfo },
+			{ "SetStaticGeometryVisible", &StaticGeometry::SetVisible },
+
 			// Culling
 			{ "GetCullDistance", &Culling::GetCullDistance },
 			{ "SetCullDistance", &Culling::SetCullDistance },
@@ -707,6 +788,7 @@ namespace ExtraUtilities::Lua
 			{ "SetOverlayColor", &Overlay::SetOverlayColor },
 			{ "SetOverlayCaption", &Overlay::SetOverlayCaption },
 			{ "SetOverlayTextFont", &Overlay::SetOverlayTextFont },
+			{ "AddOverlayFontDirectory", &Overlay::AddOverlayFontDirectory },
 			{ "SetOverlayTextColor", &Overlay::SetOverlayTextColor },
 			{ "SetOverlayTextCharHeight", &Overlay::SetOverlayTextCharHeight },
 
@@ -920,14 +1002,16 @@ namespace ExtraUtilities::Lua
 			// Sound Options
 			{ "GetMusicVolume",   &SoundOptions::GetMusicVolume },
 			{ "SetMusicTrack",    &SoundOptions::SetMusicTrack },
+			{ "PlayMusic",        &SoundOptions::SetMusicTrack },
 			{ "StopMusic",        &SoundOptions::StopMusic },
 			{ "PauseMusic",       &SoundOptions::PauseMusic },
 			{ "ResumeMusic",      &SoundOptions::ResumeMusic },
 			{ "GetMusicTrack",    &SoundOptions::GetMusicTrack },
-			//{ "GetEffectsVolume", &SoundOptions::GetEffectsVolume },
-			//{ "SetEffectsVolume", &SoundOptions::SetEffectsVolume },
-			//{ "GetVoiceVolume",   &SoundOptions::GetVoiceVolume },
-			//{ "SetVoiceVolume",   &SoundOptions::SetVoiceVolume },
+			{ "GetMusicState", &SoundOptions::GetMusicState },
+			{ "FadeMusic", &SoundOptions::FadeMusic },
+			{ "ChangeMusicTrack", &SoundOptions::ChangeMusicTrack },
+			{ "UpdateMusic", &SoundOptions::UpdateMusic },
+			{ "ResetMusic", &SoundOptions::ResetMusic },
 
 			// Steam
 			{ "GetSteam64", &Steam::GetSteam64 },
@@ -943,7 +1027,19 @@ namespace ExtraUtilities::Lua
 		};
 
 		Logging::LogMessage("exu: luaopen_exu called");
-		luaL_register(L, "exu", exuExports);
+
+		// EXU's own Lua core shares the executable's dummynode; on a build where
+		// it moved, the first table EXU creates and resizes would free the host's
+		// static node. Check before RegisterFunctions creates any table. luaL_error
+		// only builds strings.
+		if (!BuildValidation::IsLuaCoreCompatible())
+		{
+			Logging::LogMessage("exu: refusing to load; the executable's Lua dummynode does not match this EXU build");
+			return luaL_error(L, "Extra Utilities does not support this Battlezone 98 Redux build (Lua core mismatch)");
+		}
+
+		// Every binding runs behind the C++ exception barrier (LuaCppBarrier.h).
+		RegisterFunctions(L, "exu", exuExports);
 		Init(L);
 
 		if (!announced)

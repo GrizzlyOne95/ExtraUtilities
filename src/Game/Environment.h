@@ -18,16 +18,17 @@
 
 #pragma once
 
-#include "BZR.h"
+#include "bzr.h"
 #include "Ogre/Ogre.h"
+#include "InlinePatch.h"
 #include "Scanner.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <lua.hpp>
 
 namespace ExtraUtilities::Lua::Environment
 {
 	inline Scanner gravity(BZR::Environment::gravityVector);
-	inline Scanner fog(Ogre::GetFog(), BasicScanner::Restore::DISABLED);
 
 	int GetFog(lua_State* L);
 	int SetFog(lua_State* L);
@@ -71,6 +72,8 @@ namespace ExtraUtilities::Lua::Environment
 	int SetSkyPlaneEnabled(lua_State* L);
 	int SetSkyPlane(lua_State* L);
 	int HasParticleSystem(lua_State* L);
+	int ParseResourceScript(lua_State* L);
+	int HasParticleTemplate(lua_State* L);
 	int CreateParticleSystem(lua_State* L);
 	int DestroyParticleSystem(lua_State* L);
 	int SetParticleSystemPosition(lua_State* L);
@@ -151,11 +154,19 @@ namespace ExtraUtilities::Lua::Environment
 	int HasSkyPlaneNode(lua_State* L);
 
 	Ogre::Color DefaultSunColor();
+
+	// Destroys the particle systems EXU created in the current scene and
+	// forgets per-mission state. Called when the Lua state closes.
+	void Shutdown() noexcept;
 }
 
 namespace ExtraUtilities::Patch
 {
-	constexpr uintptr_t fogReset = 0x00683370;
+	// The engine's SetFog wrapper (SceneManager::setFog(FOG_LINEAR, ...) plus
+	// a cached clear colour). exu.SetFog stubs it out so a script's fog is not
+	// overwritten; it is armed only by exu.SetFog.
+	constexpr uintptr_t fogReset = EngineAddresses::Environment::FogReset;
+	extern InlinePatch fogResetPatch;
 
 	void TryInitializeOgre();
 

@@ -1,4 +1,20 @@
 #!/usr/bin/env python3
+# Copyright (C) 2026 GrizzlyOne95
+#
+# This file is part of Extra Utilities.
+#
+# Extra Utilities is free software: you can redistribute it and/or modify it
+# under the terms of the GNU Lesser General Public License as published by the
+# Free Software Foundation, either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
+# details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
 """Generate the placeholder billboard textures for the EXU weather templates.
 
 These are deliberately procedural and deliberately committed. Procedural,
@@ -166,6 +182,12 @@ def encode(image: Image.Image) -> bytes:
     return buffer.getvalue()
 
 
+# Largest per-channel difference --check accepts. The noise upscale goes through
+# Pillow's BICUBIC resize, whose rounding can move by one step between Pillow
+# releases; a real edit to the generator changes pixels by far more.
+PIXEL_TOLERANCE = 1
+
+
 def pixels_match(path: str, expected: Image.Image) -> bool:
     """Compare decoded RGBA pixels rather than encoded bytes.
 
@@ -177,7 +199,9 @@ def pixels_match(path: str, expected: Image.Image) -> bool:
         stored = stored.convert("RGBA")
         if stored.size != expected.size:
             return False
-        return np.array_equal(np.asarray(stored), np.asarray(expected.convert("RGBA")))
+        difference = np.abs(
+            np.asarray(stored, dtype=np.int16) - np.asarray(expected.convert("RGBA"), dtype=np.int16))
+        return int(difference.max(initial=0)) <= PIXEL_TOLERANCE
 
 
 def main() -> int:

@@ -16,17 +16,98 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "BulletHitCallback.h"
 
-#include "BZR.h"
+#include "bzr.h"
 #include "Hook.h"
 #include "LuaHelpers.h"
 #include "LuaState.h"
+#include "LuaCppBarrier.h"
+#include "Util/EngineAddresses.generated.h"
 
 #include <lua.hpp>
 
 namespace ExtraUtilities::Patch
 {
+	namespace
+	{
+		struct BulletHitArgs
+		{
+			const char* odf;
+			BZR::GameObject* shooter;
+			BZR::GameObject* hitObject;
+			BZR::MAT_3D* transform;
+			BZR::Ordnance* ordnance;
+		};
+
+		// Runs under lua_cpcall. Everything that can raise -- indexing exu,
+		// the SetMatrix call inside PushMatrix, the callback itself -- happens
+		// here, so an error is reported instead of panicking out of engine code.
+		int ProtectedBulletHit(lua_State* L)
+		{
+			const auto* args = static_cast<const BulletHitArgs*>(lua_touserdata(L, 1));
+			lua_settop(L, 0);
+
+			lua_getglobal(L, "exu");
+			if (!lua_istable(L, -1))
+			{
+				return 0;
+			}
+			lua_getfield(L, -1, "BulletHit");
+			if (!lua_isfunction(L, -1))
+			{
+				return 0;
+			}
+
+			// odf is the engine's char[16] ODF name. Strip a trailing ".odf" only
+			// when it is present; never underflow on a short name.
+			size_t odfLength = strnlen(args->odf, 16);
+			if (odfLength >= 4 && _strnicmp(args->odf + odfLength - 4, ".odf", 4) == 0)
+			{
+				odfLength -= 4;
+			}
+			lua_pushlstring(L, args->odf, odfLength);
+
+			if (args->shooter == nullptr)
+			{
+				lua_pushnil(L);
+			}
+			else
+			{
+				lua_pushlightuserdata(L, reinterpret_cast<void*>(BZR::GameObject::GetHandle(args->shooter)));
+			}
+
+			if (args->hitObject == nullptr)
+			{
+				lua_pushnil(L);
+			}
+			else
+			{
+				lua_pushlightuserdata(L, reinterpret_cast<void*>(BZR::GameObject::GetHandle(args->hitObject)));
+			}
+
+			if (args->transform == nullptr)
+			{
+				lua_pushnil(L);
+			}
+			else
+			{
+				Lua::PushMatrix(L, *args->transform);
+			}
+
+			if (args->ordnance == nullptr)
+			{
+				lua_pushnil(L);
+			}
+			else
+			{
+				lua_pushlightuserdata(L, reinterpret_cast<void*>(args->ordnance));
+			}
+
+			lua_call(L, 5, 0);
+			return 0;
+		}
+	}
+
 	static void __cdecl LuaCallback(const char* odf,
 								    BZR::GameObject* shooter, 
 									BZR::GameObject* hitObject,
@@ -34,65 +115,18 @@ namespace ExtraUtilities::Patch
 									BZR::Ordnance* ordnanceHandle)
 	{
 		lua_State* L = Lua::state;
-		StackGuard guard(L);
-
-		lua_getglobal(L, "exu");
-		lua_getfield(L, -1, "BulletHit");
-
-		if (!lua_isfunction(L, -1))
+		if (L == nullptr || odf == nullptr)
 		{
 			return;
 		}
 
-		int len = strlen(odf);
-		char formattedODF[16]; // this should be enough room given the 8 char limit
-
-		strncpy(formattedODF, odf, len - 4); // strip the ".odf" from the name
-
-		lua_pushlstring(L, formattedODF, len - 4); // First param
-		
-		// Second param
-		if (shooter == nullptr)
+		StackGuard guard(L);
+		BulletHitArgs args{ odf, shooter, hitObject, transform, ordnanceHandle };
+		const int status = lua_cpcall(L, &Lua::CppBarrier<&ProtectedBulletHit>, &args);
+		if (status != 0)
 		{
-			lua_pushnil(L);
+			LuaCheckStatus(status, L, "Extra Utilities BulletHit error:\n%s");
 		}
-		else
-		{
-			lua_pushlightuserdata(L, reinterpret_cast<void*>(BZR::GameObject::GetHandle(shooter)));
-		}
-		
-		// Third param
-		if (hitObject == nullptr)
-		{
-			lua_pushnil(L);
-		}
-		else
-		{
-			lua_pushlightuserdata(L, reinterpret_cast<void*>(BZR::GameObject::GetHandle(hitObject)));
-		}
-
-		// Fourth param
-		if (transform == nullptr)
-		{
-			lua_pushnil(L);
-		}
-		else
-		{
-			Lua::PushMatrix(L, *transform);
-		}
-
-		// Fifth param
-		if (ordnanceHandle == nullptr)
-		{
-			lua_pushnil(L);
-		}
-		else
-		{
-			lua_pushlightuserdata(L, reinterpret_cast<void*>(ordnanceHandle));
-		}
-		
-		int status = lua_pcall(L, 5, 0, 0);
-		LuaCheckStatus(status, L, "Extra Utilities BulletHit error:\n%s");
 	}
 
 	static void __declspec(naked) BulletHitCallback()
@@ -165,5 +199,5 @@ namespace ExtraUtilities::Patch
 			ret
 		}
 	}
-	Hook bulletHitHook(0x00480771, &BulletHitCallback, 6, Hook::Status::ACTIVE);
+	Hook bulletHitHook(EngineAddresses::Callbacks::BulletHitHook, &BulletHitCallback, 6, Hook::Status::ACTIVE, { 0x8B, 0x48, 0x14, 0x83, 0xC1, 0x38 });
 }

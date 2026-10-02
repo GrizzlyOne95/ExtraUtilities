@@ -19,6 +19,7 @@
 #pragma once
 
 #include "Util/BuildValidation.h"
+#include "Util/Logging.h"
 #include "Util/SignatureResolver.h"
 
 #include <Windows.h>
@@ -47,6 +48,11 @@ namespace ExtraUtilities
 	protected:
 		Status m_status;
 		Status m_requestedStatus;
+		// The status the patch was constructed with. Script calls change
+		// m_requestedStatus; closing the Lua state puts it back here so a
+		// cheat or override a mission enabled is not re-applied by the next
+		// mission's activation (the DLL may stay loaded).
+		Status m_defaultStatus;
 		bool m_initialized = false;
 
 		uintptr_t m_address;
@@ -57,6 +63,10 @@ namespace ExtraUtilities
 		static inline bool patchActivationEnabled = false;
 		static inline std::vector<BasicPatch*> deferredPatches{};
 		std::vector<uint8_t> m_originalBytes;
+		// Bytes this patch wrote, captured when it activates. Restoring checks
+		// the site still holds them, so a patch installed over EXU's by another
+		// module (OpenShim) is never overwritten with EXU's stale original.
+		std::vector<uint8_t> m_patchedBytes;
 
 		static void RegisterDeferredPatch(BasicPatch* patch)
 		{
@@ -106,18 +116,15 @@ namespace ExtraUtilities
 			}
 		}
 
+		// Refusals reach exu.log, not only the debugger: a mismatched preimage
+		// is the one thing a user report needs to show.
 		static void LogPatchIssue(const char* message, uintptr_t address, size_t length) noexcept
 		{
-			char buffer[192]{};
-			std::snprintf(
-				buffer,
-				sizeof(buffer),
-				"ExtraUtilities: %s at %p (len=%zu)\n",
+			Logging::LogMessage(
+				"ExtraUtilities: %s at %p (len=%zu)",
 				message,
 				reinterpret_cast<void*>(address),
-				length
-			);
-			OutputDebugStringA(buffer);
+				length);
 		}
 
 		bool ValidatePreimage() const noexcept
@@ -154,10 +161,27 @@ namespace ExtraUtilities
 
 		virtual void DoPatch() = 0;
 
+		// DoPatch implementations call this once their bytes are in place.
+		void MarkPatched()
+		{
+			const auto* p_address = reinterpret_cast<const uint8_t*>(m_address);
+			m_patchedBytes.assign(p_address, p_address + m_length);
+			m_status = Status::ACTIVE;
+		}
+
 		void RestorePatch()
 		{
 			if (!m_initialized || m_originalBytes.size() != m_length)
 			{
+				return;
+			}
+
+			if (m_patchedBytes.size() != m_length || !SignatureResolver::MatchBytes(m_address, m_patchedBytes))
+			{
+				// Someone else patched the site after EXU did. Writing EXU's
+				// original back would tear their patch down; leave it alone.
+				LogPatchIssue("site no longer holds EXU's patch; leaving it in place", m_address, m_length);
+				m_status = Status::INACTIVE;
 				return;
 			}
 
@@ -194,8 +218,8 @@ namespace ExtraUtilities
 			if (validateTargetBuild && !BuildValidation::IsSupportedBzr2301())
 			{
 				patchActivationEnabled = false;
-				OutputDebugStringA(
-					"ExtraUtilities: native patch activation refused; unsupported or modified BZR build\n");
+				Logging::LogMessage(
+					"ExtraUtilities: native patch activation refused; unsupported or modified BZR build");
 				return false;
 			}
 
@@ -223,6 +247,18 @@ namespace ExtraUtilities
 			}
 		}
 
+		// Called at Lua-state close, after UnloadAllPatches.
+		static void ResetRequestedStatusesToDefaults() noexcept
+		{
+			for (BasicPatch* patch : deferredPatches)
+			{
+				if (patch != nullptr)
+				{
+					patch->m_requestedStatus = patch->m_defaultStatus;
+				}
+			}
+		}
+
 		BasicPatch(
 			uintptr_t address,
 			size_t length,
@@ -230,6 +266,7 @@ namespace ExtraUtilities
 			std::vector<uint8_t> expectedBytes = {})
 			: m_status(patchActivationEnabled ? status : Status::INACTIVE)
 			, m_requestedStatus(status)
+			, m_defaultStatus(status)
 			, m_address(address)
 			, m_length(length)
 		{
@@ -270,11 +307,13 @@ namespace ExtraUtilities
 		{
 			this->m_status = p.m_status;
 			this->m_requestedStatus = p.m_requestedStatus;
+			this->m_defaultStatus = p.m_defaultStatus;
 			this->m_initialized = p.m_initialized;
 			this->m_address = p.m_address;
 			this->m_length = p.m_length;
 			this->m_oldProtect = p.m_oldProtect;
 			this->m_originalBytes = std::move(p.m_originalBytes);
+			this->m_patchedBytes = std::move(p.m_patchedBytes);
 			ReplaceDeferredPatch(&p, this);
 
 			p.m_status = Status::INACTIVE;
@@ -346,34 +385,4 @@ namespace ExtraUtilities
 		}
 	};
 
-	// Temporarily disables a patch and restores its prior active state on normal
-	// C++ scope exit. Do not span a Lua API call that can longjmp; use lua_pcall
-	// and restore the patch before propagating the Lua error instead.
-	class ScopedPatchDisable
-	{
-	private:
-		BasicPatch* m_patch = nullptr;
-		bool m_restore = false;
-
-	public:
-		explicit ScopedPatchDisable(BasicPatch& patch)
-			: m_patch(&patch), m_restore(patch.IsActive())
-		{
-			if (m_restore)
-			{
-				m_patch->Unload();
-			}
-		}
-
-		ScopedPatchDisable(const ScopedPatchDisable&) = delete;
-		ScopedPatchDisable& operator=(const ScopedPatchDisable&) = delete;
-
-		~ScopedPatchDisable()
-		{
-			if (m_restore && m_patch != nullptr)
-			{
-				m_patch->Reload();
-			}
-		}
-	};
 }

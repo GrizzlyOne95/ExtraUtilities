@@ -23,7 +23,7 @@
 
 #include "StockExtensions.h"
 
-#include "BZR.h"
+#include "bzr.h"
 #include "Game/Camera.h"
 #include "LuaHelpers.h"
 
@@ -40,6 +40,11 @@ namespace ExtraUtilities::Lua::StockExtensions
 
     int MatrixInverse(lua_State* L)
     {
+        if (!RuntimeGate::IsSupported())
+        {
+            return PushUnsupportedBuild(L);
+        }
+
         BZR::MAT_3D mat = CheckMatrix(L, 1);
 
         BZR::MAT_3D result;
@@ -52,7 +57,17 @@ namespace ExtraUtilities::Lua::StockExtensions
 
     int ScreenToWorld(lua_State* L)
     {
+        if (!RuntimeGate::IsSupported())
+        {
+            return PushUnsupportedBuild(L);
+        }
+
         BZR::BZR_Camera* cam = Camera::mainCam.Get();
+        if (cam == nullptr)
+        {
+            lua_pushnil(L);
+            return 1;
+        }
 
         int screenX = luaL_checkinteger(L, 1);
         int screenY = luaL_checkinteger(L, 2);
@@ -85,6 +100,11 @@ namespace ExtraUtilities::Lua::StockExtensions
 
     int VectorUnrotate(lua_State* L)
     {
+        if (!RuntimeGate::IsSupported())
+        {
+            return PushUnsupportedBuild(L);
+        }
+
         BZR::VECTOR_3D vec = CheckVectorOrSingles(L, 1);
         BZR::MAT_3D perspectiveMat = CheckMatrix(L, 2);
 
