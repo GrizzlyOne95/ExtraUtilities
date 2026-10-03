@@ -496,6 +496,14 @@ namespace ExtraUtilities::EngineAddresses
 		{
 			// function: void __thiscall(Person*, float)
 			PersonSimulate = 0x0059D340u,
+			// float[12] (.data, read/write)
+			PersonAnimEndTimeTable = 0x008E8E94u,
+			// float[12] (.data, read/write)
+			PersonAnimFirstPersonRateTable = 0x008E8EC4u,
+			// const char*[12] (.data, read/write)
+			PersonAnimNameTable = 0x008E8F24u,
+			// float[12] (.data, read/write)
+			PersonAnimWorldRateTable = 0x008E8F60u,
 		};
 	}
 
@@ -528,5 +536,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 165u;
+	inline constexpr unsigned kEntryCount = 169u;
 }
