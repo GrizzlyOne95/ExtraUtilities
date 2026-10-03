@@ -98,9 +98,40 @@ Build `e7eced1` (native fallback + resolver diagnostics).
   possibly caused by invalid TRN view-range values. Logged for the OpenShim
   backlog.
 
+## Third and fourth runs: offset fault fixed, inventory proven (14:12, 14:16)
+
+- Run 3 (`ef78dc0` breadcrumbs) logged `stage=getNumAnimations` with a
+  non-null skeleton. Disassembly of the shipped forwarders:
+  `mov ecx,[ecx+0x68]; add ecx,0xD0; mov eax,[ecx]; jmp [eax+4]`.
+  **Cause:** `SkeletonInstance::getNumAnimations` and `getAnimation(ushort)`
+  override virtuals of `AnimationContainer`, a non-primary base of `Skeleton`
+  (offset `0xD0`). MSVC compiles them to expect `this` at that subobject, not
+  at the `SkeletonInstance`. Fixed in `211c5af`: EXU decodes the offset from
+  both forwarders' `add ecx,imm32`, and if the two disagree or the bytes don't
+  match, it reports the inventory as unavailable.
+- Run 4: no fault. `ListAnimations()` on foot returns 18 states for ISDFC's
+  `ispilo_cockpit`:
+
+| name | length (s) |
+| --- | ---: |
+| death1, death2 | 1.7 |
+| fireRecoilSniper | 0.067 |
+| idle | 2.5 (the only enabled state at capture) |
+| idleEject, idleParachute | 1.9 |
+| jump | 1.2 |
+| landParachute | 1.2 |
+| stand2Kneel, kneel2stand | 1.0 |
+| run{Forward,Backward,Left,Right} | 0.8 |
+| walk{Forward,Backward,Left,Right} | 0.8 |
+
+- **Crouch timing conclusion:** `stand2Kneel`/`kneel2stand` are 1.0 s, but every
+  FSM crouch state lasts about 1.937 s (every captured transition, all runs; spread
+  about 0.002 s). The crouch duration comes from a fixed engine timer, not the
+  clip length. A substituted clip in step 3A must either fill about 1.94 s
+  (play slower or longer), or the timer has to be overridden alongside it.
+
 ## Next
 
 1. ~~Find out why the FP target fails to resolve~~ (done, see above).
-2. Re-run the capture to get clip lists and lengths, including ISDFC's own
-   clips, and compare 1.937 s with the clip lengths.
+2. ~~Re-run the capture to get clip lists and lengths~~ (done, see above).
 3. Then go on to step 3A (crouch clip substitution).
