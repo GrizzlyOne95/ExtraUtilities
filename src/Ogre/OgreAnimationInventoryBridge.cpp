@@ -121,23 +121,37 @@ namespace ExtraUtilities
 			// Skeletal animations only: vertex/pose-only entities have no
 			// skeleton and report the inventory as unavailable rather than empty.
 			bool hasSkeleton = false;
+			// Diagnostic breadcrumbs for the fault log: which Ogre call faulted.
+			const char* stage = "getAllAnimationStates";
+			void* faultSkeleton = nullptr;
+			void* faultAnimation = nullptr;
+			unsigned int faultIndex = 0;
+			unsigned int faultCount = 0;
 			const bool completed = Seh::Guard(
 				"TryEnumerateAnimationStates",
 				[&]
 				{
 					void* const stateSet = procs.getAllAnimationStates(entity);
+					stage = "getSkeleton";
 					void* const skeleton = procs.getSkeleton(entity);
+					faultSkeleton = skeleton;
 					if (stateSet == nullptr || skeleton == nullptr)
 					{
 						return;
 					}
 					hasSkeleton = true;
 
+					stage = "getNumAnimations";
 					const unsigned short count = procs.getNumAnimations(skeleton);
+					faultCount = count;
 					outStates.reserve(count);
 					for (unsigned short index = 0; index < count; ++index)
 					{
+						faultIndex = index;
+						faultAnimation = nullptr;
+						stage = "getAnimation";
 						void* const animation = procs.getAnimation(skeleton, index);
+						faultAnimation = animation;
 						if (animation == nullptr)
 						{
 							continue;
@@ -146,11 +160,14 @@ namespace ExtraUtilities
 						// The animation name is the AnimationStateSet key, so it is
 						// the name Has/GetInfo/Play must be given.
 						AnimationStateRef ref;
+						stage = "getName";
 						ref.name = procs.getName(animation);
+						stage = "hasAnimationState";
 						if (!procs.hasAnimationState(stateSet, ref.name))
 						{
 							continue;
 						}
+						stage = "getAnimationState";
 						ref.state = procs.getAnimationState(stateSet, ref.name);
 						if (ref.state == nullptr)
 						{
@@ -162,9 +179,14 @@ namespace ExtraUtilities
 				[&](unsigned long exceptionCode)
 				{
 					Logging::LogMessage(
-						"[EXU::Animation] enumeration fault entity=%p code=0x%08lX",
+						"[EXU::Animation] enumeration fault entity=%p code=0x%08lX stage=%s skeleton=%p count=%u index=%u animation=%p",
 						entity,
-						exceptionCode);
+						exceptionCode,
+						stage,
+						faultSkeleton,
+						faultCount,
+						faultIndex,
+						faultAnimation);
 				});
 
 			if (!completed || !hasSkeleton)
