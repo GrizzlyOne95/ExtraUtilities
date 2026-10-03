@@ -60,6 +60,10 @@ int main()
 		"unrecognised mode name is explicit");
 	HostTest::Expect(std::strcmp(DecisionName(Decision::PassThrough), "passThrough") == 0,
 		"pass-through decision name");
+	HostTest::Expect(std::strcmp(DecisionName(Decision::Override), "override") == 0,
+		"override decision name");
+	HostTest::Expect(std::strcmp(DecisionName(static_cast<Decision>(99)), "unknown") == 0,
+		"unrecognised decision name is explicit");
 
 	// ---- Slot <-> native FSM state -----------------------------------------
 	HostTest::Expect(NativeStateForSlot(Slot::Stand) == 0, "stand is native state 0");
@@ -85,7 +89,7 @@ int main()
 		HostTest::Expect(slot == Slot::Jump, "a failed lookup does not touch the output slot");
 	}
 
-	// ---- Evaluation is pass-through everywhere ------------------------------
+	// ---- Stock and unrecognised policies pass through ---------------------
 	for (std::uint32_t native : { 0u, 1u, 2u, 3u, 4u, 7u, 0xFFFFFFFFu })
 	{
 		HostTest::Expect(Evaluate(Policy{}, native) == Decision::PassThrough,
@@ -132,7 +136,19 @@ int main()
 	ResetMissionState();
 	HostTest::Expect(IsStockOnly(GetActive()), "ResetMissionState restores the stock policy");
 
-	// ---- Planned modes are representable but not applicable ---------------
+	// A supported override also cannot cross a mission boundary.
+	{
+		Policy kneel{};
+		kneel.slots[static_cast<std::size_t>(Slot::EnterCrouch)].completion = CompletionMode::Duration;
+		kneel.slots[static_cast<std::size_t>(Slot::EnterCrouch)].duration = 1.0f;
+		HostTest::Expect(SetActive(kneel), "SetActive accepts a supported duration override");
+		HostTest::Expect(EvaluateActive(0) == Decision::Override, "the active override is actionable");
+		ResetMissionState();
+		HostTest::Expect(IsStockOnly(GetActive()), "ResetMissionState clears a supported override");
+		HostTest::Expect(EvaluateActive(0) == Decision::PassThrough, "and evaluation is stock again");
+	}
+
+	// ---- Override modes and what this build supports ------------------------
 	HostTest::Expect(std::strcmp(ModeName(Mode::Substitute), "substitute") == 0, "substitute mode name");
 	HostTest::Expect(std::strcmp(CompletionName(CompletionMode::Stock), "stock") == 0, "stock completion name");
 	HostTest::Expect(std::strcmp(CompletionName(CompletionMode::Animation), "animation") == 0,
@@ -151,16 +167,23 @@ int main()
 			std::string(SlotName(slot)) + " has no completion");
 	}
 
-	HostTest::Expect(!HasOverrideSupport(kBuildSupport),
-		"this build supports no override (capability pilotAnimationOverrides stays false)");
+	HostTest::Expect(HasOverrideSupport(kBuildSupport),
+		"this build supports overrides (capability pilotAnimationOverrides also needs the seam)");
+	HostTest::Expect(kBuildSupport.substituteSlots == 0x3F, "every slot can substitute");
+	for (const CompletionMode completion :
+		{ CompletionMode::Animation, CompletionMode::Duration, CompletionMode::Manual })
+	{
+		HostTest::Expect((kBuildSupport.completionModes & CompletionBit(completion)) != 0,
+			std::string("completion ") + CompletionName(completion) + " is supported");
+	}
 
 	{
 		Policy substitute{};
 		substitute.slots[static_cast<std::size_t>(Slot::EnterCrouch)].mode = Mode::Substitute;
 		SetAnimation(substitute.slots[static_cast<std::size_t>(Slot::EnterCrouch)], "myKneel");
 		HostTest::Expect(!IsStockOnly(substitute), "a substitute slot is not stock-only");
-		HostTest::Expect(!IsSupported(substitute, kBuildSupport), "substitute is unsupported by this build");
-		HostTest::Expect(!SetActive(substitute), "SetActive refuses an unsupported substitute");
+		HostTest::Expect(IsSupported(substitute, kBuildSupport), "substitute is supported by this build");
+		HostTest::Expect(!IsSupported(substitute, Support{}), "an empty Support refuses a substitute");
 
 		Support crouchOnly{};
 		crouchOnly.substituteSlots = SlotBit(Slot::EnterCrouch);
@@ -169,17 +192,39 @@ int main()
 		other.slots[static_cast<std::size_t>(Slot::Jump)].mode = Mode::Substitute;
 		HostTest::Expect(!IsSupported(other, crouchOnly), "support is per slot (other slot refused)");
 
+		// The override is call-wide: a state-0 call is where enterCrouch is
+		// applied, so every mapped state is actionable.
 		for (std::uint32_t native = 0; native <= 3; ++native)
 		{
-			HostTest::Expect(Evaluate(substitute, native) == Decision::PassThrough,
-				"substitute is not actionable yet: evaluation passes through");
+			HostTest::Expect(Evaluate(substitute, native) == Decision::Override,
+				"a supported substitute overrides every mapped native state");
 		}
+		for (std::uint32_t native : { 4u, 7u, 0xFFFFFFFFu })
+		{
+			HostTest::Expect(Evaluate(substitute, native) == Decision::PassThrough,
+				"an unmapped native state still passes through");
+		}
+
+		// Jump and land have no native state but act through the same call.
+		Policy jump{};
+		jump.slots[static_cast<std::size_t>(Slot::Jump)].mode = Mode::Substitute;
+		SetAnimation(jump.slots[static_cast<std::size_t>(Slot::Jump)], "myJump");
+		HostTest::Expect(Evaluate(jump, 0) == Decision::Override, "a jump substitute acts from standing");
+
+		// Supported overall but one slot carries garbage: fail closed.
+		Policy mixed = substitute;
+		mixed.slots[static_cast<std::size_t>(Slot::Land)].mode = static_cast<Mode>(99);
+		HostTest::Expect(Evaluate(mixed, 0) == Decision::PassThrough,
+			"one unrecognised slot makes the whole policy pass through");
 	}
 	{
 		Policy completion{};
 		completion.slots[static_cast<std::size_t>(Slot::ExitCrouch)].completion = CompletionMode::Manual;
 		HostTest::Expect(!IsStockOnly(completion), "a non-stock completion is not stock-only");
-		HostTest::Expect(!IsSupported(completion, kBuildSupport), "manual completion is unsupported");
+		HostTest::Expect(IsSupported(completion, kBuildSupport), "manual completion is supported");
+		HostTest::Expect(!IsSupported(completion, Support{}), "an empty Support refuses manual completion");
+		HostTest::Expect(Evaluate(completion, 2) == Decision::Override,
+			"exitCrouch completion acts from the crouched state (2->3 call)");
 
 		Support manual{};
 		manual.completionModes = CompletionBit(CompletionMode::Manual);
@@ -195,6 +240,8 @@ int main()
 		everything.substituteSlots = 0xFF;
 		everything.completionModes = 0xFF;
 		HostTest::Expect(!IsSupported(garbage, everything), "an unrecognised completion is never supported");
+		HostTest::Expect(Evaluate(onStand, 0) == Decision::PassThrough,
+			"completion on a non-transition slot is never actionable");
 	}
 
 	// ---- Publication ---------------------------------------------------------

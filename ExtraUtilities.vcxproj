@@ -139,6 +139,9 @@
     <ClCompile Include="src\Patches\BulletHitCallback.cpp" />
     <ClCompile Include="src\Patches\BulletInitCallback.cpp" />
     <ClCompile Include="src\Game\AnimationApi.cpp" />
+    <ClCompile Include="src\Game\FirstPersonLayers.cpp" />
+    <ClCompile Include="src\Game\FirstPersonParticles.cpp" />
+    <ClCompile Include="src\Game\PlayerTrigger.cpp" />
     <ClCompile Include="src\Game\FirstPersonTarget.cpp" />
     <ClCompile Include="src\Game\PilotAnimationPolicy.cpp" />
     <ClCompile Include="src\Game\PilotState.cpp" />
@@ -248,6 +251,7 @@
     <ClInclude Include="src\Game\PilotStateSemantics.h" />
     <ClInclude Include="src\Game\PilotFsmIntercept.h" />
     <ClInclude Include="src\Game\PilotTrace.h" />
+    <ClInclude Include="src\Game\PilotTransitionTiming.h" />
     <ClInclude Include="src\EntryDetour32.h" />
     <ClInclude Include="src\Ogre\OgreEntityRuntime.h" />
     <ClInclude Include="src\Ogre\OgreMaterialRuntime.h" />
@@ -305,6 +309,9 @@
     <ClInclude Include="src\Patches\AiHudBridges.h" />
     <ClInclude Include="src\Patches\WeaponMask.h" />
     <ClInclude Include="src\Game\AnimationApi.h" />
+    <ClInclude Include="src\Game\FirstPersonLayers.h" />
+    <ClInclude Include="src\Game\FirstPersonParticles.h" />
+    <ClInclude Include="src\Game\PlayerTrigger.h" />
     <ClInclude Include="src\Game\FirstPersonTarget.h" />
     <ClInclude Include="src\Game\ContinuityApi.h" />
     <ClInclude Include="src\Ogre\OgreMaterialShim.h" />

@@ -18,6 +18,7 @@
 
 #include "Environment.h"
 #include "EnvironmentInternal.h"
+#include "Game/FirstPersonParticles.h"
 
 #include "../RenderProfileBridge.h"
 #include "InlinePatch.h"
@@ -83,12 +84,14 @@ namespace ExtraUtilities::Lua::Environment
 			g_managedParticleNames.clear();
 			g_managedParticleSceneManager = nullptr;
 			ForgetAllParticleCameraFollowers();
+			FirstPersonParticles::ResetMissionState();
 			g_desiredLightingMode = ViewportLightingMode::Default;
 		}
 		catch (...)
 		{
 			g_managedParticleNames.clear();
 			g_managedParticleSceneManager = nullptr;
+			FirstPersonParticles::ResetMissionState();
 		}
 	}
 }
@@ -130,6 +133,7 @@ namespace ExtraUtilities::Patch
 				g_initializedTerrainMasterLight);
 		}
 		Lua::Environment::ForgetAllParticleCameraFollowers();
+		Lua::FirstPersonParticles::ResetMissionState();
 		g_initializedSceneManager = nullptr;
 		g_initializedTerrainMasterLight = nullptr;
 		g_ogreInitialized = false;

@@ -34,9 +34,9 @@
 //   duration   seconds, finite and > 0; required by, and only allowed with,
 //              completion = "duration"
 //
-// Not exposed to Lua yet: exu.fps.SetPilotAnimationProfile arrives with the
-// first override the seam can actually apply. Until then kBuildSupport is empty
-// and every non-stock request fails as unsupported.
+// Exposed to Lua as exu.fps.SetPilotAnimationProfile, built against
+// kBuildSupport. The "not supported by this EXU build" path stays for a
+// narrower Support (host tests) and for future fields.
 //
 // No Windows, Ogre, Lua, or engine dependencies; no allocation.
 

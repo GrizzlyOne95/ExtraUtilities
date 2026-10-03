@@ -509,6 +509,29 @@ namespace ExtraUtilities::EngineAddresses
 		{
 			// function: void __thiscall(Person*, float)
 			PersonSimulate = 0x0059D340u,
+			// float[12] (.data, read/write)
+			PersonAnimEndTimeTable = 0x008E8E94u,
+			// float[12] (.data, read/write)
+			PersonAnimFirstPersonRateTable = 0x008E8EC4u,
+			// const char*[12] (.data, read/write)
+			PersonAnimNameTable = 0x008E8F24u,
+			// float[12] (.data, read/write)
+			PersonAnimWorldRateTable = 0x008E8F60u,
+		};
+	}
+
+	namespace PlayerInput
+	{
+		enum : uintptr_t
+		{
+			// int8_t* (.data, level)
+			WeaponFireHeld = 0x009198C0u,
+			// int8_t* (.data, level)
+			WeaponFireAutoHeld = 0x009198C1u,
+			// code (UserProcess::Execute fire-byte read)
+			WeaponFireHeldRead = 0x0060A93Du,
+			// code (UserProcess::Execute auto-fire-byte read)
+			WeaponFireAutoHeldRead = 0x0060A984u,
 		};
 	}
 
@@ -541,5 +564,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 168u;
+	inline constexpr unsigned kEntryCount = 176u;
 }
