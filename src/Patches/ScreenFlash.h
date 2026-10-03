@@ -16,21 +16,18 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-/*
-* Combined header for patches
-*/
-
 #pragma once
 
-#include "Patches/AddScrapCallback.h"
-#include "Patches/AiHudBridges.h"
-#include "Patches/AiTargetSelect.h"
-#include "Patches/Cheats.h"
-#include "Patches/EngineFlameColor.h"
-#include "Patches/GlobalTurbo.h"
-#include "Patches/KillMessages.h"
-#include "Patches/OrdnanceVelocity.h"
-#include "Patches/ScreenFlash.h"
-#include "Patches/ShotConvergence.h"
-#include "Patches/UnitVo.h"
-#include "Patches/WeaponMask.h"
+#include <lua.hpp>
+
+// Suppression of the stock full-screen color flashes the engine fires when the
+// local player is hurt (red) or overheating (orange). The patches default to
+// inactive and BasicPatch resets them at Lua-state close, so suppression is
+// mission scoped.
+namespace ExtraUtilities::Lua::Patches
+{
+	int GetDamageFlashEnabled(lua_State* L);
+	int SetDamageFlashEnabled(lua_State* L);
+	int GetHeatFlashEnabled(lua_State* L);
+	int SetHeatFlashEnabled(lua_State* L);
+}
