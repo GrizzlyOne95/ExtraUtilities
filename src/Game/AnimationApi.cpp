@@ -19,6 +19,7 @@
 #include "Game/AnimationApi.h"
 
 #include "Game/FirstPersonLayers.h"
+#include "Game/FirstPersonParticles.h"
 #include "Game/FirstPersonTarget.h"
 #include "Game/GameObject.h"
 #include "Game/PilotAnimationPolicy.h"
@@ -30,6 +31,7 @@
 #include "Game/PlayerTrigger.h"
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
+#include "Util/FiniteCheck.h"
 #include "Util/Logging.h"
 #include "LuaCppBarrier.h"
 
@@ -390,7 +392,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 		int GetCapabilities(lua_State* L)
 		{
-			lua_createtable(L, 0, 11);
+			lua_createtable(L, 0, 12);
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "gameObjectTarget");
 			const bool hasFpBridge = OpenShimBridge::HasLocalFirstPersonEntityBridge();
@@ -419,6 +421,11 @@ namespace ExtraUtilities::Lua::AnimationApi
 			// option): both UserProcess read sites matched at install.
 			lua_pushboolean(L, PlayerTrigger::IsAvailable() ? 1 : 0);
 			lua_setfield(L, -2, "firstPersonTrigger");
+			// exu.fps.AttachParticleToBone: the local FP resolver plus the
+			// OgreMain bone-attachment and parent-query exports.
+			lua_pushboolean(L,
+				((hasFpBridge || hasNativeFpResolver) && FirstPersonParticles::IsSupported()) ? 1 : 0);
+			lua_setfield(L, -2, "firstPersonParticles");
 			lua_pushboolean(L, 0);
 			lua_setfield(L, -2, "managedClock");
 			lua_pushstring(L, "unvalidated");
@@ -1634,6 +1641,74 @@ namespace ExtraUtilities::Lua::AnimationApi
 			return 1;
 		}
 
+		// The local FP entity for one operation, through the same resolver as
+		// every other exu.fps call (OpenShim, then the EXU native read).
+		void* ResolveLocalFirstPersonEntity()
+		{
+			Detail::Target target{};
+			target.kind = Detail::TargetKind::LocalFirstPerson;
+			return Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
+		}
+
+		// exu.fps.AttachParticleToBone(name, boneName, offset?) -> attached,
+		// reattached. Idempotent: when the system already rides that bone of
+		// the CURRENT FP entity with that offset it only verifies (no Ogre
+		// write). After a respawn / vehicle exit / new FP entity the next
+		// call re-attaches and returns reattached = true.
+		int FpsAttachParticleToBone(lua_State* L)
+		{
+			const std::string name = luaL_checkstring(L, 1);
+			const std::string bone = luaL_checkstring(L, 2);
+			FirstPersonParticles::Offset offset{};
+			if (!lua_isnoneornil(L, 3))
+			{
+				const BZR::VECTOR_3D v = CheckVectorOrSingles(L, 3);
+				if (!FiniteCheck::IsFiniteVector(v))
+				{
+					return luaL_argerror(L, 3, "AttachParticleToBone requires a finite offset vector");
+				}
+				offset = { v.x, v.y, v.z };
+			}
+
+			const FirstPersonParticles::AttachResult result =
+				FirstPersonParticles::Attach(ResolveLocalFirstPersonEntity(), name, bone, offset);
+			lua_settop(L, 0);
+			lua_pushboolean(L, result.attached ? 1 : 0);
+			lua_pushboolean(L, result.reattached ? 1 : 0);
+			return 2;
+		}
+
+		// exu.fps.IsParticleAttached(name) -> whether the system rides a bone
+		// of the current local FP entity right now. Read-only.
+		int FpsIsParticleAttached(lua_State* L)
+		{
+			const std::string name = luaL_checkstring(L, 1);
+			const bool attached = FirstPersonParticles::IsAttached(ResolveLocalFirstPersonEntity(), name);
+			lua_settop(L, 0);
+			lua_pushboolean(L, attached ? 1 : 0);
+			return 1;
+		}
+
+		// exu.fps.DetachParticle(name) -> whether a first-person binding
+		// existed. The system goes back onto its own EXU node.
+		int FpsDetachParticle(lua_State* L)
+		{
+			const std::string name = luaL_checkstring(L, 1);
+			const bool existed = FirstPersonParticles::Detach(name);
+			lua_settop(L, 0);
+			lua_pushboolean(L, existed ? 1 : 0);
+			return 1;
+		}
+
+		// exu.fps.GetParticleTargetGeneration() -> integer that increments each
+		// time a particle binding lands on a different FP entity.
+		int FpsGetParticleTargetGeneration(lua_State* L)
+		{
+			lua_settop(L, 0);
+			lua_pushnumber(L, static_cast<lua_Number>(FirstPersonParticles::TargetGeneration()));
+			return 1;
+		}
+
 		int FpsGetCapabilities(lua_State* L)
 		{
 			lua_settop(L, 0);
@@ -1737,6 +1812,10 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{ "SetBaseWeight", &FpsSetBaseWeight },
 			{ "GetBaseWeight", &FpsGetBaseWeight },
 			{ "IsTriggerHeld", &FpsIsTriggerHeld },
+			{ "AttachParticleToBone", &FpsAttachParticleToBone },
+			{ "IsParticleAttached", &FpsIsParticleAttached },
+			{ "DetachParticle", &FpsDetachParticle },
+			{ "GetParticleTargetGeneration", &FpsGetParticleTargetGeneration },
 			{ "IsCrouched", &FpsIsCrouched },
 			{ "IsGrounded", &FpsIsGrounded },
 			{ "IsSniperSelected", &FpsIsSniperSelected },

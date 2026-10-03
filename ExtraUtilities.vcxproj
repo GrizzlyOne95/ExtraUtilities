@@ -140,6 +140,7 @@
     <ClCompile Include="src\Patches\BulletInitCallback.cpp" />
     <ClCompile Include="src\Game\AnimationApi.cpp" />
     <ClCompile Include="src\Game\FirstPersonLayers.cpp" />
+    <ClCompile Include="src\Game\FirstPersonParticles.cpp" />
     <ClCompile Include="src\Game\PlayerTrigger.cpp" />
     <ClCompile Include="src\Game\FirstPersonTarget.cpp" />
     <ClCompile Include="src\Game\PilotAnimationPolicy.cpp" />
@@ -307,6 +308,7 @@
     <ClInclude Include="src\Patches\WeaponMask.h" />
     <ClInclude Include="src\Game\AnimationApi.h" />
     <ClInclude Include="src\Game\FirstPersonLayers.h" />
+    <ClInclude Include="src\Game\FirstPersonParticles.h" />
     <ClInclude Include="src\Game\PlayerTrigger.h" />
     <ClInclude Include="src\Game\FirstPersonTarget.h" />
     <ClInclude Include="src\Game\ContinuityApi.h" />
