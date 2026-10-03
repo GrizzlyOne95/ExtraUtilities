@@ -37,6 +37,7 @@ print(caps.localFirstPersonTarget)
 print(caps.pilotStateInspection)
 print(caps.pilotFsmIntercept)
 print(caps.pilotAnimationOverrides)
+print(caps.firstPersonLayers)
 print(caps.firstPersonStatus)
 ```
 
@@ -383,6 +384,127 @@ exu.fps.Restart("idle")
 exu.fps.Stop("idle")
 ```
 
+## First-person layers (EXU-clocked loops)
+
+`Person::Simulate` advances only the clip its FSM is currently playing
+(`addTime(dt * rate[idx])`, see
+`Docs/Research/PILOT_CROUCH_NATIVE_RE_20261003.md`). A clip enabled with
+`exu.fps.Play` therefore freezes, and the stock apply helpers may disable it
+when the FSM changes clips. A *layer* is a clip on the local pilot's
+first-person skeleton that EXU keeps enabled and advances itself on every
+local pilot tick, whatever the FSM is doing (stand, crouch, run, jump):
+
+```lua
+exu.fps.SetLayer("barrelSpin", { speed = 0 })   -- create (speed 0 = parked)
+exu.fps.SetLayerSpeed("barrelSpin", 3.0)       -- 3 clip-seconds per second
+exu.fps.SetLayerWeight("barrelSpin", 1.0)
+exu.fps.ClearLayer("barrelSpin")               -- disable, weight 1, time 0
+exu.fps.ClearLayers()
+for _, layer in ipairs(exu.fps.GetLayers()) do
+    print(layer.name, layer.speed, layer.time, layer.length,
+        layer.active, layer.reason, layer.blendMode)
+end
+```
+
+`SetLayer(name, options)` creates or updates. Options: `speed` (clip-seconds
+per second, 0..50, default 1), `weight` (0..1, default 1), `loop` (default
+true; false clamps at the clip end), `time` (seconds >= 0: seek EXU's clock).
+A key left out keeps the layer's current value. It is strict: an unknown
+option key, a wrong type, a value out of range, a name outside 1..63
+characters, or a ninth layer raises a Lua error. `SetLayerSpeed` and
+`SetLayerWeight` raise for an unknown name; `ClearLayer` returns whether the
+layer existed. All layers are cleared at every mission/Lua-state boundary.
+
+`exu.fps.GetCapabilities().firstPersonLayers` is true when the
+`Person::Simulate` seam is active (the same condition as `pilotFsmIntercept`).
+
+**Presentation-only.** Layers touch nothing but Ogre animation states on the
+local first-person entity: no gameplay state, no clip table, no other Person.
+They are therefore allowed in multiplayer (unlike `SetPilotAnimationProfile`)
+and each client runs its own.
+
+### How it is applied
+
+Inside EXU's `Person::Simulate` hook, for the LOCAL Person only, after the
+stock call has returned and after the override seam has restored the native
+clip tables:
+
+1. The first-person entity is read from the render bridge (the same
+   Person+0xF0 -> +0xC0 read the override seam uses). No Ogre pointer is kept
+   between ticks: every state is looked up by name each tick.
+2. Layers cleared since the last tick are disabled on that entity, with
+   weight 1 and time 0. A tick with no first-person entity (the player is in
+   a vehicle) waits, so the clear lands on the next one that has one.
+3. Each layer: if its name is the clip the FSM is playing this tick it is
+   skipped (`reason = "engineOwned"`, below). If the skeleton has no such
+   animation it is skipped (`reason = "missing"`, logged once per name and
+   entity). Otherwise EXU advances its own clock by `dt * speed` (sim
+   seconds; wrapped into the clip when looping, clamped when not) and sets
+   enabled, loop, weight and time position on the state.
+
+Enable/loop/weight are re-asserted every tick because the stock apply helpers
+disable the old FSM clip by name and model setup can reset states. Time is
+EXU's clock written with `setTimePosition`, so a layer carries across a
+first-person entity change (hop in/out, respawn) at the time it had.
+
+**Engine-owned guard.** Should a layer share a name with an FSM clip (the
+runtime test below uses `runForward`), the FSM has already advanced that clip
+by `dt * rate` this tick and owns its enable/weight/loop. EXU then leaves the
+state completely alone for that tick and holds the layer's clock. The clip
+"the FSM is playing" is the name the apply helpers were actually given for
+the Person's current animation index after the call: for the six policy slots
+the override seam's applied-clip record (a substitute stays current until the
+index changes), for every other index the stock 12-entry name table.
+
+A fault in any Ogre call turns layers off for the rest of the Lua state
+(`reason = "faulted"`, logged once).
+
+### Rig contract
+
+- The clip exists on the **first-person** skeleton only (EXU never looks at
+  the world entity for layers).
+- It keys **only** the bone(s) it drives (e.g. a barrel bone), and the stock
+  FSM clips have **no** tracks for those bones.
+- The skeleton uses **`blendmode="cumulative"`**. With Ogre's default
+  `"average"`, `Skeleton::setAnimationState` rescales every enabled state by
+  1/total weight once the weights sum past 1, so a weight-1 layer on top of a
+  weight-1 FSM clip halves the whole pose. `GetLayers()` reports the
+  skeleton's `blendMode`, and EXU logs once per entity when a layer is applied
+  to an `"average"` skeleton (it does not refuse).
+- A looping clip is seamless: the last key equals the first (e.g. a full
+  360-degree turn).
+
+### Example: minigun barrel
+
+The ISDF Chronicles minigun rig (`issold_cockpit.mesh` -> `issoldfp.skeleton`,
+blendmode cumulative) has a `barrelSpin` clip that keys only the
+`msfp_spin` bone: 1.0 s is one revolution, so speed is revolutions per
+second.
+
+```lua
+local SPIN_MAX, SPIN_UP, SPIN_DOWN = 3.0, 4.0, 1.5   -- rev/s, rev/s per second
+local spin = 0.0
+
+function Start()
+    if exu.fps.GetCapabilities().firstPersonLayers then
+        exu.fps.SetLayer("barrelSpin", { speed = 0 })
+    end
+end
+
+function Update(dt)
+    local firing = IsFiring()   -- the mod's own trigger test
+    if firing then
+        spin = math.min(SPIN_MAX, spin + SPIN_UP * dt)
+    else
+        spin = math.max(0.0, spin - SPIN_DOWN * dt)
+    end
+    exu.fps.SetLayerSpeed("barrelSpin", spin)
+end
+```
+
+`tests/runtime/fp_layer_check.lua` is an in-game check that cycles a layer
+through speeds 0 -> 1 -> 3 -> 0 and prints `GetLayers()` each phase.
+
 ## Delegation contract
 
 The facade intentionally contains no separate target-resolution or Ogre state
@@ -415,5 +537,6 @@ semantic state write such as:
 exu.fps.SetCrouched(true)
 ```
 
-Playback speed and managed animation timing are also intentionally unchanged;
-Redux/Ogre remains responsible for native time advancement.
+Playback speed of the FSM's own clips is also intentionally unchanged;
+Redux/Ogre remains responsible for advancing them. EXU clocks only the
+first-person layers above.

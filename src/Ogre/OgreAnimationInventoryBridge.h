@@ -39,5 +39,11 @@ namespace ExtraUtilities
 		bool TryEnumerateAnimationStates(
 			void* entity,
 			std::vector<AnimationStateRef>& outStates) noexcept;
+
+		// Reads the entity's SkeletonInstance blend mode (Ogre's
+		// SkeletonAnimationBlendMode: 0 average, 1 cumulative). False when the
+		// entity has no skeleton, the export is missing or not the verified
+		// one-field read, or the call faults. No allocation.
+		bool TryGetSkeletonBlendMode(void* entity, int& outMode) noexcept;
 	}
 }

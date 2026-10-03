@@ -101,6 +101,7 @@ error("This is a definition file, use require(\"exu\")")
 --- @field pilotStateInspection boolean
 --- @field pilotFsmIntercept boolean
 --- @field pilotAnimationOverrides boolean
+--- @field firstPersonLayers boolean
 --- @field managedClock boolean
 --- @field nativeAdvancement string
 --- @field firstPersonStatus string
@@ -222,6 +223,23 @@ error("This is a definition file, use require(\"exu\")")
 --- @field jump PilotPolicySlotInfo
 --- @field land PilotPolicySlotInfo
 
+--- @class FirstPersonLayerOptions
+--- @field speed number?
+--- @field weight number?
+--- @field loop boolean?
+--- @field time number?
+
+--- @class FirstPersonLayer
+--- @field name string
+--- @field speed number
+--- @field weight number
+--- @field loop boolean
+--- @field time number
+--- @field length number
+--- @field active boolean
+--- @field reason string?
+--- @field blendMode string
+
 --- @class FpsAnimationApi
 --- @field IsAvailable fun(): boolean
 --- @field GetCapabilities fun(): AnimationCapabilities
@@ -233,6 +251,12 @@ error("This is a definition file, use require(\"exu\")")
 --- @field StartPilotTrace fun(options?: PilotTraceOptions): boolean
 --- @field StopPilotTrace fun()
 --- @field GetPilotTrace fun(limit?: integer): PilotTrace?
+--- @field SetLayer fun(name: string, options?: FirstPersonLayerOptions): true
+--- @field SetLayerSpeed fun(name: string, speed: number): true
+--- @field SetLayerWeight fun(name: string, weight: number): true
+--- @field ClearLayer fun(name: string): boolean
+--- @field ClearLayers fun()
+--- @field GetLayers fun(): FirstPersonLayer[]
 --- @field IsCrouched fun(): boolean?
 --- @field IsGrounded fun(): boolean?
 --- @field IsSniperSelected fun(): boolean?

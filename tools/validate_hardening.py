@@ -337,6 +337,16 @@ def check_hardening_markers() -> None:
         if not inc.startswith(("atomic", "cmath", "cstddef", "cstdint"))
     ]
     pilot_intercept = read("src/Game/PilotFsmIntercept.cpp")
+    # First-person layer bookkeeping is host-tested and shared with the hook:
+    # standard headers only.
+    fp_layers_h = read("src/Game/FirstPersonLayers.h")
+    fp_layers_includes = re.findall(r'^\s*#include\s+[<"]([^>"]+)[>"]', fp_layers_h, re.M)
+    fp_layers_impure = [
+        inc for inc in fp_layers_includes
+        if inc not in ("atomic", "cmath", "cstddef", "cstdint", "cstring", "type_traits")
+    ]
+    fp_layers_restore = pilot_intercept.find("if (!WriteTablesSeh(plan.stock))")
+    fp_layers_call = pilot_intercept.find("ApplyFirstPersonLayers(person, after, dt);")
 
     required = [
         ("Hook move deletion", "Hook(Hook&&) = delete;" in hook),
@@ -384,6 +394,22 @@ def check_hardening_markers() -> None:
             ) is not None,
         ),
         ("pilot overrides stand down in multiplayer", "IsNetGameSeh()" in pilot_intercept),
+        ("first-person layer bookkeeping stays engine-free", not fp_layers_impure),
+        # Layers see the clip the stock call applied and must never run while
+        # the clip tables hold the local override.
+        (
+            "first-person layers applied after the clip-table restore",
+            0 <= fp_layers_restore < fp_layers_call,
+        ),
+        (
+            "first-person layers reset at Lua-state init and mission reset",
+            "FirstPersonLayers::ResetMissionState();" in read("src/luaexport.cpp")
+            and "FirstPersonLayers::ResetMissionState();" in read("src/PublicAPI.cpp"),
+        ),
+        (
+            "first-person layer capability follows the seam",
+            "FirstPersonLayers::IsAvailable()" in read("src/Game/AnimationApi.cpp"),
+        ),
         ("pilot policy refuses unsupported policies", "if (!IsSupported(policy, kBuildSupport))" in pilot_policy_cpp),
         (
             "pilot timing trace reset with the seam stats",
