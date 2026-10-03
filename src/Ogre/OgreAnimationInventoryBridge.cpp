@@ -22,25 +22,9 @@
 #include "Util/Logging.h"
 #include "Util/SehGuard.h"
 
-#ifndef register
-#define EXU_OGRE_RESTORE_REGISTER
-#define register
-#endif
-
-#ifndef _STLP_MSVC
-#define _STLP_MSVC 1
-#endif
-
 #include <Windows.h>
 
-#include <OgreAnimationState.h>
-
-#ifdef EXU_OGRE_RESTORE_REGISTER
-#undef register
-#undef EXU_OGRE_RESTORE_REGISTER
-#endif
-
-#include <exception>
+#include <string>
 
 namespace ExtraUtilities
 {
@@ -54,38 +38,67 @@ namespace ExtraUtilities
 			// shipped OgreMain.dll does not export would stop exu.dll loading at
 			// all; a missing export here only makes the inventory unavailable.
 			//
-			// Entity::getAllAnimationStates is the same export the GameObject
-			// animation path already resolves in Ogre/Ogre.h.
+			// The shipped OgreMain.dll is built with MSVC 2013 (MSVCP120), whose
+			// std::map node stores the value before _Color/_Isnil; EXU's MSVC 2015+
+			// headers put it after. Walking AnimationStateSet's map through the
+			// header-only MapIterator therefore reads keys from the wrong offset
+			// (live fault on ISDFC's ispilo_cockpit, 2026-10-03). Enumerate by
+			// index through exported calls instead: only std::string crosses the
+			// boundary, and its layout is shared by both runtimes (the same
+			// assumption GameObject::HasAnimation already relies on).
 			using GetAllAnimationStatesFn = void*(__thiscall*)(void* entity);
+			using GetSkeletonFn = void*(__thiscall*)(void* entity);
+			using GetNumAnimationsFn = unsigned short(__thiscall*)(void* skeleton);
+			using GetAnimationByIndexFn = void*(__thiscall*)(void* skeleton, unsigned short index);
+			using GetAnimationNameFn = const std::string&(__thiscall*)(void* animation);
+			using HasAnimationStateFn = bool(__thiscall*)(void* stateSet, const std::string& name);
+			using GetAnimationStateFn = void*(__thiscall*)(void* stateSet, const std::string& name);
 
-			// AnimationStateSet::getAnimationStateIterator() returns the header-only
-			// MapIterator by value, so the call goes through the real return type
-			// and the compiler supplies the hidden return slot.
-			//
-			// The shipped OgreMain.dll was built with custom container allocators,
-			// so its export names the map as
-			// map<String, AnimationState*, less<String>,
-			//     STLAllocator<pair<...>, CategorisedAllocPolicy<0>>>.
-			// EXU compiles with OGRE_CONTAINERS_USE_CUSTOM_MEMORY_ALLOCATOR 0
-			// (OgreBuildSettings.h), so the local type spells std::allocator; the
-			// layouts match (STLAllocator is stateless and release builds use
-			// _ITERATOR_DEBUG_LEVEL=0), but the mangled name must be the DLL's.
-			// Verified against GOG Redux 2.2.301 OgreMain.dll exports.
-			using GetAnimationStateIteratorFn =
-				Ogre::AnimationStateIterator(__thiscall*)(void* stateSet);
-
-			GetAllAnimationStatesFn ResolveGetAllAnimationStates() noexcept
+			struct InventoryProcs
 			{
-				static const OgreDll::OgreProc<GetAllAnimationStatesFn> proc(
+				GetAllAnimationStatesFn getAllAnimationStates = nullptr;
+				GetSkeletonFn getSkeleton = nullptr;
+				GetNumAnimationsFn getNumAnimations = nullptr;
+				GetAnimationByIndexFn getAnimation = nullptr;
+				GetAnimationNameFn getName = nullptr;
+				HasAnimationStateFn hasAnimationState = nullptr;
+				GetAnimationStateFn getAnimationState = nullptr;
+
+				bool IsComplete() const noexcept
+				{
+					return getAllAnimationStates && getSkeleton && getNumAnimations &&
+						getAnimation && getName && hasAnimationState && getAnimationState;
+				}
+			};
+
+			InventoryProcs ResolveInventoryProcs() noexcept
+			{
+				static const OgreDll::OgreProc<GetAllAnimationStatesFn> getAllAnimationStates(
 					"?getAllAnimationStates@Entity@Ogre@@QBEPAVAnimationStateSet@2@XZ");
-				return proc.Get();
-			}
+				static const OgreDll::OgreProc<GetSkeletonFn> getSkeleton(
+					"?getSkeleton@Entity@Ogre@@QBEPAVSkeletonInstance@2@XZ");
+				// Entity::getSkeleton always returns a SkeletonInstance, so calling
+				// SkeletonInstance's own overrides directly is the virtual target.
+				static const OgreDll::OgreProc<GetNumAnimationsFn> getNumAnimations(
+					"?getNumAnimations@SkeletonInstance@Ogre@@UBEGXZ");
+				static const OgreDll::OgreProc<GetAnimationByIndexFn> getAnimation(
+					"?getAnimation@SkeletonInstance@Ogre@@UBEPAVAnimation@2@G@Z");
+				static const OgreDll::OgreProc<GetAnimationNameFn> getName(
+					"?getName@Animation@Ogre@@QBEABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@XZ");
+				static const OgreDll::OgreProc<HasAnimationStateFn> hasAnimationState(
+					"?hasAnimationState@AnimationStateSet@Ogre@@QBE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
+				static const OgreDll::OgreProc<GetAnimationStateFn> getAnimationState(
+					"?getAnimationState@AnimationStateSet@Ogre@@QBEPAVAnimationState@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
 
-			GetAnimationStateIteratorFn ResolveGetAnimationStateIterator() noexcept
-			{
-				static const OgreDll::OgreProc<GetAnimationStateIteratorFn> proc(
-					"?getAnimationStateIterator@AnimationStateSet@Ogre@@QAE?AV?$MapIterator@V?$map@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@PAVAnimationState@Ogre@@U?$less@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@V?$STLAllocator@U?$pair@$$CBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@PAVAnimationState@Ogre@@@std@@V?$CategorisedAllocPolicy@$0A@@Ogre@@@4@@std@@@2@XZ");
-				return proc.Get();
+				InventoryProcs procs;
+				procs.getAllAnimationStates = getAllAnimationStates.Get();
+				procs.getSkeleton = getSkeleton.Get();
+				procs.getNumAnimations = getNumAnimations.Get();
+				procs.getAnimation = getAnimation.Get();
+				procs.getName = getName.Get();
+				procs.hasAnimationState = hasAnimationState.Get();
+				procs.getAnimationState = getAnimationState.Get();
+				return procs;
 			}
 		}
 
@@ -99,38 +112,50 @@ namespace ExtraUtilities
 				return false;
 			}
 
-			const GetAllAnimationStatesFn getAllAnimationStates = ResolveGetAllAnimationStates();
-			const GetAnimationStateIteratorFn getIterator = ResolveGetAnimationStateIterator();
-			if (getAllAnimationStates == nullptr || getIterator == nullptr)
+			const InventoryProcs procs = ResolveInventoryProcs();
+			if (!procs.IsComplete())
 			{
 				return false;
 			}
 
+			// Skeletal animations only: vertex/pose-only entities have no
+			// skeleton and report the inventory as unavailable rather than empty.
+			bool hasSkeleton = false;
 			const bool completed = Seh::Guard(
 				"TryEnumerateAnimationStates",
 				[&]
 				{
-					void* const stateSet = getAllAnimationStates(entity);
-					if (stateSet == nullptr)
+					void* const stateSet = procs.getAllAnimationStates(entity);
+					void* const skeleton = procs.getSkeleton(entity);
+					if (stateSet == nullptr || skeleton == nullptr)
 					{
 						return;
 					}
+					hasSkeleton = true;
 
-					Ogre::AnimationStateIterator it = getIterator(stateSet);
-					while (it.hasMoreElements())
+					const unsigned short count = procs.getNumAnimations(skeleton);
+					outStates.reserve(count);
+					for (unsigned short index = 0; index < count; ++index)
 					{
-						// The map key is the animation name and is exactly what
-						// AnimationStateSet::getAnimationState(name) accepts, so it
-						// is the name Has/GetInfo/Play must be given.
-						AnimationStateRef ref;
-						ref.name = it.peekNextKey();
-						Ogre::AnimationState* const state = it.getNext();
-						if (state == nullptr)
+						void* const animation = procs.getAnimation(skeleton, index);
+						if (animation == nullptr)
 						{
 							continue;
 						}
 
-						ref.state = state;
+						// The animation name is the AnimationStateSet key, so it is
+						// the name Has/GetInfo/Play must be given.
+						AnimationStateRef ref;
+						ref.name = procs.getName(animation);
+						if (!procs.hasAnimationState(stateSet, ref.name))
+						{
+							continue;
+						}
+						ref.state = procs.getAnimationState(stateSet, ref.name);
+						if (ref.state == nullptr)
+						{
+							continue;
+						}
 						outStates.push_back(ref);
 					}
 				},
@@ -142,11 +167,12 @@ namespace ExtraUtilities
 						exceptionCode);
 				});
 
-			if (!completed)
+			if (!completed || !hasSkeleton)
 			{
 				outStates.clear();
+				return false;
 			}
-			return completed;
+			return true;
 		}
 	}
 }
