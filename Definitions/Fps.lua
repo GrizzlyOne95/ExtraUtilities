@@ -120,6 +120,24 @@
 --- @field weight number? Ogre blend weight, 0..1 (default 1).
 --- @field loop boolean? Wrap at the clip end (default true); false clamps at the end.
 --- @field time number? Seconds >= 0: seek EXU's clock for this layer here (wrapped or clamped to the clip).
+--- @field fadeIn number? Seconds (this call only): ramp from the weight being applied to the target weight.
+--- @field fadeOut number? Seconds (stored): the default fade of a later `ClearLayer`.
+--- @field fire ExuFirstPersonLayerFire|false? Trigger drive; `false` removes it.
+
+--- Trigger drive for a layer: while the local fire bind is held the effective
+--- speed ramps toward `speed`, and back to the base speed on release.
+--- @class ExuFirstPersonLayerFire
+--- @field speed number Target clip-seconds per second while the trigger is held.
+--- @field spinUp number? Seconds for the whole ramp up (0 or omitted = instant).
+--- @field spinDown number? Seconds for the whole ramp down (0 or omitted = instant).
+
+--- Options for `exu.fps.PlayLayer`. Unknown keys are an error.
+--- @class ExuFirstPersonPlayLayerOptions
+--- @field speed number? Clip-seconds per second, 0..50 (sticky).
+--- @field weight number? Ogre blend weight, 0..1 (sticky).
+--- @field fadeIn number? Seconds to ramp in for this play.
+--- @field fadeOut number? Seconds to ramp out so the weight reaches 0 at the clip end.
+--- @field clearOnEnd boolean? Default true: disable when finished; false holds the last frame.
 
 --- One entry of `exu.fps.GetLayers()`, as of the most recent local pilot tick.
 --- @class ExuFirstPersonLayer
@@ -250,19 +268,29 @@ function fps.SetLayer(name, options) end
 --- @return true
 function fps.SetLayerSpeed(name, speed) end
 
---- Sets a layer's blend weight (0..1). Raises a Lua error if no layer has that
---- name or the weight is invalid.
+--- Sets a layer's blend weight (0..1), optionally fading to it. Raises a Lua
+--- error if no layer has that name or an argument is invalid.
 --- @param name string
 --- @param weight number
+--- @param fadeSeconds number?
 --- @return true
-function fps.SetLayerWeight(name, weight) end
+function fps.SetLayerWeight(name, weight, fadeSeconds) end
+
+--- Creates or restarts a non-looping one-shot layer at time 0. Each call bumps
+--- the layer's `playCount`; `finishedCount == playCount` means this play is
+--- done. Raises on an invalid name or option, or a ninth live layer.
+--- @param name string
+--- @param options ExuFirstPersonPlayLayerOptions?
+--- @return true
+function fps.PlayLayer(name, options) end
 
 --- Removes a layer. On the next local pilot tick that has a first-person
 --- entity, EXU disables the Ogre state and resets its weight to 1 and time to
 --- 0 (if the state still exists). Returns whether the layer existed.
 --- @param name string
+--- @param fadeSeconds number? Fade to 0 first (default: the layer's `fadeOut`).
 --- @return boolean existed
-function fps.ClearLayer(name) end
+function fps.ClearLayer(name, fadeSeconds) end
 
 --- Removes every layer (each is disabled and reset as in `ClearLayer`).
 function fps.ClearLayers() end
@@ -272,6 +300,56 @@ function fps.ClearLayers() end
 --- @nodiscard
 --- @return ExuFirstPersonLayer[]
 function fps.GetLayers() end
+
+--- Ramps the weight EXU applies to the clip the pilot FSM is currently playing
+--- (default 1; reset to 1 when the FSM moves on and at mission boundaries).
+--- @param weight number 0..1
+--- @param fadeSeconds number?
+--- @return true
+function fps.SetBaseWeight(weight, fadeSeconds) end
+
+--- Returns the base clip weight as `current, target`.
+--- @nodiscard
+--- @return number current
+--- @return number target
+function fps.GetBaseWeight() end
+
+--- Returns whether the local fire/auto-fire bind was held at the engine's last
+--- poll. False when `firstPersonTrigger` is false.
+--- @nodiscard
+--- @return boolean
+function fps.IsTriggerHeld() end
+
+--- Attaches a particle system (made with `exu.CreateParticleSystem`) to a bone
+--- of the local first-person skeleton. Idempotent; call it every Update while
+--- the effect should show. Returns `attached, reattached`; an unknown bone or
+--- missing FP entity returns `false` without changes.
+--- @param name string
+--- @param boneName string
+--- @param offset Vector|number? Offset in the bone's local frame (vector, or x then y, z).
+--- @param y number?
+--- @param z number?
+--- @return boolean attached
+--- @return boolean reattached
+function fps.AttachParticleToBone(name, boneName, offset, y, z) end
+
+--- Returns whether the named system is currently bound to a first-person bone.
+--- @nodiscard
+--- @param name string
+--- @return boolean
+function fps.IsParticleAttached(name) end
+
+--- Drops the first-person binding of a named particle system. Returns whether
+--- a binding existed.
+--- @param name string
+--- @return boolean hadBinding
+function fps.DetachParticle(name) end
+
+--- Returns a counter that increments each time a binding lands on a different
+--- first-person entity than the previous binding.
+--- @nodiscard
+--- @return integer
+function fps.GetParticleTargetGeneration() end
 
 --- Returns true only for the fully crouched native FSM state (state 2).
 --- Entering/exiting crouch return false; unavailable pilot state returns nil.
