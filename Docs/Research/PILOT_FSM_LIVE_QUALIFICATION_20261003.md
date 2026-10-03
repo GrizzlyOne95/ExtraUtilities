@@ -150,5 +150,20 @@ enterCrouch `completion = "duration", duration = 1.0` and exitCrouch
 
 2657 override calls, `policyDecision = override`, and no fault or stuck state.
 The table write/restore seam controls the native crouch timing exactly, to
-within one simulation step. Still open: a live substitution test (both
-skeletons), and a run without OpenShim.
+within one simulation step.
+
+## Sixth run: substitution and standalone EXU (14:48, OpenShim removed)
+
+`winmm.dll` (OpenShim) was renamed for this run. `exu.log` shows the
+OpenShim bridges unavailable, EXU's own HUD colour hooks active, and
+`pilot animation overrides qualified; single player only`. The profile
+substituted enterCrouch with `jump` (on both the world and ISDFC FP
+skeletons) under the 1.0 s duration. The tester saw the jump clip play on
+every crouch, and nothing hung or faulted. No timing table this time: the game
+wrote no `BZLogger.txt` without OpenShim, so the Lua `print` output was lost.
+The duration path was already measured in run 5.
+
+Qualification complete: inventory, timing trace, native duration/animation
+completion, and clip substitution all work in ISDFC, both with and without
+OpenShim. Still not live-tested: `manual` completion with `CompleteTransition`,
+and substitution in the stand, crouched, jump and land slots.
