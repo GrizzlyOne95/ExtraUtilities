@@ -201,6 +201,9 @@
     <ClCompile Include="src\Util\Soundtrack.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Patches\ScreenFlash.cpp">
+      <Filter>Source Files\Patches</Filter>
+    </ClCompile>
     <ClCompile Include="src\Patches\ShotConvergence.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
@@ -526,6 +529,9 @@
     </ClInclude>
     <ClInclude Include="src\BasicScanner.h">
       <Filter>Header Files\Memory Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Patches\ScreenFlash.h">
+      <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="src\Patches\ShotConvergence.h">
       <Filter>Header Files\Patches</Filter>
