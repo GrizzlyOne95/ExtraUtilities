@@ -61,6 +61,16 @@ namespace ExtraUtilities
 			// AnimationStateSet::getAnimationStateIterator() returns the header-only
 			// MapIterator by value, so the call goes through the real return type
 			// and the compiler supplies the hidden return slot.
+			//
+			// The shipped OgreMain.dll was built with custom container allocators,
+			// so its export names the map as
+			// map<String, AnimationState*, less<String>,
+			//     STLAllocator<pair<...>, CategorisedAllocPolicy<0>>>.
+			// EXU compiles with OGRE_CONTAINERS_USE_CUSTOM_MEMORY_ALLOCATOR 0
+			// (OgreBuildSettings.h), so the local type spells std::allocator; the
+			// layouts match (STLAllocator is stateless and release builds use
+			// _ITERATOR_DEBUG_LEVEL=0), but the mangled name must be the DLL's.
+			// Verified against GOG Redux 2.2.301 OgreMain.dll exports.
 			using GetAnimationStateIteratorFn =
 				Ogre::AnimationStateIterator(__thiscall*)(void* stateSet);
 
@@ -74,7 +84,7 @@ namespace ExtraUtilities
 			GetAnimationStateIteratorFn ResolveGetAnimationStateIterator() noexcept
 			{
 				static const OgreDll::OgreProc<GetAnimationStateIteratorFn> proc(
-					"?getAnimationStateIterator@AnimationStateSet@Ogre@@QAE?AV?$MapIterator@V?$map@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@PAVAnimationState@Ogre@@U?$less@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@V?$allocator@U?$pair@$$CBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@PAVAnimationState@Ogre@@@std@@@2@@std@@@2@XZ");
+					"?getAnimationStateIterator@AnimationStateSet@Ogre@@QAE?AV?$MapIterator@V?$map@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@PAVAnimationState@Ogre@@U?$less@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@V?$STLAllocator@U?$pair@$$CBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@PAVAnimationState@Ogre@@@std@@V?$CategorisedAllocPolicy@$0A@@Ogre@@@4@@std@@@2@XZ");
 				return proc.Get();
 			}
 		}
