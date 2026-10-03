@@ -24,6 +24,7 @@
 
 #include <Windows.h>
 
+#include <cstring>
 #include <string>
 
 namespace ExtraUtilities
@@ -48,8 +49,8 @@ namespace ExtraUtilities
 			// assumption GameObject::HasAnimation already relies on).
 			using GetAllAnimationStatesFn = void*(__thiscall*)(void* entity);
 			using GetSkeletonFn = void*(__thiscall*)(void* entity);
-			using GetNumAnimationsFn = unsigned short(__thiscall*)(void* skeleton);
-			using GetAnimationByIndexFn = void*(__thiscall*)(void* skeleton, unsigned short index);
+			using GetNumAnimationsFn = unsigned short(__thiscall*)(void* container);
+			using GetAnimationByIndexFn = void*(__thiscall*)(void* container, unsigned short index);
 			using GetAnimationNameFn = const std::string&(__thiscall*)(void* animation);
 			using HasAnimationStateFn = bool(__thiscall*)(void* stateSet, const std::string& name);
 			using GetAnimationStateFn = void*(__thiscall*)(void* stateSet, const std::string& name);
@@ -63,13 +64,79 @@ namespace ExtraUtilities
 				GetAnimationNameFn getName = nullptr;
 				HasAnimationStateFn hasAnimationState = nullptr;
 				GetAnimationStateFn getAnimationState = nullptr;
+				// Byte offset of the AnimationContainer base inside Skeleton.
+				long containerOffset = -1;
 
 				bool IsComplete() const noexcept
 				{
 					return getAllAnimationStates && getSkeleton && getNumAnimations &&
-						getAnimation && getName && hasAnimationState && getAnimationState;
+						getAnimation && getName && hasAnimationState && getAnimationState &&
+						containerOffset > 0;
 				}
 			};
+
+			// Follows incremental-link `jmp rel32` thunks to the real body.
+			const unsigned char* FollowThunks(const void* code) noexcept
+			{
+				const auto* bytes = static_cast<const unsigned char*>(code);
+				for (int hop = 0; bytes != nullptr && hop < 4 && bytes[0] == 0xE9; ++hop)
+				{
+					long rel = 0;
+					std::memcpy(&rel, bytes + 1, sizeof(rel));
+					bytes = bytes + 5 + rel;
+				}
+				return bytes;
+			}
+
+			// SkeletonInstance::getNumAnimations/getAnimation(ushort) override
+			// AnimationContainer virtuals. AnimationContainer is a non-primary base
+			// of Skeleton, so MSVC compiles them to expect `this` pointing at that
+			// subobject, not at the SkeletonInstance (live fault 2026-10-03:
+			// [this+0x68] read garbage, then faulted at null+0xD0). Both bodies
+			// forward through mSkeleton with `mov ecx,[ecx+disp8]; add ecx,imm32`;
+			// the imm32 is the base offset. Read it from the shipped code rather
+			// than hard-coding it, and refuse if either body does not match.
+			long DecodeForwardOffset(const unsigned char* body) noexcept
+			{
+				if (body == nullptr)
+				{
+					return -1;
+				}
+				// getAnimation(ushort) opens a frame first: push ebp; mov ebp,esp.
+				if (body[0] == 0x55 && body[1] == 0x8B && body[2] == 0xEC)
+				{
+					body += 3;
+				}
+				if (body[0] != 0x8B || body[1] != 0x49 || body[3] != 0x81 || body[4] != 0xC1)
+				{
+					return -1;
+				}
+				long offset = 0;
+				std::memcpy(&offset, body + 5, sizeof(offset));
+				return offset;
+			}
+
+			long ResolveContainerOffset(const void* getNumAnimations, const void* getAnimation) noexcept
+			{
+				long numOffset = -1;
+				long animOffset = -1;
+				const bool read = Seh::Guard(
+					"ResolveContainerOffset",
+					[&]
+					{
+						numOffset = DecodeForwardOffset(FollowThunks(getNumAnimations));
+						animOffset = DecodeForwardOffset(FollowThunks(getAnimation));
+					});
+				if (!read || numOffset <= 0 || numOffset != animOffset || numOffset > 0x1000)
+				{
+					Logging::LogMessage(
+						"[EXU::Animation] inventory unavailable: SkeletonInstance forwarders not recognised (getNumAnimations=%ld getAnimation=%ld)",
+						numOffset,
+						animOffset);
+					return -1;
+				}
+				return numOffset;
+			}
 
 			InventoryProcs ResolveInventoryProcs() noexcept
 			{
@@ -78,7 +145,8 @@ namespace ExtraUtilities
 				static const OgreDll::OgreProc<GetSkeletonFn> getSkeleton(
 					"?getSkeleton@Entity@Ogre@@QBEPAVSkeletonInstance@2@XZ");
 				// Entity::getSkeleton always returns a SkeletonInstance, so calling
-				// SkeletonInstance's own overrides directly is the virtual target.
+				// SkeletonInstance's own overrides directly is the virtual target;
+				// they take the AnimationContainer subobject (containerOffset).
 				static const OgreDll::OgreProc<GetNumAnimationsFn> getNumAnimations(
 					"?getNumAnimations@SkeletonInstance@Ogre@@UBEGXZ");
 				static const OgreDll::OgreProc<GetAnimationByIndexFn> getAnimation(
@@ -98,6 +166,13 @@ namespace ExtraUtilities
 				procs.getName = getName.Get();
 				procs.hasAnimationState = hasAnimationState.Get();
 				procs.getAnimationState = getAnimationState.Get();
+				if (procs.getNumAnimations != nullptr && procs.getAnimation != nullptr)
+				{
+					static const long containerOffset = ResolveContainerOffset(
+						reinterpret_cast<const void*>(procs.getNumAnimations),
+						reinterpret_cast<const void*>(procs.getAnimation));
+					procs.containerOffset = containerOffset;
+				}
 				return procs;
 			}
 		}
@@ -141,8 +216,9 @@ namespace ExtraUtilities
 					}
 					hasSkeleton = true;
 
+					void* const container = static_cast<char*>(skeleton) + procs.containerOffset;
 					stage = "getNumAnimations";
-					const unsigned short count = procs.getNumAnimations(skeleton);
+					const unsigned short count = procs.getNumAnimations(container);
 					faultCount = count;
 					outStates.reserve(count);
 					for (unsigned short index = 0; index < count; ++index)
@@ -150,7 +226,7 @@ namespace ExtraUtilities
 						faultIndex = index;
 						faultAnimation = nullptr;
 						stage = "getAnimation";
-						void* const animation = procs.getAnimation(skeleton, index);
+						void* const animation = procs.getAnimation(container, index);
 						faultAnimation = animation;
 						if (animation == nullptr)
 						{
