@@ -135,3 +135,20 @@ Build `e7eced1` (native fallback + resolver diagnostics).
 1. ~~Find out why the FP target fails to resolve~~ (done, see above).
 2. ~~Re-run the capture to get clip lists and lengths~~ (done, see above).
 3. Then go on to step 3A (crouch clip substitution).
+
+## Fifth run: native overrides proven (14:46, `c0227e3`)
+
+`exu.log`: `Person::Simulate interception seam active (pilot animation overrides
+qualified; single player only)`. `tests/runtime/pilot_override_check.lua` set
+enterCrouch `completion = "duration", duration = 1.0` and exitCrouch
+`completion = "animation"` (kneel2stand, 1.0 s at authored speed):
+
+| state | visits | min | mean | max | expected | stock |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| enteringCrouch | 3 | 1.0030 | 1.0037 | 1.0040 | 1.0 | 1.934 |
+| exitingCrouch | 3 | 1.0010 | 1.0023 | 1.0030 | 1.0 | 1.934 |
+
+2657 override calls, `policyDecision = override`, and no fault or stuck state.
+The table write/restore seam controls the native crouch timing exactly, to
+within one simulation step. Still open: a live substitution test (both
+skeletons), and a run without OpenShim.
