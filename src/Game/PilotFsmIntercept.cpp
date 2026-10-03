@@ -11,6 +11,7 @@
 #include "Game/PilotFsmIntercept.h"
 
 #include "EntryDetour32.h"
+#include "Game/FirstPersonLayers.h"
 #include "Game/FirstPersonTarget.h"
 #include "Game/GameObject.h"
 #include "Game/PilotAnimationPolicy.h"
@@ -724,6 +725,93 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 			}
 		}
 
+		// ----- First-person layers ---------------------------------------------
+		//
+		// exu.fps.SetLayer clips are advanced here, for the local Person only,
+		// after the stock call and the table restore above, so they see the
+		// clip the FSM just applied (FirstPersonLayers.h).
+
+		// Entries in each native clip table (bzr.h PersonRuntime).
+		constexpr std::int32_t kClipTableEntries = 12;
+
+		// Bounded copy of an engine/pool string. Raw reads only.
+		bool CopyClipNameSeh(const char* source, char (&out)[FirstPersonLayers::kMaxLayerName + 1]) noexcept
+		{
+			out[0] = '\0';
+			if (source == nullptr)
+			{
+				return false;
+			}
+			__try
+			{
+				for (std::size_t i = 0; i <= FirstPersonLayers::kMaxLayerName; ++i)
+				{
+					out[i] = source[i];
+					if (source[i] == '\0')
+					{
+						return true;
+					}
+				}
+				// Longer than any layer name: it cannot match one.
+				out[0] = '\0';
+				return false;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				out[0] = '\0';
+				return false;
+			}
+		}
+
+		const char* ReadStockClipNameSeh(std::int32_t index) noexcept
+		{
+			__try
+			{
+				return BZR::PersonRuntime::animName[index];
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return nullptr;
+			}
+		}
+
+		// The name of the clip the FSM is playing for the local Person after
+		// this call: the name the apply helpers were actually given. For the
+		// six policy slots that is the applied-clip record (a substitute
+		// stays the current clip until the index changes, even after the
+		// policy went stock); for every other index, and whenever the record
+		// does not cover the index, it is the stock table entry, which the
+		// restore above has just put back.
+		void CurrentClipName(
+			const PilotState::Snapshot& after,
+			char (&out)[FirstPersonLayers::kMaxLayerName + 1]) noexcept
+		{
+			out[0] = '\0';
+			if (g_recordIndex == after.animationIndex && g_recordName != nullptr)
+			{
+				CopyClipNameSeh(g_recordName, out);
+				return;
+			}
+			if (after.animationIndex >= 0 && after.animationIndex < kClipTableEntries)
+			{
+				CopyClipNameSeh(ReadStockClipNameSeh(after.animationIndex), out);
+			}
+		}
+
+		void ApplyFirstPersonLayers(
+			const void* person,
+			const PilotState::Snapshot& after,
+			float dt) noexcept
+		{
+			void* world = nullptr;
+			void* firstPerson = nullptr;
+			FirstPersonTarget::ReadPersonRenderEntities(person, world, firstPerson);
+
+			char engineClip[FirstPersonLayers::kMaxLayerName + 1];
+			CurrentClipName(after, engineClip);
+			FirstPersonLayers::ApplyLocal(firstPerson, dt, engineClip[0] != '\0' ? engineClip : nullptr);
+		}
+
 		PilotTrace::Frame ToTraceFrame(const PilotState::Snapshot& snapshot) noexcept
 		{
 			PilotTrace::Frame frame{};
@@ -832,6 +920,9 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 					UpdateAppliedRecord(person, before, after, plan);
 					RecordLocalPair(before, after);
 					g_trace.Record(dt, ToTraceFrame(before), ToTraceFrame(after));
+					// Presentation only, so also in multiplayer: no gameplay
+					// state and no clip table is written.
+					ApplyFirstPersonLayers(person, after, dt);
 				}
 			}
 		}

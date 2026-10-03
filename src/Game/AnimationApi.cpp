@@ -18,6 +18,7 @@
 
 #include "Game/AnimationApi.h"
 
+#include "Game/FirstPersonLayers.h"
 #include "Game/FirstPersonTarget.h"
 #include "Game/GameObject.h"
 #include "Game/PilotAnimationPolicy.h"
@@ -388,7 +389,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 		int GetCapabilities(lua_State* L)
 		{
-			lua_createtable(L, 0, 9);
+			lua_createtable(L, 0, 10);
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "gameObjectTarget");
 			const bool hasFpBridge = OpenShimBridge::HasLocalFirstPersonEntityBridge();
@@ -409,6 +410,10 @@ namespace ExtraUtilities::Lua::AnimationApi
 				(PilotAnimationPolicy::HasOverrideSupport(PilotAnimationPolicy::kBuildSupport) &&
 					PilotFsmIntercept::AreOverridesAvailable()) ? 1 : 0);
 			lua_setfield(L, -2, "pilotAnimationOverrides");
+			// exu.fps.SetLayer clips are advanced from the same seam. They are
+			// presentation-only, so multiplayer does not affect this flag.
+			lua_pushboolean(L, FirstPersonLayers::IsAvailable() ? 1 : 0);
+			lua_setfield(L, -2, "firstPersonLayers");
 			lua_pushboolean(L, 0);
 			lua_setfield(L, -2, "managedClock");
 			lua_pushstring(L, "unvalidated");
@@ -1189,6 +1194,198 @@ namespace ExtraUtilities::Lua::AnimationApi
 			return 1;
 		}
 
+		// ----- First-person layers (FirstPersonLayers.h) -------------------------
+		//
+		// Strict like SetPilotAnimationProfile: every validation failure is a
+		// Lua error (owner decision: unknown option keys are errors). These
+		// bindings keep no C++ object with a destructor alive across luaL_error.
+
+		int LayerError(lua_State* L, const char* function, FirstPersonLayers::Error error)
+		{
+			return luaL_error(L, "exu.fps.%s: %s", function, FirstPersonLayers::ErrorMessage(error));
+		}
+
+		const char* CheckLayerName(lua_State* L, int index, std::size_t& outLength)
+		{
+			outLength = 0;
+			return luaL_checklstring(L, index, &outLength);
+		}
+
+		lua_Number CheckLayerNumber(lua_State* L, int index, const char* function, const char* key)
+		{
+			if (lua_type(L, index) != LUA_TNUMBER)
+			{
+				luaL_error(L, "exu.fps.%s: option '%s' must be a number", function, key);
+			}
+			return lua_tonumber(L, index);
+		}
+
+		// Reads SetLayer's options table into outOptions. Unknown keys, non-string
+		// keys, and wrongly typed values raise.
+		void ReadLayerOptions(lua_State* L, int index, FirstPersonLayers::LayerOptions& outOptions)
+		{
+			constexpr const char* kFunction = "SetLayer";
+			outOptions = {};
+			if (lua_isnoneornil(L, index))
+			{
+				return;
+			}
+			luaL_checktype(L, index, LUA_TTABLE);
+
+			lua_pushnil(L);
+			while (lua_next(L, index) != 0)
+			{
+				const int keyIndex = lua_gettop(L) - 1;
+				const int valueIndex = keyIndex + 1;
+				// Only a string key is read as text: lua_tolstring would convert a
+				// number key in place and break lua_next.
+				if (lua_type(L, keyIndex) != LUA_TSTRING)
+				{
+					luaL_error(L, "exu.fps.%s: option keys must be strings", kFunction);
+				}
+				const char* key = lua_tostring(L, keyIndex);
+				if (std::strcmp(key, "speed") == 0)
+				{
+					outOptions.hasSpeed = true;
+					outOptions.speed = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "weight") == 0)
+				{
+					outOptions.hasWeight = true;
+					outOptions.weight = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "loop") == 0)
+				{
+					if (lua_type(L, valueIndex) != LUA_TBOOLEAN)
+					{
+						luaL_error(L, "exu.fps.%s: option 'loop' must be a boolean", kFunction);
+					}
+					outOptions.hasLoop = true;
+					outOptions.loop = lua_toboolean(L, valueIndex) != 0;
+				}
+				else if (std::strcmp(key, "time") == 0)
+				{
+					outOptions.hasTime = true;
+					outOptions.time = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else
+				{
+					luaL_error(L, "exu.fps.%s: unknown option '%s' (expected speed, weight, loop, time)",
+						kFunction, key);
+				}
+				lua_settop(L, keyIndex);
+			}
+		}
+
+		// exu.fps.SetLayer(name, options?) -> true. Creates or updates.
+		int FpsSetLayer(lua_State* L)
+		{
+			std::size_t length = 0;
+			const char* name = CheckLayerName(L, 1, length);
+			FirstPersonLayers::LayerOptions options{};
+			ReadLayerOptions(L, 2, options);
+			const FirstPersonLayers::Error error = FirstPersonLayers::SetLayer(name, length, options);
+			if (error != FirstPersonLayers::Error::None)
+			{
+				return LayerError(L, "SetLayer", error);
+			}
+			lua_settop(L, 0);
+			lua_pushboolean(L, 1);
+			return 1;
+		}
+
+		int FpsSetLayerSpeed(lua_State* L)
+		{
+			std::size_t length = 0;
+			const char* name = CheckLayerName(L, 1, length);
+			const lua_Number speed = luaL_checknumber(L, 2);
+			const FirstPersonLayers::Error error =
+				FirstPersonLayers::SetLayerSpeed(name, length, static_cast<double>(speed));
+			if (error != FirstPersonLayers::Error::None)
+			{
+				return LayerError(L, "SetLayerSpeed", error);
+			}
+			lua_settop(L, 0);
+			lua_pushboolean(L, 1);
+			return 1;
+		}
+
+		int FpsSetLayerWeight(lua_State* L)
+		{
+			std::size_t length = 0;
+			const char* name = CheckLayerName(L, 1, length);
+			const lua_Number weight = luaL_checknumber(L, 2);
+			const FirstPersonLayers::Error error =
+				FirstPersonLayers::SetLayerWeight(name, length, static_cast<double>(weight));
+			if (error != FirstPersonLayers::Error::None)
+			{
+				return LayerError(L, "SetLayerWeight", error);
+			}
+			lua_settop(L, 0);
+			lua_pushboolean(L, 1);
+			return 1;
+		}
+
+		// exu.fps.ClearLayer(name) -> whether a layer of that name existed.
+		int FpsClearLayer(lua_State* L)
+		{
+			std::size_t length = 0;
+			const char* name = CheckLayerName(L, 1, length);
+			const FirstPersonLayers::Error error = FirstPersonLayers::ClearLayer(name, length);
+			if (error != FirstPersonLayers::Error::None && error != FirstPersonLayers::Error::NotFound)
+			{
+				return LayerError(L, "ClearLayer", error);
+			}
+			lua_settop(L, 0);
+			lua_pushboolean(L, error == FirstPersonLayers::Error::None ? 1 : 0);
+			return 1;
+		}
+
+		int FpsClearLayers(lua_State* L)
+		{
+			FirstPersonLayers::ClearLayers();
+			lua_settop(L, 0);
+			return 0;
+		}
+
+		int FpsGetLayers(lua_State* L)
+		{
+			FirstPersonLayers::LayerReport reports[FirstPersonLayers::kMaxLayers]{};
+			const std::size_t count = FirstPersonLayers::GetLayers(reports);
+
+			lua_settop(L, 0);
+			lua_createtable(L, static_cast<int>(count), 0);
+			for (std::size_t i = 0; i < count; ++i)
+			{
+				const FirstPersonLayers::LayerReport& report = reports[i];
+				const bool active = report.result.reason == FirstPersonLayers::Reason::Active;
+				lua_createtable(L, 0, 9);
+				lua_pushstring(L, report.spec.name);
+				lua_setfield(L, -2, "name");
+				lua_pushnumber(L, static_cast<lua_Number>(report.spec.speed));
+				lua_setfield(L, -2, "speed");
+				lua_pushnumber(L, static_cast<lua_Number>(report.spec.weight));
+				lua_setfield(L, -2, "weight");
+				lua_pushboolean(L, report.spec.loop ? 1 : 0);
+				lua_setfield(L, -2, "loop");
+				lua_pushnumber(L, static_cast<lua_Number>(report.result.time));
+				lua_setfield(L, -2, "time");
+				lua_pushnumber(L, static_cast<lua_Number>(report.result.length));
+				lua_setfield(L, -2, "length");
+				lua_pushboolean(L, active ? 1 : 0);
+				lua_setfield(L, -2, "active");
+				if (!active)
+				{
+					lua_pushstring(L, FirstPersonLayers::ReasonName(report.result.reason));
+					lua_setfield(L, -2, "reason");
+				}
+				lua_pushstring(L, FirstPersonLayers::BlendModeName(report.result.blendMode));
+				lua_setfield(L, -2, "blendMode");
+				lua_rawseti(L, -2, static_cast<int>(i + 1));
+			}
+			return 1;
+		}
+
 		int FpsIsAvailable(lua_State* L)
 		{
 			Detail::Target target{};
@@ -1293,6 +1490,12 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{ "StartPilotTrace", &FpsStartPilotTrace },
 			{ "StopPilotTrace", &FpsStopPilotTrace },
 			{ "GetPilotTrace", &FpsGetPilotTrace },
+			{ "SetLayer", &FpsSetLayer },
+			{ "SetLayerSpeed", &FpsSetLayerSpeed },
+			{ "SetLayerWeight", &FpsSetLayerWeight },
+			{ "ClearLayer", &FpsClearLayer },
+			{ "ClearLayers", &FpsClearLayers },
+			{ "GetLayers", &FpsGetLayers },
 			{ "IsCrouched", &FpsIsCrouched },
 			{ "IsGrounded", &FpsIsGrounded },
 			{ "IsSniperSelected", &FpsIsSniperSelected },

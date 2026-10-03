@@ -175,6 +175,94 @@ namespace ExtraUtilities
 				}
 				return procs;
 			}
+
+			// Skeleton::getBlendMode is a virtual declared on Skeleton itself, so
+			// it lives in the primary (Resource) vtable and takes the plain
+			// Skeleton/SkeletonInstance pointer; no base adjustment applies.
+			// The shipped body is `mov eax,[ecx+0D4h]; ret` and 0xD4 is the
+			// AnimationContainer subobject offset (0xD0, decoded above) + 4:
+			// mBlendState, Skeleton's first data member, right after that
+			// subobject's vptr. Both facts are checked against the loaded code
+			// before the first call; anything else leaves the mode unknown.
+			using GetBlendModeFn = int(__thiscall*)(void* skeleton);
+
+			GetBlendModeFn QualifyGetBlendMode(GetBlendModeFn proc, long containerOffset) noexcept
+			{
+				if (proc == nullptr || containerOffset <= 0)
+				{
+					return nullptr;
+				}
+				long displacement = -1;
+				const bool read = Seh::Guard(
+					"QualifyGetBlendMode",
+					[&]
+					{
+						const unsigned char* body = FollowThunks(reinterpret_cast<const void*>(proc));
+						if (body != nullptr && body[0] == 0x8B && body[1] == 0x81 && body[6] == 0xC3)
+						{
+							std::memcpy(&displacement, body + 2, sizeof(displacement));
+						}
+					});
+				if (!read || displacement != containerOffset + 4)
+				{
+					Logging::LogMessage(
+						"[EXU::Animation] skeleton blend mode unavailable: Skeleton::getBlendMode not the verified field read (displacement=%ld containerOffset=%ld)",
+						displacement,
+						containerOffset);
+					return nullptr;
+				}
+				return proc;
+			}
+
+			GetBlendModeFn ResolveGetBlendMode(long containerOffset) noexcept
+			{
+				static const OgreDll::OgreProc<GetBlendModeFn> getBlendMode(
+					"?getBlendMode@Skeleton@Ogre@@UBE?AW4SkeletonAnimationBlendMode@2@XZ");
+				static const GetBlendModeFn qualified =
+					QualifyGetBlendMode(getBlendMode.Get(), containerOffset);
+				return qualified;
+			}
+		}
+
+		bool TryGetSkeletonBlendMode(void* entity, int& outMode) noexcept
+		{
+			outMode = -1;
+			if (entity == nullptr)
+			{
+				return false;
+			}
+			const InventoryProcs procs = ResolveInventoryProcs();
+			if (procs.getSkeleton == nullptr || procs.containerOffset <= 0)
+			{
+				return false;
+			}
+			const GetBlendModeFn getBlendMode = ResolveGetBlendMode(procs.containerOffset);
+			if (getBlendMode == nullptr)
+			{
+				return false;
+			}
+
+			bool hasSkeleton = false;
+			const bool completed = Seh::Guard(
+				"TryGetSkeletonBlendMode",
+				[&]
+				{
+					void* const skeleton = procs.getSkeleton(entity);
+					if (skeleton == nullptr)
+					{
+						return;
+					}
+					hasSkeleton = true;
+					outMode = getBlendMode(skeleton);
+				},
+				[&](unsigned long exceptionCode)
+				{
+					Logging::LogMessage(
+						"[EXU::Animation] blend mode read fault entity=%p code=0x%08lX",
+						entity,
+						exceptionCode);
+				});
+			return completed && hasSkeleton;
 		}
 
 		bool TryEnumerateAnimationStates(

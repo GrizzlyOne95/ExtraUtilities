@@ -22,6 +22,7 @@
 
 #include "About.h"
 #include "Game/Culling.h"
+#include "Game/FirstPersonLayers.h"
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotFsmIntercept.h"
 #include "Game/RenderEffects.h"
@@ -520,6 +521,7 @@ namespace ExtraUtilities::Lua
 		CommandReplacement::ResetState(L);
 		PilotFsmIntercept::ResetStats();
 		PilotAnimationPolicy::ResetMissionState();
+		FirstPersonLayers::ResetMissionState();
 		Logging::LogMessage("exu: Init starting");
 		Patches::ResetOpenShimMissionOverrides();
 		// Scripted content gets the legacy jump-snipe crouch fix on by default.

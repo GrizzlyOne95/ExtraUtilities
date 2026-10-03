@@ -125,6 +125,7 @@ caps.animationInventory == true
 caps.pilotStateInspection == true
 caps.pilotFsmIntercept == true -- when the verified Person::Simulate entry detour is active
 caps.pilotAnimationOverrides == true -- when that seam is active and the native pilot clip tables qualified
+caps.firstPersonLayers == true -- when that seam is active (exu.fps.SetLayer; also in multiplayer)
 caps.managedClock == false
 caps.nativeAdvancement == "unvalidated"
 ```
@@ -142,6 +143,11 @@ an uncaught Ogre exception, so EXU validates first and leaves the slot stock
 otherwise. Use `exu.animation.List(exu.animation.Target(GetPlayerHandle()))`
 style probes on the world pilot and `exu.fps.ListAnimations()` on the
 first-person entity to check a mod mesh.
+
+`firstPersonLayers` means `exu.fps.SetLayer` layers are advanced: EXU-clocked,
+presentation-only loops on the local first-person entity, driven from the same
+seam (see `Docs/FPS_API.md`). `managedClock` stays `false`: it describes the
+clips the FSM and `exu.animation.Play` drive, which EXU does not clock.
 
 `nativeAdvancement` remains `unvalidated` until the stock `Play`/`Stop`/`Seek` runtime matrix is captured. Target qualification proves that the FP entity is independently controllable, but does not by itself prove every public operation's playback semantics.
 

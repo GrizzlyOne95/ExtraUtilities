@@ -113,6 +113,26 @@
 --- @field jump ExuPilotPolicySlot
 --- @field land ExuPilotPolicySlot
 
+--- Options for `exu.fps.SetLayer`. Unknown keys are an error. A field left
+--- out keeps the layer's current value (its default when the layer is new).
+--- @class ExuFirstPersonLayerOptions
+--- @field speed number? Clip-seconds per second, 0..50 (default 1). For a 1 s one-revolution clip this is revolutions per second.
+--- @field weight number? Ogre blend weight, 0..1 (default 1).
+--- @field loop boolean? Wrap at the clip end (default true); false clamps at the end.
+--- @field time number? Seconds >= 0: seek EXU's clock for this layer here (wrapped or clamped to the clip).
+
+--- One entry of `exu.fps.GetLayers()`, as of the most recent local pilot tick.
+--- @class ExuFirstPersonLayer
+--- @field name string
+--- @field speed number
+--- @field weight number
+--- @field loop boolean
+--- @field time number EXU's clock for the layer (seconds into the clip).
+--- @field length number Clip length in seconds; 0 until the clip has been found.
+--- @field active boolean True when EXU applied the layer on the most recent local tick.
+--- @field reason "pending"|"missing"|"engineOwned"|"noFirstPersonEntity"|"faulted"|"unavailable"|nil Why it is not active (nil when active).
+--- @field blendMode "average"|"cumulative"|"unknown" Blend mode of the first-person skeleton. Layers need "cumulative": under "average" Ogre rescales every enabled clip by 1/total weight once weights sum past 1, distorting the whole pose.
+
 --- @class ExuFpsApi
 local fps = {}
 
@@ -201,6 +221,57 @@ function fps.StopPilotTrace() end
 --- @param limit integer? Positive integer.
 --- @return ExuPilotTrace|nil
 function fps.GetPilotTrace(limit) end
+
+--- Creates or updates an EXU-clocked first-person layer: a clip on the local
+--- pilot's FIRST-PERSON skeleton that EXU keeps enabled and advances by
+--- dt * speed on every local Person::Simulate call, whatever the pilot FSM is
+--- doing (stand/crouch/run/jump). Presentation-only: writes no gameplay
+--- state, touches only the local first-person entity, and is allowed in
+--- multiplayer. At most 8 layers; name 1..63 characters. Raises a Lua error
+--- on an invalid name or option, an unknown option key, or a ninth layer.
+--- Layers are cleared at every mission/Lua-state boundary.
+---
+--- Rig contract: the clip exists only on the first-person skeleton, keys only
+--- its own bone(s) (e.g. a barrel bone), stock FSM clips have no tracks for
+--- those bones, the skeleton uses blendmode "cumulative", and a looping clip
+--- is seamless (last key == first key, e.g. 360 degrees).
+---
+--- If the FSM itself is playing a clip of the same name this tick, EXU leaves
+--- it alone (reason "engineOwned") instead of advancing it twice.
+--- @param name string Ogre animation name.
+--- @param options ExuFirstPersonLayerOptions?
+--- @return true
+function fps.SetLayer(name, options) end
+
+--- Sets a layer's speed (clip-seconds per second, 0..50). Raises a Lua error
+--- if no layer has that name or the speed is invalid.
+--- @param name string
+--- @param speed number
+--- @return true
+function fps.SetLayerSpeed(name, speed) end
+
+--- Sets a layer's blend weight (0..1). Raises a Lua error if no layer has that
+--- name or the weight is invalid.
+--- @param name string
+--- @param weight number
+--- @return true
+function fps.SetLayerWeight(name, weight) end
+
+--- Removes a layer. On the next local pilot tick that has a first-person
+--- entity, EXU disables the Ogre state and resets its weight to 1 and time to
+--- 0 (if the state still exists). Returns whether the layer existed.
+--- @param name string
+--- @return boolean existed
+function fps.ClearLayer(name) end
+
+--- Removes every layer (each is disabled and reset as in `ClearLayer`).
+function fps.ClearLayers() end
+
+--- Returns the layers in creation order with the hook's most recent result
+--- for each. Changes nothing.
+--- @nodiscard
+--- @return ExuFirstPersonLayer[]
+function fps.GetLayers() end
 
 --- Returns true only for the fully crouched native FSM state (state 2).
 --- Entering/exiting crouch return false; unavailable pilot state returns nil.
