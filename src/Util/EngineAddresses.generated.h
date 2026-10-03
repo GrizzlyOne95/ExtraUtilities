@@ -477,6 +477,19 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
+	namespace ScreenFlash
+	{
+		enum : uintptr_t
+		{
+			// hook site (10 bytes: mov ecx, colorFade; call ColorFade::SetFade)
+			CraftDamageFlashSite = 0x004AA6F6u,
+			// hook site (10 bytes: mov ecx, colorFade; call ColorFade::SetFade)
+			CraftHeatFlashSite = 0x004AB273u,
+			// hook site (10 bytes: mov ecx, colorFade; call ColorFade::SetFade)
+			PersonDamageFlashSite = 0x005A0D52u,
+		};
+	}
+
 	namespace Turbo
 	{
 		enum : uintptr_t
@@ -551,5 +564,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 173u;
+	inline constexpr unsigned kEntryCount = 176u;
 }

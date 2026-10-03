@@ -2311,6 +2311,28 @@ function exu.SetTeamEngineFlameColor(team, color) end
 --- @param team integer
 function exu.ClearTeamEngineFlameColor(team) end
 
+--- Gets whether the red full-screen flash plays when the local player's craft or pilot takes damage (default true).
+--- Reports what the engine will actually do: false only while the suppression patch is installed.
+--- @nodiscard
+--- @return boolean enabled
+function exu.GetDamageFlashEnabled() end
+
+--- Enables or disables the red full-screen flash when the local player's craft or pilot takes damage.
+--- Only the stock damage flash is affected; mission ColorFade() calls and other flashes still play.
+--- Mission scoped: resets to enabled when the Lua state closes, so set it again after loading a save.
+--- @param enabled boolean
+function exu.SetDamageFlashEnabled(enabled) end
+
+--- Gets whether the orange full-screen flash plays while the local player's craft overheats (default true).
+--- @nodiscard
+--- @return boolean enabled
+function exu.GetHeatFlashEnabled() end
+
+--- Enables or disables the orange full-screen flash while the local player's craft overheats.
+--- Mission scoped: resets to enabled when the Lua state closes, so set it again after loading a save.
+--- @param enabled boolean
+function exu.SetHeatFlashEnabled(enabled) end
+
 --- Gets whether or not the global turbo mode patch is enabled (default false).
 --- @nodiscard
 --- @return boolean
