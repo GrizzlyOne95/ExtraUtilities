@@ -21,14 +21,16 @@
 
 --- @class ExuPilotInterceptStatus
 --- @field installed boolean True when the verified trampoline is prepared.
---- @field active boolean True when the Person::Simulate entry currently points at EXU's observe-only hook.
---- @field observeOnly boolean True for this work chunk; no FSM policy writes are performed.
+--- @field active boolean True when the Person::Simulate entry currently points at EXU's hook.
+--- @field observeOnly boolean False only while table overrides are in force: overrides available, single player, and a non-stock active profile. True means the hook only observes.
+--- @field overridesAvailable boolean The seam is active and the native pilot clip tables passed their install-time preimage check.
 --- @field hasLocalSample boolean True after a local on-foot Person has completed at least one intercepted Simulate call.
 --- @field calls integer Total intercepted Person::Simulate calls, including non-local Person objects.
 --- @field localCalls integer Intercepted calls where the simulated Person was exactly the current local user object.
 --- @field stateChanges integer Local calls whose native FSM state changed across the stock Simulate call.
 --- @field animationChanges integer Local calls whose animation index or handle changed across the stock Simulate call.
---- @field policyDecision "passThrough"|string? What the pilot animation policy told the seam to do for the most recent local call. nil until a local call has been intercepted. Always "passThrough" in this version.
+--- @field overrideCalls integer Local calls around which the clip tables were rewritten (and restored).
+--- @field policyDecision "passThrough"|"override"|string? What the pilot animation policy told the seam to do for the most recent local call. nil until a local call has been intercepted. "override" for every mapped native state (0-3) while a supported non-stock profile is active; "passThrough" otherwise.
 --- @field beforeNativeState integer?
 --- @field afterNativeState integer?
 --- @field beforeState string?
@@ -78,8 +80,29 @@
 --- @field dwell table<"standing"|"enteringCrouch"|"crouched"|"exitingCrouch", ExuPilotTraceDwell>
 
 --- @class ExuPilotPolicySlot
---- @field mode "stock"|string "stock" means the native Person::Simulate behavior for this slot is untouched. It is the only mode this build can apply (`GetCapabilities().pilotAnimationOverrides` is false).
+--- @field mode "stock"|"substitute" "stock" leaves the native clip for this slot untouched.
+--- @field animation string? Substitute clip name; present only with mode "substitute".
+--- @field completion "stock"|"animation"|"duration"|"manual"|nil Present only for enterCrouch/exitCrouch.
+--- @field duration number? Seconds; present only with completion "duration".
 --- @field nativeState integer? Native `Person+0x228` value the slot corresponds to. Present for stand/enterCrouch/crouched/exitCrouch (0-3); absent for jump/land, which are animation selections whose native conditions are not yet traced.
+
+--- One slot of a profile passed to `exu.fps.SetPilotAnimationProfile`. Every
+--- field is optional; omitted fields are stock. Unknown fields are an error.
+--- @class ExuPilotPolicySlotConfig
+--- @field mode "stock"|"substitute"|nil
+--- @field animation string? Required by, and only allowed with, mode "substitute". 1-63 characters. Must exist on BOTH the pilot's world (third-person) and first-person skeletons, or the slot stays stock.
+--- @field completion "stock"|"animation"|"duration"|"manual"|nil enterCrouch/exitCrouch only.
+--- @field duration number? Seconds in (0, 60]. Required by, and only allowed with, completion "duration".
+
+--- Profile passed to `exu.fps.SetPilotAnimationProfile`. Omitted slots are
+--- stock; unknown slot keys are an error.
+--- @class ExuPilotAnimationProfileConfig
+--- @field stand ExuPilotPolicySlotConfig? Native idx 2 `idle`.
+--- @field enterCrouch ExuPilotPolicySlotConfig? Native idx 0 `stand2Kneel` (state 1).
+--- @field crouched ExuPilotPolicySlotConfig? Native idx 3 `fireRecoilSniper`.
+--- @field exitCrouch ExuPilotPolicySlotConfig? Native idx 1 `kneel2stand` (state 3).
+--- @field jump ExuPilotPolicySlotConfig? Native idx 11 `jump`.
+--- @field land ExuPilotPolicySlotConfig? Native idx 10 `landParachute`.
 
 --- Effective pilot animation profile. Read-only; one entry per policy slot.
 --- @class ExuPilotAnimationProfile
@@ -89,6 +112,44 @@
 --- @field exitCrouch ExuPilotPolicySlot
 --- @field jump ExuPilotPolicySlot
 --- @field land ExuPilotPolicySlot
+
+--- Options for `exu.fps.SetLayer`. Unknown keys are an error. A field left
+--- out keeps the layer's current value (its default when the layer is new).
+--- @class ExuFirstPersonLayerOptions
+--- @field speed number? Clip-seconds per second, 0..50 (default 1). For a 1 s one-revolution clip this is revolutions per second.
+--- @field weight number? Ogre blend weight, 0..1 (default 1).
+--- @field loop boolean? Wrap at the clip end (default true); false clamps at the end.
+--- @field time number? Seconds >= 0: seek EXU's clock for this layer here (wrapped or clamped to the clip).
+--- @field fadeIn number? Seconds (this call only): ramp from the weight being applied to the target weight.
+--- @field fadeOut number? Seconds (stored): the default fade of a later `ClearLayer`.
+--- @field fire ExuFirstPersonLayerFire|false? Trigger drive; `false` removes it.
+
+--- Trigger drive for a layer: while the local fire bind is held the effective
+--- speed ramps toward `speed`, and back to the base speed on release.
+--- @class ExuFirstPersonLayerFire
+--- @field speed number Target clip-seconds per second while the trigger is held.
+--- @field spinUp number? Seconds for the whole ramp up (0 or omitted = instant).
+--- @field spinDown number? Seconds for the whole ramp down (0 or omitted = instant).
+
+--- Options for `exu.fps.PlayLayer`. Unknown keys are an error.
+--- @class ExuFirstPersonPlayLayerOptions
+--- @field speed number? Clip-seconds per second, 0..50 (sticky).
+--- @field weight number? Ogre blend weight, 0..1 (sticky).
+--- @field fadeIn number? Seconds to ramp in for this play.
+--- @field fadeOut number? Seconds to ramp out so the weight reaches 0 at the clip end.
+--- @field clearOnEnd boolean? Default true: disable when finished; false holds the last frame.
+
+--- One entry of `exu.fps.GetLayers()`, as of the most recent local pilot tick.
+--- @class ExuFirstPersonLayer
+--- @field name string
+--- @field speed number
+--- @field weight number
+--- @field loop boolean
+--- @field time number EXU's clock for the layer (seconds into the clip).
+--- @field length number Clip length in seconds; 0 until the clip has been found.
+--- @field active boolean True when EXU applied the layer on the most recent local tick.
+--- @field reason "pending"|"missing"|"engineOwned"|"noFirstPersonEntity"|"faulted"|"unavailable"|nil Why it is not active (nil when active).
+--- @field blendMode "average"|"cumulative"|"unknown" Blend mode of the first-person skeleton. Layers need "cumulative": under "average" Ogre rescales every enabled clip by 1/total weight once weights sum past 1, distorting the whole pose.
 
 --- @class ExuFpsApi
 local fps = {}
@@ -114,19 +175,46 @@ function fps.GetCapabilities() end
 function fps.GetPilotState() end
 
 --- Returns the effective mission-scoped pilot animation profile: what EXU's
---- policy layer will do for each pilot animation slot. In this version every
---- slot is `mode = "stock"`, so the native animation FSM is left entirely
---- alone; this call is diagnostic and changes nothing. The profile is reset to
---- stock at mission/Lua-state boundaries. It reports no stock duration values:
---- none have been traced yet.
+--- policy layer does for each pilot animation slot (mode, animation,
+--- completion, duration, nativeState). Stock by default and again at every
+--- mission/Lua-state boundary. Changes nothing.
 --- @nodiscard
 --- @return ExuPilotAnimationProfile
 function fps.GetPilotAnimationProfile() end
 
+--- Replaces the mission-scoped pilot animation profile. `nil` or `{}`
+--- restores stock and is always allowed. Raises a Lua error, leaving the
+--- active profile unchanged, when the profile is invalid (unknown slot or
+--- field, wrong type, missing `animation`/`duration`, ...), in multiplayer
+--- ("single player only"), or when `GetCapabilities().pilotAnimationOverrides`
+--- is false.
+---
+--- Applied natively for the local pilot only, by rewriting Person::Simulate's
+--- per-clip tables around each local call:
+--- * A substitute must exist on both the world and the first-person
+---   skeleton; otherwise that slot stays stock (logged once per name). It
+---   takes effect the next time the engine applies that slot's clip.
+--- * Stock crouch transitions last endTime/rate = 0.967/0.5 = about 1.934 s.
+---   `completion = "animation"`: one play of the clip at authored speed (end =
+---   clip length, rate 1). `"duration"`: lasts `duration` seconds (rate =
+---   end/duration; end = 0.967-capped stock clip, or the whole substitute).
+---   `"manual"`: the clip plays at stock speed and holds at its end until
+---   `exu.fps.CompleteTransition()`.
+--- @param profile ExuPilotAnimationProfileConfig?
+function fps.SetPilotAnimationProfile(profile) end
+
+--- Finishes the current crouch transition on the next pilot update. Returns
+--- true only when overrides are available, the session is single player, the
+--- local pilot is entering or exiting crouch (native state 1 or 3), and that
+--- transition's profile completion is "manual". One-shot.
+--- @return boolean requested
+function fps.CompleteTransition() end
+
 --- Returns diagnostics for EXU's verified Person::Simulate interception seam.
---- The seam is observe-only in this version: it consults the pilot animation
---- policy (which can only answer pass-through), calls the stock trampoline
---- unchanged, and records local pre/post state transitions.
+--- The seam always calls the stock trampoline; for the local pilot under a
+--- non-stock profile (single player) it rewrites the native clip tables
+--- around that call and restores them straight after. It also records local
+--- pre/post state transitions.
 --- @nodiscard
 --- @return ExuPilotInterceptStatus
 function fps.GetPilotInterceptStatus() end
@@ -151,6 +239,117 @@ function fps.StopPilotTrace() end
 --- @param limit integer? Positive integer.
 --- @return ExuPilotTrace|nil
 function fps.GetPilotTrace(limit) end
+
+--- Creates or updates an EXU-clocked first-person layer: a clip on the local
+--- pilot's FIRST-PERSON skeleton that EXU keeps enabled and advances by
+--- dt * speed on every local Person::Simulate call, whatever the pilot FSM is
+--- doing (stand/crouch/run/jump). Presentation-only: writes no gameplay
+--- state, touches only the local first-person entity, and is allowed in
+--- multiplayer. At most 8 layers; name 1..63 characters. Raises a Lua error
+--- on an invalid name or option, an unknown option key, or a ninth layer.
+--- Layers are cleared at every mission/Lua-state boundary.
+---
+--- Rig contract: the clip exists only on the first-person skeleton, keys only
+--- its own bone(s) (e.g. a barrel bone), stock FSM clips have no tracks for
+--- those bones, the skeleton uses blendmode "cumulative", and a looping clip
+--- is seamless (last key == first key, e.g. 360 degrees).
+---
+--- If the FSM itself is playing a clip of the same name this tick, EXU leaves
+--- it alone (reason "engineOwned") instead of advancing it twice.
+--- @param name string Ogre animation name.
+--- @param options ExuFirstPersonLayerOptions?
+--- @return true
+function fps.SetLayer(name, options) end
+
+--- Sets a layer's speed (clip-seconds per second, 0..50). Raises a Lua error
+--- if no layer has that name or the speed is invalid.
+--- @param name string
+--- @param speed number
+--- @return true
+function fps.SetLayerSpeed(name, speed) end
+
+--- Sets a layer's blend weight (0..1), optionally fading to it. Raises a Lua
+--- error if no layer has that name or an argument is invalid.
+--- @param name string
+--- @param weight number
+--- @param fadeSeconds number?
+--- @return true
+function fps.SetLayerWeight(name, weight, fadeSeconds) end
+
+--- Creates or restarts a non-looping one-shot layer at time 0. Each call bumps
+--- the layer's `playCount`; `finishedCount == playCount` means this play is
+--- done. Raises on an invalid name or option, or a ninth live layer.
+--- @param name string
+--- @param options ExuFirstPersonPlayLayerOptions?
+--- @return true
+function fps.PlayLayer(name, options) end
+
+--- Removes a layer. On the next local pilot tick that has a first-person
+--- entity, EXU disables the Ogre state and resets its weight to 1 and time to
+--- 0 (if the state still exists). Returns whether the layer existed.
+--- @param name string
+--- @param fadeSeconds number? Fade to 0 first (default: the layer's `fadeOut`).
+--- @return boolean existed
+function fps.ClearLayer(name, fadeSeconds) end
+
+--- Removes every layer (each is disabled and reset as in `ClearLayer`).
+function fps.ClearLayers() end
+
+--- Returns the layers in creation order with the hook's most recent result
+--- for each. Changes nothing.
+--- @nodiscard
+--- @return ExuFirstPersonLayer[]
+function fps.GetLayers() end
+
+--- Ramps the weight EXU applies to the clip the pilot FSM is currently playing
+--- (default 1; reset to 1 when the FSM moves on and at mission boundaries).
+--- @param weight number 0..1
+--- @param fadeSeconds number?
+--- @return true
+function fps.SetBaseWeight(weight, fadeSeconds) end
+
+--- Returns the base clip weight as `current, target`.
+--- @nodiscard
+--- @return number current
+--- @return number target
+function fps.GetBaseWeight() end
+
+--- Returns whether the local fire/auto-fire bind was held at the engine's last
+--- poll. False when `firstPersonTrigger` is false.
+--- @nodiscard
+--- @return boolean
+function fps.IsTriggerHeld() end
+
+--- Attaches a particle system (made with `exu.CreateParticleSystem`) to a bone
+--- of the local first-person skeleton. Idempotent; call it every Update while
+--- the effect should show. Returns `attached, reattached`; an unknown bone or
+--- missing FP entity returns `false` without changes.
+--- @param name string
+--- @param boneName string
+--- @param offset Vector|number? Offset in the bone's local frame (vector, or x then y, z).
+--- @param y number?
+--- @param z number?
+--- @return boolean attached
+--- @return boolean reattached
+function fps.AttachParticleToBone(name, boneName, offset, y, z) end
+
+--- Returns whether the named system is currently bound to a first-person bone.
+--- @nodiscard
+--- @param name string
+--- @return boolean
+function fps.IsParticleAttached(name) end
+
+--- Drops the first-person binding of a named particle system. Returns whether
+--- a binding existed.
+--- @param name string
+--- @return boolean hadBinding
+function fps.DetachParticle(name) end
+
+--- Returns a counter that increments each time a binding lands on a different
+--- first-person entity than the previous binding.
+--- @nodiscard
+--- @return integer
+function fps.GetParticleTargetGeneration() end
 
 --- Returns true only for the fully crouched native FSM state (state 2).
 --- Entering/exiting crouch return false; unavailable pilot state returns nil.

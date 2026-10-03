@@ -66,6 +66,15 @@
     <ClCompile Include="src\Game\AnimationApi.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Game\FirstPersonLayers.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\FirstPersonParticles.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Game\PlayerTrigger.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Game\FirstPersonTarget.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
@@ -264,6 +273,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\AnimationApi.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\FirstPersonLayers.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\FirstPersonParticles.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\PlayerTrigger.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\FirstPersonTarget.h">
@@ -465,6 +483,9 @@
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\PilotTrace.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\PilotTransitionTiming.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\EntryDetour32.h">

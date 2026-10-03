@@ -18,21 +18,27 @@
 
 #include "Game/AnimationApi.h"
 
+#include "Game/FirstPersonLayers.h"
+#include "Game/FirstPersonParticles.h"
 #include "Game/FirstPersonTarget.h"
 #include "Game/GameObject.h"
 #include "Game/PilotAnimationPolicy.h"
+#include "Game/PilotAnimationProfile.h"
 #include "Game/PilotFsmIntercept.h"
 #include "Game/PilotState.h"
 #include "Game/PilotStateSemantics.h"
 #include "Game/PilotTrace.h"
+#include "Game/PlayerTrigger.h"
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
+#include "Util/FiniteCheck.h"
 #include "Util/Logging.h"
 #include "LuaCppBarrier.h"
 
 #include <lua.hpp>
 
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -75,6 +81,50 @@ namespace ExtraUtilities::Lua::AnimationApi
 					FirstPersonTarget::IsNativeResolverAvailable();
 			}
 
+			enum class FirstPersonResolution
+			{
+				Unknown,
+				OpenShim,
+				Native,
+				NativeFailed,
+				BothFailed,
+			};
+
+			// Lua-thread only. Logs when the resolver outcome or failure reason
+			// changes, so a polling script cannot flood exu.log while the player
+			// sits in a vehicle.
+			void LogFirstPersonResolution(FirstPersonResolution resolution,
+				FirstPersonTarget::NativeResolveFailure failure)
+			{
+				static FirstPersonResolution lastResolution = FirstPersonResolution::Unknown;
+				static FirstPersonTarget::NativeResolveFailure lastFailure =
+					FirstPersonTarget::NativeResolveFailure::None;
+				if (resolution == lastResolution && failure == lastFailure)
+					return;
+				lastResolution = resolution;
+				lastFailure = failure;
+
+				switch (resolution)
+				{
+				case FirstPersonResolution::OpenShim:
+					Logging::LogMessage("[EXU::FPS] local first-person target resolved via OpenShim");
+					break;
+				case FirstPersonResolution::Native:
+					Logging::LogMessage("[EXU::FPS] local first-person target resolved via EXU native render bridge");
+					break;
+				case FirstPersonResolution::NativeFailed:
+					Logging::LogMessage("[EXU::FPS] local first-person target unavailable: native %s",
+						FirstPersonTarget::DescribeNativeResolveFailure(failure));
+					break;
+				case FirstPersonResolution::BothFailed:
+					Logging::LogMessage("[EXU::FPS] local first-person target unavailable: OpenShim declined; native %s",
+						FirstPersonTarget::DescribeNativeResolveFailure(failure));
+					break;
+				default:
+					break;
+				}
+			}
+
 			void* ResolveTargetEntity(const Target& target, std::uint64_t* generation = nullptr)
 			{
 				if (generation)
@@ -83,20 +133,35 @@ namespace ExtraUtilities::Lua::AnimationApi
 					return target.handle ? GameObject::ResolveAnimationEntity(target.handle) : nullptr;
 
 				void* entity = nullptr;
-				if (OpenShimBridge::HasLocalFirstPersonEntityBridge())
+				const bool hasOpenShimResolver = OpenShimBridge::HasLocalFirstPersonEntityBridge();
+				if (hasOpenShimResolver)
 				{
 					std::uint64_t resolvedGeneration = 0;
-					if (!OpenShimBridge::ResolveLocalFirstPersonEntity(entity, resolvedGeneration))
-						return nullptr;
-					if (generation)
-						*generation = resolvedGeneration;
-					return entity;
+					if (OpenShimBridge::ResolveLocalFirstPersonEntity(entity, resolvedGeneration))
+					{
+						if (generation)
+							*generation = resolvedGeneration;
+						LogFirstPersonResolution(FirstPersonResolution::OpenShim,
+							FirstPersonTarget::NativeResolveFailure::None);
+						return entity;
+					}
+					// OpenShim only accepts its strict stock FP mesh list, so a mod
+					// pilot (e.g. ISDFC's ispilo_cockpit) falls through to the
+					// native render-bridge read below.
 				}
 
-				// Standalone EXU path: resolve the dedicated FP entity directly from
+				// EXU native path: resolve the dedicated FP entity directly from
 				// the live local Person render bridge. No Ogre pointer is retained.
-				if (!FirstPersonTarget::ResolveNativeLocalFirstPersonEntity(entity))
+				FirstPersonTarget::NativeResolveFailure failure =
+					FirstPersonTarget::NativeResolveFailure::None;
+				if (!FirstPersonTarget::ResolveNativeLocalFirstPersonEntity(entity, &failure))
+				{
+					LogFirstPersonResolution(hasOpenShimResolver
+						? FirstPersonResolution::BothFailed
+						: FirstPersonResolution::NativeFailed, failure);
 					return nullptr;
+				}
+				LogFirstPersonResolution(FirstPersonResolution::Native, failure);
 				return entity;
 			}
 
@@ -327,7 +392,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 		int GetCapabilities(lua_State* L)
 		{
-			lua_createtable(L, 0, 9);
+			lua_createtable(L, 0, 12);
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "gameObjectTarget");
 			const bool hasFpBridge = OpenShimBridge::HasLocalFirstPersonEntityBridge();
@@ -340,11 +405,27 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_setfield(L, -2, "pilotStateInspection");
 			lua_pushboolean(L, PilotFsmIntercept::IsActive() ? 1 : 0);
 			lua_setfield(L, -2, "pilotFsmIntercept");
-			// Reports what this build can apply, not the current policy. Driven by
-			// the same constant the profile validator and SetActive enforce.
+			// Reports what this session can apply, not the current policy: the
+			// same constant the profile validator and SetActive enforce, AND the
+			// seam's install-time qualification of the native clip tables.
+			// Multiplayer is refused per call (SetPilotAnimationProfile errors).
 			lua_pushboolean(L,
-				PilotAnimationPolicy::HasOverrideSupport(PilotAnimationPolicy::kBuildSupport) ? 1 : 0);
+				(PilotAnimationPolicy::HasOverrideSupport(PilotAnimationPolicy::kBuildSupport) &&
+					PilotFsmIntercept::AreOverridesAvailable()) ? 1 : 0);
 			lua_setfield(L, -2, "pilotAnimationOverrides");
+			// exu.fps.SetLayer clips are advanced from the same seam. They are
+			// presentation-only, so multiplayer does not affect this flag.
+			lua_pushboolean(L, FirstPersonLayers::IsAvailable() ? 1 : 0);
+			lua_setfield(L, -2, "firstPersonLayers");
+			// The local fire-held signal (exu.fps.IsTriggerHeld, the layer `fire`
+			// option): both UserProcess read sites matched at install.
+			lua_pushboolean(L, PlayerTrigger::IsAvailable() ? 1 : 0);
+			lua_setfield(L, -2, "firstPersonTrigger");
+			// exu.fps.AttachParticleToBone: the local FP resolver plus the
+			// OgreMain bone-attachment and parent-query exports.
+			lua_pushboolean(L,
+				((hasFpBridge || hasNativeFpResolver) && FirstPersonParticles::IsSupported()) ? 1 : 0);
+			lua_setfield(L, -2, "firstPersonParticles");
 			lua_pushboolean(L, 0);
 			lua_setfield(L, -2, "managedClock");
 			lua_pushstring(L, "unvalidated");
@@ -741,10 +822,28 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 			for (const PilotAnimationPolicy::Slot slot : slots)
 			{
-				lua_createtable(L, 0, 2);
+				const PilotAnimationPolicy::TransitionPolicy& entry = policy.At(slot);
+				lua_createtable(L, 0, 5);
 
-				lua_pushstring(L, PilotAnimationPolicy::ModeName(policy.At(slot).mode));
+				lua_pushstring(L, PilotAnimationPolicy::ModeName(entry.mode));
 				lua_setfield(L, -2, "mode");
+
+				if (entry.mode == PilotAnimationPolicy::Mode::Substitute)
+				{
+					lua_pushstring(L, entry.animation);
+					lua_setfield(L, -2, "animation");
+				}
+
+				if (PilotAnimationPolicy::SlotHasCompletion(slot))
+				{
+					lua_pushstring(L, PilotAnimationPolicy::CompletionName(entry.completion));
+					lua_setfield(L, -2, "completion");
+					if (entry.completion == PilotAnimationPolicy::CompletionMode::Duration)
+					{
+						lua_pushnumber(L, static_cast<lua_Number>(entry.duration));
+						lua_setfield(L, -2, "duration");
+					}
+				}
 
 				const std::int32_t nativeState = PilotAnimationPolicy::NativeStateForSlot(slot);
 				if (nativeState >= 0)
@@ -758,13 +857,146 @@ namespace ExtraUtilities::Lua::AnimationApi
 			return 1;
 		}
 
+		PilotAnimationPolicy::ValueType ProfileValueType(lua_State* L, int index)
+		{
+			switch (lua_type(L, index))
+			{
+			case LUA_TNIL: return PilotAnimationPolicy::ValueType::Nil;
+			case LUA_TBOOLEAN: return PilotAnimationPolicy::ValueType::Boolean;
+			case LUA_TNUMBER: return PilotAnimationPolicy::ValueType::Number;
+			case LUA_TSTRING: return PilotAnimationPolicy::ValueType::String;
+			case LUA_TTABLE: return PilotAnimationPolicy::ValueType::Table;
+			default: return PilotAnimationPolicy::ValueType::Other;
+			}
+		}
+
+		// Only a string key is read as text: lua_tolstring would convert a
+		// number key in place and break lua_next.
+		const char* ProfileKey(lua_State* L, int index, std::size_t& outLength)
+		{
+			outLength = 0;
+			return lua_type(L, index) == LUA_TSTRING ? lua_tolstring(L, index, &outLength) : nullptr;
+		}
+
+		PilotAnimationPolicy::Value ProfileValue(lua_State* L, int index)
+		{
+			const PilotAnimationPolicy::ValueType type = ProfileValueType(L, index);
+			if (type == PilotAnimationPolicy::ValueType::Number)
+			{
+				return PilotAnimationPolicy::Value::Number(static_cast<double>(lua_tonumber(L, index)));
+			}
+			if (type == PilotAnimationPolicy::ValueType::String)
+			{
+				std::size_t length = 0;
+				const char* text = lua_tolstring(L, index, &length);
+				return PilotAnimationPolicy::Value::String(text, length);
+			}
+			return PilotAnimationPolicy::Value::Of(type);
+		}
+
+		// Walks the profile table into ProfileBuilder; every rule lives there.
+		// Copies the builder's first error into error on failure. Raises no Lua
+		// error itself and keeps no C++ object with a destructor alive.
+		bool BuildPilotProfile(lua_State* L, int tableIndex, PilotAnimationPolicy::Policy& outPolicy,
+			char (&error)[PilotAnimationPolicy::ProfileBuilder::kErrorCapacity])
+		{
+			PilotAnimationPolicy::ProfileBuilder builder(PilotAnimationPolicy::kBuildSupport);
+			bool ok = true;
+			const int top = lua_gettop(L);
+			if (tableIndex != 0)
+			{
+				lua_pushnil(L);
+				while (ok && lua_next(L, tableIndex) != 0)
+				{
+					const int keyIndex = lua_gettop(L) - 1;
+					const int valueIndex = keyIndex + 1;
+					std::size_t keyLength = 0;
+					const char* key = ProfileKey(L, keyIndex, keyLength);
+					ok = builder.BeginSlot(key, keyLength, ProfileValueType(L, valueIndex));
+					if (ok)
+					{
+						lua_pushnil(L);
+						while (ok && lua_next(L, valueIndex) != 0)
+						{
+							const int fieldKeyIndex = lua_gettop(L) - 1;
+							std::size_t fieldKeyLength = 0;
+							const char* fieldKey = ProfileKey(L, fieldKeyIndex, fieldKeyLength);
+							ok = builder.SetField(fieldKey, fieldKeyLength, ProfileValue(L, fieldKeyIndex + 1));
+							lua_settop(L, fieldKeyIndex);
+						}
+						ok = ok && builder.EndSlot();
+					}
+					// Leave only the outer key for the next lua_next.
+					lua_settop(L, keyIndex);
+				}
+				lua_settop(L, top);
+			}
+
+			ok = ok && builder.Finish(outPolicy);
+			std::snprintf(error, sizeof(error), "%s",
+				builder.Error()[0] != '\0' ? builder.Error() : "invalid pilot animation profile");
+			return ok;
+		}
+
+		// exu.fps.SetPilotAnimationProfile(profile | nil). Strict: every
+		// validation failure is a Lua error (owner decision: unknown keys are
+		// errors). nil or {} restores stock and is always allowed; anything
+		// else needs qualified overrides and single player.
+		int FpsSetPilotAnimationProfile(lua_State* L)
+		{
+			int tableIndex = 0;
+			if (!lua_isnoneornil(L, 1))
+			{
+				luaL_checktype(L, 1, LUA_TTABLE);
+				tableIndex = 1;
+			}
+
+			PilotAnimationPolicy::Policy policy{};
+			char error[PilotAnimationPolicy::ProfileBuilder::kErrorCapacity]{};
+			if (!BuildPilotProfile(L, tableIndex, policy, error))
+			{
+				return luaL_error(L, "exu.fps.SetPilotAnimationProfile: %s", error);
+			}
+
+			if (!PilotAnimationPolicy::IsStockOnly(policy))
+			{
+				if (PilotFsmIntercept::IsNetworkSession())
+				{
+					return luaL_error(L,
+						"exu.fps.SetPilotAnimationProfile: pilot animation overrides are single player only");
+				}
+				if (!PilotFsmIntercept::AreOverridesAvailable())
+				{
+					return luaL_error(L,
+						"exu.fps.SetPilotAnimationProfile: pilot animation overrides are unavailable in this session "
+						"(exu.fps.GetCapabilities().pilotAnimationOverrides is false; see exu.log)");
+				}
+			}
+
+			if (!PilotAnimationPolicy::SetActive(policy))
+			{
+				return luaL_error(L,
+					"exu.fps.SetPilotAnimationProfile: profile is not supported by this EXU build");
+			}
+
+			lua_settop(L, 0);
+			return 0;
+		}
+
+		int FpsCompleteTransition(lua_State* L)
+		{
+			lua_settop(L, 0);
+			lua_pushboolean(L, PilotFsmIntercept::CompleteTransition() ? 1 : 0);
+			return 1;
+		}
+
 		int FpsGetPilotInterceptStatus(lua_State* L)
 		{
 			PilotFsmIntercept::Stats stats{};
 			PilotFsmIntercept::GetStats(stats);
 
 			lua_settop(L, 0);
-			lua_createtable(L, 0, 21);
+			lua_createtable(L, 0, 23);
 
 			lua_pushboolean(L, stats.installed ? 1 : 0);
 			lua_setfield(L, -2, "installed");
@@ -772,6 +1004,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_setfield(L, -2, "active");
 			lua_pushboolean(L, stats.observeOnly ? 1 : 0);
 			lua_setfield(L, -2, "observeOnly");
+			lua_pushboolean(L, stats.overridesAvailable ? 1 : 0);
+			lua_setfield(L, -2, "overridesAvailable");
 			lua_pushboolean(L, stats.hasLocalSample ? 1 : 0);
 			lua_setfield(L, -2, "hasLocalSample");
 
@@ -783,6 +1017,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_setfield(L, -2, "stateChanges");
 			lua_pushinteger(L, static_cast<lua_Integer>(stats.animationChanges));
 			lua_setfield(L, -2, "animationChanges");
+			lua_pushinteger(L, static_cast<lua_Integer>(stats.overrideCalls));
+			lua_setfield(L, -2, "overrideCalls");
 
 			if (stats.hasPolicyDecision)
 			{
@@ -970,6 +1206,430 @@ namespace ExtraUtilities::Lua::AnimationApi
 			return 1;
 		}
 
+		// ----- First-person layers (FirstPersonLayers.h) -------------------------
+		//
+		// Strict like SetPilotAnimationProfile: every validation failure is a
+		// Lua error (owner decision: unknown option keys are errors). These
+		// bindings keep no C++ object with a destructor alive across luaL_error.
+
+		int LayerError(lua_State* L, const char* function, FirstPersonLayers::Error error)
+		{
+			return luaL_error(L, "exu.fps.%s: %s", function, FirstPersonLayers::ErrorMessage(error));
+		}
+
+		const char* CheckLayerName(lua_State* L, int index, std::size_t& outLength)
+		{
+			outLength = 0;
+			return luaL_checklstring(L, index, &outLength);
+		}
+
+		lua_Number CheckLayerNumber(lua_State* L, int index, const char* function, const char* key)
+		{
+			if (lua_type(L, index) != LUA_TNUMBER)
+			{
+				luaL_error(L, "exu.fps.%s: option '%s' must be a number", function, key);
+			}
+			return lua_tonumber(L, index);
+		}
+
+		// SetLayer's `fire` value: false (remove the trigger drive) or a table
+		// { speed = number (required), spinUp = seconds?, spinDown = seconds? }
+		// with no other keys.
+		void ReadFireOptions(lua_State* L, int index, FirstPersonLayers::FireOptions& outFire)
+		{
+			constexpr const char* kFunction = "SetLayer";
+			outFire = {};
+			if (lua_type(L, index) == LUA_TBOOLEAN && lua_toboolean(L, index) == 0)
+			{
+				outFire.enabled = false;
+				return;
+			}
+			if (lua_type(L, index) != LUA_TTABLE)
+			{
+				luaL_error(L, "exu.fps.%s: option 'fire' must be a table or false", kFunction);
+			}
+
+			bool hasSpeed = false;
+			lua_pushnil(L);
+			while (lua_next(L, index) != 0)
+			{
+				const int keyIndex = lua_gettop(L) - 1;
+				const int valueIndex = keyIndex + 1;
+				if (lua_type(L, keyIndex) != LUA_TSTRING)
+				{
+					luaL_error(L, "exu.fps.%s: fire keys must be strings", kFunction);
+				}
+				const char* key = lua_tostring(L, keyIndex);
+				if (std::strcmp(key, "speed") == 0)
+				{
+					hasSpeed = true;
+					outFire.speed = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, "fire.speed"));
+				}
+				else if (std::strcmp(key, "spinUp") == 0)
+				{
+					outFire.spinUp = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, "fire.spinUp"));
+				}
+				else if (std::strcmp(key, "spinDown") == 0)
+				{
+					outFire.spinDown = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, "fire.spinDown"));
+				}
+				else
+				{
+					luaL_error(L, "exu.fps.%s: unknown fire key '%s' (expected speed, spinUp, spinDown)",
+						kFunction, key);
+				}
+				lua_settop(L, keyIndex);
+			}
+			if (!hasSpeed)
+			{
+				luaL_error(L, "exu.fps.%s: option 'fire' needs a speed", kFunction);
+			}
+		}
+
+		// Reads SetLayer's options table into outOptions. Unknown keys, non-string
+		// keys, and wrongly typed values raise.
+		void ReadLayerOptions(lua_State* L, int index, FirstPersonLayers::LayerOptions& outOptions)
+		{
+			constexpr const char* kFunction = "SetLayer";
+			outOptions = {};
+			if (lua_isnoneornil(L, index))
+			{
+				return;
+			}
+			luaL_checktype(L, index, LUA_TTABLE);
+
+			lua_pushnil(L);
+			while (lua_next(L, index) != 0)
+			{
+				const int keyIndex = lua_gettop(L) - 1;
+				const int valueIndex = keyIndex + 1;
+				// Only a string key is read as text: lua_tolstring would convert a
+				// number key in place and break lua_next.
+				if (lua_type(L, keyIndex) != LUA_TSTRING)
+				{
+					luaL_error(L, "exu.fps.%s: option keys must be strings", kFunction);
+				}
+				const char* key = lua_tostring(L, keyIndex);
+				if (std::strcmp(key, "speed") == 0)
+				{
+					outOptions.hasSpeed = true;
+					outOptions.speed = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "weight") == 0)
+				{
+					outOptions.hasWeight = true;
+					outOptions.weight = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "loop") == 0)
+				{
+					if (lua_type(L, valueIndex) != LUA_TBOOLEAN)
+					{
+						luaL_error(L, "exu.fps.%s: option 'loop' must be a boolean", kFunction);
+					}
+					outOptions.hasLoop = true;
+					outOptions.loop = lua_toboolean(L, valueIndex) != 0;
+				}
+				else if (std::strcmp(key, "time") == 0)
+				{
+					outOptions.hasTime = true;
+					outOptions.time = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "fadeIn") == 0)
+				{
+					outOptions.hasFadeIn = true;
+					outOptions.fadeIn = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "fadeOut") == 0)
+				{
+					outOptions.hasFadeOut = true;
+					outOptions.fadeOut = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "fire") == 0)
+				{
+					outOptions.hasFire = true;
+					ReadFireOptions(L, valueIndex, outOptions.fire);
+				}
+				else
+				{
+					luaL_error(L,
+						"exu.fps.%s: unknown option '%s' (expected speed, weight, loop, time, fadeIn, fadeOut, fire)",
+						kFunction, key);
+				}
+				lua_settop(L, keyIndex);
+			}
+		}
+
+		// PlayLayer's options table. Same strictness as ReadLayerOptions.
+		void ReadPlayOptions(lua_State* L, int index, FirstPersonLayers::PlayOptions& outOptions)
+		{
+			constexpr const char* kFunction = "PlayLayer";
+			outOptions = {};
+			if (lua_isnoneornil(L, index))
+			{
+				return;
+			}
+			luaL_checktype(L, index, LUA_TTABLE);
+
+			lua_pushnil(L);
+			while (lua_next(L, index) != 0)
+			{
+				const int keyIndex = lua_gettop(L) - 1;
+				const int valueIndex = keyIndex + 1;
+				if (lua_type(L, keyIndex) != LUA_TSTRING)
+				{
+					luaL_error(L, "exu.fps.%s: option keys must be strings", kFunction);
+				}
+				const char* key = lua_tostring(L, keyIndex);
+				if (std::strcmp(key, "speed") == 0)
+				{
+					outOptions.hasSpeed = true;
+					outOptions.speed = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "weight") == 0)
+				{
+					outOptions.hasWeight = true;
+					outOptions.weight = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "fadeIn") == 0)
+				{
+					outOptions.fadeIn = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "fadeOut") == 0)
+				{
+					outOptions.fadeOut = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "clearOnEnd") == 0)
+				{
+					if (lua_type(L, valueIndex) != LUA_TBOOLEAN)
+					{
+						luaL_error(L, "exu.fps.%s: option 'clearOnEnd' must be a boolean", kFunction);
+					}
+					outOptions.clearOnEnd = lua_toboolean(L, valueIndex) != 0;
+				}
+				else
+				{
+					luaL_error(L,
+						"exu.fps.%s: unknown option '%s' (expected speed, weight, fadeIn, fadeOut, clearOnEnd)",
+						kFunction, key);
+				}
+				lua_settop(L, keyIndex);
+			}
+		}
+
+		// Optional trailing fade argument: absent/nil = no fade given; any
+		// other non-number raises.
+		bool ReadOptionalFade(lua_State* L, int index, const char* function, double& outSeconds)
+		{
+			outSeconds = 0.0;
+			if (lua_isnoneornil(L, index))
+			{
+				return false;
+			}
+			if (lua_type(L, index) != LUA_TNUMBER)
+			{
+				luaL_error(L, "exu.fps.%s: fadeSeconds must be a number", function);
+			}
+			outSeconds = static_cast<double>(lua_tonumber(L, index));
+			return true;
+		}
+
+		// exu.fps.SetLayer(name, options?) -> true. Creates or updates.
+		int FpsSetLayer(lua_State* L)
+		{
+			std::size_t length = 0;
+			const char* name = CheckLayerName(L, 1, length);
+			FirstPersonLayers::LayerOptions options{};
+			ReadLayerOptions(L, 2, options);
+			const FirstPersonLayers::Error error = FirstPersonLayers::SetLayer(name, length, options);
+			if (error != FirstPersonLayers::Error::None)
+			{
+				return LayerError(L, "SetLayer", error);
+			}
+			lua_settop(L, 0);
+			lua_pushboolean(L, 1);
+			return 1;
+		}
+
+		int FpsSetLayerSpeed(lua_State* L)
+		{
+			std::size_t length = 0;
+			const char* name = CheckLayerName(L, 1, length);
+			const lua_Number speed = luaL_checknumber(L, 2);
+			const FirstPersonLayers::Error error =
+				FirstPersonLayers::SetLayerSpeed(name, length, static_cast<double>(speed));
+			if (error != FirstPersonLayers::Error::None)
+			{
+				return LayerError(L, "SetLayerSpeed", error);
+			}
+			lua_settop(L, 0);
+			lua_pushboolean(L, 1);
+			return 1;
+		}
+
+		int FpsSetLayerWeight(lua_State* L)
+		{
+			std::size_t length = 0;
+			const char* name = CheckLayerName(L, 1, length);
+			const lua_Number weight = luaL_checknumber(L, 2);
+			double fade = 0.0;
+			ReadOptionalFade(L, 3, "SetLayerWeight", fade);
+			const FirstPersonLayers::Error error =
+				FirstPersonLayers::SetLayerWeight(name, length, static_cast<double>(weight), fade);
+			if (error != FirstPersonLayers::Error::None)
+			{
+				return LayerError(L, "SetLayerWeight", error);
+			}
+			lua_settop(L, 0);
+			lua_pushboolean(L, 1);
+			return 1;
+		}
+
+		// exu.fps.ClearLayer(name, fadeSeconds?) -> whether a layer of that name
+		// existed.
+		int FpsClearLayer(lua_State* L)
+		{
+			std::size_t length = 0;
+			const char* name = CheckLayerName(L, 1, length);
+			double fade = 0.0;
+			const bool hasFade = ReadOptionalFade(L, 2, "ClearLayer", fade);
+			const FirstPersonLayers::Error error = FirstPersonLayers::ClearLayer(name, length, hasFade, fade);
+			if (error != FirstPersonLayers::Error::None && error != FirstPersonLayers::Error::NotFound)
+			{
+				return LayerError(L, "ClearLayer", error);
+			}
+			lua_settop(L, 0);
+			lua_pushboolean(L, error == FirstPersonLayers::Error::None ? 1 : 0);
+			return 1;
+		}
+
+		int FpsClearLayers(lua_State* L)
+		{
+			FirstPersonLayers::ClearLayers();
+			lua_settop(L, 0);
+			return 0;
+		}
+
+		// exu.fps.PlayLayer(name, options?) -> true. Creates or restarts a
+		// non-looping one-shot.
+		int FpsPlayLayer(lua_State* L)
+		{
+			std::size_t length = 0;
+			const char* name = CheckLayerName(L, 1, length);
+			FirstPersonLayers::PlayOptions options{};
+			ReadPlayOptions(L, 2, options);
+			const FirstPersonLayers::Error error = FirstPersonLayers::PlayLayer(name, length, options);
+			if (error != FirstPersonLayers::Error::None)
+			{
+				return LayerError(L, "PlayLayer", error);
+			}
+			lua_settop(L, 0);
+			lua_pushboolean(L, 1);
+			return 1;
+		}
+
+		// exu.fps.SetBaseWeight(weight, fadeSeconds?) -> true.
+		int FpsSetBaseWeight(lua_State* L)
+		{
+			const lua_Number weight = luaL_checknumber(L, 1);
+			double fade = 0.0;
+			ReadOptionalFade(L, 2, "SetBaseWeight", fade);
+			const FirstPersonLayers::Error error =
+				FirstPersonLayers::SetBaseWeight(static_cast<double>(weight), fade);
+			if (error != FirstPersonLayers::Error::None)
+			{
+				return LayerError(L, "SetBaseWeight", error);
+			}
+			lua_settop(L, 0);
+			lua_pushboolean(L, 1);
+			return 1;
+		}
+
+		// exu.fps.GetBaseWeight() -> current, target.
+		int FpsGetBaseWeight(lua_State* L)
+		{
+			float current = 1.0f;
+			float target = 1.0f;
+			FirstPersonLayers::GetBaseWeight(current, target);
+			lua_settop(L, 0);
+			lua_pushnumber(L, static_cast<lua_Number>(current));
+			lua_pushnumber(L, static_cast<lua_Number>(target));
+			return 2;
+		}
+
+		int FpsIsTriggerHeld(lua_State* L)
+		{
+			lua_settop(L, 0);
+			lua_pushboolean(L, PlayerTrigger::IsHeld() ? 1 : 0);
+			return 1;
+		}
+
+		int FpsGetLayers(lua_State* L)
+		{
+			FirstPersonLayers::LayerReport reports[FirstPersonLayers::kMaxLayers]{};
+			const std::size_t count = FirstPersonLayers::GetLayers(reports);
+
+			lua_settop(L, 0);
+			lua_createtable(L, static_cast<int>(count), 0);
+			for (std::size_t i = 0; i < count; ++i)
+			{
+				const FirstPersonLayers::LayerReport& report = reports[i];
+				const bool active = report.result.reason == FirstPersonLayers::Reason::Active;
+				lua_createtable(L, 0, 20);
+				lua_pushstring(L, report.spec.name);
+				lua_setfield(L, -2, "name");
+				lua_pushnumber(L, static_cast<lua_Number>(report.spec.speed));
+				lua_setfield(L, -2, "speed");
+				lua_pushnumber(L, static_cast<lua_Number>(report.result.effectiveSpeed));
+				lua_setfield(L, -2, "effectiveSpeed");
+				lua_pushnumber(L, static_cast<lua_Number>(report.result.weight));
+				lua_setfield(L, -2, "weight");
+				lua_pushnumber(L, static_cast<lua_Number>(FirstPersonLayers::TargetWeight(report.spec)));
+				lua_setfield(L, -2, "targetWeight");
+				lua_pushboolean(L, report.spec.loop ? 1 : 0);
+				lua_setfield(L, -2, "loop");
+				lua_pushboolean(L, report.spec.oneShot ? 1 : 0);
+				lua_setfield(L, -2, "oneShot");
+				lua_pushboolean(L, report.spec.clearing ? 1 : 0);
+				lua_setfield(L, -2, "clearing");
+				lua_pushnumber(L, static_cast<lua_Number>(report.spec.fadeOut));
+				lua_setfield(L, -2, "fadeOut");
+				lua_pushboolean(L, report.result.finished ? 1 : 0);
+				lua_setfield(L, -2, "finished");
+				lua_pushinteger(L, static_cast<lua_Integer>(report.spec.playCount));
+				lua_setfield(L, -2, "playCount");
+				lua_pushinteger(L, static_cast<lua_Integer>(report.result.finishedCount));
+				lua_setfield(L, -2, "finishedCount");
+				lua_pushboolean(L, report.triggerHeld ? 1 : 0);
+				lua_setfield(L, -2, "triggerHeld");
+				if (report.spec.fire.enabled)
+				{
+					lua_createtable(L, 0, 3);
+					lua_pushnumber(L, static_cast<lua_Number>(report.spec.fire.speed));
+					lua_setfield(L, -2, "speed");
+					lua_pushnumber(L, static_cast<lua_Number>(report.spec.fire.spinUp));
+					lua_setfield(L, -2, "spinUp");
+					lua_pushnumber(L, static_cast<lua_Number>(report.spec.fire.spinDown));
+					lua_setfield(L, -2, "spinDown");
+					lua_setfield(L, -2, "fire");
+				}
+				lua_pushnumber(L, static_cast<lua_Number>(report.result.time));
+				lua_setfield(L, -2, "time");
+				lua_pushnumber(L, static_cast<lua_Number>(report.result.length));
+				lua_setfield(L, -2, "length");
+				lua_pushboolean(L, active ? 1 : 0);
+				lua_setfield(L, -2, "active");
+				if (!active)
+				{
+					lua_pushstring(L, FirstPersonLayers::ReasonName(report.result.reason));
+					lua_setfield(L, -2, "reason");
+				}
+				lua_pushstring(L, FirstPersonLayers::BlendModeName(report.result.blendMode));
+				lua_setfield(L, -2, "blendMode");
+				lua_rawseti(L, -2, static_cast<int>(i + 1));
+			}
+			return 1;
+		}
+
 		int FpsIsAvailable(lua_State* L)
 		{
 			Detail::Target target{};
@@ -978,6 +1638,74 @@ namespace ExtraUtilities::Lua::AnimationApi
 				Detail::ResolveTargetEntity(target) != nullptr;
 			lua_settop(L, 0);
 			lua_pushboolean(L, available ? 1 : 0);
+			return 1;
+		}
+
+		// The local FP entity for one operation, through the same resolver as
+		// every other exu.fps call (OpenShim, then the EXU native read).
+		void* ResolveLocalFirstPersonEntity()
+		{
+			Detail::Target target{};
+			target.kind = Detail::TargetKind::LocalFirstPerson;
+			return Detail::IsTargetSupported(target) ? Detail::ResolveTargetEntity(target) : nullptr;
+		}
+
+		// exu.fps.AttachParticleToBone(name, boneName, offset?) -> attached,
+		// reattached. Idempotent: when the system already rides that bone of
+		// the CURRENT FP entity with that offset it only verifies (no Ogre
+		// write). After a respawn / vehicle exit / new FP entity the next
+		// call re-attaches and returns reattached = true.
+		int FpsAttachParticleToBone(lua_State* L)
+		{
+			const std::string name = luaL_checkstring(L, 1);
+			const std::string bone = luaL_checkstring(L, 2);
+			FirstPersonParticles::Offset offset{};
+			if (!lua_isnoneornil(L, 3))
+			{
+				const BZR::VECTOR_3D v = CheckVectorOrSingles(L, 3);
+				if (!FiniteCheck::IsFiniteVector(v))
+				{
+					return luaL_argerror(L, 3, "AttachParticleToBone requires a finite offset vector");
+				}
+				offset = { v.x, v.y, v.z };
+			}
+
+			const FirstPersonParticles::AttachResult result =
+				FirstPersonParticles::Attach(ResolveLocalFirstPersonEntity(), name, bone, offset);
+			lua_settop(L, 0);
+			lua_pushboolean(L, result.attached ? 1 : 0);
+			lua_pushboolean(L, result.reattached ? 1 : 0);
+			return 2;
+		}
+
+		// exu.fps.IsParticleAttached(name) -> whether the system rides a bone
+		// of the current local FP entity right now. Read-only.
+		int FpsIsParticleAttached(lua_State* L)
+		{
+			const std::string name = luaL_checkstring(L, 1);
+			const bool attached = FirstPersonParticles::IsAttached(ResolveLocalFirstPersonEntity(), name);
+			lua_settop(L, 0);
+			lua_pushboolean(L, attached ? 1 : 0);
+			return 1;
+		}
+
+		// exu.fps.DetachParticle(name) -> whether a first-person binding
+		// existed. The system goes back onto its own EXU node.
+		int FpsDetachParticle(lua_State* L)
+		{
+			const std::string name = luaL_checkstring(L, 1);
+			const bool existed = FirstPersonParticles::Detach(name);
+			lua_settop(L, 0);
+			lua_pushboolean(L, existed ? 1 : 0);
+			return 1;
+		}
+
+		// exu.fps.GetParticleTargetGeneration() -> integer that increments each
+		// time a particle binding lands on a different FP entity.
+		int FpsGetParticleTargetGeneration(lua_State* L)
+		{
+			lua_settop(L, 0);
+			lua_pushnumber(L, static_cast<lua_Number>(FirstPersonParticles::TargetGeneration()));
 			return 1;
 		}
 
@@ -1068,10 +1796,26 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{ "GetCapabilities", &FpsGetCapabilities },
 			{ "GetPilotState", &FpsGetPilotState },
 			{ "GetPilotAnimationProfile", &FpsGetPilotAnimationProfile },
+			{ "SetPilotAnimationProfile", &FpsSetPilotAnimationProfile },
+			{ "CompleteTransition", &FpsCompleteTransition },
 			{ "GetPilotInterceptStatus", &FpsGetPilotInterceptStatus },
 			{ "StartPilotTrace", &FpsStartPilotTrace },
 			{ "StopPilotTrace", &FpsStopPilotTrace },
 			{ "GetPilotTrace", &FpsGetPilotTrace },
+			{ "SetLayer", &FpsSetLayer },
+			{ "SetLayerSpeed", &FpsSetLayerSpeed },
+			{ "SetLayerWeight", &FpsSetLayerWeight },
+			{ "ClearLayer", &FpsClearLayer },
+			{ "ClearLayers", &FpsClearLayers },
+			{ "PlayLayer", &FpsPlayLayer },
+			{ "GetLayers", &FpsGetLayers },
+			{ "SetBaseWeight", &FpsSetBaseWeight },
+			{ "GetBaseWeight", &FpsGetBaseWeight },
+			{ "IsTriggerHeld", &FpsIsTriggerHeld },
+			{ "AttachParticleToBone", &FpsAttachParticleToBone },
+			{ "IsParticleAttached", &FpsIsParticleAttached },
+			{ "DetachParticle", &FpsDetachParticle },
+			{ "GetParticleTargetGeneration", &FpsGetParticleTargetGeneration },
 			{ "IsCrouched", &FpsIsCrouched },
 			{ "IsGrounded", &FpsIsGrounded },
 			{ "IsSniperSelected", &FpsIsSniperSelected },

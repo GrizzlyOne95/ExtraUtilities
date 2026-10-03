@@ -16,15 +16,20 @@
 // (Game/PilotFsmIntercept.h) and owns *what should happen*; the seam owns *when
 // it can happen*.
 //
-// The model can describe the planned overrides (animation substitution, and
-// transition completion by animation / duration / manual), but kBuildSupport
-// below says this build can apply none of them. The profile validator
-// (PilotAnimationProfile.h) rejects anything unsupported and SetActive refuses
-// it, so the active policy is still always stock, and even a non-stock policy
-// evaluates to pass-through: the seam has no action to take yet.
+// The model describes the overrides (animation substitution in every slot,
+// and transition completion by animation / duration / manual for enterCrouch
+// and exitCrouch). kBuildSupport below says which of them this build applies;
+// the profile validator (PilotAnimationProfile.h) rejects anything else and
+// SetActive refuses it.
 //
-// Stock duration values are deliberately absent. Only the animation-handle wait
-// in states 1 and 3 is proven; no numeric duration constant has been located.
+// The seam applies a policy by rewriting the native per-index clip tables for
+// the local Person around the stock call (PilotFsmIntercept.cpp; the math is in
+// PilotTransitionTiming.h). Whether it can do so at all (verified table
+// preimages, single player) is the seam's business, not the policy's.
+//
+// The stock transition timing is endTime / rate from those tables (0.967 / 0.5
+// = 1.934 s for both crouch transitions; see
+// Docs/Research/PILOT_CROUCH_NATIVE_RE_20261003.md). It is not duplicated here.
 //
 // No Windows, Ogre, Lua, or engine dependencies: host-testable on Linux.
 
@@ -39,7 +44,8 @@ namespace ExtraUtilities::Lua::PilotAnimationPolicy
 	// Policy slots. Four map one-to-one onto the proven native Person+0x228 FSM
 	// states. Jump and Land are animation selections made from the standing
 	// state (indices 11 and 10); the exact native conditions that select them
-	// are not traced, so they have no native-state association yet.
+	// are not traced, so they have no native-state association. Their
+	// substitution is table-driven, so it applies whenever the policy does.
 	enum class Slot : std::uint8_t
 	{
 		Stand = 0,
@@ -78,6 +84,8 @@ namespace ExtraUtilities::Lua::PilotAnimationPolicy
 	enum class Decision : std::uint8_t
 	{
 		PassThrough = 0,
+		// Apply the policy's table overrides around this stock call.
+		Override,
 	};
 
 	struct TransitionPolicy
@@ -187,9 +195,21 @@ namespace ExtraUtilities::Lua::PilotAnimationPolicy
 	}
 
 	// The single source of truth for what the seam can act on. Also drives the
-	// Lua capability pilotAnimationOverrides. Widen a bit here only in the same
-	// change that makes the seam apply it.
-	constexpr Support kBuildSupport{};
+	// Lua capability pilotAnimationOverrides (together with the seam's own
+	// table qualification). Widen a bit here only in the same change that makes
+	// the seam apply it.
+	//
+	// Every slot can substitute: each one is one name-table entry
+	// (PilotTransitionTiming::TableIndexForSlot). All three non-stock
+	// completions are implemented through the end-time and rate tables.
+	constexpr Support kBuildSupport{
+		static_cast<std::uint8_t>(
+			SlotBit(Slot::Stand) | SlotBit(Slot::EnterCrouch) | SlotBit(Slot::Crouched) |
+			SlotBit(Slot::ExitCrouch) | SlotBit(Slot::Jump) | SlotBit(Slot::Land)),
+		static_cast<std::uint8_t>(
+			CompletionBit(CompletionMode::Animation) | CompletionBit(CompletionMode::Duration) |
+			CompletionBit(CompletionMode::Manual)),
+	};
 
 	constexpr bool IsSupported(const Policy& policy, const Support& support) noexcept
 	{
@@ -232,12 +252,17 @@ namespace ExtraUtilities::Lua::PilotAnimationPolicy
 	}
 
 	static_assert(IsSupported(Policy{}, Support{}), "stock is supported by every build");
+	static_assert(HasOverrideSupport(kBuildSupport), "this build applies pilot animation overrides");
+	static_assert(kBuildSupport.substituteSlots == 0x3F, "every one of the six slots can substitute");
+	static_assert((kBuildSupport.completionModes & CompletionBit(CompletionMode::Stock)) == 0,
+		"stock completion is not an override bit");
 
 	inline const char* DecisionName(Decision decision) noexcept
 	{
 		switch (decision)
 		{
 		case Decision::PassThrough: return "passThrough";
+		case Decision::Override: return "override";
 		}
 		return "unknown";
 	}
@@ -276,10 +301,15 @@ namespace ExtraUtilities::Lua::PilotAnimationPolicy
 	// Resolves the decision for one local Person::Simulate call that is about to
 	// run with the given native FSM state.
 	//
-	// Fails closed by construction: an unmapped native state, or a slot mode this
-	// build does not implement, is pass-through. That property must survive when
-	// overrides are added, so a corrupted or future-versioned policy can never
-	// act on a state it does not understand.
+	// The override is call-wide, not per state: one stock call can leave the
+	// state it started in (a state-0 call applies enterCrouch, jump, or land; a
+	// state-2 call applies exitCrouch), so any non-stock slot makes every
+	// mapped state actionable.
+	//
+	// Fails closed by construction: an unmapped native state, or a policy this
+	// build cannot apply (an unrecognised mode or completion, or one outside
+	// kBuildSupport), is pass-through. A corrupted or future-versioned policy can
+	// never act on a state it does not understand.
 	constexpr Decision Evaluate(const Policy& policy, std::uint32_t nativeState) noexcept
 	{
 		Slot slot = Slot::Stand;
@@ -287,18 +317,14 @@ namespace ExtraUtilities::Lua::PilotAnimationPolicy
 		{
 			return Decision::PassThrough;
 		}
-
-		switch (policy.At(slot).mode)
+		if (IsStockOnly(policy) || !IsSupported(policy, kBuildSupport))
 		{
-		case Mode::Stock:
-			return Decision::PassThrough;
-		case Mode::Substitute:
-			// Representable but not actionable: the seam has no substitution
-			// yet, and kBuildSupport keeps it out of the active policy.
 			return Decision::PassThrough;
 		}
-		return Decision::PassThrough;
+		return Decision::Override;
 	}
+
+	static_assert(Evaluate(Policy{}, 0) == Decision::PassThrough, "stock passes through");
 
 	// ----- Publication between Lua and the hook -----------------------------
 

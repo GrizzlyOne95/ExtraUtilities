@@ -31,12 +31,19 @@ namespace ExtraUtilities
 			void* state = nullptr;
 		};
 
-		// Snapshot the current AnimationStateSet without retaining Ogre pointers
-		// after the caller finishes the operation. The bridge is compiled in
-		// C++14 against the vendored Ogre headers so the STL-backed iterator ABI
-		// stays isolated from the rest of EXU.
+		// Snapshot the entity's skeletal animation states without retaining Ogre
+		// pointers after the caller finishes the operation. Enumeration is by
+		// index through exported Ogre calls; no Ogre STL container is walked
+		// from EXU, because the shipped OgreMain.dll's MSVC 2013 map layout
+		// differs from EXU's. Entities without a skeleton report unavailable.
 		bool TryEnumerateAnimationStates(
 			void* entity,
 			std::vector<AnimationStateRef>& outStates) noexcept;
+
+		// Reads the entity's SkeletonInstance blend mode (Ogre's
+		// SkeletonAnimationBlendMode: 0 average, 1 cumulative). False when the
+		// entity has no skeleton, the export is missing or not the verified
+		// one-field read, or the call faults. No allocation.
+		bool TryGetSkeletonBlendMode(void* entity, int& outMode) noexcept;
 	}
 }

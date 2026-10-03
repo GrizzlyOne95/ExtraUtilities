@@ -10,8 +10,9 @@
 
 #include "Game/PilotAnimationPolicy.h"
 
-// Not used by the DLL until SetPilotAnimationProfile exists; included so the
-// MSVC build compiles the validator now rather than first meeting it then.
+// exu.fps.SetPilotAnimationProfile (AnimationApi.cpp) validates through
+// ProfileBuilder and publishes through SetActive below; included here as well
+// so the policy TU compiles the validator against kBuildSupport on its own.
 #include "Game/PilotAnimationProfile.h"
 
 namespace ExtraUtilities::Lua::PilotAnimationPolicy

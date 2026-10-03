@@ -341,4 +341,34 @@ namespace ExtraUtilities::Lua::Environment
 			static SetNonVisibleUpdateTimeoutFn fn = ResolveOgreProc<SetNonVisibleUpdateTimeoutFn>("?setNonVisibleUpdateTimeout@ParticleSystem@Ogre@@QAEXM@Z");
 			return fn;
 		}
+
+		MovableObjectGetParentNodeFn ResolveMovableObjectGetParentNode()
+		{
+			static MovableObjectGetParentNodeFn fn = ResolveOgreProc<MovableObjectGetParentNodeFn>("?getParentNode@MovableObject@Ogre@@UBEPAVNode@2@XZ");
+			return fn;
+		}
+
+		MovableObjectIsParentTagPointFn ResolveMovableObjectIsParentTagPoint()
+		{
+			static MovableObjectIsParentTagPointFn fn = ResolveOgreProc<MovableObjectIsParentTagPointFn>("?isParentTagPoint@MovableObject@Ogre@@UBE_NXZ");
+			return fn;
+		}
+
+		TagPointGetParentEntityFn ResolveTagPointGetParentEntity()
+		{
+			static TagPointGetParentEntityFn fn = ResolveOgreProc<TagPointGetParentEntityFn>("?getParentEntity@TagPoint@Ogre@@QBEPAVEntity@2@XZ");
+			return fn;
+		}
+
+		EntityGetSkeletonFn ResolveEntityGetSkeleton()
+		{
+			static EntityGetSkeletonFn fn = ResolveOgreProc<EntityGetSkeletonFn>("?getSkeleton@Entity@Ogre@@QBEPAVSkeletonInstance@2@XZ");
+			return fn;
+		}
+
+		SkeletonHasBoneFn ResolveSkeletonHasBone()
+		{
+			static SkeletonHasBoneFn fn = ResolveOgreProc<SkeletonHasBoneFn>("?hasBone@Skeleton@Ogre@@UBE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
+			return fn;
+		}
 }

@@ -1054,6 +1054,74 @@ namespace ExtraUtilities::Lua::Environment
 			return true;
 		}
 
+		bool TryEntityHasBoneSeh(void* entity, const std::string& boneName)
+		{
+			const auto hasSkeletonFn = ResolveEntityHasSkeleton();
+			const auto getSkeletonFn = ResolveEntityGetSkeleton();
+			const auto hasBoneFn = ResolveSkeletonHasBone();
+			if (entity == nullptr || hasSkeletonFn == nullptr || getSkeletonFn == nullptr || hasBoneFn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				if (!hasSkeletonFn(entity))
+				{
+					return false;
+				}
+				void* const skeleton = getSkeletonFn(entity);
+				return skeleton != nullptr && hasBoneFn(skeleton, boneName);
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				LogEnvironmentFault("[EXU::Particle] hasBone crashed entity=%p bone=%s code=0x%08X", entity, boneName.c_str(), GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryEntityHasBone(void* entity, const std::string& boneName)
+		{
+			return Seh::CatchCpp("TryEntityHasBone", [&] { return TryEntityHasBoneSeh(entity, boneName); }, false);
+		}
+
+		bool TryGetMovableObjectTagPointParentSeh(void* movableObject, void*& outTagPoint, void*& outEntity)
+		{
+			outTagPoint = nullptr;
+			outEntity = nullptr;
+			const auto getParentNodeFn = ResolveMovableObjectGetParentNode();
+			const auto isParentTagPointFn = ResolveMovableObjectIsParentTagPoint();
+			const auto getParentEntityFn = ResolveTagPointGetParentEntity();
+			if (movableObject == nullptr || getParentNodeFn == nullptr || isParentTagPointFn == nullptr || getParentEntityFn == nullptr)
+			{
+				return false;
+			}
+
+			__try
+			{
+				void* const parent = getParentNodeFn(movableObject);
+				if (parent == nullptr || !isParentTagPointFn(movableObject))
+				{
+					return true;
+				}
+				outTagPoint = parent;
+				outEntity = getParentEntityFn(parent);
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				LogEnvironmentFault("[EXU::Particle] parent query crashed movableObject=%p code=0x%08X", movableObject, GetExceptionCode());
+				outTagPoint = nullptr;
+				outEntity = nullptr;
+				return false;
+			}
+		}
+
+		bool TryGetMovableObjectTagPointParent(void* movableObject, void*& outTagPoint, void*& outEntity)
+		{
+			return Seh::CatchCpp("TryGetMovableObjectTagPointParent", [&] { return TryGetMovableObjectTagPointParentSeh(movableObject, outTagPoint, outEntity); }, [&] { outTagPoint = nullptr; outEntity = nullptr; return false; });
+		}
+
 		bool TryAttachManagedParticleToBoneSeh(void* sceneManager, const std::string& name, void* entity, const std::string& boneName, const BZR::VECTOR_3D& offset)
 		{
 			const auto hasSkeletonFn = ResolveEntityHasSkeleton();
@@ -1077,6 +1145,21 @@ namespace ExtraUtilities::Lua::Environment
 				{
 					LogEnvironmentDebug("[EXU::Particle] bone attach failed name=%s bone=%s reason=entity_has_no_skeleton", name.c_str(), boneName.c_str());
 					return false;
+				}
+
+				// Entity::attachObjectToBone throws ItemIdentityException for an
+				// unknown bone; ask first so a typo never unwinds out of a
+				// foreign-CRT frame after the system was already detached.
+				const auto getSkeletonFn = ResolveEntityGetSkeleton();
+				const auto hasBoneFn = ResolveSkeletonHasBone();
+				if (getSkeletonFn != nullptr && hasBoneFn != nullptr)
+				{
+					void* const skeleton = getSkeletonFn(entity);
+					if (skeleton == nullptr || !hasBoneFn(skeleton, boneName))
+					{
+						LogEnvironmentDebug("[EXU::Particle] bone attach failed name=%s bone=%s reason=no_such_bone", name.c_str(), boneName.c_str());
+						return false;
+					}
 				}
 
 				// A movable object can only live on one attachment point, and
