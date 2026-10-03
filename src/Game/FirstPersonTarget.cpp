@@ -58,9 +58,11 @@ namespace ExtraUtilities::Lua::FirstPersonTarget
 
 		// POD-only SEH helper: no C++ objects that require unwinding may live in
 		// a function containing __try under MSVC /EHsc.
-		bool TryReadRawPilotTargets(RawPilotTargets& outTargets) noexcept
+		bool TryReadRawPilotTargets(RawPilotTargets& outTargets,
+			NativeResolveFailure& outFailure) noexcept
 		{
 			outTargets = {};
+			outFailure = NativeResolveFailure::ReadFaulted;
 
 			__try
 			{
@@ -68,20 +70,24 @@ namespace ExtraUtilities::Lua::FirstPersonTarget
 					reinterpret_cast<void* const*>(BZR::GameObject::p_userObject);
 				if (userObjectSlot == nullptr)
 				{
+					outFailure = NativeResolveFailure::NoLocalUserObject;
 					return false;
 				}
 
 				void* const person = *userObjectSlot;
 				if (person == nullptr)
 				{
+					outFailure = NativeResolveFailure::NoLocalUserObject;
 					return false;
 				}
 
 				auto* const personBytes = reinterpret_cast<const uint8_t*>(person);
 				void* const renderBridge =
 					*reinterpret_cast<void* const*>(personBytes + kPersonRenderBridgeOffset);
+				outTargets.person = person;
 				if (renderBridge == nullptr)
 				{
+					outFailure = NativeResolveFailure::NoRenderBridge;
 					return false;
 				}
 
@@ -91,15 +97,18 @@ namespace ExtraUtilities::Lua::FirstPersonTarget
 				void* const firstPersonEntity =
 					*reinterpret_cast<void* const*>(bridgeBytes + kRenderBridgeFirstPersonEntityOffset);
 
-				outTargets.person = person;
 				outTargets.renderBridge = renderBridge;
 				outTargets.worldEntity = worldEntity;
 				outTargets.firstPersonEntity = firstPersonEntity;
+				outFailure = firstPersonEntity != nullptr
+					? NativeResolveFailure::None
+					: NativeResolveFailure::NoFirstPersonEntity;
 				return firstPersonEntity != nullptr;
 			}
 			__except (Seh::Filter(GetExceptionCode()))
 			{
 				outTargets = {};
+				outFailure = NativeResolveFailure::ReadFaulted;
 				return false;
 			}
 		}
@@ -148,31 +157,70 @@ namespace ExtraUtilities::Lua::FirstPersonTarget
 		return RuntimeGate::IsSupported();
 	}
 
-	bool ResolveNativeLocalFirstPersonEntity(void*& outEntity) noexcept
+	const char* DescribeNativeResolveFailure(NativeResolveFailure failure) noexcept
 	{
+		switch (failure)
+		{
+		case NativeResolveFailure::None: return "none";
+		case NativeResolveFailure::RuntimeGateClosed: return "runtime gate closed";
+		case NativeResolveFailure::NoLocalUserObject: return "no local user object";
+		case NativeResolveFailure::NoRenderBridge: return "user object has no render bridge";
+		case NativeResolveFailure::NoFirstPersonEntity: return "render bridge has no first-person entity";
+		case NativeResolveFailure::ReadFaulted: return "render bridge read faulted";
+		case NativeResolveFailure::NotPerson: return "user object is not a Person";
+		case NativeResolveFailure::SharedWithWorldEntity: return "first-person entity is the world entity";
+		case NativeResolveFailure::MissingIdle: return "first-person entity lacks 'idle'";
+		case NativeResolveFailure::MissingStandToKneel: return "first-person entity lacks 'stand2Kneel'";
+		}
+		return "unknown";
+	}
+
+	bool ResolveNativeLocalFirstPersonEntity(void*& outEntity,
+		NativeResolveFailure* outFailure) noexcept
+	{
+		NativeResolveFailure ignored = NativeResolveFailure::None;
+		NativeResolveFailure& failure = outFailure ? *outFailure : ignored;
+		failure = NativeResolveFailure::None;
 		outEntity = nullptr;
 		if (!IsNativeResolverAvailable())
 		{
+			failure = NativeResolveFailure::RuntimeGateClosed;
 			return false;
 		}
 
+		// Qualify Person before trusting the render-bridge offsets: a vehicle in
+		// the user slot would otherwise be read with pilot layout assumptions.
 		RawPilotTargets targets{};
-		if (!TryReadRawPilotTargets(targets) ||
-			!IsPersonObject(targets.person) ||
-			targets.firstPersonEntity == targets.worldEntity)
+		const bool readOk = TryReadRawPilotTargets(targets, failure);
+		if (targets.person != nullptr && !IsPersonObject(targets.person))
 		{
+			failure = NativeResolveFailure::NotPerson;
+			return false;
+		}
+		if (!readOk)
+		{
+			return false;
+		}
+		if (targets.firstPersonEntity == targets.worldEntity)
+		{
+			failure = NativeResolveFailure::SharedWithWorldEntity;
 			return false;
 		}
 
 		// Keep the production qualification intentionally narrow for chunk 1:
 		// this is the stock pilot vocabulary already proven on the dedicated
-		// *_fp entity. Custom mesh registration/relaxed qualification belongs
+		// FP entity. Custom mesh registration/relaxed qualification belongs
 		// to the later asset-qualification work order.
 		const std::string idle("idle");
 		const std::string standToKneel("stand2Kneel");
-		if (!GameObject::HasAnimation(targets.firstPersonEntity, idle) ||
-			!GameObject::HasAnimation(targets.firstPersonEntity, standToKneel))
+		if (!GameObject::HasAnimation(targets.firstPersonEntity, idle))
 		{
+			failure = NativeResolveFailure::MissingIdle;
+			return false;
+		}
+		if (!GameObject::HasAnimation(targets.firstPersonEntity, standToKneel))
+		{
+			failure = NativeResolveFailure::MissingStandToKneel;
 			return false;
 		}
 

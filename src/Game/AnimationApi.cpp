@@ -75,6 +75,50 @@ namespace ExtraUtilities::Lua::AnimationApi
 					FirstPersonTarget::IsNativeResolverAvailable();
 			}
 
+			enum class FirstPersonResolution
+			{
+				Unknown,
+				OpenShim,
+				Native,
+				NativeFailed,
+				BothFailed,
+			};
+
+			// Lua-thread only. Logs when the resolver outcome or failure reason
+			// changes, so a polling script cannot flood exu.log while the player
+			// sits in a vehicle.
+			void LogFirstPersonResolution(FirstPersonResolution resolution,
+				FirstPersonTarget::NativeResolveFailure failure)
+			{
+				static FirstPersonResolution lastResolution = FirstPersonResolution::Unknown;
+				static FirstPersonTarget::NativeResolveFailure lastFailure =
+					FirstPersonTarget::NativeResolveFailure::None;
+				if (resolution == lastResolution && failure == lastFailure)
+					return;
+				lastResolution = resolution;
+				lastFailure = failure;
+
+				switch (resolution)
+				{
+				case FirstPersonResolution::OpenShim:
+					Logging::LogMessage("[EXU::FPS] local first-person target resolved via OpenShim");
+					break;
+				case FirstPersonResolution::Native:
+					Logging::LogMessage("[EXU::FPS] local first-person target resolved via EXU native render bridge");
+					break;
+				case FirstPersonResolution::NativeFailed:
+					Logging::LogMessage("[EXU::FPS] local first-person target unavailable: native %s",
+						FirstPersonTarget::DescribeNativeResolveFailure(failure));
+					break;
+				case FirstPersonResolution::BothFailed:
+					Logging::LogMessage("[EXU::FPS] local first-person target unavailable: OpenShim declined; native %s",
+						FirstPersonTarget::DescribeNativeResolveFailure(failure));
+					break;
+				default:
+					break;
+				}
+			}
+
 			void* ResolveTargetEntity(const Target& target, std::uint64_t* generation = nullptr)
 			{
 				if (generation)
@@ -83,20 +127,35 @@ namespace ExtraUtilities::Lua::AnimationApi
 					return target.handle ? GameObject::ResolveAnimationEntity(target.handle) : nullptr;
 
 				void* entity = nullptr;
-				if (OpenShimBridge::HasLocalFirstPersonEntityBridge())
+				const bool hasOpenShimResolver = OpenShimBridge::HasLocalFirstPersonEntityBridge();
+				if (hasOpenShimResolver)
 				{
 					std::uint64_t resolvedGeneration = 0;
-					if (!OpenShimBridge::ResolveLocalFirstPersonEntity(entity, resolvedGeneration))
-						return nullptr;
-					if (generation)
-						*generation = resolvedGeneration;
-					return entity;
+					if (OpenShimBridge::ResolveLocalFirstPersonEntity(entity, resolvedGeneration))
+					{
+						if (generation)
+							*generation = resolvedGeneration;
+						LogFirstPersonResolution(FirstPersonResolution::OpenShim,
+							FirstPersonTarget::NativeResolveFailure::None);
+						return entity;
+					}
+					// OpenShim only accepts its strict stock FP mesh list, so a mod
+					// pilot (e.g. ISDFC's ispilo_cockpit) falls through to the
+					// native render-bridge read below.
 				}
 
-				// Standalone EXU path: resolve the dedicated FP entity directly from
+				// EXU native path: resolve the dedicated FP entity directly from
 				// the live local Person render bridge. No Ogre pointer is retained.
-				if (!FirstPersonTarget::ResolveNativeLocalFirstPersonEntity(entity))
+				FirstPersonTarget::NativeResolveFailure failure =
+					FirstPersonTarget::NativeResolveFailure::None;
+				if (!FirstPersonTarget::ResolveNativeLocalFirstPersonEntity(entity, &failure))
+				{
+					LogFirstPersonResolution(hasOpenShimResolver
+						? FirstPersonResolution::BothFailed
+						: FirstPersonResolution::NativeFailed, failure);
 					return nullptr;
+				}
+				LogFirstPersonResolution(FirstPersonResolution::Native, failure);
 				return entity;
 			}
 
