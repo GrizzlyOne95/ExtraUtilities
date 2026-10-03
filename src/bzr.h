@@ -392,6 +392,18 @@ namespace BZR
 		inline auto animName = (const char**)EngineAddresses::PersonRuntime::PersonAnimNameTable;
 	}
 
+	namespace PlayerInput
+	{
+		// Global "held" command state bytes, nonzero while the bind is down
+		// (see exu.json). Player input, not per object: read for the LOCAL
+		// Person only, compare != 0. Use only after PlayerTrigger::Qualify has
+		// matched the read sites below and confirmed their operands.
+		inline auto weaponFireHeld = (volatile int8_t*)EngineAddresses::PlayerInput::WeaponFireHeld;
+		inline auto weaponFireAutoHeld = (volatile int8_t*)EngineAddresses::PlayerInput::WeaponFireAutoHeld;
+		inline constexpr uintptr_t WeaponFireHeldRead = EngineAddresses::PlayerInput::WeaponFireHeldRead;
+		inline constexpr uintptr_t WeaponFireAutoHeldRead = EngineAddresses::PlayerInput::WeaponFireAutoHeldRead;
+	}
+
 	namespace GraphicsOptions
 	{
 		inline auto isFullscreen = (bool*)EngineAddresses::GraphicsOptions::isFullscreen;

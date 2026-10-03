@@ -38,6 +38,7 @@ print(caps.pilotStateInspection)
 print(caps.pilotFsmIntercept)
 print(caps.pilotAnimationOverrides)
 print(caps.firstPersonLayers)
+print(caps.firstPersonTrigger)
 print(caps.firstPersonStatus)
 ```
 
@@ -397,26 +398,82 @@ local pilot tick, whatever the FSM is doing (stand, crouch, run, jump):
 ```lua
 exu.fps.SetLayer("barrelSpin", { speed = 0 })   -- create (speed 0 = parked)
 exu.fps.SetLayerSpeed("barrelSpin", 3.0)       -- 3 clip-seconds per second
-exu.fps.SetLayerWeight("barrelSpin", 1.0)
-exu.fps.ClearLayer("barrelSpin")               -- disable, weight 1, time 0
+exu.fps.SetLayerWeight("barrelSpin", 1.0, 0.2) -- ramp to 1 over 0.2 s
+exu.fps.ClearLayer("barrelSpin", 0.3)          -- fade out, then disable
 exu.fps.ClearLayers()
+exu.fps.PlayLayer("reload", { fadeIn = 0.1, fadeOut = 0.2 })  -- one-shot
+exu.fps.SetBaseWeight(0.0, 0.25)               -- fade the FSM's clip out
+local current, target = exu.fps.GetBaseWeight()
+print(exu.fps.IsTriggerHeld())
 for _, layer in ipairs(exu.fps.GetLayers()) do
-    print(layer.name, layer.speed, layer.time, layer.length,
-        layer.active, layer.reason, layer.blendMode)
+    print(layer.name, layer.effectiveSpeed, layer.weight, layer.time,
+        layer.length, layer.active, layer.reason, layer.blendMode)
 end
 ```
 
-`SetLayer(name, options)` creates or updates. Options: `speed` (clip-seconds
-per second, 0..50, default 1), `weight` (0..1, default 1), `loop` (default
-true; false clamps at the clip end), `time` (seconds >= 0: seek EXU's clock).
+`SetLayer(name, options?)` creates or updates. Options:
+
+- `speed` (base clip-seconds per second, 0..50, default 1)
+- `weight` (target weight 0..1, default 1)
+- `loop` (default true; false clamps at the clip end; true also turns a
+  `PlayLayer` one-shot back into an ordinary layer)
+- `time` (seconds >= 0: seek EXU's clock)
+- `fadeIn` (seconds, this call only: ramp from the weight being applied, 0 for
+  a new layer, to the target weight; without it a new weight applies at once)
+- `fadeOut` (seconds, stored: the default fade of a later `ClearLayer`)
+- `fire = { speed = n, spinUp = s?, spinDown = s? }` or `fire = false`: the
+  trigger drive. While the local player's fire (or auto-fire) bind is held the
+  layer's effective speed ramps linearly toward `fire.speed`; released, it ramps
+  back to the base `speed`. `spinUp`/`spinDown` are the seconds for the whole
+  span between the two speeds (0 or omitted = instant); a re-press mid-ramp
+  continues from the current speed. `false` removes the drive. Unknown keys in
+  the table raise.
+
 A key left out keeps the layer's current value. It is strict: an unknown
-option key, a wrong type, a value out of range, a name outside 1..63
-characters, or a ninth layer raises a Lua error. `SetLayerSpeed` and
-`SetLayerWeight` raise for an unknown name; `ClearLayer` returns whether the
-layer existed. All layers are cleared at every mission/Lua-state boundary.
+option key, a wrong type, a value out of range (fades 0..1000000 s), a name
+outside 1..63 characters, or a ninth layer raises a Lua error.
+`SetLayerSpeed(name, speed)` and `SetLayerWeight(name, weight, fadeSeconds?)`
+raise for an unknown name. `ClearLayer(name, fadeSeconds?)` returns whether the
+layer existed; with a fade (`fadeSeconds`, else the layer's `fadeOut`) the layer
+ramps to 0, is disabled, and drops out of `GetLayers()` (`reason = "cleared"`
+meanwhile); with no fade, or when the seam is not active, it is removed at
+once. `SetLayer` or `SetLayerWeight` on a layer still fading out revives it.
+
+`PlayLayer(name, options?)` creates or restarts a non-looping one-shot at time
+0. Options: `speed`, `weight` (sticky, like `SetLayer`), `fadeIn`, `fadeOut`
+(this play: the weight reaches 0 exactly at the clip end), `clearOnEnd`
+(default true: disabled when it finishes, `reason = "ended"`, and its slot is
+reused when a ninth layer needs one; false holds the last frame). Each call
+bumps `playCount`; `finishedCount` is the `playCount` of the latest play that
+reached its end, so `layer.finishedCount == layer.playCount` means "this play
+is done".
+
+`SetBaseWeight(weight, fadeSeconds?)` ramps the weight EXU applies to the clip
+the FSM is currently playing (default 1; EXU puts 1 back on a clip when the FSM
+moves on). With a cumulative rig this cross-fades from the FSM pose to a layer
+pose (e.g. an ADS hold). `GetBaseWeight()` returns `current, target`. It is
+reset to 1 at every mission boundary.
+
+`IsTriggerHeld()` is the local fire/auto-fire bind as the engine last polled
+it (global player input; the engine zeroes it while input is not allowed). It
+is false when `firstPersonTrigger` is false.
+
+`GetLayers()` returns one table per layer in creation order: `name`, `speed`
+(base), `effectiveSpeed` (what the clock ran at on the last tick, base or
+fire-ramped), `weight` (applied on the last tick, fades included),
+`targetWeight`, `loop`, `oneShot`, `clearing`, `fadeOut`, `finished`,
+`playCount`, `finishedCount`, `triggerHeld` (as sampled by the hook), `fire`
+(`{ speed, spinUp, spinDown }`, only when set), `time`, `length`, `active`,
+`reason` (only when not active: `pending`, `missing`, `engineOwned`,
+`noFirstPersonEntity`, `faulted`, `unavailable`, `ended`, `cleared`) and
+`blendMode`. All layers are cleared at every mission/Lua-state boundary.
 
 `exu.fps.GetCapabilities().firstPersonLayers` is true when the
 `Person::Simulate` seam is active (the same condition as `pilotFsmIntercept`).
+`firstPersonTrigger` is true when both `UserProcess::Execute` read sites of the
+fire bytes (0x009198C0 `weapon_fire`, 0x009198C1 `weapon_fire_auto`) matched
+at install (`Docs/Research/PLAYER_TRIGGER_SIGNAL_RE_20261003.md`); otherwise
+`fire` options are accepted but never see the trigger held.
 
 **Presentation-only.** Layers touch nothing but Ogre animation states on the
 local first-person entity: no gameplay state, no clip table, no other Person.
@@ -438,9 +495,14 @@ clip tables:
 3. Each layer: if its name is the clip the FSM is playing this tick it is
    skipped (`reason = "engineOwned"`, below). If the skeleton has no such
    animation it is skipped (`reason = "missing"`, logged once per name and
-   entity). Otherwise EXU advances its own clock by `dt * speed` (sim
-   seconds; wrapped into the clip when looping, clamped when not) and sets
-   enabled, loop, weight and time position on the state.
+   entity). Otherwise EXU ramps the effective speed (the `fire` drive), advances
+   its own clock by `dt * effectiveSpeed` (sim seconds; wrapped into the clip
+   when looping, clamped when not), steps the weight ramp and any one-shot end
+   fade, and sets enabled, loop, weight and time position on the state (or
+   disables it: an ended `clearOnEnd` one-shot, a finished fade-out clear).
+
+Before the layers, the base weight is ramped and written to the FSM's current
+clip. The fire bind is sampled once per local tick in the same hook.
 
 Enable/loop/weight are re-asserted every tick because the stock apply helpers
 disable the old FSM clip by name and model setup can reset states. Time is
@@ -482,28 +544,23 @@ blendmode cumulative) has a `barrelSpin` clip that keys only the
 second.
 
 ```lua
-local SPIN_MAX, SPIN_UP, SPIN_DOWN = 3.0, 4.0, 1.5   -- rev/s, rev/s per second
-local spin = 0.0
-
 function Start()
     if exu.fps.GetCapabilities().firstPersonLayers then
-        exu.fps.SetLayer("barrelSpin", { speed = 0 })
+        -- Parked; 3 rev/s 0.4 s after the trigger goes down, coasting to a
+        -- stop over 1.2 s after release. EXU ramps it natively every tick.
+        exu.fps.SetLayer("barrelSpin", { loop = true, speed = 0,
+            fire = { speed = 3, spinUp = 0.4, spinDown = 1.2 } })
     end
-end
-
-function Update(dt)
-    local firing = IsFiring()   -- the mod's own trigger test
-    if firing then
-        spin = math.min(SPIN_MAX, spin + SPIN_UP * dt)
-    else
-        spin = math.max(0.0, spin - SPIN_DOWN * dt)
-    end
-    exu.fps.SetLayerSpeed("barrelSpin", spin)
 end
 ```
 
+A mod that needs its own trigger logic can leave out `fire` and drive
+`SetLayerSpeed` from `Update` instead.
+
 `tests/runtime/fp_layer_check.lua` is an in-game check that cycles a layer
 through speeds 0 -> 1 -> 3 -> 0 and prints `GetLayers()` each phase.
+`tests/runtime/fp_trigger_check.lua` keeps the trigger-driven barrel layer
+above alive and prints `IsTriggerHeld()` changes with `effectiveSpeed`.
 
 ## Delegation contract
 

@@ -1193,6 +1193,40 @@
         "note": "Reference pattern: matches 'mov ecx,[ebp-0x348]; push ecx; movss xmm0,[ecx*4+0x8E8F60]' at 0x0059E16E, verified unique in GOG 2.2.301 executable sections 2026-10-03."
       }
     },
+    "PlayerInput": {
+      "WeaponFireHeld": {
+        "address": "0x009198C0",
+        "type": "int8_t* (.data, level)",
+        "description": "State byte of the 'weapon_fire' command (command table 0x008EB888, type 1 = held): nonzero while the fire bind is down at the last input poll. InputPoll (0x006210A0) clears every state byte, then ORs in the bound inputs; UserProcess::Execute (0x0060A480) reads it once per tick and calls Carrier::FireSelected while it is set. Zeroed by the engine while input is not allowed. Global player input, not per object: read it for the LOCAL Person only. Compare != 0. See Docs/Research/PLAYER_TRIGGER_SIGNAL_RE_20261003.md. src/Game/PlayerTrigger.cpp resolves it from the WeaponFireHeldRead operand.",
+        "pattern": "0F B6 D0 85 D2 0F 85 B6 02 00 00 0F BE 05 C0 98 91 00 85 C0 74 0C",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'movzx edx,al; test edx,edx; jne ...; movsx eax,byte ptr [0x9198c0]; test eax,eax; je ...' at 0x0060A93D (operand at +0x0E), verified unique in GOG 2.2.301 .text 2026-10-03; the only .text reference to the byte."
+      },
+      "WeaponFireAutoHeld": {
+        "address": "0x009198C1",
+        "type": "int8_t* (.data, level)",
+        "description": "State byte of the 'weapon_fire_auto' command (command table 0x008EB8A8, type 1 = held), the auto-fire bind; same lifecycle as WeaponFireHeld. src/Game/PlayerTrigger.cpp resolves it from the WeaponFireAutoHeldRead operand.",
+        "pattern": "0F BE 05 C1 98 91 00 85 C0 0F 84 ?? ?? ?? ?? C6 85 E8 FE FF FF 01",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'movsx eax,byte ptr [0x9198c1]; test eax,eax; je ...; mov byte ptr [ebp-0x118],1' at 0x0060A984 (operand at +0x03), verified unique in GOG 2.2.301 .text 2026-10-03. The bare movsx also occurs at 0x0060A54D (the input-disallowed path), hence the trailing context."
+      },
+      "WeaponFireHeldRead": {
+        "address": "0x0060A93D",
+        "type": "code (UserProcess::Execute fire-byte read)",
+        "description": "Runtime anchor for WeaponFireHeld inside UserProcess::Execute (0x0060A480). PlayerTrigger::Qualify matches these bytes here and reads the byte's address from the movsx operand at +0x0E; any mismatch stands the trigger signal down (capability firstPersonTrigger false).",
+        "pattern": "0F B6 D0 85 D2 0F 85 B6 02 00 00 0F BE 05 C0 98 91 00 85 C0 74 0C",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 .text 2026-10-03."
+      },
+      "WeaponFireAutoHeldRead": {
+        "address": "0x0060A984",
+        "type": "code (UserProcess::Execute auto-fire-byte read)",
+        "description": "Runtime anchor for WeaponFireAutoHeld inside UserProcess::Execute. PlayerTrigger::Qualify matches the literal bytes (je rel32 included) here and reads the byte's address from the movsx operand at +0x03.",
+        "pattern": "0F BE 05 C1 98 91 00 85 C0 0F 84 ?? ?? ?? ?? C6 85 E8 FE FF FF 01",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 .text 2026-10-03; the je rel32 is 3F 02 00 00 on this build."
+      }
+    },
     "Soundtrack": {
       "SelectTrack": {
         "address": "0x004377C0",
