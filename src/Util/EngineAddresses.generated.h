@@ -507,6 +507,21 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
+	namespace PlayerInput
+	{
+		enum : uintptr_t
+		{
+			// int8_t* (.data, level)
+			WeaponFireHeld = 0x009198C0u,
+			// int8_t* (.data, level)
+			WeaponFireAutoHeld = 0x009198C1u,
+			// code (UserProcess::Execute fire-byte read)
+			WeaponFireHeldRead = 0x0060A93Du,
+			// code (UserProcess::Execute auto-fire-byte read)
+			WeaponFireAutoHeldRead = 0x0060A984u,
+		};
+	}
+
 	namespace Soundtrack
 	{
 		enum : uintptr_t
@@ -536,5 +551,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 169u;
+	inline constexpr unsigned kEntryCount = 173u;
 }

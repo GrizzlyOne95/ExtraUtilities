@@ -18,6 +18,7 @@
 #include "Game/PilotState.h"
 #include "Game/PilotTrace.h"
 #include "Game/PilotTransitionTiming.h"
+#include "Game/PlayerTrigger.h"
 #include "Util/Logging.h"
 #include "Util/RuntimeGate.h"
 #include "Util/SehGuard.h"
@@ -809,7 +810,11 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 
 			char engineClip[FirstPersonLayers::kMaxLayerName + 1];
 			CurrentClipName(after, engineClip);
-			FirstPersonLayers::ApplyLocal(firstPerson, dt, engineClip[0] != '\0' ? engineClip : nullptr);
+			// Global player input, sampled here because this is the LOCAL
+			// Person's tick (false when the read sites did not qualify).
+			const bool triggerHeld = PlayerTrigger::IsHeld();
+			FirstPersonLayers::ApplyLocal(
+				firstPerson, dt, engineClip[0] != '\0' ? engineClip : nullptr, triggerHeld);
 		}
 
 		PilotTrace::Frame ToTraceFrame(const PilotState::Snapshot& snapshot) noexcept

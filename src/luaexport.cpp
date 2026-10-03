@@ -25,6 +25,7 @@
 #include "Game/FirstPersonLayers.h"
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotFsmIntercept.h"
+#include "Game/PlayerTrigger.h"
 #include "Game/RenderEffects.h"
 #include "Game/StaticGeometry.h"
 #include "Exports.h"
@@ -537,6 +538,7 @@ namespace ExtraUtilities::Lua
 		{
 			Logging::LogMessage("exu: deferred patches activated");
 			PilotFsmIntercept::Install();
+			PlayerTrigger::Qualify();
 		}
 		else
 		{

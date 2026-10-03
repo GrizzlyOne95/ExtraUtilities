@@ -27,6 +27,7 @@
 #include "Game/PilotState.h"
 #include "Game/PilotStateSemantics.h"
 #include "Game/PilotTrace.h"
+#include "Game/PlayerTrigger.h"
 #include "LuaHelpers.h"
 #include "OpenShimBridge.h"
 #include "Util/Logging.h"
@@ -389,7 +390,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 		int GetCapabilities(lua_State* L)
 		{
-			lua_createtable(L, 0, 10);
+			lua_createtable(L, 0, 11);
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "gameObjectTarget");
 			const bool hasFpBridge = OpenShimBridge::HasLocalFirstPersonEntityBridge();
@@ -414,6 +415,10 @@ namespace ExtraUtilities::Lua::AnimationApi
 			// presentation-only, so multiplayer does not affect this flag.
 			lua_pushboolean(L, FirstPersonLayers::IsAvailable() ? 1 : 0);
 			lua_setfield(L, -2, "firstPersonLayers");
+			// The local fire-held signal (exu.fps.IsTriggerHeld, the layer `fire`
+			// option): both UserProcess read sites matched at install.
+			lua_pushboolean(L, PlayerTrigger::IsAvailable() ? 1 : 0);
+			lua_setfield(L, -2, "firstPersonTrigger");
 			lua_pushboolean(L, 0);
 			lua_setfield(L, -2, "managedClock");
 			lua_pushstring(L, "unvalidated");
@@ -1220,6 +1225,60 @@ namespace ExtraUtilities::Lua::AnimationApi
 			return lua_tonumber(L, index);
 		}
 
+		// SetLayer's `fire` value: false (remove the trigger drive) or a table
+		// { speed = number (required), spinUp = seconds?, spinDown = seconds? }
+		// with no other keys.
+		void ReadFireOptions(lua_State* L, int index, FirstPersonLayers::FireOptions& outFire)
+		{
+			constexpr const char* kFunction = "SetLayer";
+			outFire = {};
+			if (lua_type(L, index) == LUA_TBOOLEAN && lua_toboolean(L, index) == 0)
+			{
+				outFire.enabled = false;
+				return;
+			}
+			if (lua_type(L, index) != LUA_TTABLE)
+			{
+				luaL_error(L, "exu.fps.%s: option 'fire' must be a table or false", kFunction);
+			}
+
+			bool hasSpeed = false;
+			lua_pushnil(L);
+			while (lua_next(L, index) != 0)
+			{
+				const int keyIndex = lua_gettop(L) - 1;
+				const int valueIndex = keyIndex + 1;
+				if (lua_type(L, keyIndex) != LUA_TSTRING)
+				{
+					luaL_error(L, "exu.fps.%s: fire keys must be strings", kFunction);
+				}
+				const char* key = lua_tostring(L, keyIndex);
+				if (std::strcmp(key, "speed") == 0)
+				{
+					hasSpeed = true;
+					outFire.speed = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, "fire.speed"));
+				}
+				else if (std::strcmp(key, "spinUp") == 0)
+				{
+					outFire.spinUp = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, "fire.spinUp"));
+				}
+				else if (std::strcmp(key, "spinDown") == 0)
+				{
+					outFire.spinDown = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, "fire.spinDown"));
+				}
+				else
+				{
+					luaL_error(L, "exu.fps.%s: unknown fire key '%s' (expected speed, spinUp, spinDown)",
+						kFunction, key);
+				}
+				lua_settop(L, keyIndex);
+			}
+			if (!hasSpeed)
+			{
+				luaL_error(L, "exu.fps.%s: option 'fire' needs a speed", kFunction);
+			}
+		}
+
 		// Reads SetLayer's options table into outOptions. Unknown keys, non-string
 		// keys, and wrongly typed values raise.
 		void ReadLayerOptions(lua_State* L, int index, FirstPersonLayers::LayerOptions& outOptions)
@@ -1268,13 +1327,103 @@ namespace ExtraUtilities::Lua::AnimationApi
 					outOptions.hasTime = true;
 					outOptions.time = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
 				}
+				else if (std::strcmp(key, "fadeIn") == 0)
+				{
+					outOptions.hasFadeIn = true;
+					outOptions.fadeIn = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "fadeOut") == 0)
+				{
+					outOptions.hasFadeOut = true;
+					outOptions.fadeOut = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "fire") == 0)
+				{
+					outOptions.hasFire = true;
+					ReadFireOptions(L, valueIndex, outOptions.fire);
+				}
 				else
 				{
-					luaL_error(L, "exu.fps.%s: unknown option '%s' (expected speed, weight, loop, time)",
+					luaL_error(L,
+						"exu.fps.%s: unknown option '%s' (expected speed, weight, loop, time, fadeIn, fadeOut, fire)",
 						kFunction, key);
 				}
 				lua_settop(L, keyIndex);
 			}
+		}
+
+		// PlayLayer's options table. Same strictness as ReadLayerOptions.
+		void ReadPlayOptions(lua_State* L, int index, FirstPersonLayers::PlayOptions& outOptions)
+		{
+			constexpr const char* kFunction = "PlayLayer";
+			outOptions = {};
+			if (lua_isnoneornil(L, index))
+			{
+				return;
+			}
+			luaL_checktype(L, index, LUA_TTABLE);
+
+			lua_pushnil(L);
+			while (lua_next(L, index) != 0)
+			{
+				const int keyIndex = lua_gettop(L) - 1;
+				const int valueIndex = keyIndex + 1;
+				if (lua_type(L, keyIndex) != LUA_TSTRING)
+				{
+					luaL_error(L, "exu.fps.%s: option keys must be strings", kFunction);
+				}
+				const char* key = lua_tostring(L, keyIndex);
+				if (std::strcmp(key, "speed") == 0)
+				{
+					outOptions.hasSpeed = true;
+					outOptions.speed = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "weight") == 0)
+				{
+					outOptions.hasWeight = true;
+					outOptions.weight = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "fadeIn") == 0)
+				{
+					outOptions.fadeIn = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "fadeOut") == 0)
+				{
+					outOptions.fadeOut = static_cast<double>(CheckLayerNumber(L, valueIndex, kFunction, key));
+				}
+				else if (std::strcmp(key, "clearOnEnd") == 0)
+				{
+					if (lua_type(L, valueIndex) != LUA_TBOOLEAN)
+					{
+						luaL_error(L, "exu.fps.%s: option 'clearOnEnd' must be a boolean", kFunction);
+					}
+					outOptions.clearOnEnd = lua_toboolean(L, valueIndex) != 0;
+				}
+				else
+				{
+					luaL_error(L,
+						"exu.fps.%s: unknown option '%s' (expected speed, weight, fadeIn, fadeOut, clearOnEnd)",
+						kFunction, key);
+				}
+				lua_settop(L, keyIndex);
+			}
+		}
+
+		// Optional trailing fade argument: absent/nil = no fade given; any
+		// other non-number raises.
+		bool ReadOptionalFade(lua_State* L, int index, const char* function, double& outSeconds)
+		{
+			outSeconds = 0.0;
+			if (lua_isnoneornil(L, index))
+			{
+				return false;
+			}
+			if (lua_type(L, index) != LUA_TNUMBER)
+			{
+				luaL_error(L, "exu.fps.%s: fadeSeconds must be a number", function);
+			}
+			outSeconds = static_cast<double>(lua_tonumber(L, index));
+			return true;
 		}
 
 		// exu.fps.SetLayer(name, options?) -> true. Creates or updates.
@@ -1315,8 +1464,10 @@ namespace ExtraUtilities::Lua::AnimationApi
 			std::size_t length = 0;
 			const char* name = CheckLayerName(L, 1, length);
 			const lua_Number weight = luaL_checknumber(L, 2);
+			double fade = 0.0;
+			ReadOptionalFade(L, 3, "SetLayerWeight", fade);
 			const FirstPersonLayers::Error error =
-				FirstPersonLayers::SetLayerWeight(name, length, static_cast<double>(weight));
+				FirstPersonLayers::SetLayerWeight(name, length, static_cast<double>(weight), fade);
 			if (error != FirstPersonLayers::Error::None)
 			{
 				return LayerError(L, "SetLayerWeight", error);
@@ -1326,12 +1477,15 @@ namespace ExtraUtilities::Lua::AnimationApi
 			return 1;
 		}
 
-		// exu.fps.ClearLayer(name) -> whether a layer of that name existed.
+		// exu.fps.ClearLayer(name, fadeSeconds?) -> whether a layer of that name
+		// existed.
 		int FpsClearLayer(lua_State* L)
 		{
 			std::size_t length = 0;
 			const char* name = CheckLayerName(L, 1, length);
-			const FirstPersonLayers::Error error = FirstPersonLayers::ClearLayer(name, length);
+			double fade = 0.0;
+			const bool hasFade = ReadOptionalFade(L, 2, "ClearLayer", fade);
+			const FirstPersonLayers::Error error = FirstPersonLayers::ClearLayer(name, length, hasFade, fade);
 			if (error != FirstPersonLayers::Error::None && error != FirstPersonLayers::Error::NotFound)
 			{
 				return LayerError(L, "ClearLayer", error);
@@ -1348,6 +1502,60 @@ namespace ExtraUtilities::Lua::AnimationApi
 			return 0;
 		}
 
+		// exu.fps.PlayLayer(name, options?) -> true. Creates or restarts a
+		// non-looping one-shot.
+		int FpsPlayLayer(lua_State* L)
+		{
+			std::size_t length = 0;
+			const char* name = CheckLayerName(L, 1, length);
+			FirstPersonLayers::PlayOptions options{};
+			ReadPlayOptions(L, 2, options);
+			const FirstPersonLayers::Error error = FirstPersonLayers::PlayLayer(name, length, options);
+			if (error != FirstPersonLayers::Error::None)
+			{
+				return LayerError(L, "PlayLayer", error);
+			}
+			lua_settop(L, 0);
+			lua_pushboolean(L, 1);
+			return 1;
+		}
+
+		// exu.fps.SetBaseWeight(weight, fadeSeconds?) -> true.
+		int FpsSetBaseWeight(lua_State* L)
+		{
+			const lua_Number weight = luaL_checknumber(L, 1);
+			double fade = 0.0;
+			ReadOptionalFade(L, 2, "SetBaseWeight", fade);
+			const FirstPersonLayers::Error error =
+				FirstPersonLayers::SetBaseWeight(static_cast<double>(weight), fade);
+			if (error != FirstPersonLayers::Error::None)
+			{
+				return LayerError(L, "SetBaseWeight", error);
+			}
+			lua_settop(L, 0);
+			lua_pushboolean(L, 1);
+			return 1;
+		}
+
+		// exu.fps.GetBaseWeight() -> current, target.
+		int FpsGetBaseWeight(lua_State* L)
+		{
+			float current = 1.0f;
+			float target = 1.0f;
+			FirstPersonLayers::GetBaseWeight(current, target);
+			lua_settop(L, 0);
+			lua_pushnumber(L, static_cast<lua_Number>(current));
+			lua_pushnumber(L, static_cast<lua_Number>(target));
+			return 2;
+		}
+
+		int FpsIsTriggerHeld(lua_State* L)
+		{
+			lua_settop(L, 0);
+			lua_pushboolean(L, PlayerTrigger::IsHeld() ? 1 : 0);
+			return 1;
+		}
+
 		int FpsGetLayers(lua_State* L)
 		{
 			FirstPersonLayers::LayerReport reports[FirstPersonLayers::kMaxLayers]{};
@@ -1359,15 +1567,44 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{
 				const FirstPersonLayers::LayerReport& report = reports[i];
 				const bool active = report.result.reason == FirstPersonLayers::Reason::Active;
-				lua_createtable(L, 0, 9);
+				lua_createtable(L, 0, 20);
 				lua_pushstring(L, report.spec.name);
 				lua_setfield(L, -2, "name");
 				lua_pushnumber(L, static_cast<lua_Number>(report.spec.speed));
 				lua_setfield(L, -2, "speed");
-				lua_pushnumber(L, static_cast<lua_Number>(report.spec.weight));
+				lua_pushnumber(L, static_cast<lua_Number>(report.result.effectiveSpeed));
+				lua_setfield(L, -2, "effectiveSpeed");
+				lua_pushnumber(L, static_cast<lua_Number>(report.result.weight));
 				lua_setfield(L, -2, "weight");
+				lua_pushnumber(L, static_cast<lua_Number>(FirstPersonLayers::TargetWeight(report.spec)));
+				lua_setfield(L, -2, "targetWeight");
 				lua_pushboolean(L, report.spec.loop ? 1 : 0);
 				lua_setfield(L, -2, "loop");
+				lua_pushboolean(L, report.spec.oneShot ? 1 : 0);
+				lua_setfield(L, -2, "oneShot");
+				lua_pushboolean(L, report.spec.clearing ? 1 : 0);
+				lua_setfield(L, -2, "clearing");
+				lua_pushnumber(L, static_cast<lua_Number>(report.spec.fadeOut));
+				lua_setfield(L, -2, "fadeOut");
+				lua_pushboolean(L, report.result.finished ? 1 : 0);
+				lua_setfield(L, -2, "finished");
+				lua_pushinteger(L, static_cast<lua_Integer>(report.spec.playCount));
+				lua_setfield(L, -2, "playCount");
+				lua_pushinteger(L, static_cast<lua_Integer>(report.result.finishedCount));
+				lua_setfield(L, -2, "finishedCount");
+				lua_pushboolean(L, report.triggerHeld ? 1 : 0);
+				lua_setfield(L, -2, "triggerHeld");
+				if (report.spec.fire.enabled)
+				{
+					lua_createtable(L, 0, 3);
+					lua_pushnumber(L, static_cast<lua_Number>(report.spec.fire.speed));
+					lua_setfield(L, -2, "speed");
+					lua_pushnumber(L, static_cast<lua_Number>(report.spec.fire.spinUp));
+					lua_setfield(L, -2, "spinUp");
+					lua_pushnumber(L, static_cast<lua_Number>(report.spec.fire.spinDown));
+					lua_setfield(L, -2, "spinDown");
+					lua_setfield(L, -2, "fire");
+				}
 				lua_pushnumber(L, static_cast<lua_Number>(report.result.time));
 				lua_setfield(L, -2, "time");
 				lua_pushnumber(L, static_cast<lua_Number>(report.result.length));
@@ -1495,7 +1732,11 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{ "SetLayerWeight", &FpsSetLayerWeight },
 			{ "ClearLayer", &FpsClearLayer },
 			{ "ClearLayers", &FpsClearLayers },
+			{ "PlayLayer", &FpsPlayLayer },
 			{ "GetLayers", &FpsGetLayers },
+			{ "SetBaseWeight", &FpsSetBaseWeight },
+			{ "GetBaseWeight", &FpsGetBaseWeight },
+			{ "IsTriggerHeld", &FpsIsTriggerHeld },
 			{ "IsCrouched", &FpsIsCrouched },
 			{ "IsGrounded", &FpsIsGrounded },
 			{ "IsSniperSelected", &FpsIsSniperSelected },

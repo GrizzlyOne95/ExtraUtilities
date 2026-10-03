@@ -66,8 +66,13 @@ namespace ExtraUtilities::Lua::GameObject
 			uint32_t selectedMask;
 			uint32_t enabledMask;
 			int32_t special;
-			float weaponTriggerTillTime;
+			// The object ends here: the Carrier is allocated as 0x3C bytes in
+			// GOG 2.2.301 (ctor 0x004D9800). The PDB-era weaponTriggerTillTime
+			// at +0x3C does not exist in this build and was removed; the fire
+			// trigger is the global PlayerInput::weaponFireHeld byte instead
+			// (Docs/Research/PLAYER_TRIGGER_SIGNAL_RE_20261003.md).
 		};
+		static_assert(sizeof(CarrierWeaponSelectionLayout) == 0x3C, "Carrier is 0x3C bytes in 2.2.301");
 
 		// UnitTask and RecycleTask layouts for 2.2.301, derived from the stores in
 		// their constructors (UnitTask(me, him) 0x005FE690, RecycleTask
