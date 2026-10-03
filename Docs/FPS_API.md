@@ -39,6 +39,7 @@ print(caps.pilotFsmIntercept)
 print(caps.pilotAnimationOverrides)
 print(caps.firstPersonLayers)
 print(caps.firstPersonTrigger)
+print(caps.firstPersonParticles)
 print(caps.firstPersonStatus)
 ```
 
@@ -561,6 +562,138 @@ A mod that needs its own trigger logic can leave out `fire` and drive
 through speeds 0 -> 1 -> 3 -> 0 and prints `GetLayers()` each phase.
 `tests/runtime/fp_trigger_check.lua` keeps the trigger-driven barrel layer
 above alive and prints `IsTriggerHeld()` changes with `effectiveSpeed`.
+
+## First-person particles (effects on FP bones)
+
+Attach an EXU-managed particle system (`exu.CreateParticleSystem`) to a bone of
+the LOCAL player's first-person entity, so a muzzle flash, smoke wisp or shell
+ejector rides the gun through the stock clips and the EXU layers above.
+
+```lua
+local attached, reattached = exu.fps.AttachParticleToBone(name, boneName, offset?)
+local attachedNow = exu.fps.IsParticleAttached(name)
+local hadBinding = exu.fps.DetachParticle(name)
+local generation = exu.fps.GetParticleTargetGeneration()
+```
+
+- `name`: a system created with `exu.CreateParticleSystem(name, template)`.
+- `boneName`: a bone of the first-person skeleton (e.g. a stock `*11GC1`
+  muzzle hardpoint, or a mod's own muzzle bone). An unknown bone returns
+  `false` without touching the system.
+- `offset` (optional): a vector or three numbers, in the BONE's local frame
+  (Ogre TagPoint offset). Default `(0, 0, 0)`.
+- Returns `attached` (the system rides that bone of the current FP entity) and
+  `reattached` (this call made the Ogre attachment: first call, new FP entity,
+  or changed bone/offset).
+
+`exu.fps.GetCapabilities().firstPersonParticles` is true when a local
+first-person resolver is present and the OgreMain entry points this needs
+(`Entity::attachObjectToBone`, `Skeleton::hasBone`,
+`MovableObject::getParentNode`/`isParentTagPoint`, `TagPoint::getParentEntity`)
+resolved. Like the layers, this is presentation only and acts on the local
+player's FP entity, through the same resolver as every other `exu.fps` call
+(OpenShim first, then the EXU native read).
+
+### Re-attach rule: call it every Update
+
+`AttachParticleToBone` is idempotent and cheap when nothing changed. It
+resolves the current FP entity, asks Ogre for the system's live parent and,
+when that is still the TagPoint EXU made on that entity with the same bone and
+offset, returns `true, false` without any Ogre write. So the intended pattern is
+to call it from `Update` while the effect should be shown:
+
+```lua
+local FLASH = "fp_muzzle_flash"
+
+local fpParticles = false
+
+function Start()
+    fpParticles = exu.fps.GetCapabilities().firstPersonParticles
+    exu.CreateParticleSystem(FLASH, "fx/muzzleflash_fp")
+    exu.SetParticleSystemEmitting(FLASH, false)
+end
+
+function Update()
+    if not fpParticles then return end
+    -- asp11GC1: the stock American FP muzzle hardpoint (child of asp21mg1).
+    local ok, fresh = exu.fps.AttachParticleToBone(FLASH, "asp11GC1", 0, 0, 0.05)
+    if not ok then
+        -- No on-foot FP entity (in a vehicle, dead, between missions).
+        exu.SetParticleSystemEmitting(FLASH, false)
+        return
+    end
+    if fresh then
+        -- New FP entity (respawn, left a vehicle): restore per-attach state here.
+    end
+    exu.SetParticleSystemEmitting(FLASH, exu.fps.IsTriggerHeld())
+end
+```
+
+When `false` is returned nothing is changed. If the system was riding an FP
+entity that still exists but is no longer the current one (the player boarded
+a vehicle), it stays there; that entity is not drawn, so neither is the system,
+but turn emission off as above, or call `DetachParticle`, so it does not keep
+simulating. `GetParticleTargetGeneration()` increments each time a binding lands
+on a different FP entity than the previous binding, for scripts that cache
+per-target state.
+
+Emission and look stay with the existing particle API, by name:
+`exu.SetParticleSystemEmitting`, `exu.SetParticleSystemVisible`,
+`exu.SetParticleEmitterEnabled`, `exu.SetParticleEmitterEmissionRate`,
+`exu.SetParticleSystemKeepLocalSpace` (true makes live particles move with the
+gun, usually right for a flash; false leaves smoke and casings behind in the
+world), etc. `exu.DestroyParticleSystem` and every generic `exu.Attach*` /
+`exu.DetachParticleSystem` call drop the first-person binding, so the generic API
+can take a system back at any time. Bindings are cleared at mission teardown;
+at most 64 names are bound at once (a new name beyond that returns `false`).
+
+`tests/runtime/fp_particle_check.lua` is an in-game check: it keeps a system on
+an FP bone every Update, emits while the trigger is held, and prints attach,
+re-attach and generation changes.
+
+### Where the FP entity is rendered (why this works)
+
+Established for BZR 2.2.301 (OpenShim
+`reverse_engineering/pilot_flashlight_investigation_20260905.md` live probe,
+`redux_scene_ui_boundary_20260921.md` group map, and a re-read of the
+creation code at `0x0067E6A8`):
+
+- The FP entity (render bridge `+0xC0`) is an ordinary `Ogre::Entity` on its
+  own SceneNode directly under `SceneRoot`, a sibling of the world pilot's node
+  with a near-identical transform (the aim, yaw and pitch, lives in that node).
+  The camera is placed at the FP skeleton's `*POV` bone. So FP bones are in
+  WORLD space, and a TagPoint on an FP bone is where the gun is drawn and where
+  the player sees it. There is no separate scene, camera or viewport.
+- `0x0067E6A8` calls `setCastShadows(false)`, `setRenderQueueGroup([0x008ED6A8])`
+  (`= 10`, the opaque world group) and gives the mesh infinite bounds, so the
+  entity is never frustum culled.
+- Group 10 draws before terrain (group 40). That is the whole explanation for the
+  known "first-person view drops `depth_write off` passes" rule: terrain later
+  overdraws any fp pixel that did not write depth, except where the rifle's own
+  depth protects it. It is not a separate compositing layer.
+- A particle system on a TagPoint is queued by `Entity::_updateRenderQueue`
+  (only while the FP entity is rendered, so not in third person or in a vehicle)
+  but into the particle renderer's own group, 50 by default, after terrain. So
+  ordinary additive or alpha particle materials with `depth_write off` show
+  normally, and are depth-tested against the rifle and the world. Do not move an
+  FP particle system to a group of 40 or below with
+  `SetParticleSystemRenderQueueGroup`, or the depth-write rule above applies
+  to it too.
+- Ogre ticks particle systems before it updates skeletons, so emission follows
+  the bone with up to one frame of lag. It is invisible at muzzle-flash scale.
+
+### Lifetime and safety
+
+Ogre's `Entity::_deinitialise` detaches every bone child
+(`_notifyAttached(0)`) and frees its TagPoints, so when the FP entity is
+destroyed (respawn, mission end) the particle system survives, unparented, and
+never points at a freed TagPoint. EXU keeps no Ogre pointer it dereferences
+later: the recorded entity and TagPoint are only compared with the system's LIVE
+parent on each call, so a new FP entity at a recycled address still re-attaches.
+`DetachParticle` and `DestroyParticleSystem` detach through that live parent.
+Every Ogre call is SEH-guarded and the bone is checked with `Skeleton::hasBone`
+first, because `attachObjectToBone` throws for an unknown bone. (That check now
+also guards the generic `exu.AttachParticleSystemToBone`.)
 
 ## Delegation contract
 

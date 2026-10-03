@@ -103,6 +103,16 @@ namespace ExtraUtilities::Lua::Environment
 		using EmitterSetTimeToLiveRangeFn = void(__thiscall*)(void*, float, float);
 		using EmitterSetColourRangeFn = void(__thiscall*)(void*, const Ogre::Color&, const Ogre::Color&);
 		using SetNonVisibleUpdateTimeoutFn = void(__thiscall*)(void*, float);
+		// MovableObject-typed: take the re-based MovableObject*, not the
+		// ParticleSystem* (see TryGetParticleMovableObject).
+		using MovableObjectGetParentNodeFn = void*(__thiscall*)(void*);
+		using MovableObjectIsParentTagPointFn = bool(__thiscall*)(void*);
+		using TagPointGetParentEntityFn = void*(__thiscall*)(void*);
+		using EntityGetSkeletonFn = void*(__thiscall*)(void*);
+		// Skeleton::hasBone is introduced by Skeleton on its primary (Resource)
+		// vtable and not overridden by SkeletonInstance, so the
+		// SkeletonInstance* from Entity::getSkeleton is the right `this`.
+		using SkeletonHasBoneFn = bool(__thiscall*)(void*, const std::string&);
 		GetParentSceneNodeFn ResolveGetParentSceneNode();
 		NodeGetParentFn ResolveNodeGetParent();
 		NodeAddChildFn ResolveNodeAddChild();
@@ -132,4 +142,9 @@ namespace ExtraUtilities::Lua::Environment
 		EmitterSetTimeToLiveRangeFn ResolveEmitterSetTimeToLiveRange();
 		EmitterSetColourRangeFn ResolveEmitterSetColourRange();
 		SetNonVisibleUpdateTimeoutFn ResolveSetNonVisibleUpdateTimeout();
+		MovableObjectGetParentNodeFn ResolveMovableObjectGetParentNode();
+		MovableObjectIsParentTagPointFn ResolveMovableObjectIsParentTagPoint();
+		TagPointGetParentEntityFn ResolveTagPointGetParentEntity();
+		EntityGetSkeletonFn ResolveEntityGetSkeleton();
+		SkeletonHasBoneFn ResolveSkeletonHasBone();
 }

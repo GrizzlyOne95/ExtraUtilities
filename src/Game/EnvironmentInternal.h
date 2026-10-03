@@ -122,6 +122,15 @@ namespace ExtraUtilities::Lua::Environment
 		bool TryUpdateParticleCameraFollower(void* sceneManager, const ParticleCameraFollower& follower, const BZR::VECTOR_3D& cameraPosition);
 		bool TryAttachManagedParticleToObjectNode(void* sceneManager, const std::string& name, void* entity, const BZR::VECTOR_3D& offset);
 		bool TryAttachManagedParticleToBone(void* sceneManager, const std::string& name, void* entity, const std::string& boneName, const BZR::VECTOR_3D& offset);
+		// The re-based MovableObject* of a managed particle system (never the
+		// ParticleSystem*), looked up by name through the scene manager.
+		bool TryGetParticleMovableObject(void* sceneManager, const std::string& name, void*& outMovableObject);
+		// Entity::getSkeleton()->hasBone(boneName); false without a skeleton.
+		bool TryEntityHasBone(void* entity, const std::string& boneName);
+		// The movable object's live parent when it is a TagPoint: that TagPoint
+		// and the Entity owning it. Both null (and true) when it hangs off a
+		// SceneNode or nothing. False only when Ogre could not be asked.
+		bool TryGetMovableObjectTagPointParent(void* movableObject, void*& outTagPoint, void*& outEntity);
 		void* GetParticleEmitter(void* sceneManager, const std::string& name, int emitterIndex);
 		bool TryGetParticleEmitterCount(void* sceneManager, const std::string& name, int& outCount);
 		void* GetParticleAffector(void* sceneManager, const std::string& name, int affectorIndex);

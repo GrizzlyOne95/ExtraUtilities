@@ -17,6 +17,7 @@
 */
 
 #include "EnvironmentInternal.h"
+#include "Game/FirstPersonParticles.h"
 #include "Ogre/OgreResourceScriptBridge.h"
 
 // Particle Lua bindings, including the generic emitter and affector
@@ -108,6 +109,7 @@ namespace ExtraUtilities::Lua::Environment
 
 		const std::string name = luaL_checkstring(L, 1);
 		ForgetParticleCameraFollower(name);
+		FirstPersonParticles::Forget(name);
 		g_managedParticleNames.erase(name);
 		lua_pushboolean(L, TryDestroyManagedParticleSystem(sceneManager, name) ? 1 : 0);
 		return 1;
@@ -361,6 +363,7 @@ namespace ExtraUtilities::Lua::Environment
 			}
 		}
 		const std::string name(nameArg);
+		FirstPersonParticles::Forget(name);
 
 		if (TryAttachManagedParticleToCameraNode(sceneManager, name, offset))
 		{
@@ -418,6 +421,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		ForgetParticleCameraFollower(name);
+		FirstPersonParticles::Forget(name);
 		lua_pushboolean(L, TryAttachManagedParticleToObjectNode(sceneManager, name, entity, offset) ? 1 : 0);
 		return 1;
 	}
@@ -456,6 +460,7 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		ForgetParticleCameraFollower(name);
+		FirstPersonParticles::Forget(name);
 		lua_pushboolean(L, TryAttachManagedParticleToBone(sceneManager, name, entity, boneName, offset) ? 1 : 0);
 		return 1;
 	}
@@ -473,6 +478,7 @@ namespace ExtraUtilities::Lua::Environment
 
 		const std::string name = luaL_checkstring(L, 1);
 		ForgetParticleCameraFollower(name);
+		FirstPersonParticles::Forget(name);
 		lua_pushboolean(L, TryReturnManagedParticleToOwnNode(sceneManager, name) ? 1 : 0);
 		return 1;
 	}
