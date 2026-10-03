@@ -1125,6 +1125,32 @@
         "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
       }
     },
+    "ScreenFlash": {
+      "CraftDamageFlashSite": {
+        "address": "0x004AA6F6",
+        "type": "hook site (10 bytes: mov ecx, colorFade; call ColorFade::SetFade)",
+        "description": "Red flash in Craft::DamageAlloc (fn 0x004AA630) when the user's craft takes damage: SetFade(damage * 0.002, 5.0, 255, 0, 0).",
+        "pattern": "B9 8C 83 97 00 E8 30 0D FF FF",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 .text 2026-10-03; the call rel32 makes it site-specific."
+      },
+      "CraftHeatFlashSite": {
+        "address": "0x004AB273",
+        "type": "hook site (10 bytes: mov ecx, colorFade; call ColorFade::SetFade)",
+        "description": "Orange flash in Craft::UpdateTemperature (fn 0x004AAEA0) while the user's craft overheats: SetFade(heat * 0.01, 5.0, 255, 64, 0).",
+        "pattern": "B9 8C 83 97 00 E8 B3 01 FF FF",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 .text 2026-10-03; the call rel32 makes it site-specific."
+      },
+      "PersonDamageFlashSite": {
+        "address": "0x005A0D52",
+        "type": "hook site (10 bytes: mov ecx, colorFade; call ColorFade::SetFade)",
+        "description": "Red flash in Person::DamageAlloc (fn 0x005A0C90) when the user's pilot takes damage: SetFade(damage * 0.03, 5.0, 255, 0, 0).",
+        "pattern": "B9 8C 83 97 00 E8 D4 A6 EF FF",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 .text 2026-10-03; the call rel32 makes it site-specific."
+      }
+    },
     "Turbo": {
       "TurboPatchBegin": {
         "address": "0x00601C92",
