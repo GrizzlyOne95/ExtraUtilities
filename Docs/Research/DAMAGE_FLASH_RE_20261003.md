@@ -3,7 +3,8 @@
 Static RE of `battlezone98redux.exe` (GOG Redux 2.2.301, x86, image base `0x400000`). Goal: let Lua
 suppress the red full-screen flash the engine plays when the local player is hurt. Function names
 come from the private reference corpus; every address, byte and constant below was read from the
-shipped GOG image. Not yet exercised in game.
+shipped GOG image. Confirmed in game 2026-10-03 on GOG 2.2.301 (ISDF Chronicles `isdfms04`,
+`exu.SetDamageFlashEnabled(false)` at script load): no red flash on player damage.
 
 Labels: **PROVEN** = seen in disassembly. **INFERRED** = follows from it, not seen directly.
 
