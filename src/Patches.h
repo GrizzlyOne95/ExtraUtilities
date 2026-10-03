@@ -30,6 +30,7 @@
 #include "Patches/GlobalTurbo.h"
 #include "Patches/KillMessages.h"
 #include "Patches/OrdnanceVelocity.h"
+#include "Patches/ScreenFlash.h"
 #include "Patches/ShotConvergence.h"
 #include "Patches/UnitVo.h"
 #include "Patches/WeaponMask.h"
