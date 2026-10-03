@@ -63,11 +63,44 @@ mangled name, but the shipped DLL exports the
 GOG `OgreMain.dll` confirms the right name is exported. All 218 mangled Ogre
 names in `src/` now resolve against the shipped `Ogre*.dll` exports.
 
+## Second run: resolver fixed, enumeration fault (13:26)
+
+Build `e7eced1` (native fallback + resolver diagnostics).
+
+- **Root cause of the silent failure:** OpenShim's resolver only accepts its
+  strict stock FP mesh list (`aspilo_fp`, `bspilo_fp`, `sspilo_fp`,
+  `cspilo_fp`, `bsheav_fp`). ISDFC's FP mesh is `ispilo_cockpit.mesh`, which
+  does not even match OpenShim's broad `_fp` filter. When the OpenShim export
+  was present, EXU returned nullptr on an OpenShim miss and never tried its own
+  render-bridge resolver, even though `GetCapabilities` advertised that
+  fallback.
+- After the fix, `exu.log` shows `[EXU::FPS] ... OpenShim declined; native user
+  object is not a Person` in the vehicle, and `resolved via EXU native render
+  bridge` on foot. `IsAvailable()` becomes true on foot. `ispilo_cockpit.skeleton`
+  carries the stock vocabulary (`idle`, `stand2Kneel`, `kneel2stand`, run/walk
+  set, `jump`, `fireRecoilSniper`, `idleEject`, `idleParachute`).
+- EXU works with OpenShim or without it: the OpenShim lookup is a runtime
+  export check (no import), and the native path only needs EXU's own
+  BZR 2.2.301 runtime gate.
+- `ListAnimations()` then faulted (`[EXU::Animation] enumeration fault`, an AV
+  in a VCRUNTIME140 copy called from exu.dll, reading a garbage address).
+  **Cause:** the shipped `OgreMain.dll` is built with MSVC 2013 (`MSVCP120`).
+  Its `std::map` node stores the value before `_Color`/`_Isnil`, but EXU's
+  MSVC 2015+ headers put it after. So the header-only `MapIterator` read keys
+  from the wrong offset. Fixed in `fc58a6f`: enumeration now goes by index
+  through exported calls only (`SkeletonInstance::getNumAnimations` /
+  `getAnimation(ushort)`, `Animation::getName`, then
+  `AnimationStateSet::has/getAnimationState`). Only `std::string` crosses the
+  boundary, and `HasAnimation` already relies on that. Entities without a
+  skeleton now report the inventory as unavailable.
+- Separate, unrelated to EXU: stock HUD text broke on the Test Range only
+  (other missions were fine). The tester recognises it as a known stock bug,
+  possibly caused by invalid TRN view-range values. Logged for the OpenShim
+  backlog.
+
 ## Next
 
-1. Find out why `TargetLocalFirstPerson` / `exu.fps.IsAvailable()` fails on foot
-   (ISDFC `isuser` -> `ispilo` with `ispilo_cockpit.skeleton`; test both the
-   OpenShim path and the EXU native fallback), and log the reason.
+1. ~~Find out why the FP target fails to resolve~~ (done, see above).
 2. Re-run the capture to get clip lists and lengths, including ISDFC's own
    clips, and compare 1.937 s with the clip lengths.
 3. Then go on to step 3A (crouch clip substitution).
