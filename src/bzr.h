@@ -382,6 +382,14 @@ namespace BZR
 		// GOG/qualified Redux 2.2.301 Person::Simulate. The entry identity and
 		// prologue are catalogued in exu.json; use only behind RuntimeGate.
 		inline constexpr uintptr_t PersonSimulate = EngineAddresses::PersonRuntime::PersonSimulate;
+
+		// Per-animation-index pilot clip tables in writable .data, 12 entries
+		// each, read only by Person::Simulate (see exu.json). Touch only behind
+		// RuntimeGate and the override seam's own preimage check.
+		inline auto animEndTime = (float*)EngineAddresses::PersonRuntime::PersonAnimEndTimeTable;
+		inline auto animFirstPersonRate = (float*)EngineAddresses::PersonRuntime::PersonAnimFirstPersonRateTable;
+		inline auto animWorldRate = (float*)EngineAddresses::PersonRuntime::PersonAnimWorldRateTable;
+		inline auto animName = (const char**)EngineAddresses::PersonRuntime::PersonAnimNameTable;
 	}
 
 	namespace GraphicsOptions

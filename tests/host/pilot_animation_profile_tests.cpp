@@ -240,7 +240,7 @@ int main()
 		ExpectError(builder, ok, "animation must be 1-63 characters", "empty animation name");
 	}
 
-	// ---- This build: every override is unsupported -------------------------------
+	// ---- A build without override support refuses them --------------------------
 	{
 		Policy out{};
 		bool ok = false;
@@ -248,16 +248,52 @@ int main()
 			{ "mode", Value::String("substitute") },
 			{ "animation", Value::String("myKneel") },
 		};
-		const ProfileBuilder builder = BuildOne(kBuildSupport, "enterCrouch", fields, out, ok);
-		ExpectError(builder, ok, "not supported by this EXU build", "substitute unsupported by this build");
+		const ProfileBuilder builder = BuildOne(Support{}, "enterCrouch", fields, out, ok);
+		ExpectError(builder, ok, "not supported by this EXU build", "substitute unsupported without support");
 	}
 	{
 		Policy out{};
 		bool ok = false;
 		const Field fields[] = { { "completion", Value::String("manual") } };
-		const ProfileBuilder builder = BuildOne(kBuildSupport, "exitCrouch", fields, out, ok);
+		const ProfileBuilder builder = BuildOne(Support{}, "exitCrouch", fields, out, ok);
 		ExpectError(builder, ok, "completion \"manual\" is not supported by this EXU build",
-			"completion unsupported by this build");
+			"completion unsupported without support");
+	}
+
+	// ---- This build accepts every implemented override ---------------------------
+	{
+		ProfileBuilder builder(kBuildSupport);
+		bool ok = true;
+		const char* const slots[] = { "stand", "enterCrouch", "crouched", "exitCrouch", "jump", "land" };
+		for (const char* slot : slots)
+		{
+			ok = builder.BeginSlot(slot, ValueType::Table) && ok;
+			ok = builder.SetField("mode", Value::String("substitute")) && ok;
+			ok = builder.SetField("animation", Value::String("alt")) && ok;
+			ok = builder.EndSlot() && ok;
+		}
+		Policy out{};
+		ok = builder.Finish(out) && ok;
+		HostTest::Expect(ok, std::string("every slot can substitute in this build: ") + builder.Error());
+	}
+	for (const char* completion : { "animation", "manual" })
+	{
+		Policy out{};
+		bool ok = false;
+		const Field fields[] = { { "completion", Value::String(completion) } };
+		const ProfileBuilder builder = BuildOne(kBuildSupport, "enterCrouch", fields, out, ok);
+		HostTest::Expect(ok, std::string("completion ") + completion + " is accepted: " + builder.Error());
+	}
+	{
+		Policy out{};
+		bool ok = false;
+		const Field fields[] = {
+			{ "completion", Value::String("duration") },
+			{ "duration", Value::Number(1.0) },
+		};
+		const ProfileBuilder builder = BuildOne(kBuildSupport, "exitCrouch", fields, out, ok);
+		HostTest::Expect(ok && out.At(Slot::ExitCrouch).duration == 1.0f,
+			std::string("duration completion is accepted: ") + builder.Error());
 	}
 
 	// ---- With support: valid profiles build the expected policy ---------------

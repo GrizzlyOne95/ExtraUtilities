@@ -44,10 +44,12 @@ This is the same capability table returned by
 `exu.animation.GetCapabilities()`. `pilotStateInspection=true` reports that
 the read-only native Person snapshot API is compiled in. It is distinct from
 `localFirstPersonTarget`, which reports whether the presentation target backend
-is available. `pilotFsmIntercept=true` means the verified observe-only
-`Person::Simulate` entry detour is active. `pilotAnimationOverrides` reports
-whether this build can apply any non-stock pilot animation policy; it is
-`false` because the policy layer currently represents stock pass-through only.
+is available. `pilotFsmIntercept=true` means the verified
+`Person::Simulate` entry detour is active. `pilotAnimationOverrides=true`
+means `SetPilotAnimationProfile` can apply non-stock pilot animation overrides
+in this session: the seam is active and the native clip tables it rewrites
+passed their install-time preimage check. Overrides are single player only
+whatever this flag says.
 
 ## Read-only pilot FSM state
 
@@ -107,31 +109,35 @@ They return `nil` when no readable local on-foot `Person` exists.
 1 and 3 are transitions.
 
 
-## Observe-only Person::Simulate interception seam
+## Person::Simulate interception seam
 
-EXU now has a verified x86 function-entry detour at the qualified Redux
+EXU has a verified x86 function-entry detour at the qualified Redux
 2.2.301 `Person::Simulate` entry. The first ten stock bytes are complete,
 relocation-free prologue instructions; EXU copies them into an executable
 trampoline and resumes at the first untouched instruction.
 
-This work chunk is deliberately **observe-only**. The hook performs:
+The hook performs:
 
 1. a cheap check that the simulated `Person*` is the current local user;
 2. a pre-stock state snapshot for that local Person;
-3. a consult of the mission-scoped pilot animation policy (see below), whose
-   only possible answer is pass-through;
-4. the original `Person::Simulate(person, dt)` trampoline call;
-5. a post-stock snapshot and diagnostic counters.
+3. a consult of the mission-scoped pilot animation policy (see below);
+4. only for that local Person, in single player, under a non-stock profile:
+   a snapshot of the native pilot clip-table entries it overrides, and the
+   override write (see "Pilot animation overrides");
+5. the original `Person::Simulate(person, dt)` trampoline call;
+6. the restore of exactly that snapshot, straight after the stock call;
+7. a post-stock snapshot and diagnostic counters.
 
-There are no FSM writes, animation substitutions, duration overrides, skipped
-stock branches, or Lua callbacks from inside `Person::Simulate`.
+It never writes `Person` fields (`+0x228` state, `+0x2A8` index, `+0x2AC`
+handle), never skips a stock branch, and makes no Lua callbacks from inside
+`Person::Simulate`. With the stock profile it only observes.
 
 The seam can be qualified in-game without log spam:
 
 ```lua
 local hook = exu.fps.GetPilotInterceptStatus()
-print(hook.installed, hook.active, hook.observeOnly)
-print(hook.calls, hook.localCalls)
+print(hook.installed, hook.active, hook.observeOnly, hook.overridesAvailable)
+print(hook.calls, hook.localCalls, hook.overrideCalls)
 print(hook.stateChanges, hook.animationChanges)
 print(hook.beforeState, hook.afterState)
 print(hook.policyDecision)
@@ -205,10 +211,11 @@ Semantics:
 - Cost when off is one relaxed atomic load per local call, after the
   snapshots the seam already takes.
 
-What this does **not** do: it does not establish stock durations by itself.
-Record a dated capture under `Docs/Research/` (several cycles, both
-transitions, and the matching `exu.fps.GetInfo("stand2Kneel").length` /
-`"kneel2stand"`) before treating any number as the stock behavior.
+The trace measured the stock crouch transitions at about 1.937 s, and the
+static RE (`Docs/Research/PILOT_CROUCH_NATIVE_RE_20261003.md`) explains it:
+`endTime / rate = 0.967 / 0.5 = 1.934 s` plus up to one tick, independent of
+the clip length. The trace is how an override is verified in game (see
+`tests/runtime/pilot_override_check.lua`).
 
 `tests/runtime/pilot_fsm_capture.lua` automates that capture: call its
 `Update` from a test mission's `Update`, hop out, and crouch with a sniper
@@ -217,75 +224,128 @@ inventory in the vehicle and on foot, the dwell table against the clip
 lengths, the local-Simulate-calls-per-Lua-`Update` ratio, and the transition
 samples as `[PILOTCAP]` Markdown lines ready for the research note.
 
-## Pilot animation policy (stock only)
+## Pilot animation policy and overrides
 
-Above the seam sits a mission-scoped policy that will eventually let a mod
-own parts of the pilot animation FSM. **This version contains only the
-ownership/configuration layer and its stock default.** It makes no native
-writes, changes no branch, substitutes no animation, and substitutes no
-duration. Read the effective profile back with:
+Above the seam sits a mission-scoped policy that lets a mission own parts of
+the native pilot animation FSM. Read the effective profile back with:
 
 ```lua
 local profile = exu.fps.GetPilotAnimationProfile()
 for _, slot in ipairs({ "stand", "enterCrouch", "crouched", "exitCrouch", "jump", "land" }) do
-    print(slot, profile[slot].mode, profile[slot].nativeState)
+    local p = profile[slot]
+    print(slot, p.mode, p.animation, p.completion, p.duration, p.nativeState)
 end
 ```
 
-Every slot currently reads `mode = "stock"`, meaning the native
-`Person::Simulate` behavior for that slot is untouched:
-
-| Slot | `nativeState` | Notes |
-| --- | ---: | --- |
-| `stand` | 0 | base state |
-| `enterCrouch` | 1 | native `stand2Kneel` transition |
-| `crouched` | 2 | native sniper/crouch hold |
-| `exitCrouch` | 3 | native `kneel2stand` transition |
-| `jump` | *(none)* | animation 11, selected from state 0; native conditions not traced |
-| `land` | *(none)* | animation 10, selected from state 0; native conditions not traced |
+| Slot | `nativeState` | Native clip (table index) | Notes |
+| --- | ---: | --- | --- |
+| `stand` | 0 | `idle` (2) | base state |
+| `enterCrouch` | 1 | `stand2Kneel` (0) | transition; has `completion` |
+| `crouched` | 2 | `fireRecoilSniper` (3) | sniper/crouch hold |
+| `exitCrouch` | 3 | `kneel2stand` (1) | transition; has `completion` |
+| `jump` | *(none)* | `jump` (11) | selected from state 0; native conditions not traced |
+| `land` | *(none)* | `landParachute` (10) | selected from state 0; native conditions not traced |
 
 `jump` and `land` carry no `nativeState` because they are animation
 selections made inside the standing state rather than distinct FSM states.
+Their substitution is table-driven, so it applies whenever the profile does.
 
-Lifetime and scope:
+### Setting a profile
 
-- The policy is **mission-scoped**. It is restored to stock when EXU initialises
-  for a Lua state and again from the mission-scoped reset when that state
-  closes, so nothing can carry into the next mission even if a host keeps the
-  DLL loaded.
-- The read-back needs no runtime gate or local pilot: it describes EXU's own
-  configuration, not engine memory, so it works on an unsupported build and
-  returns the same stock profile there.
-- `GetPilotInterceptStatus().policyDecision` is `"passThrough"` after the
-  first intercepted local `Person::Simulate` call and `nil` before it. It is
-  how an in-game session can confirm the policy layer is actually being
-  consulted on the seam.
+```lua
+-- Single player only. Check the capability first.
+if exu.fps.GetCapabilities().pilotAnimationOverrides then
+    exu.fps.SetPilotAnimationProfile({
+        enterCrouch = { completion = "duration", duration = 1.0 },  -- kneel in 1 s
+        exitCrouch  = { completion = "animation" },                  -- one play of kneel2stand
+        crouched    = { mode = "substitute", animation = "aimRifle" },
+    })
+end
 
-Not exposed, deliberately:
+exu.fps.SetPilotAnimationProfile(nil)   -- or {}: back to stock
+```
 
-- **No setter.** A `SetPilotAnimationProfile` that accepted overrides which
-  cannot yet be applied would silently mislead mods, so nothing writable is
-  exposed until the first override is real. Its rules are already settled and
-  host-tested (`src/Game/PilotAnimationProfile.h`):
-  - Slot keys are exactly the names above (`stand`, `enterCrouch`,
-    `crouched`, `exitCrouch`, `jump`, `land`).
-  - Unknown keys are an error, both slot keys and fields inside a slot, as is
-    any field this build cannot apply. The error says "not supported by this
-    EXU build" in that case, so a mod can tell an older EXU from a typo. Check
-    `GetCapabilities().pilotAnimationOverrides` before relying on overrides.
-  - A profile replaces the whole policy; omitted slots and fields are stock.
-  - Planned fields: `mode` (`"stock"`/`"substitute"`), `animation`
-    (required with `"substitute"`), `completion`
-    (`"stock"`/`"animation"`/`"duration"`/`"manual"`, `enterCrouch` and
-    `exitCrouch` only), and `duration` (seconds, required with
-    `completion = "duration"`).
-- **No stock durations.** Only the animation-handle wait in native states 1
-  and 3 is proven; the numeric transition-duration constants have not been
-  located. The profile therefore reports no duration, and existing Ogre clip
-  lengths must not be read as the FSM's transition timing.
+Rules (all validated by `src/Game/PilotAnimationProfile.h`; a violation is a
+Lua error and leaves the active profile unchanged):
 
-The per-slot `mode` and `nativeState` fields are the stable part of this
-diagnostic shape; additional fields will appear as overrides are implemented.
+- Slot keys are exactly the six names above. Fields are `mode`
+  (`"stock"`/`"substitute"`), `animation` (1-63 characters; required by, and
+  only allowed with, `"substitute"`), `completion`
+  (`"stock"`/`"animation"`/`"duration"`/`"manual"`; `enterCrouch` and
+  `exitCrouch` only) and `duration` (seconds in (0, 60]; required by, and only
+  allowed with, `completion = "duration"`).
+- **Unknown keys are an error**, both slot keys and fields inside a slot.
+- A profile replaces the whole policy; omitted slots and fields are stock.
+- **Single player only**: a non-stock profile errors in multiplayer. It also
+  errors when `GetCapabilities().pilotAnimationOverrides` is false. `nil`/`{}`
+  is always accepted.
+- The profile is **mission-scoped**: stock again when EXU initialises for a
+  Lua state and from the mission-scoped reset when that state closes.
+
+### How it is applied
+
+`Person::Simulate` drives every pilot clip from per-index tables in the
+executable (clip name, end time, first-person rate, world rate). For the local
+Person the seam rewrites the entries of the six slots immediately before the
+stock call and restores them immediately after it, so AI/remote Persons and
+everything outside that call see the stock tables. Start times and loop flags
+stay stock.
+
+- **Both skeletons need the clip.** The engine enables a clip by name on the
+  pilot's world (third-person) entity *and* its first-person entity, and an
+  unknown name is an uncaught Ogre exception (a crash). EXU checks the name on
+  both entities first (cached per Person/entity pair). If either lacks it, that
+  slot stays stock and `exu.log` says so once per name.
+- **Takes effect at the next apply.** A substitute is used the next time the
+  engine selects that slot's clip; the clip already playing keeps its name
+  until the FSM moves on, so the engine always disables the clip it actually
+  enabled.
+- A substitute with stock completion finishes at `min(0.967, clip length)`
+  clip-seconds at the stock rate, so a shorter clip still ends.
+
+### Transition completion (`enterCrouch`, `exitCrouch`)
+
+A transition ends on the tick where the first-person clip position plus
+`dt * rate` reaches the table's end time, so it lasts `endTime / rate` real
+seconds (plus up to one tick). Stock is `0.967 / 0.5`, about **1.934 s**,
+whatever the clip length (a 1.0 s clip plays almost whole at half speed). The
+rate is latched when the clip starts (the 0->1 or 2->3 update); the end time is
+read every tick.
+
+| `completion` | end time | rate (first person and world) | lasts |
+| --- | --- | --- | --- |
+| `stock` | stock (0.967), or `min(0.967, L)` for a substitute | stock (0.5) | about 1.934 s |
+| `animation` | `L` | 1.0 | one play of the clip at authored speed, `L` s |
+| `duration` | `min(0.967, L)` for the stock clip, `L` for a substitute | `end / duration` | `duration` s |
+| `manual` | `L + 1000` (holds at the last pose) | stock | until `CompleteTransition()` |
+
+`L` is the clip length on the first-person entity. If it cannot be read the
+slot keeps stock timing. `duration` is gameplay FSM timing and also sets the
+visual speed (that is the point); it is not a separate playback speed.
+
+Manual completion:
+
+```lua
+exu.fps.SetPilotAnimationProfile({ enterCrouch = { completion = "manual" } })
+-- ... later, while the pilot is kneeling down (native state 1):
+if exu.fps.CompleteTransition() then
+    -- the next pilot update finishes the transition (end time 0 for one call)
+end
+```
+
+`CompleteTransition()` returns `true` only when overrides are available, the
+session is single player, the local pilot is in native state 1 or 3, and that
+transition's completion is `"manual"`. It is one-shot: the next local
+`Person::Simulate` call consumes it whatever happens.
+
+### Diagnostics
+
+`GetPilotInterceptStatus()` reports `overridesAvailable`, `overrideCalls`
+(local calls around which tables were rewritten), `observeOnly` (false only
+while a non-stock profile is in force in single player), and `policyDecision`
+(`"override"` for native states 0-3 under a supported non-stock profile,
+`"passThrough"` otherwise; `nil` before the first local call). An unmapped
+native state always passes through untouched.
 
 Enumerate all current viewmodel animations:
 
@@ -344,21 +404,16 @@ specific branches.
 
 ## Deliberately not included yet
 
-This facade is presentation-only. It does not override Battlezone Redux's
-`Person` animation finite-state machine.
-
-Read-only FSM inspection and the stock-only policy read-back are now available,
-but the facade still does **not** provide semantic writes such as:
+The facade's `Play`/`Stop`/`Seek` are presentation-only: playing or seeking an
+Ogre animation alone does not stop `Person::Simulate` from choosing another
+animation on a later update. Native ownership goes through
+`SetPilotAnimationProfile` (above), which changes which clip the FSM plays and
+when a crouch transition ends, but not which state it is in. There is still no
+semantic state write such as:
 
 ```lua
 exu.fps.SetCrouched(true)
-exu.fps.SetPilotAnimationProfile({...})
 ```
-
-Those require overrides to be implemented in the policy layer that now sits on
-top of the established interception seam. Playing or seeking an Ogre animation
-alone does not stop `Person::Simulate` from choosing another animation on a
-later update.
 
 Playback speed and managed animation timing are also intentionally unchanged;
 Redux/Ogre remains responsible for native time advancement.

@@ -464,6 +464,9 @@
     <ClInclude Include="src\Game\PilotTrace.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
+    <ClInclude Include="src\Game\PilotTransitionTiming.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
     <ClInclude Include="src\EntryDetour32.h">
       <Filter>Header Files\Memory Utilities</Filter>
     </ClInclude>

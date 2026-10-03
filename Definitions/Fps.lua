@@ -21,14 +21,16 @@
 
 --- @class ExuPilotInterceptStatus
 --- @field installed boolean True when the verified trampoline is prepared.
---- @field active boolean True when the Person::Simulate entry currently points at EXU's observe-only hook.
---- @field observeOnly boolean True for this work chunk; no FSM policy writes are performed.
+--- @field active boolean True when the Person::Simulate entry currently points at EXU's hook.
+--- @field observeOnly boolean False only while table overrides are in force: overrides available, single player, and a non-stock active profile. True means the hook only observes.
+--- @field overridesAvailable boolean The seam is active and the native pilot clip tables passed their install-time preimage check.
 --- @field hasLocalSample boolean True after a local on-foot Person has completed at least one intercepted Simulate call.
 --- @field calls integer Total intercepted Person::Simulate calls, including non-local Person objects.
 --- @field localCalls integer Intercepted calls where the simulated Person was exactly the current local user object.
 --- @field stateChanges integer Local calls whose native FSM state changed across the stock Simulate call.
 --- @field animationChanges integer Local calls whose animation index or handle changed across the stock Simulate call.
---- @field policyDecision "passThrough"|string? What the pilot animation policy told the seam to do for the most recent local call. nil until a local call has been intercepted. Always "passThrough" in this version.
+--- @field overrideCalls integer Local calls around which the clip tables were rewritten (and restored).
+--- @field policyDecision "passThrough"|"override"|string? What the pilot animation policy told the seam to do for the most recent local call. nil until a local call has been intercepted. "override" for every mapped native state (0-3) while a supported non-stock profile is active; "passThrough" otherwise.
 --- @field beforeNativeState integer?
 --- @field afterNativeState integer?
 --- @field beforeState string?
@@ -78,8 +80,29 @@
 --- @field dwell table<"standing"|"enteringCrouch"|"crouched"|"exitingCrouch", ExuPilotTraceDwell>
 
 --- @class ExuPilotPolicySlot
---- @field mode "stock"|string "stock" means the native Person::Simulate behavior for this slot is untouched. It is the only mode this build can apply (`GetCapabilities().pilotAnimationOverrides` is false).
+--- @field mode "stock"|"substitute" "stock" leaves the native clip for this slot untouched.
+--- @field animation string? Substitute clip name; present only with mode "substitute".
+--- @field completion "stock"|"animation"|"duration"|"manual"|nil Present only for enterCrouch/exitCrouch.
+--- @field duration number? Seconds; present only with completion "duration".
 --- @field nativeState integer? Native `Person+0x228` value the slot corresponds to. Present for stand/enterCrouch/crouched/exitCrouch (0-3); absent for jump/land, which are animation selections whose native conditions are not yet traced.
+
+--- One slot of a profile passed to `exu.fps.SetPilotAnimationProfile`. Every
+--- field is optional; omitted fields are stock. Unknown fields are an error.
+--- @class ExuPilotPolicySlotConfig
+--- @field mode "stock"|"substitute"|nil
+--- @field animation string? Required by, and only allowed with, mode "substitute". 1-63 characters. Must exist on BOTH the pilot's world (third-person) and first-person skeletons, or the slot stays stock.
+--- @field completion "stock"|"animation"|"duration"|"manual"|nil enterCrouch/exitCrouch only.
+--- @field duration number? Seconds in (0, 60]. Required by, and only allowed with, completion "duration".
+
+--- Profile passed to `exu.fps.SetPilotAnimationProfile`. Omitted slots are
+--- stock; unknown slot keys are an error.
+--- @class ExuPilotAnimationProfileConfig
+--- @field stand ExuPilotPolicySlotConfig? Native idx 2 `idle`.
+--- @field enterCrouch ExuPilotPolicySlotConfig? Native idx 0 `stand2Kneel` (state 1).
+--- @field crouched ExuPilotPolicySlotConfig? Native idx 3 `fireRecoilSniper`.
+--- @field exitCrouch ExuPilotPolicySlotConfig? Native idx 1 `kneel2stand` (state 3).
+--- @field jump ExuPilotPolicySlotConfig? Native idx 11 `jump`.
+--- @field land ExuPilotPolicySlotConfig? Native idx 10 `landParachute`.
 
 --- Effective pilot animation profile. Read-only; one entry per policy slot.
 --- @class ExuPilotAnimationProfile
@@ -114,19 +137,46 @@ function fps.GetCapabilities() end
 function fps.GetPilotState() end
 
 --- Returns the effective mission-scoped pilot animation profile: what EXU's
---- policy layer will do for each pilot animation slot. In this version every
---- slot is `mode = "stock"`, so the native animation FSM is left entirely
---- alone; this call is diagnostic and changes nothing. The profile is reset to
---- stock at mission/Lua-state boundaries. It reports no stock duration values:
---- none have been traced yet.
+--- policy layer does for each pilot animation slot (mode, animation,
+--- completion, duration, nativeState). Stock by default and again at every
+--- mission/Lua-state boundary. Changes nothing.
 --- @nodiscard
 --- @return ExuPilotAnimationProfile
 function fps.GetPilotAnimationProfile() end
 
+--- Replaces the mission-scoped pilot animation profile. `nil` or `{}`
+--- restores stock and is always allowed. Raises a Lua error, leaving the
+--- active profile unchanged, when the profile is invalid (unknown slot or
+--- field, wrong type, missing `animation`/`duration`, ...), in multiplayer
+--- ("single player only"), or when `GetCapabilities().pilotAnimationOverrides`
+--- is false.
+---
+--- Applied natively for the local pilot only, by rewriting Person::Simulate's
+--- per-clip tables around each local call:
+--- * A substitute must exist on both the world and the first-person
+---   skeleton; otherwise that slot stays stock (logged once per name). It
+---   takes effect the next time the engine applies that slot's clip.
+--- * Stock crouch transitions last endTime/rate = 0.967/0.5 = about 1.934 s.
+---   `completion = "animation"`: one play of the clip at authored speed (end =
+---   clip length, rate 1). `"duration"`: lasts `duration` seconds (rate =
+---   end/duration; end = 0.967-capped stock clip, or the whole substitute).
+---   `"manual"`: the clip plays at stock speed and holds at its end until
+---   `exu.fps.CompleteTransition()`.
+--- @param profile ExuPilotAnimationProfileConfig?
+function fps.SetPilotAnimationProfile(profile) end
+
+--- Finishes the current crouch transition on the next pilot update. Returns
+--- true only when overrides are available, the session is single player, the
+--- local pilot is entering or exiting crouch (native state 1 or 3), and that
+--- transition's profile completion is "manual". One-shot.
+--- @return boolean requested
+function fps.CompleteTransition() end
+
 --- Returns diagnostics for EXU's verified Person::Simulate interception seam.
---- The seam is observe-only in this version: it consults the pilot animation
---- policy (which can only answer pass-through), calls the stock trampoline
---- unchanged, and records local pre/post state transitions.
+--- The seam always calls the stock trampoline; for the local pilot under a
+--- non-stock profile (single player) it rewrites the native clip tables
+--- around that call and restores them straight after. It also records local
+--- pre/post state transitions.
 --- @nodiscard
 --- @return ExuPilotInterceptStatus
 function fps.GetPilotInterceptStatus() end

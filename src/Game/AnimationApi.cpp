@@ -21,6 +21,7 @@
 #include "Game/FirstPersonTarget.h"
 #include "Game/GameObject.h"
 #include "Game/PilotAnimationPolicy.h"
+#include "Game/PilotAnimationProfile.h"
 #include "Game/PilotFsmIntercept.h"
 #include "Game/PilotState.h"
 #include "Game/PilotStateSemantics.h"
@@ -33,6 +34,7 @@
 #include <lua.hpp>
 
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -399,10 +401,13 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_setfield(L, -2, "pilotStateInspection");
 			lua_pushboolean(L, PilotFsmIntercept::IsActive() ? 1 : 0);
 			lua_setfield(L, -2, "pilotFsmIntercept");
-			// Reports what this build can apply, not the current policy. Driven by
-			// the same constant the profile validator and SetActive enforce.
+			// Reports what this session can apply, not the current policy: the
+			// same constant the profile validator and SetActive enforce, AND the
+			// seam's install-time qualification of the native clip tables.
+			// Multiplayer is refused per call (SetPilotAnimationProfile errors).
 			lua_pushboolean(L,
-				PilotAnimationPolicy::HasOverrideSupport(PilotAnimationPolicy::kBuildSupport) ? 1 : 0);
+				(PilotAnimationPolicy::HasOverrideSupport(PilotAnimationPolicy::kBuildSupport) &&
+					PilotFsmIntercept::AreOverridesAvailable()) ? 1 : 0);
 			lua_setfield(L, -2, "pilotAnimationOverrides");
 			lua_pushboolean(L, 0);
 			lua_setfield(L, -2, "managedClock");
@@ -800,10 +805,28 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 			for (const PilotAnimationPolicy::Slot slot : slots)
 			{
-				lua_createtable(L, 0, 2);
+				const PilotAnimationPolicy::TransitionPolicy& entry = policy.At(slot);
+				lua_createtable(L, 0, 5);
 
-				lua_pushstring(L, PilotAnimationPolicy::ModeName(policy.At(slot).mode));
+				lua_pushstring(L, PilotAnimationPolicy::ModeName(entry.mode));
 				lua_setfield(L, -2, "mode");
+
+				if (entry.mode == PilotAnimationPolicy::Mode::Substitute)
+				{
+					lua_pushstring(L, entry.animation);
+					lua_setfield(L, -2, "animation");
+				}
+
+				if (PilotAnimationPolicy::SlotHasCompletion(slot))
+				{
+					lua_pushstring(L, PilotAnimationPolicy::CompletionName(entry.completion));
+					lua_setfield(L, -2, "completion");
+					if (entry.completion == PilotAnimationPolicy::CompletionMode::Duration)
+					{
+						lua_pushnumber(L, static_cast<lua_Number>(entry.duration));
+						lua_setfield(L, -2, "duration");
+					}
+				}
 
 				const std::int32_t nativeState = PilotAnimationPolicy::NativeStateForSlot(slot);
 				if (nativeState >= 0)
@@ -817,13 +840,146 @@ namespace ExtraUtilities::Lua::AnimationApi
 			return 1;
 		}
 
+		PilotAnimationPolicy::ValueType ProfileValueType(lua_State* L, int index)
+		{
+			switch (lua_type(L, index))
+			{
+			case LUA_TNIL: return PilotAnimationPolicy::ValueType::Nil;
+			case LUA_TBOOLEAN: return PilotAnimationPolicy::ValueType::Boolean;
+			case LUA_TNUMBER: return PilotAnimationPolicy::ValueType::Number;
+			case LUA_TSTRING: return PilotAnimationPolicy::ValueType::String;
+			case LUA_TTABLE: return PilotAnimationPolicy::ValueType::Table;
+			default: return PilotAnimationPolicy::ValueType::Other;
+			}
+		}
+
+		// Only a string key is read as text: lua_tolstring would convert a
+		// number key in place and break lua_next.
+		const char* ProfileKey(lua_State* L, int index, std::size_t& outLength)
+		{
+			outLength = 0;
+			return lua_type(L, index) == LUA_TSTRING ? lua_tolstring(L, index, &outLength) : nullptr;
+		}
+
+		PilotAnimationPolicy::Value ProfileValue(lua_State* L, int index)
+		{
+			const PilotAnimationPolicy::ValueType type = ProfileValueType(L, index);
+			if (type == PilotAnimationPolicy::ValueType::Number)
+			{
+				return PilotAnimationPolicy::Value::Number(static_cast<double>(lua_tonumber(L, index)));
+			}
+			if (type == PilotAnimationPolicy::ValueType::String)
+			{
+				std::size_t length = 0;
+				const char* text = lua_tolstring(L, index, &length);
+				return PilotAnimationPolicy::Value::String(text, length);
+			}
+			return PilotAnimationPolicy::Value::Of(type);
+		}
+
+		// Walks the profile table into ProfileBuilder; every rule lives there.
+		// Copies the builder's first error into error on failure. Raises no Lua
+		// error itself and keeps no C++ object with a destructor alive.
+		bool BuildPilotProfile(lua_State* L, int tableIndex, PilotAnimationPolicy::Policy& outPolicy,
+			char (&error)[PilotAnimationPolicy::ProfileBuilder::kErrorCapacity])
+		{
+			PilotAnimationPolicy::ProfileBuilder builder(PilotAnimationPolicy::kBuildSupport);
+			bool ok = true;
+			const int top = lua_gettop(L);
+			if (tableIndex != 0)
+			{
+				lua_pushnil(L);
+				while (ok && lua_next(L, tableIndex) != 0)
+				{
+					const int keyIndex = lua_gettop(L) - 1;
+					const int valueIndex = keyIndex + 1;
+					std::size_t keyLength = 0;
+					const char* key = ProfileKey(L, keyIndex, keyLength);
+					ok = builder.BeginSlot(key, keyLength, ProfileValueType(L, valueIndex));
+					if (ok)
+					{
+						lua_pushnil(L);
+						while (ok && lua_next(L, valueIndex) != 0)
+						{
+							const int fieldKeyIndex = lua_gettop(L) - 1;
+							std::size_t fieldKeyLength = 0;
+							const char* fieldKey = ProfileKey(L, fieldKeyIndex, fieldKeyLength);
+							ok = builder.SetField(fieldKey, fieldKeyLength, ProfileValue(L, fieldKeyIndex + 1));
+							lua_settop(L, fieldKeyIndex);
+						}
+						ok = ok && builder.EndSlot();
+					}
+					// Leave only the outer key for the next lua_next.
+					lua_settop(L, keyIndex);
+				}
+				lua_settop(L, top);
+			}
+
+			ok = ok && builder.Finish(outPolicy);
+			std::snprintf(error, sizeof(error), "%s",
+				builder.Error()[0] != '\0' ? builder.Error() : "invalid pilot animation profile");
+			return ok;
+		}
+
+		// exu.fps.SetPilotAnimationProfile(profile | nil). Strict: every
+		// validation failure is a Lua error (owner decision: unknown keys are
+		// errors). nil or {} restores stock and is always allowed; anything
+		// else needs qualified overrides and single player.
+		int FpsSetPilotAnimationProfile(lua_State* L)
+		{
+			int tableIndex = 0;
+			if (!lua_isnoneornil(L, 1))
+			{
+				luaL_checktype(L, 1, LUA_TTABLE);
+				tableIndex = 1;
+			}
+
+			PilotAnimationPolicy::Policy policy{};
+			char error[PilotAnimationPolicy::ProfileBuilder::kErrorCapacity]{};
+			if (!BuildPilotProfile(L, tableIndex, policy, error))
+			{
+				return luaL_error(L, "exu.fps.SetPilotAnimationProfile: %s", error);
+			}
+
+			if (!PilotAnimationPolicy::IsStockOnly(policy))
+			{
+				if (PilotFsmIntercept::IsNetworkSession())
+				{
+					return luaL_error(L,
+						"exu.fps.SetPilotAnimationProfile: pilot animation overrides are single player only");
+				}
+				if (!PilotFsmIntercept::AreOverridesAvailable())
+				{
+					return luaL_error(L,
+						"exu.fps.SetPilotAnimationProfile: pilot animation overrides are unavailable in this session "
+						"(exu.fps.GetCapabilities().pilotAnimationOverrides is false; see exu.log)");
+				}
+			}
+
+			if (!PilotAnimationPolicy::SetActive(policy))
+			{
+				return luaL_error(L,
+					"exu.fps.SetPilotAnimationProfile: profile is not supported by this EXU build");
+			}
+
+			lua_settop(L, 0);
+			return 0;
+		}
+
+		int FpsCompleteTransition(lua_State* L)
+		{
+			lua_settop(L, 0);
+			lua_pushboolean(L, PilotFsmIntercept::CompleteTransition() ? 1 : 0);
+			return 1;
+		}
+
 		int FpsGetPilotInterceptStatus(lua_State* L)
 		{
 			PilotFsmIntercept::Stats stats{};
 			PilotFsmIntercept::GetStats(stats);
 
 			lua_settop(L, 0);
-			lua_createtable(L, 0, 21);
+			lua_createtable(L, 0, 23);
 
 			lua_pushboolean(L, stats.installed ? 1 : 0);
 			lua_setfield(L, -2, "installed");
@@ -831,6 +987,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_setfield(L, -2, "active");
 			lua_pushboolean(L, stats.observeOnly ? 1 : 0);
 			lua_setfield(L, -2, "observeOnly");
+			lua_pushboolean(L, stats.overridesAvailable ? 1 : 0);
+			lua_setfield(L, -2, "overridesAvailable");
 			lua_pushboolean(L, stats.hasLocalSample ? 1 : 0);
 			lua_setfield(L, -2, "hasLocalSample");
 
@@ -842,6 +1000,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_setfield(L, -2, "stateChanges");
 			lua_pushinteger(L, static_cast<lua_Integer>(stats.animationChanges));
 			lua_setfield(L, -2, "animationChanges");
+			lua_pushinteger(L, static_cast<lua_Integer>(stats.overrideCalls));
+			lua_setfield(L, -2, "overrideCalls");
 
 			if (stats.hasPolicyDecision)
 			{
@@ -1127,6 +1287,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{ "GetCapabilities", &FpsGetCapabilities },
 			{ "GetPilotState", &FpsGetPilotState },
 			{ "GetPilotAnimationProfile", &FpsGetPilotAnimationProfile },
+			{ "SetPilotAnimationProfile", &FpsSetPilotAnimationProfile },
+			{ "CompleteTransition", &FpsCompleteTransition },
 			{ "GetPilotInterceptStatus", &FpsGetPilotInterceptStatus },
 			{ "StartPilotTrace", &FpsStartPilotTrace },
 			{ "StopPilotTrace", &FpsStopPilotTrace },

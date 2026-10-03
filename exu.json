@@ -1159,6 +1159,38 @@
         "pattern": "55 8B EC 6A FF 68 D6 C1 84 00 64 A1 00 00 00 00 50 81 EC E8 06 00 00",
         "pattern_kind": "code",
         "note": "GOG Redux 2.2.301 Person::Simulate, re-derived from the shipped executable during the jump-sniping and pilot-animation investigations. The first 10 bytes are reloc-free stack/SEH-frame setup and are the only bytes stolen by EXU's entry detour."
+      },
+      "PersonAnimEndTimeTable": {
+        "address": "0x008E8E94",
+        "type": "float[12] (.data, read/write)",
+        "description": "Per-animation-index end time (clip seconds) for the pilot animation FSM. Person::Simulate re-reads it every tick (WORLD 0x0059D9F7, first person 0x0059DBBF) and marks a clip finished when timePosition + dt*rate >= endTime[idx]; the first-person flag releases the Person+0x2AC handle that FSM states 1 and 3 wait for. Stock: 0.967 for idx 0-8, 1.867 (9), 1.167 (10, 11). See Docs/Research/PILOT_CROUCH_NATIVE_RE_20261003.md. EXU's pilot override seam writes it only for the local Person, around the stock call, and restores it before returning.",
+        "pattern": "8B 91 A8 02 00 00 F3 0F 10 04 95 94 8E 8E 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov edx,[ecx+0x2A8]; movss xmm0,[edx*4+0x8E8E94]' (first-person tick) at 0x0059DBB9, verified unique in GOG 2.2.301 executable sections 2026-10-03."
+      },
+      "PersonAnimFirstPersonRateTable": {
+        "address": "0x008E8EC4",
+        "type": "float[12] (.data, read/write)",
+        "description": "Per-animation-index first-person playback rate (dt multiplier), passed to the FP apply helper 0x00680770 and latched into the render bridge (+0xD4) when a clip is applied. Stock 0.5 for idx 0-3, 1.0 (4), 0.75 (5-10), 0.05 (11). Read only by Person::Simulate.",
+        "pattern": "8B 95 B8 FC FF FF 51 F3 0F 10 04 95 C4 8E 8E 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov edx,[ebp-0x348]; push ecx; movss xmm0,[edx*4+0x8E8EC4]' at 0x0059E1E8, verified unique in GOG 2.2.301 executable sections 2026-10-03."
+      },
+      "PersonAnimNameTable": {
+        "address": "0x008E8F24",
+        "type": "const char*[12] (.data, read/write)",
+        "description": "Per-animation-index Ogre clip name: stand2Kneel, kneel2stand, idle, fireRecoilSniper, runForward, runBackward, runLeft, runRight, death1, idleParachute, landParachute, jump. The apply helpers disable names[current idx] and enable names[new idx]; the bridge stores the raw pointer (+0xB4 / +0xD0) and rebuilds a std::string from it every tick, so a replacement pointer must never be freed. Read only by Person::Simulate.",
+        "pattern": "8B 88 A8 02 00 00 8B 14 8D 24 8F 8E 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov ecx,[eax+0x2A8]; mov edx,[ecx*4+0x8E8F24]' (old-name load for the WORLD apply) at 0x0059E1A5, verified unique in GOG 2.2.301 executable sections 2026-10-03."
+      },
+      "PersonAnimWorldRateTable": {
+        "address": "0x008E8F60",
+        "type": "float[12] (.data, read/write)",
+        "description": "Per-animation-index WORLD (third-person) playback rate, passed to the WORLD apply helper 0x00680670 and latched into the render bridge (+0xBC) when a clip is applied. Stock as the first-person table except idx 11 (0.6). Read only by Person::Simulate.",
+        "pattern": "8B 8D B8 FC FF FF 51 F3 0F 10 04 8D 60 8F 8E 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov ecx,[ebp-0x348]; push ecx; movss xmm0,[ecx*4+0x8E8F60]' at 0x0059E16E, verified unique in GOG 2.2.301 executable sections 2026-10-03."
       }
     },
     "Soundtrack": {

@@ -227,4 +227,39 @@ namespace ExtraUtilities::Lua::FirstPersonTarget
 		outEntity = targets.firstPersonEntity;
 		return true;
 	}
+
+	bool ReadPersonRenderEntities(const void* person, void*& outWorldEntity,
+		void*& outFirstPersonEntity) noexcept
+	{
+		outWorldEntity = nullptr;
+		outFirstPersonEntity = nullptr;
+		if (person == nullptr || !IsNativeResolverAvailable())
+		{
+			return false;
+		}
+
+		__try
+		{
+			auto* const personBytes = reinterpret_cast<const uint8_t*>(person);
+			void* const renderBridge =
+				*reinterpret_cast<void* const*>(personBytes + kPersonRenderBridgeOffset);
+			if (renderBridge == nullptr)
+			{
+				return false;
+			}
+
+			auto* const bridgeBytes = reinterpret_cast<const uint8_t*>(renderBridge);
+			outWorldEntity =
+				*reinterpret_cast<void* const*>(bridgeBytes + kRenderBridgeWorldEntityOffset);
+			outFirstPersonEntity =
+				*reinterpret_cast<void* const*>(bridgeBytes + kRenderBridgeFirstPersonEntityOffset);
+			return true;
+		}
+		__except (Seh::Filter(GetExceptionCode()))
+		{
+			outWorldEntity = nullptr;
+			outFirstPersonEntity = nullptr;
+			return false;
+		}
+	}
 }

@@ -316,9 +316,13 @@ def check_hardening_markers() -> None:
     pilot_policy_h = read("src/Game/PilotAnimationPolicy.h")
     pilot_policy_cpp = read("src/Game/PilotAnimationPolicy.cpp")
     pilot_profile_h = read("src/Game/PilotAnimationProfile.h")
+    pilot_timing_h = read("src/Game/PilotTransitionTiming.h")
     # The pilot animation policy owns "what should happen" and must stay pure
     # data: any engine, patch, Ogre, or Lua access belongs to the seam, not here.
-    pilot_policy_includes = re.findall(r'^\s*#include\s+[<"]([^>"]+)[>"]', pilot_policy_h + pilot_policy_cpp + pilot_profile_h, re.M)
+    # The table-override math is held to the same rule.
+    pilot_policy_includes = re.findall(
+        r'^\s*#include\s+[<"]([^>"]+)[>"]', pilot_policy_h + pilot_policy_cpp + pilot_profile_h + pilot_timing_h, re.M
+    )
     pilot_policy_impure = [
         inc for inc in pilot_policy_includes
         if inc.startswith(("Ogre/", "Patches/", "Util/")) or inc in ("bzr.h", "BasicPatch.h", "Hook.h", "Windows.h", "lua.hpp")
@@ -357,13 +361,29 @@ def check_hardening_markers() -> None:
             and "PilotAnimationPolicy::ResetMissionState();" in read("src/PublicAPI.cpp"),
         ),
         ("pilot timing trace stays engine-free", not pilot_trace_impure),
-        # Overrides become applicable only by widening kBuildSupport, and the
-        # Lua capability must follow that constant rather than a literal.
-        ("pilot override support starts empty", "constexpr Support kBuildSupport{};" in pilot_policy_h),
+        # Overrides are applicable only through kBuildSupport, and the Lua
+        # capability must follow that constant (not a literal) AND the seam's
+        # install-time table qualification.
+        ("pilot override support declared in one place", "constexpr Support kBuildSupport{" in pilot_policy_h),
         (
             "pilot override capability follows kBuildSupport",
             "HasOverrideSupport(PilotAnimationPolicy::kBuildSupport)" in read("src/Game/AnimationApi.cpp"),
         ),
+        (
+            "pilot override capability requires qualified clip tables",
+            "PilotFsmIntercept::AreOverridesAvailable()" in read("src/Game/AnimationApi.cpp")
+            and "g_tablesQualified.store(QualifyTables()" in pilot_intercept,
+        ),
+        # The clip tables are global to every Person: the local call's writes
+        # are undone straight after the stock call, with nothing in between.
+        (
+            "pilot clip tables restored after the stock call",
+            re.search(
+                r"original\(person, dt\);\s*if \(plan\.write\)\s*\{\s*if \(!WriteTablesSeh\(plan\.stock\)\)",
+                pilot_intercept,
+            ) is not None,
+        ),
+        ("pilot overrides stand down in multiplayer", "IsNetGameSeh()" in pilot_intercept),
         ("pilot policy refuses unsupported policies", "if (!IsSupported(policy, kBuildSupport))" in pilot_policy_cpp),
         (
             "pilot timing trace reset with the seam stats",

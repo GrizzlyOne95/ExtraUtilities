@@ -48,4 +48,12 @@ namespace ExtraUtilities::Lua::FirstPersonTarget
 	// not retain it between public API operations.
 	bool ResolveNativeLocalFirstPersonEntity(void*& outEntity,
 		NativeResolveFailure* outFailure = nullptr) noexcept;
+
+	// Raw render-bridge read for a Person the caller has already qualified
+	// (e.g. PilotState::CaptureIfCurrent inside Person::Simulate): the WORLD and
+	// first-person Ogre::Entity the stock animation apply helpers drive. Either
+	// may be null. No qualification, Ogre call, or allocation; false only on a
+	// null person/bridge or a faulting read. One-operation snapshot.
+	bool ReadPersonRenderEntities(const void* person, void*& outWorldEntity,
+		void*& outFirstPersonEntity) noexcept;
 }

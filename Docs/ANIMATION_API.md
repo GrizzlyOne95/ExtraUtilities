@@ -123,8 +123,8 @@ caps.gameObjectTarget == true
 caps.localFirstPersonTarget == true -- with OpenShim or EXU's native supported-build resolver
 caps.animationInventory == true
 caps.pilotStateInspection == true
-caps.pilotFsmIntercept == true -- when the verified observe-only entry detour is active
-caps.pilotAnimationOverrides == false -- no non-stock pilot animation policy can be applied yet
+caps.pilotFsmIntercept == true -- when the verified Person::Simulate entry detour is active
+caps.pilotAnimationOverrides == true -- when that seam is active and the native pilot clip tables qualified
 caps.managedClock == false
 caps.nativeAdvancement == "unvalidated"
 ```
@@ -132,6 +132,16 @@ caps.nativeAdvancement == "unvalidated"
 `pilotStateInspection`, `pilotFsmIntercept`, and `pilotAnimationOverrides`
 describe the logical pilot/FSM tooling used by `exu.fps`; they are independent of whether the first-person
 Ogre target is currently resolvable.
+
+`pilotAnimationOverrides` means `exu.fps.SetPilotAnimationProfile` can apply
+native pilot clip substitution and crouch-transition completion overrides in
+this session (single player only). See `Docs/FPS_API.md`. A substitute clip
+must exist on both the pilot's world (third-person) entity and its first-person
+entity: the stock apply helpers look the name up on both and an unknown name is
+an uncaught Ogre exception, so EXU validates first and leaves the slot stock
+otherwise. Use `exu.animation.List(exu.animation.Target(GetPlayerHandle()))`
+style probes on the world pilot and `exu.fps.ListAnimations()` on the
+first-person entity to check a mod mesh.
 
 `nativeAdvancement` remains `unvalidated` until the stock `Play`/`Stop`/`Seek` runtime matrix is captured. Target qualification proves that the FP entity is independently controllable, but does not by itself prove every public operation's playback semantics.
 
