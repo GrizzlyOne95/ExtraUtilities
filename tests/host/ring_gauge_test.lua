@@ -59,13 +59,18 @@ local function FakeApi()
     function api.SetOverlayDimensions(n, w, h) api.elements[n].w, api.elements[n].h = w, h end
     function api.SetOverlayParameter(n, k, v) api.elements[n][k] = v; return true end
     function api.SetOverlayTextFont(n, f) api.elements[n].font = f; return true end
-    function api.SetOverlayTextColor(n) end
+    function api.SetOverlayTextColor(n, r, g, b, a) api.elements[n].color = { r, g, b, a } end
     function api.SetOverlayTextCharHeight(n, c) api.elements[n].char = c end
     function api.SetOverlayCaption(n, s) api.elements[n].caption = s end
     function api.CreateOverlay(n) api.overlays[n] = { shown = false } end
     function api.DestroyOverlay(n) api.overlays[n] = nil end
     function api.SetOverlayZOrder(n, z) api.overlays[n].z = z end
-    function api.AddOverlay2D(o, c) api.overlays[o].root = c end
+    function api.AddOverlay2D(o, c)
+        local overlay = api.overlays[o]
+        overlay.roots = overlay.roots or {}
+        table.insert(overlay.roots, c)
+        overlay.root = c
+    end
     function api.ShowOverlay(n) api.overlays[n].shown = true end
     function api.HideOverlay(n) api.overlays[n].shown = false end
     function api.GetGameResolution() return 1920, 1080 end
@@ -142,6 +147,23 @@ do
     assert(plate.material == "EXU_HUD/StatusPlate" and plate.x + plate.w <= 1920 and plate.y + plate.h <= 1080,
         "plate in the bottom-right corner")
     assert(plate.x > 1920 / 2 and plate.y > 1080 / 2, "plate bottom right")
+    -- Root containers draw in insertion order; the plate's must come first.
+    local roots = api.overlays.st.roots
+    assert(#roots == 2 and roots[1] == plate.parent and roots[2] == api.elements["st/hullText"].parent,
+        "plate under the gauge")
+    -- Without GetSelectedWeaponMask every line stays lit.
+    local lit = api.elements["st/weapon0"].color
+    assert(lit == nil or lit[1] > 0.7, "lines lit without a selection mask")
+    -- Slot 2 selected: line 1 (slot 2) lit, line 0 (slot 0) dimmed.
+    function api.GetSelectedWeaponMask(h) assert(h == "player"); return 4 end
+    status.Update()
+    assert(api.elements["st/weapon1"].color[1] > 0.7, "selected weapon lit")
+    assert(api.elements["st/weapon0"].color[1] < 0.5 and api.elements["st/prefix0"].color[1] < 0.5,
+        "unselected weapon dimmed")
+    -- Linked selection lights both.
+    function api.GetSelectedWeaponMask() return 5 end
+    status.Update()
+    assert(api.elements["st/weapon0"].color[1] > 0.7 and api.elements["st/weapon1"].color[1] > 0.7, "linked lit")
     _G.IsValid = function() return false end
     status.Update()
     assert(not api.overlays.st.shown, "hidden without a player")

@@ -81,6 +81,19 @@ function Ring.SegmentColors(ratio, count, on, off, fadeSteps)
     return colors
 end
 
+-- Live selected-weapon bits (bit n = slot n; linked weapons set several), or
+-- nil on EXU builds without exu.GetSelectedWeaponMask, where every line stays lit.
+function Ring.SelectedWeaponMask(api, handle)
+    if type(api.GetSelectedWeaponMask) ~= "function" then return nil end
+    local ok, mask = pcall(api.GetSelectedWeaponMask, handle)
+    if ok and type(mask) == "number" then return mask end
+    return nil
+end
+
+function Ring.IsSlotSelected(mask, slot)
+    return math.floor(mask / 2 ^ slot) % 2 == 1
+end
+
 local function NewPanel(api, name, parent, material)
     if not api.HasOverlayElement(name) then
         api.CreateOverlayElement("Panel", name)
@@ -222,6 +235,8 @@ end
 --   x, y = ring centre in pixels (default: plate in the bottom-right corner),
 --   font = "CRBZoneOverlayFont", plate = true,
 --   weaponLabel = function(odf, slot) -> prefix, name,
+--   dimPrefixColor, dimWeaponColor = {r,g,b,a},  -- unselected weapon lines
+--                                      (selection from exu.GetSelectedWeaponMask)
 --   hideStock = true,                  -- hide the stock hull/ammo/weapon readout
 -- }
 function Ring.NewStatus(api, opts)
@@ -281,6 +296,9 @@ function Ring.NewStatus(api, opts)
     local figure = { 0.85, 0.88, 0.95, 1 }
     local prefixColor = { 0.95, 0.95, 0.95, 1 }
     local weaponColor = { 0.8, 0.85, 0.35, 1 }
+    -- Unselected weapon lines; selected ones keep the colours above.
+    local dimPrefixColor = opts.dimPrefixColor or { 0.45, 0.47, 0.5, 0.8 }
+    local dimWeaponColor = opts.dimWeaponColor or { 0.4, 0.42, 0.22, 0.8 }
     NewText("hullText", "right", figure)
     NewText("ammoText", "right", figure)
     for slot = 0, 4 do
@@ -321,6 +339,17 @@ function Ring.NewStatus(api, opts)
         end
     end
 
+    -- Text colour changes only when a line's selection does.
+    local lineSelected = {}
+    local function SetLineSelected(line, selected)
+        if lineSelected[line] == selected then return end
+        lineSelected[line] = selected
+        local p = selected and prefixColor or dimPrefixColor
+        local w = selected and weaponColor or dimWeaponColor
+        api.SetOverlayTextColor(texts["prefix" .. line], p[1], p[2], p[3], p[4])
+        api.SetOverlayTextColor(texts["weapon" .. line], w[1], w[2], w[3], w[4])
+    end
+
     local function Ratio(cur, max)
         if type(cur) ~= "number" or type(max) ~= "number" or max <= 0 then return nil end
         return math.max(0, math.min(1, cur / max))
@@ -353,13 +382,16 @@ function Ring.NewStatus(api, opts)
         api.SetOverlayCaption(texts.ammoText, Percent(ammoRatio))
 
         local label = opts.weaponLabel or function(odf) return Ring.WeaponLabel(odf) end
+        local selectedMask = Ring.SelectedWeaponMask(api, player)
         local line = 0
         for slot = 0, 4 do
             local odf = Clean(GetWeaponClass(player, slot))
             if odf then
                 local prefix, weapon = label(odf, slot)
+                local selected = selectedMask == nil or Ring.IsSlotSelected(selectedMask, slot)
                 api.SetOverlayCaption(texts["prefix" .. line], prefix or "")
                 api.SetOverlayCaption(texts["weapon" .. line], weapon or "")
+                SetLineSelected(line, selected)
                 line = line + 1
             end
         end
