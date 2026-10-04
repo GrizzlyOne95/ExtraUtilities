@@ -640,6 +640,11 @@ namespace
 	// resolved by exported symbol.
 	const char* const kDx11TextMaterialName = "EXU_HUD/Text";
 
+	// Last step EnableDx11TextShadersCpp started and where a fault hit, for the
+	// SEH log line: the conversion runs on the Lua thread only.
+	const char* g_dx11TextStage = "start";
+	void* g_dx11TextFaultAddress = nullptr;
+
 	using MaterialManagerSingletonFn = Ogre::MaterialManager* (__cdecl*)();
 	using MaterialManagerGetByNameFn = void(__thiscall*)(Ogre::MaterialManager*, Ogre::MaterialPtr*, const Ogre::String&, const Ogre::String&);
 	using MaterialCloneFn = void(__thiscall*)(const Ogre::Material*, Ogre::MaterialPtr*, const Ogre::String&, bool, const Ogre::String&);
@@ -652,7 +657,7 @@ namespace
 	using TextureUnitSetNameFn = void(__thiscall*)(Ogre::TextureUnitState*, const Ogre::String&, int);
 	using GpuProgramManagerSingletonFn = Ogre::GpuProgramManager* (__cdecl*)();
 	using GpuProgramSyntaxSupportedFn = bool(__thiscall*)(const Ogre::GpuProgramManager*, const Ogre::String&);
-	using TextAreaGetMaterialFn = const Ogre::MaterialPtr& (__thiscall*)(const void*);
+	using FontGetMaterialFn = const Ogre::MaterialPtr& (__thiscall*)(Ogre::Font*);
 	using TextAreaSetMaterialNameFn = void(__thiscall*)(void*, const Ogre::String&);
 
 	struct Dx11TextProcs
@@ -669,14 +674,14 @@ namespace
 		TextureUnitSetNameFn setTextureName = nullptr;
 		GpuProgramManagerSingletonFn gpuProgramManager = nullptr;
 		GpuProgramSyntaxSupportedFn syntaxSupported = nullptr;
-		TextAreaGetMaterialFn textAreaGetMaterial = nullptr;
+		FontGetMaterialFn fontGetMaterial = nullptr;
 		TextAreaSetMaterialNameFn textAreaSetMaterialName = nullptr;
 
 		bool Complete() const
 		{
 			return materialManager && getByName && clone && numTechniques && getTechnique && getPass
 				&& isProgrammable && getTextureUnit && getTextureName && setTextureName
-				&& gpuProgramManager && syntaxSupported && textAreaGetMaterial && textAreaSetMaterialName;
+				&& gpuProgramManager && syntaxSupported && fontGetMaterial && textAreaSetMaterialName;
 		}
 	};
 
@@ -696,7 +701,7 @@ namespace
 			p.setTextureName = ResolveOgreProc<TextureUnitSetNameFn>("?setTextureName@TextureUnitState@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@W4TextureType@2@@Z");
 			p.gpuProgramManager = ResolveOgreProc<GpuProgramManagerSingletonFn>("?getSingletonPtr@GpuProgramManager@Ogre@@SAPAV12@XZ");
 			p.syntaxSupported = ResolveOgreProc<GpuProgramSyntaxSupportedFn>("?isSyntaxSupported@GpuProgramManager@Ogre@@UBE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
-			p.textAreaGetMaterial = ResolveOgreProc<TextAreaGetMaterialFn>(OgreModule::Overlay, "?getMaterial@TextAreaOverlayElement@Ogre@@UBEABV?$SharedPtr@VMaterial@Ogre@@@2@XZ");
+			p.fontGetMaterial = ResolveOgreProc<FontGetMaterialFn>(OgreModule::Overlay, "?getMaterial@Font@Ogre@@QAEABV?$SharedPtr@VMaterial@Ogre@@@2@XZ");
 			p.textAreaSetMaterialName = ResolveOgreProc<TextAreaSetMaterialNameFn>(OgreModule::Overlay, "?setMaterialName@TextAreaOverlayElement@Ogre@@UAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
 			return p;
 		}();
@@ -712,40 +717,62 @@ namespace
 	// Returns a static description of the outcome for the log.
 	const char* EnableDx11TextShadersCpp(void* overlayElement, const char* fontName, std::string& outMaterial)
 	{
+		g_dx11TextStage = "resolve";
 		const Dx11TextProcs& procs = ResolveDx11TextProcs();
 		if (!procs.Complete())
 		{
 			return "unresolved-exports";
 		}
 
+		g_dx11TextStage = "gpu-program-manager";
 		Ogre::GpuProgramManager* gpuPrograms = procs.gpuProgramManager();
 		if (gpuPrograms == nullptr || !procs.syntaxSupported(gpuPrograms, Ogre::String("vs_4_0")))
 		{
 			return "not-needed";
 		}
 
-		// Read the font's texture from the TextArea's current (font) material.
-		Ogre::Material* current = procs.textAreaGetMaterial(overlayElement).getPointer();
+		// Read the font's texture from the font's own material. Not through
+		// TextAreaOverlayElement::getMaterial: it overrides Renderable's, so MSVC
+		// expects `this` at the Renderable subobject (+0x20 in BZR's build), and
+		// an OverlayElement* reads garbage. setMaterialName is OverlayElement's
+		// own virtual and takes the plain element pointer.
+		g_dx11TextStage = "font-get-material";
+		Ogre::FontManager* fonts = GetFontManager();
+		if (fonts == nullptr)
+		{
+			return "no-font-manager";
+		}
+		Ogre::FontPtr font = fonts->getByName(fontName, Ogre::String(kAutodetectResourceGroupName));
+		if (font.isNull())
+		{
+			return "no-font";
+		}
+		Ogre::Material* current = procs.fontGetMaterial(font.getPointer()).getPointer();
 		if (current == nullptr)
 		{
 			return "no-material";
 		}
+		g_dx11TextStage = "font-first-pass";
 		Ogre::Pass* pass = FirstPass(procs, current, 0);
 		if (pass == nullptr)
 		{
 			return "no-pass";
 		}
+		g_dx11TextStage = "font-is-programmable";
 		if (procs.isProgrammable(pass))
 		{
 			return "already-programmable";
 		}
+		g_dx11TextStage = "font-texture-unit";
 		Ogre::TextureUnitState* unit = procs.getTextureUnit(pass, 0);
 		if (unit == nullptr)
 		{
 			return "no-texture-unit";
 		}
+		g_dx11TextStage = "font-texture-name";
 		const Ogre::String texture = procs.getTextureName(unit);
 
+		g_dx11TextStage = "material-manager";
 		Ogre::MaterialManager* materials = procs.materialManager();
 		if (materials == nullptr)
 		{
@@ -755,20 +782,24 @@ namespace
 		const Ogre::String autodetect(kAutodetectResourceGroupName);
 
 		Ogre::MaterialPtr textMaterial;
+		g_dx11TextStage = "get-clone-by-name";
 		procs.getByName(materials, &textMaterial, outMaterial, autodetect);
 		if (textMaterial.isNull())
 		{
 			Ogre::MaterialPtr source;
+			g_dx11TextStage = "get-source-by-name";
 			procs.getByName(materials, &source, Ogre::String(kDx11TextMaterialName), autodetect);
 			if (source.isNull())
 			{
 				return "missing-EXU_HUD/Text";
 			}
+			g_dx11TextStage = "clone";
 			procs.clone(source.getPointer(), &textMaterial, outMaterial, false, Ogre::String());
 			if (textMaterial.isNull())
 			{
 				return "clone-failed";
 			}
+			g_dx11TextStage = "clone-set-texture";
 			const unsigned short techniques = procs.numTechniques(textMaterial.getPointer());
 			for (unsigned short t = 0; t < techniques; ++t)
 			{
@@ -781,6 +812,7 @@ namespace
 			}
 		}
 
+		g_dx11TextStage = "textarea-set-material";
 		procs.textAreaSetMaterialName(overlayElement, outMaterial);
 		return "converted";
 	}
@@ -794,11 +826,13 @@ namespace
 	bool TryEnableDx11TextShadersSeh(void* overlayElement, const char* fontName, std::string* outMaterial, const char** outResult, unsigned int& outExceptionCode)
 	{
 		outExceptionCode = 0;
+		g_dx11TextFaultAddress = nullptr;
 		__try
 		{
 			return EnableDx11TextShadersBody(overlayElement, fontName, outMaterial, outResult);
 		}
-		__except (ExtraUtilities::Seh::Filter(GetExceptionCode(), outExceptionCode))
+		__except (g_dx11TextFaultAddress = GetExceptionInformation()->ExceptionRecord->ExceptionAddress,
+			ExtraUtilities::Seh::Filter(GetExceptionCode(), outExceptionCode))
 		{
 			return false;
 		}
@@ -1500,7 +1534,18 @@ namespace Native
 			unsigned int exceptionCode = 0;
 			if (!TryEnableDx11TextShadersSeh(overlayElement, fontName, &material, &result, exceptionCode))
 			{
-				LogNativeOverlayMessage("[EXU::Overlay] dx11 text shaders seh element=%p code=0x%08X", overlayElement, exceptionCode);
+				HMODULE module = nullptr;
+				char moduleName[MAX_PATH] = "?";
+				if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+						static_cast<LPCSTR>(g_dx11TextFaultAddress), &module) && module != nullptr)
+				{
+					GetModuleFileNameA(module, moduleName, MAX_PATH);
+				}
+				const char* baseName = std::strrchr(moduleName, '\\');
+				LogNativeOverlayMessage("[EXU::Overlay] dx11 text shaders seh element=%p code=0x%08X stage=%s address=%p module=%s+0x%X",
+					overlayElement, exceptionCode, g_dx11TextStage, g_dx11TextFaultAddress,
+					baseName != nullptr ? baseName + 1 : moduleName,
+					static_cast<unsigned int>(static_cast<char*>(g_dx11TextFaultAddress) - reinterpret_cast<char*>(module)));
 				return false;
 			}
 		}
