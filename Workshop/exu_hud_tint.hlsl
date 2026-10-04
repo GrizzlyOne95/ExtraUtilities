@@ -17,3 +17,15 @@ void exu_hud_tint_vertex(
     vColor = tintColor;
     vTexCoord = mul(texMat, iTexCoord).xy;
 }
+
+void exu_hud_tint_fragment(
+    uniform sampler2D diffuseMap : register(s0),
+
+    in float4 vColor : COLOR0,
+    in float2 vTexCoord : TEXCOORD0,
+
+    out float4 oColor : COLOR
+)
+{
+    oColor = tex2D(diffuseMap, vTexCoord) * vColor;
+}

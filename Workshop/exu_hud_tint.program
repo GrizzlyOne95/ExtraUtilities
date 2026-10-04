@@ -1,46 +1,78 @@
 // exu_hud_tint.program
 //
-// Overlay-panel vertex program for tinted, rotatable HUD art.
+// Shaders for EXU's scripted HUD panels (exu_hud.material). Ogre overlay
+// Panels carry no vertex colour, so the vertex stage colours the panel with
+// the pass diffuse (surface_diffuse_colour) and applies texture_matrix 0, so
+// a material's texture rotation turns its art about the panel centre. The
+// fragment stage is texture * colour.
 //
-// Ogre overlay Panels carry no vertex colour, and the stock UITexMat vertex
-// program takes its colour from COLOR0. This program instead colours the
-// panel with the pass diffuse (surface_diffuse_colour), so a Lua script can
-// tint a cloned material with exu.SetMaterialPassColors, and keeps UITexMat's
-// texture_matrix input, so exu.SetMaterialTextureRotate turns the art about
-// the panel centre. The fragment stage is the stock UITexMat_fragment
-// (texture * colour); the outputs below match its inputs.
+// Plain per-target programs, not a unified wrapper: SM4 for DX11, SM3 for
+// DX9, GLSL for GL. OpenShim's DX11 compatibility pass recognises SM4
+// programs with vs_4_0/ps_4_0 targets as native and leaves them alone; a
+// unified wrapper has no resolvable target and was drawn shaderless on DX11.
 
-vertex_program EXU_HudTint_vertexGLSL glsl
-{
-    source exu_hud_tint-vertex.glsl
-    syntax glsl120
-    entry_point vs_main
-}
-
-vertex_program EXU_HudTint_vertexHLSL4 hlsl
+vertex_program EXU_HudTint_vertex_SM4 hlsl
 {
     source exu_hud_tint-sm4.hlsl
     target vs_4_0
     entry_point exu_hud_tint_vertex
-}
-
-vertex_program EXU_HudTint_vertexHLSL hlsl
-{
-    source exu_hud_tint.hlsl
-    target vs_3_0
-    entry_point exu_hud_tint_vertex
-}
-
-vertex_program EXU_HudTint_vertex unified
-{
-    delegate EXU_HudTint_vertexGLSL
-    delegate EXU_HudTint_vertexHLSL4
-    delegate EXU_HudTint_vertexHLSL
 
     default_params
     {
         param_named_auto wvpMat worldviewproj_matrix
         param_named_auto texMat texture_matrix 0
         param_named_auto tintColor surface_diffuse_colour
+    }
+}
+
+fragment_program EXU_HudTint_fragment_SM4 hlsl
+{
+    source exu_hud_tint-sm4.hlsl
+    target ps_4_0
+    entry_point exu_hud_tint_fragment
+}
+
+vertex_program EXU_HudTint_vertex_SM3 hlsl
+{
+    source exu_hud_tint.hlsl
+    target vs_3_0
+    entry_point exu_hud_tint_vertex
+
+    default_params
+    {
+        param_named_auto wvpMat worldviewproj_matrix
+        param_named_auto texMat texture_matrix 0
+        param_named_auto tintColor surface_diffuse_colour
+    }
+}
+
+fragment_program EXU_HudTint_fragment_SM3 hlsl
+{
+    source exu_hud_tint.hlsl
+    target ps_3_0
+    entry_point exu_hud_tint_fragment
+}
+
+vertex_program EXU_HudTint_vertex_GLSL glsl
+{
+    source exu_hud_tint-vertex.glsl
+    syntax glsl120
+
+    default_params
+    {
+        param_named_auto wvpMat worldviewproj_matrix
+        param_named_auto texMat texture_matrix 0
+        param_named_auto tintColor surface_diffuse_colour
+    }
+}
+
+fragment_program EXU_HudTint_fragment_GLSL glsl
+{
+    source exu_hud_tint-fragment.glsl
+    syntax glsl120
+
+    default_params
+    {
+        param_named diffuseMap int 0
     }
 }
