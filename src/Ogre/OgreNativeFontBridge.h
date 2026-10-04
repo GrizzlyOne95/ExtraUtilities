@@ -44,6 +44,10 @@ namespace ExtraUtilities
 					const char* textureName,
 					const char* spriteTablePath) noexcept;
 				bool TrySetTextAreaFontName(void* overlayElement, const char* fontName) noexcept;
+				// On D3D11, gives the TextArea's fixed-function font material the SM4
+				// text shaders of EXU_HUD/Text; a no-op elsewhere. False when the
+				// conversion was needed and failed (the font is left as it was).
+				bool TryEnableDx11TextShaders(void* overlayElement) noexcept;
 				bool TrySetTextAreaCaption(void* overlayElement, const char* text) noexcept;
 				bool TrySetTextAreaCharHeight(void* overlayElement, float charHeight) noexcept;
 				bool TrySetTextAreaColor(void* overlayElement, float r, float g, float b, float a) noexcept;
