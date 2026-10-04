@@ -9,13 +9,26 @@ void exu_hud_tint_vertex(
     in float4 iPosition : POSITION,
     in float4 iTexCoord : TEXCOORD0,
 
+    out float4 oPosition : SV_POSITION,
     out float4 vColor : COLOR0,
-    out float2 vTexCoord : TEXCOORD0,
-
-    out float4 oPosition : SV_POSITION
+    out float2 vTexCoord : TEXCOORD0
 )
 {
     oPosition = mul(wvpMat, iPosition);
     vColor = tintColor;
     vTexCoord = mul(texMat, iTexCoord).xy;
+}
+
+void exu_hud_tint_fragment(
+    uniform Texture2D diffuseMap : register(t0),
+    uniform SamplerState diffuseSam : register(s0),
+
+    in float4 iPosition : SV_POSITION,
+    in float4 vColor : COLOR0,
+    in float2 vTexCoord : TEXCOORD0,
+
+    out float4 oColor : SV_TARGET
+)
+{
+    oColor = diffuseMap.Sample(diffuseSam, vTexCoord) * vColor;
 }

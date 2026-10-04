@@ -1,20 +1,29 @@
 // exu_hud.material
 //
 // Base materials for EXU's scripted HUD gauges (Workshop/exu_ring_gauge.lua).
-// Clone one per overlay panel: each clone owns its texture rotation and its
-// pass diffuse, which EXU_HudTint_vertex uses as the panel colour. Textures
-// are white with shaped alpha, so the diffuse alone decides the colour.
+// Each has one technique per shader family (exu_hud_tint.program); Ogre uses
+// the first one the renderer supports. Textures are white with shaped alpha,
+// so the pass diffuse alone decides a segment's colour.
+//
+// exu_ring_gauge.lua clones RingSegment once per segment and colour, sets the
+// clone's texture rotation and diffuse before it is first drawn, and never
+// changes a clone afterwards: lighting modes copy techniques into their render
+// schemes on first use, so a later edit would not reach every copy. Changing
+// colour means switching the panel to another clone.
 
+// One segment pointing straight up; rotation about the texture centre (Ogre
+// rotates about 0.5,0.5) places it, clamp keeps the rotated corners clear.
 material EXU_HUD/RingSegment
 {
+	// SM4 (DX11)
 	technique
 	{
 		pass
 		{
-			vertex_program_ref EXU_HudTint_vertex
+			vertex_program_ref EXU_HudTint_vertex_SM4
 			{
 			}
-			fragment_program_ref UITexMat_fragment
+			fragment_program_ref EXU_HudTint_fragment_SM4
 			{
 			}
 
@@ -27,26 +36,20 @@ material EXU_HUD/RingSegment
 			texture_unit
 			{
 				texture exu_hud_ring_segment.png
-				// Rotation swings the panel corners outside 0..1; clamp
-				// samples the transparent border instead of wrapping.
 				tex_address_mode clamp
 				filtering linear linear none
 			}
 		}
 	}
-}
-
-// Untinted solid fill for gauge backplates; tint it like a segment.
-material EXU_HUD/Solid
-{
+	// SM3 (DX9)
 	technique
 	{
 		pass
 		{
-			vertex_program_ref EXU_HudTint_vertex
+			vertex_program_ref EXU_HudTint_vertex_SM3
 			{
 			}
-			fragment_program_ref UITexMat_fragment
+			fragment_program_ref EXU_HudTint_fragment_SM3
 			{
 			}
 
@@ -58,7 +61,116 @@ material EXU_HUD/Solid
 
 			texture_unit
 			{
-				texture exu_hud_white.png
+				texture exu_hud_ring_segment.png
+				tex_address_mode clamp
+				filtering linear linear none
+			}
+		}
+	}
+	// GLSL (GL)
+	technique
+	{
+		pass
+		{
+			vertex_program_ref EXU_HudTint_vertex_GLSL
+			{
+			}
+			fragment_program_ref EXU_HudTint_fragment_GLSL
+			{
+			}
+
+			lighting off
+			scene_blend alpha_blend
+			depth_check off
+			depth_write off
+			diffuse 1 1 1 1
+
+			texture_unit
+			{
+				texture exu_hud_ring_segment.png
+				tex_address_mode clamp
+				filtering linear linear none
+			}
+		}
+	}
+}
+
+// Coloured backplate art for the BZ2-demo status cluster; drawn untinted.
+material EXU_HUD/StatusPlate
+{
+	// SM4 (DX11)
+	technique
+	{
+		pass
+		{
+			vertex_program_ref EXU_HudTint_vertex_SM4
+			{
+			}
+			fragment_program_ref EXU_HudTint_fragment_SM4
+			{
+			}
+
+			lighting off
+			scene_blend alpha_blend
+			depth_check off
+			depth_write off
+			diffuse 1 1 1 1
+
+			texture_unit
+			{
+				texture exu_hud_status_plate.png
+				tex_address_mode clamp
+				filtering linear linear none
+			}
+		}
+	}
+	// SM3 (DX9)
+	technique
+	{
+		pass
+		{
+			vertex_program_ref EXU_HudTint_vertex_SM3
+			{
+			}
+			fragment_program_ref EXU_HudTint_fragment_SM3
+			{
+			}
+
+			lighting off
+			scene_blend alpha_blend
+			depth_check off
+			depth_write off
+			diffuse 1 1 1 1
+
+			texture_unit
+			{
+				texture exu_hud_status_plate.png
+				tex_address_mode clamp
+				filtering linear linear none
+			}
+		}
+	}
+	// GLSL (GL)
+	technique
+	{
+		pass
+		{
+			vertex_program_ref EXU_HudTint_vertex_GLSL
+			{
+			}
+			fragment_program_ref EXU_HudTint_fragment_GLSL
+			{
+			}
+
+			lighting off
+			scene_blend alpha_blend
+			depth_check off
+			depth_write off
+			diffuse 1 1 1 1
+
+			texture_unit
+			{
+				texture exu_hud_status_plate.png
 				tex_address_mode clamp
 				filtering linear linear none
 			}

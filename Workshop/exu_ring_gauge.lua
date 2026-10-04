@@ -3,12 +3,19 @@
 -- ring (StatusDisplay: ten 9-degree segments per gauge, inner radius 0.6 of
 -- the outer, n = ceil(ratio * 10) lit with the last one partly faded).
 --
--- Every segment is a square overlay Panel covering the whole ring, centred on
--- the ring centre. Its material is a clone of EXU_HUD/RingSegment, whose
--- texture holds one segment pointing straight up; the clone's texture
--- rotation turns it about the panel centre into place, and its pass diffuse
--- (read by EXU_HudTint_vertex) colours it. Angles are degrees, anticlockwise
--- on screen from the positive x axis, so 90 is straight up.
+-- Every segment is an overlay Panel covering the whole ring, centred on the
+-- ring centre. Its material is a clone of EXU_HUD/RingSegment, whose texture
+-- holds one segment pointing straight up; the clone's texture rotation turns
+-- it about the panel centre into place and its pass diffuse colours it. A
+-- panel wider than it is tall (spec.aspect) stretches the ring into the
+-- ellipse the BZ2 demo drew. Angles are degrees, anticlockwise on screen from
+-- the positive x axis, so 90 is straight up.
+--
+-- A clone is configured once, before it is first drawn, and never edited
+-- afterwards: lighting modes copy techniques into their render schemes on
+-- first use, and a later edit would miss those copies. A colour change
+-- switches the panel to another clone (one per segment and colour, made on
+-- first use; the boundary segment's fade is quantised to keep them few).
 --
 -- Ring.NewStatus hides the stock status display's hull, ammo and weapon
 -- draws with exu.SetStockStatusHudVisible (no OpenShim needed) unless
@@ -17,8 +24,13 @@
 local Ring = {}
 
 local SEGMENT_MATERIAL = "EXU_HUD/RingSegment"
-local SOLID_MATERIAL = "EXU_HUD/Solid"
+local PLATE_MATERIAL = "EXU_HUD/StatusPlate"
+local TECHNIQUES = 3 -- SM4, SM3, GLSL in exu_hud.material
 local PIXELS = 1
+
+-- exu_hud_status_plate.png extents in vertical ring radii, drawn for a ring
+-- of PLATE.aspect; keep in step with tools/generate_hud_textures.py.
+Ring.PLATE = { aspect = 2.2, left = 2.35, right = 2.34, half = 1.15 }
 
 local function Color(c, fallback)
     c = c or fallback
@@ -30,13 +42,12 @@ local function Lerp(a, b, t)
              a[3] + (b[3] - a[3]) * t, a[4] + (b[4] - a[4]) * t }
 end
 
--- SetMaterialPassColors reads keyed r/g/b/a fields.
-local function Keyed(c)
-    return { r = c[1], g = c[2], b = c[3], a = c[4] }
+local function Byte(v)
+    return math.floor(math.max(0, math.min(1, v)) * 255 + 0.5)
 end
 
-local function Same(a, b)
-    return a ~= nil and a[1] == b[1] and a[2] == b[2] and a[3] == b[3] and a[4] == b[4]
+local function ColorKey(c)
+    return string.format("%02x%02x%02x%02x", Byte(c[1]), Byte(c[2]), Byte(c[3]), Byte(c[4]))
 end
 
 -- BZ2 GetHealthColor: green at half or more, yellow from a quarter, else red.
@@ -49,9 +60,9 @@ end
 Ring.AMMO_COLOR = { 0, 127 / 255, 1, 1 }
 
 -- Per-segment colours for a fill ratio: segments below the fill take `on`,
--- the boundary segment blends from `off` by its fractional share, the rest
--- take `off`. Exposed for tests and for callers drawing their own segments.
-function Ring.SegmentColors(ratio, count, on, off)
+-- the boundary segment blends from `off` by its fractional share (rounded to
+-- 1/fadeSteps when given), the rest take `off`.
+function Ring.SegmentColors(ratio, count, on, off, fadeSteps)
     ratio = math.max(0, math.min(1, ratio or 0))
     local scaled = ratio * count
     local lit = math.ceil(scaled)
@@ -60,17 +71,14 @@ function Ring.SegmentColors(ratio, count, on, off)
         if i < lit then
             colors[i] = on
         elseif i == lit then
-            colors[i] = Lerp(off, on, scaled - lit + 1)
+            local t = scaled - lit + 1
+            if fadeSteps then t = math.floor(t * fadeSteps + 0.5) / fadeSteps end
+            colors[i] = (t >= 1 and on) or (t <= 0 and off) or Lerp(off, on, t)
         else
             colors[i] = off
         end
     end
     return colors
-end
-
-local function EnsureClone(api, source, clone)
-    if api.MaterialExists(clone) then return true end
-    return api.CloneMaterial(source, clone)
 end
 
 local function NewPanel(api, name, parent, material)
@@ -85,9 +93,11 @@ end
 -- spec = {
 --   name = "unique_prefix",          -- element and material names derive from it
 --   parent = "container",            -- an existing Panel to attach segments to
---   x, y, radius = pixels,           -- ring centre and outer radius, relative to parent
+--   x, y, radius = pixels,           -- ring centre and vertical outer radius, relative to parent
+--   aspect = 1,                      -- horizontal radius / vertical radius
 --   segments = 10, start = 90, step = 9,  -- first segment edge and signed width (degrees)
 --   on = color, off = color,         -- {r,g,b,a} 0..1; off defaults to dim grey
+--   fadeSteps = 4,                   -- boundary-segment fade levels
 -- }
 function Ring.New(api, spec)
     assert(type(api) == "table", "EXU table required")
@@ -98,6 +108,8 @@ function Ring.New(api, spec)
         count = spec.segments or 10,
         start = spec.start or 90,
         step = spec.step or 9,
+        aspect = spec.aspect or 1,
+        fadeSteps = spec.fadeSteps or 4,
         on = Color(spec.on, { 1, 1, 1, 1 }),
         off = Color(spec.off, { 0.15, 0.15, 0.2, 0.6 }),
         ratio = 0,
@@ -108,30 +120,43 @@ function Ring.New(api, spec)
 
     for i = 1, self.count do
         local element = string.format("%s/seg%d", self.name, i)
-        local material = string.format("EXU_HUD/%s/seg%d", self.name, i)
-        assert(EnsureClone(api, SEGMENT_MATERIAL, material), "could not clone " .. SEGMENT_MATERIAL)
-        NewPanel(api, element, spec.parent, material)
+        NewPanel(api, element, spec.parent, nil)
         -- The texture's segment points up (90); centre segment i on its slot.
-        local centre = self.start + self.step * (i - 0.5)
-        api.SetMaterialTextureRotate(material, math.rad(centre - 90))
-        self.segments[i] = { element = element, material = material }
+        local degrees = self.start + self.step * (i - 0.5) - 90
+        self.segments[i] = { element = element, degrees = degrees }
     end
 
-    function self.SetGeometry(x, y, radius)
-        local size = 2 * radius
+    -- The clone for a segment in colour c, configured before first use. The
+    -- name carries the rotation, so a reused name always means the same art.
+    local function Variant(seg, c)
+        local material = string.format("EXU_HUD/%s/r%d/%s", self.name,
+            math.floor(seg.degrees * 10 + 0.5), ColorKey(c))
+        if not api.MaterialExists(material) then
+            assert(api.CloneMaterial(SEGMENT_MATERIAL, material), "could not clone " .. SEGMENT_MATERIAL)
+            for technique = 0, TECHNIQUES - 1 do
+                api.SetMaterialTextureRotate(material, math.rad(seg.degrees), technique)
+            end
+            api.SetMaterialPassColors(material,
+                { diffuse = { r = c[1], g = c[2], b = c[3], a = c[4] } }, -1, -1)
+        end
+        return material
+    end
+
+    function self.SetGeometry(x, y, radius, aspect)
+        if aspect then self.aspect = aspect end
         for _, seg in ipairs(self.segments) do
-            api.SetOverlayPosition(seg.element, x - radius, y - radius)
-            api.SetOverlayDimensions(seg.element, size, size)
+            api.SetOverlayPosition(seg.element, x - radius * self.aspect, y - radius)
+            api.SetOverlayDimensions(seg.element, 2 * radius * self.aspect, 2 * radius)
         end
     end
 
-    -- Applies colours; only segments whose colour changed touch the material.
+    -- Switches only segments whose colour changed.
     local function Apply(colors)
         for i, seg in ipairs(self.segments) do
-            local c = colors[i]
-            if not Same(self.applied[i], c) then
-                api.SetMaterialPassColors(seg.material, { diffuse = Keyed(c) })
-                self.applied[i] = c
+            local key = ColorKey(colors[i])
+            if self.applied[i] ~= key then
+                api.SetOverlayMaterial(seg.element, Variant(seg, colors[i]))
+                self.applied[i] = key
             end
         end
     end
@@ -139,13 +164,13 @@ function Ring.New(api, spec)
     function self.SetColors(on, off)
         if on then self.on = Color(on) end
         if off then self.off = Color(off) end
-        Apply(Ring.SegmentColors(self.ratio, self.count, self.on, self.off))
+        Apply(Ring.SegmentColors(self.ratio, self.count, self.on, self.off, self.fadeSteps))
     end
 
     function self.SetRatio(ratio, on)
         self.ratio = ratio
         if on then self.on = Color(on) end
-        Apply(Ring.SegmentColors(ratio, self.count, self.on, self.off))
+        Apply(Ring.SegmentColors(ratio, self.count, self.on, self.off, self.fadeSteps))
     end
 
     function self.Destroy()
@@ -187,13 +212,15 @@ function Ring.WeaponLabel(odfName)
     return entry.prefix, entry.name
 end
 
--- A BZ2-demo status cluster: hull ring on the upper-left quarter, ammo ring on
--- the lower-left quarter, percentages inside the ring and weapon lines to the
--- right of the centre line. opts = {
+-- The BZ2-demo status cluster, bottom right by default: a bezelled plate,
+-- the hull ring on its upper-left quarter and the ammo ring on its lower-left
+-- quarter, percentages inside the ring and weapon lines beside the ammo
+-- figure. opts = {
 --   name = "exu_status", overlay = "exu_status",  zOrder = 600,
---   x, y = ring centre in pixels (default: lower-left of the screen),
---   radius = outer radius in pixels (default: 17% of screen height),
---   font = "CRBZoneOverlayFont", backplate = color or false,
+--   radius = vertical ring radius in pixels (default 7.5% of screen height),
+--   aspect = 2.2,                      -- ring width / height
+--   x, y = ring centre in pixels (default: plate in the bottom-right corner),
+--   font = "CRBZoneOverlayFont", plate = true,
 --   weaponLabel = function(odf, slot) -> prefix, name,
 --   hideStock = true,                  -- hide the stock hull/ammo/weapon readout
 -- }
@@ -202,6 +229,7 @@ function Ring.NewStatus(api, opts)
     local name = opts.name or "exu_status"
     local overlay = opts.overlay or name
     local root = name .. "/root"
+    local aspect = opts.aspect or Ring.PLATE.aspect
     local self = { closed = false, stockHidden = {} }
 
     -- Older EXU builds lack the stock suppression; the ring still draws.
@@ -218,19 +246,16 @@ function Ring.NewStatus(api, opts)
     api.SetOverlayPosition(root, 0, 0)
     api.AddOverlay2D(overlay, root)
 
-    local backplate
-    if opts.backplate ~= false then
-        backplate = name .. "/backplate"
-        local material = "EXU_HUD/" .. backplate
-        assert(EnsureClone(api, SOLID_MATERIAL, material), "could not clone " .. SOLID_MATERIAL)
-        NewPanel(api, backplate, root, material)
-        api.SetMaterialPassColors(material, { diffuse = Keyed(Color(opts.backplate, { 0.02, 0.04, 0.16, 0.75 })) })
+    local plate
+    if opts.plate ~= false then
+        plate = name .. "/plate"
+        NewPanel(api, plate, root, PLATE_MATERIAL)
     end
 
     local hull = Ring.New(api, { name = name .. "/hull", parent = root, start = 90, step = 9,
-        on = Ring.HealthColor(1) })
+        aspect = aspect, on = Ring.HealthColor(1) })
     local ammo = Ring.New(api, { name = name .. "/ammo", parent = root, start = 270, step = -9,
-        on = Ring.AMMO_COLOR })
+        aspect = aspect, on = Ring.AMMO_COLOR })
 
     local texts = {}
     local function NewText(key, align, color)
@@ -244,39 +269,46 @@ function Ring.NewStatus(api, opts)
         texts[key] = element
         return element
     end
-    local white = { 0.85, 0.9, 1, 1 }
-    local weaponColor = { 0.85, 0.85, 0.35, 1 }
-    NewText("hullText", "right", white)
-    NewText("ammoText", "right", white)
+    local figure = { 0.85, 0.88, 0.95, 1 }
+    local prefixColor = { 0.95, 0.95, 0.95, 1 }
+    local weaponColor = { 0.8, 0.85, 0.35, 1 }
+    NewText("hullText", "right", figure)
+    NewText("ammoText", "right", figure)
     for slot = 0, 4 do
-        NewText("prefix" .. slot, "left", white)
+        NewText("prefix" .. slot, "left", prefixColor)
         NewText("weapon" .. slot, "left", weaponColor)
     end
 
     local layout = {}
-    function self.Layout(x, y, radius)
+    function self.Layout()
         local w, h = api.GetGameResolution()
-        radius = radius or opts.radius or math.floor(h * 0.17)
-        x = x or opts.x or math.floor(radius + h * 0.03)
-        y = y or opts.y or math.floor(h - radius - h * 0.03)
-        layout = { x = x, y = y, radius = radius, w = w, h = h }
-        hull.SetGeometry(x, y, radius)
-        ammo.SetGeometry(x, y, radius)
-        if backplate then
-            api.SetOverlayPosition(backplate, x - radius * 1.03, y - radius * 1.03)
-            api.SetOverlayDimensions(backplate, radius * 2.2, radius * 2.06)
+        local rv = opts.radius or math.floor(h * 0.075)
+        local rh = rv * aspect
+        local stretch = aspect / Ring.PLATE.aspect
+        local margin = math.floor(h * 0.02)
+        local x = opts.x or (w - margin - Ring.PLATE.right * rv * stretch)
+        local y = opts.y or (h - margin - Ring.PLATE.half * rv)
+        layout = { w = w, h = h }
+        hull.SetGeometry(x, y, rv)
+        ammo.SetGeometry(x, y, rv)
+        if plate then
+            api.SetOverlayPosition(plate, x - Ring.PLATE.left * rv * stretch, y - Ring.PLATE.half * rv)
+            api.SetOverlayDimensions(plate, (Ring.PLATE.left + Ring.PLATE.right) * rv * stretch,
+                2 * Ring.PLATE.half * rv)
         end
-        local char = math.max(8, math.floor(radius * 0.13))
-        local gap = math.floor(radius * 0.03)
-        for key, element in pairs(texts) do
+        local char = math.max(8, math.floor(rv * 0.22))
+        local gapY = math.floor(rv * 0.06)
+        for _, element in pairs(texts) do
             api.SetOverlayTextCharHeight(element, char)
         end
-        api.SetOverlayPosition(texts.hullText, x - gap, y - char - gap)
-        api.SetOverlayPosition(texts.ammoText, x - gap, y + gap)
+        local figureX = x - 0.03 * rh
+        api.SetOverlayPosition(texts.hullText, figureX, y - gapY - char)
+        api.SetOverlayPosition(texts.ammoText, figureX, y + gapY)
+        local lineX = x + 0.05 * rh
         for slot = 0, 4 do
-            local lineY = y + gap + slot * char
-            api.SetOverlayPosition(texts["prefix" .. slot], x + gap, lineY)
-            api.SetOverlayPosition(texts["weapon" .. slot], x + gap + char, lineY)
+            local lineY = y + gapY + slot * math.floor(char * 1.05)
+            api.SetOverlayPosition(texts["prefix" .. slot], lineX, lineY)
+            api.SetOverlayPosition(texts["weapon" .. slot], lineX + math.floor(char * 1.1), lineY)
         end
     end
 
@@ -294,7 +326,7 @@ function Ring.NewStatus(api, opts)
     function self.Update()
         if self.closed then return end
         local w, h = api.GetGameResolution()
-        if w ~= layout.w or h ~= layout.h then self.Layout(opts.x, opts.y, opts.radius) end
+        if w ~= layout.w or h ~= layout.h then self.Layout() end
 
         local hidden = type(api.IsGameUiOpen) == "function" and api.IsGameUiOpen()
         local player = GetPlayerHandle()
@@ -339,13 +371,13 @@ function Ring.NewStatus(api, opts)
         for _, element in pairs(texts) do
             if api.HasOverlayElement(element) then api.DestroyOverlayElement(element) end
         end
-        if backplate and api.HasOverlayElement(backplate) then api.DestroyOverlayElement(backplate) end
+        if plate and api.HasOverlayElement(plate) then api.DestroyOverlayElement(plate) end
         api.DestroyOverlay(overlay)
         if api.HasOverlayElement(root) then api.DestroyOverlayElement(root) end
     end
 
     self.hull, self.ammo = hull, ammo
-    self.Layout(opts.x, opts.y, opts.radius)
+    self.Layout()
     return self
 end
 

@@ -22,17 +22,24 @@ end
 
 -- Fake EXU: records elements, materials, rotations and tints.
 local function FakeApi()
-    local api = { elements = {}, materials = { ["EXU_HUD/RingSegment"] = {}, ["EXU_HUD/Solid"] = {} },
-        overlays = {}, tintCalls = 0 }
+    local api = { elements = {}, materials = { ["EXU_HUD/RingSegment"] = {}, ["EXU_HUD/StatusPlate"] = {} },
+        overlays = {}, tintCalls = 0, clones = 0 }
     function api.MaterialExists(n) return api.materials[n] ~= nil end
     function api.CloneMaterial(src, n)
         if not api.materials[src] or api.materials[n] then return false end
-        api.materials[n] = {}
+        api.materials[n] = { rotate = {} }
+        api.clones = api.clones + 1
         return true
     end
-    function api.SetMaterialTextureRotate(n, r) api.materials[n].rotate = r; return true end
-    function api.SetMaterialPassColors(n, colors)
+    function api.SetMaterialTextureRotate(n, r, technique)
+        assert(not api.materials[n].drawn, "material edited after first use")
+        api.materials[n].rotate[technique or 0] = r
+        return true
+    end
+    function api.SetMaterialPassColors(n, colors, technique, pass)
         assert(colors.diffuse.r and colors.diffuse.a, "keyed colour required")
+        assert(technique == -1 and pass == -1, "tint every technique")
+        assert(not api.materials[n].drawn, "material edited after first use")
         api.materials[n].diffuse = colors.diffuse
         api.tintCalls = api.tintCalls + 1
         return true
@@ -41,7 +48,11 @@ local function FakeApi()
     function api.CreateOverlayElement(t, n) assert(not api.elements[n]); api.elements[n] = { type = t } end
     function api.DestroyOverlayElement(n) api.elements[n] = nil end
     function api.SetOverlayMetricsMode(n, m) api.elements[n].metrics = m end
-    function api.SetOverlayMaterial(n, m) assert(api.materials[m]); api.elements[n].material = m end
+    function api.SetOverlayMaterial(n, m)
+        assert(api.materials[m])
+        api.elements[n].material = m
+        api.materials[m].drawn = true
+    end
     function api.AddOverlayElementChild(p, n) assert(api.elements[p] and api.elements[n]); api.elements[n].parent = p end
     function api.RemoveOverlayElementChild(p, n) api.elements[n].parent = nil end
     function api.SetOverlayPosition(n, x, y) api.elements[n].x, api.elements[n].y = x, y end
@@ -64,22 +75,33 @@ local function FakeApi()
     return api
 end
 
--- Ring geometry: each segment panel is a square centred on the ring centre,
--- rotated so segment i sits at start + step * (i - 0.5).
+-- Ring geometry: each segment panel is centred on the ring centre, stretched
+-- by the aspect, and its material rotates segment i to start + step * (i - 0.5).
 do
     local api = FakeApi()
     api.CreateOverlayElement("Panel", "root")
     local ring = Ring.New(api, { name = "g", parent = "root", x = 300, y = 400, radius = 100,
-        start = 270, step = -9 })
+        start = 270, step = -9, aspect = 2 })
     local first = api.elements["g/seg1"]
-    assert(first.x == 200 and first.y == 300 and first.w == 200 and first.h == 200, "square panel")
-    assert(near(api.materials["EXU_HUD/g/seg1"].rotate, math.rad(270 - 4.5 - 90)), "segment rotation")
-    assert(near(api.materials["EXU_HUD/g/seg10"].rotate, math.rad(180 + 4.5 - 90)), "last rotation")
-    local before = api.tintCalls
+    assert(first.x == 100 and first.y == 300 and first.w == 400 and first.h == 200, "stretched panel")
+    local mat = api.materials[first.material]
+    for t = 0, 2 do
+        assert(near(mat.rotate[t], math.rad(270 - 4.5 - 90)), "segment rotation on every technique")
+    end
+    assert(near(api.materials[api.elements["g/seg10"].material].rotate[0], math.rad(180 + 4.5 - 90)), "last rotation")
+    local clones = api.clones
     ring.SetRatio(0)
-    assert(api.tintCalls == before, "unchanged colours do not retint")
+    assert(api.clones == clones, "unchanged colours do not reclone")
     ring.SetRatio(0.5)
-    assert(api.tintCalls == before + 5, "only changed segments retint")
+    assert(api.elements["g/seg5"].material ~= api.elements["g/seg6"].material, "lit and unlit differ")
+    ring.SetRatio(0)
+    ring.SetRatio(0.5)
+    local reused = api.clones
+    ring.SetRatio(0)
+    assert(api.clones == reused, "variants are reused, never edited")
+    -- Fade quantised to quarters: 0.53 puts segment 6 at 0.3 -> 0.25.
+    local c = Ring.SegmentColors(0.53, 10, { 1, 1, 1, 1 }, { 0, 0, 0, 0 }, 4)
+    assert(near(c[6][1], 0.25), "quantised fade")
     ring.Destroy()
     assert(not api.elements["g/seg1"], "destroy removes panels")
     -- A second mission reuses the cloned materials.
@@ -114,8 +136,12 @@ do
     assert(api.elements["st/ammoText"].caption == "95%", "ammo percent")
     assert(api.elements["st/prefix0"].caption == "R" and api.elements["st/weapon0"].caption == "FAF MSL", "weapon line")
     assert(api.elements["st/weapon1"].caption == "FAF MSL" and api.elements["st/weapon2"].caption == "", "lines pack")
-    local hullTop = api.materials["EXU_HUD/st/hull/seg10"].diffuse
+    local hullTop = api.materials[api.elements["st/hull/seg10"].material].diffuse
     assert(hullTop.g > 0.8 and hullTop.r < 0.05, "hull green, last segment mostly lit")
+    local plate = api.elements["st/plate"]
+    assert(plate.material == "EXU_HUD/StatusPlate" and plate.x + plate.w <= 1920 and plate.y + plate.h <= 1080,
+        "plate in the bottom-right corner")
+    assert(plate.x > 1920 / 2 and plate.y > 1080 / 2, "plate bottom right")
     _G.IsValid = function() return false end
     status.Update()
     assert(not api.overlays.st.shown, "hidden without a player")

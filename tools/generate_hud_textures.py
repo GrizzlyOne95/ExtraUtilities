@@ -25,7 +25,11 @@ rotation does exactly that) places it at any angle. The segment is white with
 shaped alpha and rounded, antialiased corners; the gap between neighbours
 comes from the inset, as BZ2's rounded ``gauge.tga`` produced it.
 
-``exu_hud_white.png`` is a small opaque white texture for tinted backplates.
+``exu_hud_status_plate.png`` is the backplate of the BZ2-demo status
+cluster: a navy panel with a light-blue rounded bezel whose left side follows
+the ring, a slanted right edge and a dark-red divider on the centre line. It
+is drawn in ring units (vertical ring radius 1, horizontal ``PLATE_ASPECT``)
+and its extents are mirrored by ``PLATE`` in Workshop/exu_ring_gauge.lua.
 
 Usage:
 
@@ -57,6 +61,18 @@ GAP_PIXELS = 3.0               # gap between neighbours, in texture pixels
 CORNER_PIXELS = 4.0            # corner rounding radius, in texture pixels
 EDGE_MARGIN = 2.0              # keep the outer edge off the texture border
 
+# Status plate, in units of the ring's vertical radius. Keep in step with
+# PLATE in Workshop/exu_ring_gauge.lua.
+PLATE_SIZE = (1024, 512)
+PLATE_ASPECT = 2.2             # horizontal ring radius / vertical
+PLATE_PAD = 0.12               # bezel clearance outside the ring
+PLATE_LEFT = 2.35              # extents from the ring centre
+PLATE_RIGHT = 2.34
+PLATE_HALF = 1.15
+PLATE_BORDER = 0.06
+PLATE_CORNER = 0.15
+PLATE_SAMPLES = 4
+
 
 def segment_alpha(size: int = SEGMENT_SIZE) -> np.ndarray:
     centre = size / 2.0
@@ -85,15 +101,64 @@ def segment_alpha(size: int = SEGMENT_SIZE) -> np.ndarray:
     return np.clip(0.5 - sdf, 0.0, 1.0)
 
 
+def _plate_inside(x: np.ndarray, y: np.ndarray, inset: float) -> np.ndarray:
+    """Inside test for the plate outline shrunk by ``inset`` ring units."""
+    rx = PLATE_ASPECT + PLATE_PAD - inset
+    ry = 1.0 + PLATE_PAD - inset
+    half = ry
+    # Left: the ring's ellipse grown by the pad. Right: a box whose right edge
+    # leans out towards the bottom, with rounded corners.
+    left = (x < 0) & ((x / rx) ** 2 + (y / ry) ** 2 <= 1.0)
+    t = (y + half) / (2 * half)
+    right_edge = PLATE_ASPECT * (0.95 + 0.10 * t) - inset
+    k = max(PLATE_CORNER - inset, 0.01)
+    qx = x - (right_edge - k)
+    qy = np.abs(y) - (half - k)
+    corner = np.hypot(np.maximum(qx, 0), np.maximum(qy, 0)) <= k
+    right = (x >= 0) & (x <= right_edge) & (np.abs(y) <= half) & corner
+    return left | right
+
+
+def status_plate() -> np.ndarray:
+    w, h = PLATE_SIZE
+    n = PLATE_SAMPLES
+    xs = (np.arange(w * n) + 0.5) / (w * n) * (PLATE_LEFT + PLATE_RIGHT) - PLATE_LEFT
+    ys = (np.arange(h * n) + 0.5) / (h * n) * (2 * PLATE_HALF) - PLATE_HALF
+    x, y = np.meshgrid(xs, ys)
+
+    def coverage(mask: np.ndarray) -> np.ndarray:
+        return mask.reshape(h, n, w, n).mean(axis=(1, 3))
+
+    outer = coverage(_plate_inside(x, y, 0.0))
+    inner = coverage(_plate_inside(x, y, PLATE_BORDER))
+    yy = (np.arange(h) + 0.5) / h * (2 * PLATE_HALF) - PLATE_HALF
+    divider = np.clip(1.0 - np.abs(yy) / 0.03, 0.0, 1.0)[:, np.newaxis] * inner
+    # Bezel shades from light blue at the rim to a deeper blue inside.
+    rim = np.clip((outer - inner), 0.0, 1.0)
+
+    fill = np.array([10, 20, 72], dtype=np.float64)
+    bezel = np.array([70, 150, 240], dtype=np.float64)
+    red = np.array([120, 18, 18], dtype=np.float64)
+    rgb = fill[np.newaxis, np.newaxis, :] * inner[..., np.newaxis]
+    rgb += bezel * rim[..., np.newaxis]
+    rgb = rgb * (1 - divider[..., np.newaxis]) + red * divider[..., np.newaxis]
+    alpha = rim * 255.0 + inner * 225.0
+    with np.errstate(invalid="ignore", divide="ignore"):
+        rgb = np.where(outer[..., np.newaxis] > 0, rgb / np.maximum(outer, 1e-6)[..., np.newaxis], 0)
+    out = np.empty((h, w, 4), dtype=np.uint8)
+    out[..., :3] = np.clip(rgb + 0.5, 0, 255).astype(np.uint8)
+    out[..., 3] = np.clip(alpha + 0.5, 0, 255).astype(np.uint8)
+    return out
+
+
 def build() -> dict[str, Image.Image]:
     alpha = (segment_alpha() * 255.0 + 0.5).astype(np.uint8)
     rgba = np.empty(alpha.shape + (4,), dtype=np.uint8)
     rgba[..., :3] = 255
     rgba[..., 3] = alpha
-    white = np.full((8, 8, 4), 255, dtype=np.uint8)
     return {
         "exu_hud_ring_segment.png": Image.fromarray(rgba, "RGBA"),
-        "exu_hud_white.png": Image.fromarray(white, "RGBA"),
+        "exu_hud_status_plate.png": Image.fromarray(status_plate(), "RGBA"),
     }
 
 
