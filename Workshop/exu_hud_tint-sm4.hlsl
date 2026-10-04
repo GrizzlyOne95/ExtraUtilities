@@ -32,3 +32,20 @@ void exu_hud_tint_fragment(
 {
     oColor = diffuseMap.Sample(diffuseSam, vTexCoord) * vColor;
 }
+
+void exu_hud_text_vertex(
+    uniform float4x4 wvpMat,
+
+    in float4 iPosition : POSITION,
+    in float4 iColor : COLOR0,
+    in float2 iTexCoord : TEXCOORD0,
+
+    out float4 oPosition : SV_POSITION,
+    out float4 vColor : COLOR0,
+    out float2 vTexCoord : TEXCOORD0
+)
+{
+    oPosition = mul(wvpMat, iPosition);
+    vColor = iColor;
+    vTexCoord = iTexCoord;
+}
