@@ -209,6 +209,7 @@
     <ClCompile Include="src\Game\Satellite.cpp" />
     <ClCompile Include="src\Game\StaticGeometry.cpp" />
     <ClCompile Include="src\Patches\ScreenFlash.cpp" />
+    <ClCompile Include="src\Patches\StatusHud.cpp" />
     <ClCompile Include="src\Patches\ShotConvergence.cpp" />
     <ClCompile Include="src\Util\SoundOptions.cpp" />
     <ClCompile Include="src\Util\Soundtrack.cpp" />
@@ -299,6 +300,7 @@
     <ClInclude Include="src\Game\StaticGeometry.h" />
     <ClInclude Include="src\BasicScanner.h" />
     <ClInclude Include="src\Patches\ScreenFlash.h" />
+    <ClInclude Include="src\Patches\StatusHud.h" />
     <ClInclude Include="src\Patches\ShotConvergence.h" />
     <ClInclude Include="src\Util\SoundOptions.h" />
     <ClInclude Include="src\Util\Soundtrack.h" />

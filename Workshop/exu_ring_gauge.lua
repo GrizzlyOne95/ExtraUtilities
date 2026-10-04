@@ -10,10 +10,10 @@
 -- (read by EXU_HudTint_vertex) colours it. Angles are degrees, anticlockwise
 -- on screen from the positive x axis, so 90 is straight up.
 --
--- This draws on top of the stock HUD; it does not hide the stock hull/ammo
--- bars (that needs the unqualified native meter hook, see
--- Docs/NATIVE_HUD_LAYOUT_API.md). Pass the required exu table explicitly;
--- mission scope has no global exu.
+-- Ring.NewStatus hides the stock status display's hull, ammo and weapon
+-- draws with exu.SetStockStatusHudVisible (no OpenShim needed) unless
+-- opts.hideStock is false. Pass the required exu table explicitly; mission
+-- scope has no global exu.
 local Ring = {}
 
 local SEGMENT_MATERIAL = "EXU_HUD/RingSegment"
@@ -195,13 +195,22 @@ end
 --   radius = outer radius in pixels (default: 17% of screen height),
 --   font = "CRBZoneOverlayFont", backplate = color or false,
 --   weaponLabel = function(odf, slot) -> prefix, name,
+--   hideStock = true,                  -- hide the stock hull/ammo/weapon readout
 -- }
 function Ring.NewStatus(api, opts)
     opts = opts or {}
     local name = opts.name or "exu_status"
     local overlay = opts.overlay or name
     local root = name .. "/root"
-    local self = { closed = false }
+    local self = { closed = false, stockHidden = {} }
+
+    -- Older EXU builds lack the stock suppression; the ring still draws.
+    local stockParts = { "hull", "ammo", "weapons" }
+    if opts.hideStock ~= false and type(api.SetStockStatusHudVisible) == "function" then
+        for _, part in ipairs(stockParts) do
+            self.stockHidden[part] = api.SetStockStatusHudVisible(part, false) == true
+        end
+    end
 
     api.CreateOverlay(overlay)
     api.SetOverlayZOrder(overlay, opts.zOrder or 600)
@@ -322,6 +331,9 @@ function Ring.NewStatus(api, opts)
     function self.Destroy()
         if self.closed then return end
         self.closed = true
+        for part, hidden in pairs(self.stockHidden) do
+            if hidden then api.SetStockStatusHudVisible(part, true) end
+        end
         hull.Destroy()
         ammo.Destroy()
         for _, element in pairs(texts) do

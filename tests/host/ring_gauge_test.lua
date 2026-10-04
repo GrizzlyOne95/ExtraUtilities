@@ -59,6 +59,8 @@ local function FakeApi()
     function api.HideOverlay(n) api.overlays[n].shown = false end
     function api.GetGameResolution() return 1920, 1080 end
     function api.IsGameUiOpen() return false end
+    api.stock = { hull = true, ammo = true, weapons = true }
+    function api.SetStockStatusHudVisible(part, visible) api.stock[part] = visible; return true end
     return api
 end
 
@@ -105,6 +107,7 @@ do
         return "", false
     end
     local status = Ring.NewStatus(api, { name = "st" })
+    assert(not api.stock.hull and not api.stock.ammo and not api.stock.weapons, "stock readout hidden")
     status.Update()
     assert(api.overlays.st.shown, "shown with a player")
     assert(api.elements["st/hullText"].caption == "99%", "hull percent")
@@ -118,6 +121,14 @@ do
     assert(not api.overlays.st.shown, "hidden without a player")
     status.Destroy()
     assert(api.overlays.st == nil and not api.elements["st/hullText"], "destroy cleans up")
+    assert(api.stock.hull and api.stock.ammo and api.stock.weapons, "stock readout restored")
+    -- Opting out leaves the stock readout alone; an older EXU without the call still works.
+    local keep = FakeApi()
+    Ring.NewStatus(keep, { name = "keep", hideStock = false })
+    assert(keep.stock.hull, "hideStock = false keeps stock")
+    local old = FakeApi()
+    old.SetStockStatusHudVisible = nil
+    Ring.NewStatus(old, { name = "old" })
 end
 
 print("ring gauge checks passed")
