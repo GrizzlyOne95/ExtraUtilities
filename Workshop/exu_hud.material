@@ -1,0 +1,67 @@
+// exu_hud.material
+//
+// Base materials for EXU's scripted HUD gauges (Workshop/exu_ring_gauge.lua).
+// Clone one per overlay panel: each clone owns its texture rotation and its
+// pass diffuse, which EXU_HudTint_vertex uses as the panel colour. Textures
+// are white with shaped alpha, so the diffuse alone decides the colour.
+
+material EXU_HUD/RingSegment
+{
+	technique
+	{
+		pass
+		{
+			vertex_program_ref EXU_HudTint_vertex
+			{
+			}
+			fragment_program_ref UITexMat_fragment
+			{
+			}
+
+			lighting off
+			scene_blend alpha_blend
+			depth_check off
+			depth_write off
+			diffuse 1 1 1 1
+
+			texture_unit
+			{
+				texture exu_hud_ring_segment.png
+				// Rotation swings the panel corners outside 0..1; clamp
+				// samples the transparent border instead of wrapping.
+				tex_address_mode clamp
+				filtering linear linear none
+			}
+		}
+	}
+}
+
+// Untinted solid fill for gauge backplates; tint it like a segment.
+material EXU_HUD/Solid
+{
+	technique
+	{
+		pass
+		{
+			vertex_program_ref EXU_HudTint_vertex
+			{
+			}
+			fragment_program_ref UITexMat_fragment
+			{
+			}
+
+			lighting off
+			scene_blend alpha_blend
+			depth_check off
+			depth_write off
+			diffuse 1 1 1 1
+
+			texture_unit
+			{
+				texture exu_hud_white.png
+				tex_address_mode clamp
+				filtering linear linear none
+			}
+		}
+	}
+}
