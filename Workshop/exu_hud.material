@@ -179,8 +179,8 @@ material EXU_HUD/StatusPlate
 }
 
 // DX11 stand-in for overlay font materials (see exu_hud_tint.program). EXU
-// copies this onto a font's material and restores the font's own texture, so
-// the texture named here is only a placeholder.
+// clones this per font as EXU_HUD/Text/<font> and points the clone at the
+// font's texture, so the texture named here is only a placeholder.
 material EXU_HUD/Text
 {
 	technique
