@@ -1,8 +1,8 @@
 -- Copyright (C) 2026 GrizzlyOne95; LGPL-3.0-or-later
 -- A BZ2-demo style status ring: hull on the upper-left quarter, ammo on the
--- lower-left quarter, percentages inside and weapon lines beside it. It draws
--- over the stock HUD; hiding the stock hull/ammo bars needs the native meter
--- hook that is not qualified yet.
+-- lower-left quarter, percentages inside and weapon lines beside it. It hides
+-- the stock hull/ammo/weapon readout (exu.SetStockStatusHudVisible) while it
+-- exists; pass hideStock = false to keep both.
 local exu = require("exu")
 local Ring = require("exu_ring_gauge")
 local status

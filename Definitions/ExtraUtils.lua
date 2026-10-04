@@ -2333,6 +2333,27 @@ function exu.GetHeatFlashEnabled() end
 --- @param enabled boolean
 function exu.SetHeatFlashEnabled(enabled) end
 
+--- @alias StockStatusHudPart "hull" | "ammo" | "weapons"
+
+--- Gets whether a part of the stock player status display is drawn (default true).
+--- Reports what the engine will actually do: false only while every draw of the part is suppressed.
+--- @nodiscard
+--- @param part StockStatusHudPart
+--- @return boolean visible
+function exu.GetStockStatusHudVisible(part) end
+
+--- Shows or hides a part of the stock player status display (bottom-right hull/ammo bars and weapon list):
+--- `"hull"` is the hull label and bar; `"ammo"` the ammo label, bar, shots-remaining count and ammo-cost marker;
+--- `"weapons"` the weapon rows (plates, hardpoint icons and names). Only the draws are removed: the low-hull and
+--- out-of-ammo voice warnings still play. Use it to replace the stock readout with your own HUD, for example
+--- `Workshop/exu_ring_gauge.lua`. Needs no OpenShim. Returns false when hiding failed (unsupported build, or a
+--- draw call another module already patched), in which case the part stays visible.
+--- Mission scoped: resets to visible when the Lua state closes, so set it again after loading a save.
+--- @param part StockStatusHudPart
+--- @param visible boolean
+--- @return boolean applied
+function exu.SetStockStatusHudVisible(part, visible) end
+
 --- Gets whether or not the global turbo mode patch is enabled (default false).
 --- @nodiscard
 --- @return boolean
