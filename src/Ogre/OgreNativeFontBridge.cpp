@@ -658,6 +658,7 @@ namespace
 	using GpuProgramManagerSingletonFn = Ogre::GpuProgramManager* (__cdecl*)();
 	using GpuProgramSyntaxSupportedFn = bool(__thiscall*)(const Ogre::GpuProgramManager*, const Ogre::String&);
 	using FontGetMaterialFn = const Ogre::MaterialPtr& (__thiscall*)(Ogre::Font*);
+	using ResourceLoadFn = void(__thiscall*)(Ogre::Font*, bool);
 	using TextAreaSetMaterialNameFn = void(__thiscall*)(void*, const Ogre::String&);
 
 	struct Dx11TextProcs
@@ -675,13 +676,14 @@ namespace
 		GpuProgramManagerSingletonFn gpuProgramManager = nullptr;
 		GpuProgramSyntaxSupportedFn syntaxSupported = nullptr;
 		FontGetMaterialFn fontGetMaterial = nullptr;
+		ResourceLoadFn resourceLoad = nullptr;
 		TextAreaSetMaterialNameFn textAreaSetMaterialName = nullptr;
 
 		bool Complete() const
 		{
 			return materialManager && getByName && clone && numTechniques && getTechnique && getPass
 				&& isProgrammable && getTextureUnit && getTextureName && setTextureName
-				&& gpuProgramManager && syntaxSupported && fontGetMaterial && textAreaSetMaterialName;
+				&& gpuProgramManager && syntaxSupported && fontGetMaterial && resourceLoad && textAreaSetMaterialName;
 		}
 	};
 
@@ -702,6 +704,7 @@ namespace
 			p.gpuProgramManager = ResolveOgreProc<GpuProgramManagerSingletonFn>("?getSingletonPtr@GpuProgramManager@Ogre@@SAPAV12@XZ");
 			p.syntaxSupported = ResolveOgreProc<GpuProgramSyntaxSupportedFn>("?isSyntaxSupported@GpuProgramManager@Ogre@@UBE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
 			p.fontGetMaterial = ResolveOgreProc<FontGetMaterialFn>(OgreModule::Overlay, "?getMaterial@Font@Ogre@@QAEABV?$SharedPtr@VMaterial@Ogre@@@2@XZ");
+			p.resourceLoad = ResolveOgreProc<ResourceLoadFn>("?load@Resource@Ogre@@UAEX_N@Z");
 			p.textAreaSetMaterialName = ResolveOgreProc<TextAreaSetMaterialNameFn>(OgreModule::Overlay, "?setMaterialName@TextAreaOverlayElement@Ogre@@UAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
 			return p;
 		}();
@@ -747,6 +750,12 @@ namespace
 		{
 			return "no-font";
 		}
+		// setFontName is lazy in BZR's build: the font, and with it the font
+		// material, loads on the TextArea's first getMaterial. Load it as that
+		// would (Resource is Font's primary base, and Font does not override load).
+		g_dx11TextStage = "font-load";
+		procs.resourceLoad(font.getPointer(), false);
+		g_dx11TextStage = "font-get-material";
 		Ogre::Material* current = procs.fontGetMaterial(font.getPointer()).getPointer();
 		if (current == nullptr)
 		{
