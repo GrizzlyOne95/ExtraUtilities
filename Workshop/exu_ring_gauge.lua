@@ -242,15 +242,24 @@ function Ring.NewStatus(api, opts)
 
     api.CreateOverlay(overlay)
     api.SetOverlayZOrder(overlay, opts.zOrder or 600)
+
+    -- The plate gets its own root container, added first: an overlay orders
+    -- its root containers by insertion, but a container orders its children
+    -- by name, so a plate sharing the gauge root would sort over "ammo/..."
+    -- and "hull..." and cover the rings and figures.
+    local back, plate
+    if opts.plate ~= false then
+        back = name .. "/back"
+        plate = name .. "/plate"
+        NewPanel(api, back, nil, nil)
+        api.SetOverlayPosition(back, 0, 0)
+        api.AddOverlay2D(overlay, back)
+        NewPanel(api, plate, back, PLATE_MATERIAL)
+    end
+
     NewPanel(api, root, nil, nil)
     api.SetOverlayPosition(root, 0, 0)
     api.AddOverlay2D(overlay, root)
-
-    local plate
-    if opts.plate ~= false then
-        plate = name .. "/plate"
-        NewPanel(api, plate, root, PLATE_MATERIAL)
-    end
 
     local hull = Ring.New(api, { name = name .. "/hull", parent = root, start = 90, step = 9,
         aspect = aspect, on = Ring.HealthColor(1) })
@@ -374,6 +383,7 @@ function Ring.NewStatus(api, opts)
         if plate and api.HasOverlayElement(plate) then api.DestroyOverlayElement(plate) end
         api.DestroyOverlay(overlay)
         if api.HasOverlayElement(root) then api.DestroyOverlayElement(root) end
+        if back and api.HasOverlayElement(back) then api.DestroyOverlayElement(back) end
     end
 
     self.hull, self.ammo = hull, ammo
