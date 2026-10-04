@@ -38,6 +38,26 @@ test_weather_textures() {
     pass "weather textures are current"
 }
 
+# The ring gauge segment art is generated too; same staleness guard.
+test_hud_textures() {
+    python3 "$ROOT/tools/generate_hud_textures.py" --check
+    pass "HUD textures are current"
+}
+
+# The scripted ring gauge reaches the game only through the exu table and
+# stock Lua globals, so a fake of both checks its layout and fill logic.
+test_ring_gauge() {
+    local lua
+    for lua in lua5.1 lua5.4 lua luajit; do
+        if command -v "$lua" >/dev/null 2>&1; then
+            (cd "$ROOT" && "$lua" tests/host/ring_gauge_test.lua)                 || fail "ring gauge checks failed"
+            pass "ring gauge ($lua)"
+            return
+        fi
+    done
+    fail "no Lua interpreter found for tests/host/ring_gauge_test.lua"
+}
+
 test_native_hud_controller() {
     local lua
     for lua in lua5.1 lua5.4 lua luajit; do
@@ -228,8 +248,10 @@ test_bad_game_path_rejected() {
 test_python_tools
 test_native_hud_trace
 test_weather_textures
+test_hud_textures
 test_host_cpp
 test_native_hud_controller
+test_ring_gauge
 test_weather_controller
 test_pilot_fsm_capture
 test_weather_particle_color_contract
