@@ -79,8 +79,8 @@ fragment_program EXU_HudTint_fragment_GLSL glsl
 
 // Overlay TextArea text on DX11. Ogre builds font materials as fixed-function
 // passes, which D3D11 cannot draw (Ogre throws, and the rest of the overlay
-// queue is lost for that frame). EXU copies EXU_HUD/Text's techniques onto a
-// font's material when the renderer supports vs_4_0 and keeps the font's
+// queue is lost for that frame). When the renderer supports vs_4_0, EXU gives
+// each TextArea a per-font clone of EXU_HUD/Text pointing at the font's
 // texture. TextArea vertices carry their colour; Ogre-generated colour is
 // already RGBA on D3D11, so no swizzle.
 vertex_program EXU_HudText_vertex_SM4 hlsl

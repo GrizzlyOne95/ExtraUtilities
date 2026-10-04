@@ -43,7 +43,6 @@
 #include <OgreException.h>
 #include <OgreFont.h>
 #include <OgreFontManager.h>
-#include <OgreMaterial.h>
 #include <OgreOverlayElement.h>
 #include <OgreResourceGroupManager.h>
 #include <OgreTextAreaOverlayElement.h>
@@ -629,16 +628,21 @@ namespace
 	// fixed pipeline: drawing one throws in D3D11RenderSystem::_render, and the
 	// exception abandons the rest of that frame's overlay queue, so one EXU
 	// TextArea hides every overlay drawn after it. OpenShim's DX11 compatibility
-	// layer deliberately leaves font materials alone. When the renderer compiles
-	// vs_4_0, EXU copies the scripted EXU_HUD/Text material (Workshop
-	// exu_hud.material: SM4 programs, alpha blend, no depth) onto the font's
-	// material and puts the font's texture back. OgreMain.lib only names a few
-	// imports, so these members are resolved by their exported symbols.
+	// layer deliberately leaves font materials alone.
+	//
+	// When the renderer compiles vs_4_0, EXU clones the scripted EXU_HUD/Text
+	// material (Workshop exu_hud.material: SM4 programs, alpha blend, no depth)
+	// once per font as "EXU_HUD/Text/<font>", points the clone at the font's
+	// texture and gives the TextArea that material. The font's own material is
+	// only read, never changed: rewriting it in place (Material::copyDetailsTo)
+	// corrupted it for the next TextArea. OgreMain.lib names few imports and
+	// EXU does not call Ogre virtuals through headers, so everything here is
+	// resolved by exported symbol.
 	const char* const kDx11TextMaterialName = "EXU_HUD/Text";
 
 	using MaterialManagerSingletonFn = Ogre::MaterialManager* (__cdecl*)();
 	using MaterialManagerGetByNameFn = void(__thiscall*)(Ogre::MaterialManager*, Ogre::MaterialPtr*, const Ogre::String&, const Ogre::String&);
-	using MaterialCopyDetailsFn = void(__thiscall*)(const Ogre::Material*, Ogre::MaterialPtr&);
+	using MaterialCloneFn = void(__thiscall*)(const Ogre::Material*, Ogre::MaterialPtr*, const Ogre::String&, bool, const Ogre::String&);
 	using MaterialNumTechniquesFn = unsigned short(__thiscall*)(const Ogre::Material*);
 	using MaterialGetTechniqueFn = Ogre::Technique* (__thiscall*)(Ogre::Material*, unsigned short);
 	using TechniqueGetPassFn = Ogre::Pass* (__thiscall*)(Ogre::Technique*, unsigned short);
@@ -648,12 +652,14 @@ namespace
 	using TextureUnitSetNameFn = void(__thiscall*)(Ogre::TextureUnitState*, const Ogre::String&, int);
 	using GpuProgramManagerSingletonFn = Ogre::GpuProgramManager* (__cdecl*)();
 	using GpuProgramSyntaxSupportedFn = bool(__thiscall*)(const Ogre::GpuProgramManager*, const Ogre::String&);
+	using TextAreaGetMaterialFn = const Ogre::MaterialPtr& (__thiscall*)(const void*);
+	using TextAreaSetMaterialNameFn = void(__thiscall*)(void*, const Ogre::String&);
 
 	struct Dx11TextProcs
 	{
 		MaterialManagerSingletonFn materialManager = nullptr;
 		MaterialManagerGetByNameFn getByName = nullptr;
-		MaterialCopyDetailsFn copyDetails = nullptr;
+		MaterialCloneFn clone = nullptr;
 		MaterialNumTechniquesFn numTechniques = nullptr;
 		MaterialGetTechniqueFn getTechnique = nullptr;
 		TechniqueGetPassFn getPass = nullptr;
@@ -663,12 +669,14 @@ namespace
 		TextureUnitSetNameFn setTextureName = nullptr;
 		GpuProgramManagerSingletonFn gpuProgramManager = nullptr;
 		GpuProgramSyntaxSupportedFn syntaxSupported = nullptr;
+		TextAreaGetMaterialFn textAreaGetMaterial = nullptr;
+		TextAreaSetMaterialNameFn textAreaSetMaterialName = nullptr;
 
 		bool Complete() const
 		{
-			return materialManager && getByName && copyDetails && numTechniques && getTechnique && getPass
+			return materialManager && getByName && clone && numTechniques && getTechnique && getPass
 				&& isProgrammable && getTextureUnit && getTextureName && setTextureName
-				&& gpuProgramManager && syntaxSupported;
+				&& gpuProgramManager && syntaxSupported && textAreaGetMaterial && textAreaSetMaterialName;
 		}
 	};
 
@@ -678,7 +686,7 @@ namespace
 			Dx11TextProcs p;
 			p.materialManager = ResolveOgreProc<MaterialManagerSingletonFn>("?getSingletonPtr@MaterialManager@Ogre@@SAPAV12@XZ");
 			p.getByName = ResolveOgreProc<MaterialManagerGetByNameFn>("?getByName@MaterialManager@Ogre@@QAE?AV?$SharedPtr@VMaterial@Ogre@@@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0@Z");
-			p.copyDetails = ResolveOgreProc<MaterialCopyDetailsFn>("?copyDetailsTo@Material@Ogre@@QBEXAAV?$SharedPtr@VMaterial@Ogre@@@2@@Z");
+			p.clone = ResolveOgreProc<MaterialCloneFn>("?clone@Material@Ogre@@QBE?AV?$SharedPtr@VMaterial@Ogre@@@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N0@Z");
 			p.numTechniques = ResolveOgreProc<MaterialNumTechniquesFn>("?getNumTechniques@Material@Ogre@@QBEGXZ");
 			p.getTechnique = ResolveOgreProc<MaterialGetTechniqueFn>("?getTechnique@Material@Ogre@@QAEPAVTechnique@2@G@Z");
 			p.getPass = ResolveOgreProc<TechniqueGetPassFn>("?getPass@Technique@Ogre@@QAEPAVPass@2@G@Z");
@@ -688,6 +696,8 @@ namespace
 			p.setTextureName = ResolveOgreProc<TextureUnitSetNameFn>("?setTextureName@TextureUnitState@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@W4TextureType@2@@Z");
 			p.gpuProgramManager = ResolveOgreProc<GpuProgramManagerSingletonFn>("?getSingletonPtr@GpuProgramManager@Ogre@@SAPAV12@XZ");
 			p.syntaxSupported = ResolveOgreProc<GpuProgramSyntaxSupportedFn>("?isSyntaxSupported@GpuProgramManager@Ogre@@UBE_NABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
+			p.textAreaGetMaterial = ResolveOgreProc<TextAreaGetMaterialFn>(OgreModule::Overlay, "?getMaterial@TextAreaOverlayElement@Ogre@@UBEABV?$SharedPtr@VMaterial@Ogre@@@2@XZ");
+			p.textAreaSetMaterialName = ResolveOgreProc<TextAreaSetMaterialNameFn>(OgreModule::Overlay, "?setMaterialName@TextAreaOverlayElement@Ogre@@UAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@Z");
 			return p;
 		}();
 		return procs;
@@ -700,7 +710,7 @@ namespace
 	}
 
 	// Returns a static description of the outcome for the log.
-	const char* EnableDx11TextShadersCpp(void* overlayElement, std::string& outMaterial)
+	const char* EnableDx11TextShadersCpp(void* overlayElement, const char* fontName, std::string& outMaterial)
 	{
 		const Dx11TextProcs& procs = ResolveDx11TextProcs();
 		if (!procs.Complete())
@@ -714,15 +724,13 @@ namespace
 			return "not-needed";
 		}
 
-		auto* textArea = static_cast<Ogre::TextAreaOverlayElement*>(overlayElement);
-		Ogre::MaterialPtr target = textArea->getMaterial();
-		if (target.isNull())
+		// Read the font's texture from the TextArea's current (font) material.
+		Ogre::Material* current = procs.textAreaGetMaterial(overlayElement).getPointer();
+		if (current == nullptr)
 		{
 			return "no-material";
 		}
-		outMaterial = target->getName();
-
-		Ogre::Pass* pass = FirstPass(procs, target.getPointer(), 0);
+		Ogre::Pass* pass = FirstPass(procs, current, 0);
 		if (pass == nullptr)
 		{
 			return "no-pass";
@@ -739,42 +747,56 @@ namespace
 		const Ogre::String texture = procs.getTextureName(unit);
 
 		Ogre::MaterialManager* materials = procs.materialManager();
-		Ogre::MaterialPtr source;
-		if (materials != nullptr)
+		if (materials == nullptr)
 		{
-			procs.getByName(materials, &source, Ogre::String(kDx11TextMaterialName), Ogre::String(kAutodetectResourceGroupName));
+			return "no-material-manager";
 		}
-		if (source.isNull())
-		{
-			return "missing-EXU_HUD/Text";
-		}
+		outMaterial = Ogre::String(kDx11TextMaterialName) + "/" + fontName;
+		const Ogre::String autodetect(kAutodetectResourceGroupName);
 
-		procs.copyDetails(source.getPointer(), target);
-		const unsigned short techniques = procs.numTechniques(target.getPointer());
-		for (unsigned short t = 0; t < techniques; ++t)
+		Ogre::MaterialPtr textMaterial;
+		procs.getByName(materials, &textMaterial, outMaterial, autodetect);
+		if (textMaterial.isNull())
 		{
-			Ogre::Pass* copied = FirstPass(procs, target.getPointer(), t);
-			Ogre::TextureUnitState* copiedUnit = copied == nullptr ? nullptr : procs.getTextureUnit(copied, 0);
-			if (copiedUnit != nullptr)
+			Ogre::MaterialPtr source;
+			procs.getByName(materials, &source, Ogre::String(kDx11TextMaterialName), autodetect);
+			if (source.isNull())
 			{
-				procs.setTextureName(copiedUnit, texture, 2 /* TEX_TYPE_2D */);
+				return "missing-EXU_HUD/Text";
+			}
+			procs.clone(source.getPointer(), &textMaterial, outMaterial, false, Ogre::String());
+			if (textMaterial.isNull())
+			{
+				return "clone-failed";
+			}
+			const unsigned short techniques = procs.numTechniques(textMaterial.getPointer());
+			for (unsigned short t = 0; t < techniques; ++t)
+			{
+				Ogre::Pass* clonedPass = FirstPass(procs, textMaterial.getPointer(), t);
+				Ogre::TextureUnitState* clonedUnit = clonedPass == nullptr ? nullptr : procs.getTextureUnit(clonedPass, 0);
+				if (clonedUnit != nullptr)
+				{
+					procs.setTextureName(clonedUnit, texture, 2 /* TEX_TYPE_2D */);
+				}
 			}
 		}
+
+		procs.textAreaSetMaterialName(overlayElement, outMaterial);
 		return "converted";
 	}
 
-	bool EnableDx11TextShadersBody(void* overlayElement, std::string* outMaterial, const char** outResult)
+	bool EnableDx11TextShadersBody(void* overlayElement, const char* fontName, std::string* outMaterial, const char** outResult)
 	{
-		*outResult = EnableDx11TextShadersCpp(overlayElement, *outMaterial);
+		*outResult = EnableDx11TextShadersCpp(overlayElement, fontName, *outMaterial);
 		return true;
 	}
 
-	bool TryEnableDx11TextShadersSeh(void* overlayElement, std::string* outMaterial, const char** outResult, unsigned int& outExceptionCode)
+	bool TryEnableDx11TextShadersSeh(void* overlayElement, const char* fontName, std::string* outMaterial, const char** outResult, unsigned int& outExceptionCode)
 	{
 		outExceptionCode = 0;
 		__try
 		{
-			return EnableDx11TextShadersBody(overlayElement, outMaterial, outResult);
+			return EnableDx11TextShadersBody(overlayElement, fontName, outMaterial, outResult);
 		}
 		__except (ExtraUtilities::Seh::Filter(GetExceptionCode(), outExceptionCode))
 		{
@@ -1464,9 +1486,9 @@ namespace Native
 			return false;
 		}
 	}
-	bool TryEnableDx11TextShaders(void* overlayElement) noexcept
+	bool TryEnableDx11TextShaders(void* overlayElement, const char* fontName) noexcept
 	{
-		if (overlayElement == nullptr)
+		if (overlayElement == nullptr || fontName == nullptr || fontName[0] == '\0')
 		{
 			return false;
 		}
@@ -1476,7 +1498,7 @@ namespace Native
 		try
 		{
 			unsigned int exceptionCode = 0;
-			if (!TryEnableDx11TextShadersSeh(overlayElement, &material, &result, exceptionCode))
+			if (!TryEnableDx11TextShadersSeh(overlayElement, fontName, &material, &result, exceptionCode))
 			{
 				LogNativeOverlayMessage("[EXU::Overlay] dx11 text shaders seh element=%p code=0x%08X", overlayElement, exceptionCode);
 				return false;
