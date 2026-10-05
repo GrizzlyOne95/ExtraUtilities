@@ -149,9 +149,14 @@ namespace ExtraUtilities::PathBlock
 		{
 			Capabilities caps;
 			PathBlock::GetCapabilities(caps);
-			lua_createtable(L, 0, 7);
-			lua_pushboolean(L, caps.available && caps.hookedSites > 0 ? 1 : 0);
+			lua_createtable(L, 0, 9);
+			// Footprints are applied (by EXU, or by the module EXU stood down for).
+			lua_pushboolean(L, caps.available && (caps.hookedSites > 0 || caps.standDown) ? 1 : 0);
 			lua_setfield(L, -2, "pathBlock");
+			lua_pushstring(L, caps.owner);
+			lua_setfield(L, -2, "owner");
+			lua_pushboolean(L, caps.standDown ? 1 : 0);
+			lua_setfield(L, -2, "standDown");
 			lua_pushboolean(L, caps.available ? 1 : 0);
 			lua_setfield(L, -2, "available");
 			lua_pushinteger(L, caps.hookedSites);
