@@ -108,16 +108,17 @@ namespace ExtraUtilities::PathBlock
 		}
 
 		// Every call of BlockCells in .text. Preimages are the stock call rel32,
-		// so a site another module already patched is left alone.
+		// so a site another module already patched is left alone. Installed by
+		// OnInit only while BlockCells' entry is stock (see OwnerOfBlockCells).
 		InlinePatch g_sites[] = {
-			InlinePatch(Addr::ProcessBuildingsCall, CallTo(Addr::ProcessBuildingsCall), BasicPatch::Status::ACTIVE, { 0xE8, 0xF4, 0xEC, 0xFF, 0xFF }),
-			InlinePatch(Addr::AddObjectCall, CallTo(Addr::AddObjectCall), BasicPatch::Status::ACTIVE, { 0xE8, 0xE1, 0xD8, 0xFF, 0xFF }),
-			InlinePatch(Addr::DeleteObjectCall, CallTo(Addr::DeleteObjectCall), BasicPatch::Status::ACTIVE, { 0xE8, 0x41, 0xD8, 0xFF, 0xFF }),
-			InlinePatch(Addr::DeployUnblockCallA, CallTo(Addr::DeployUnblockCallA), BasicPatch::Status::ACTIVE, { 0xE8, 0x24, 0xCA, 0xEB, 0xFF }),
-			InlinePatch(Addr::DeployUnblockCallB, CallTo(Addr::DeployUnblockCallB), BasicPatch::Status::ACTIVE, { 0xE8, 0xC3, 0xC9, 0xEB, 0xFF }),
-			InlinePatch(Addr::DeployBlockCallA, CallTo(Addr::DeployBlockCallA), BasicPatch::Status::ACTIVE, { 0xE8, 0x10, 0xC1, 0xEB, 0xFF }),
-			InlinePatch(Addr::DeployBlockCallB, CallTo(Addr::DeployBlockCallB), BasicPatch::Status::ACTIVE, { 0xE8, 0xFE, 0xB5, 0xEB, 0xFF }),
-			InlinePatch(Addr::DeployBlockCallC, CallTo(Addr::DeployBlockCallC), BasicPatch::Status::ACTIVE, { 0xE8, 0x33, 0x8B, 0xEB, 0xFF }),
+			InlinePatch(Addr::ProcessBuildingsCall, CallTo(Addr::ProcessBuildingsCall), BasicPatch::Status::INACTIVE, { 0xE8, 0xF4, 0xEC, 0xFF, 0xFF }),
+			InlinePatch(Addr::AddObjectCall, CallTo(Addr::AddObjectCall), BasicPatch::Status::INACTIVE, { 0xE8, 0xE1, 0xD8, 0xFF, 0xFF }),
+			InlinePatch(Addr::DeleteObjectCall, CallTo(Addr::DeleteObjectCall), BasicPatch::Status::INACTIVE, { 0xE8, 0x41, 0xD8, 0xFF, 0xFF }),
+			InlinePatch(Addr::DeployUnblockCallA, CallTo(Addr::DeployUnblockCallA), BasicPatch::Status::INACTIVE, { 0xE8, 0x24, 0xCA, 0xEB, 0xFF }),
+			InlinePatch(Addr::DeployUnblockCallB, CallTo(Addr::DeployUnblockCallB), BasicPatch::Status::INACTIVE, { 0xE8, 0xC3, 0xC9, 0xEB, 0xFF }),
+			InlinePatch(Addr::DeployBlockCallA, CallTo(Addr::DeployBlockCallA), BasicPatch::Status::INACTIVE, { 0xE8, 0x10, 0xC1, 0xEB, 0xFF }),
+			InlinePatch(Addr::DeployBlockCallB, CallTo(Addr::DeployBlockCallB), BasicPatch::Status::INACTIVE, { 0xE8, 0xFE, 0xB5, 0xEB, 0xFF }),
+			InlinePatch(Addr::DeployBlockCallC, CallTo(Addr::DeployBlockCallC), BasicPatch::Status::INACTIVE, { 0xE8, 0x33, 0x8B, 0xEB, 0xFF }),
 		};
 		constexpr int kSiteCount = static_cast<int>(sizeof(g_sites) / sizeof(g_sites[0]));
 
@@ -135,6 +136,62 @@ namespace ExtraUtilities::PathBlock
 		// Objects already reported in exu.log (pointer + serial).
 		std::unordered_set<std::uint64_t> g_logged;
 		bool g_inStub = false;
+		// Another module (OpenShim PathBlockFaces) detoured BlockCells' entry:
+		// it implements the same contract for every call from process start,
+		// so EXU installs nothing and recomputes nothing.
+		bool g_standDown = false;
+		char g_owner[64] = "none";
+
+		// BlockCells' stock prologue: push ebp / mov ebp,esp / sub esp,0x64.
+		constexpr std::uint8_t kBlockCellsPrologue[6] = { 0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x64 };
+
+		bool ReadEntrySeh(std::uint8_t (&out)[6]) noexcept
+		{
+			__try
+			{
+				std::memcpy(out, reinterpret_cast<const void*>(Addr::BlockCells), sizeof(out));
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return false;
+			}
+		}
+
+		// True when the entry is stock. Otherwise names the module a leading
+		// jmp rel32 lands in (OpenShim is winmm.dll) for the log.
+		bool BlockCellsEntryIsStock(char* owner, std::size_t ownerSize) noexcept
+		{
+			std::uint8_t entry[6] = {};
+			if (!ReadEntrySeh(entry))
+			{
+				std::snprintf(owner, ownerSize, "unreadable");
+				return false;
+			}
+			if (std::memcmp(entry, kBlockCellsPrologue, sizeof(entry)) == 0)
+				return true;
+			std::snprintf(owner, ownerSize, "unknown patch");
+			if (entry[0] == 0xE9)
+			{
+				std::int32_t rel = 0;
+				std::memcpy(&rel, entry + 1, sizeof(rel));
+				const std::uintptr_t target = static_cast<std::uintptr_t>(Addr::BlockCells) + 5u + static_cast<std::uintptr_t>(rel);
+				HMODULE module = nullptr;
+				char path[MAX_PATH] = {};
+				if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+						reinterpret_cast<LPCSTR>(target), &module) && module != nullptr &&
+					GetModuleFileNameA(module, path, MAX_PATH) != 0)
+				{
+					const char* base = std::strrchr(path, '\\');
+					std::snprintf(owner, ownerSize, "%s", base != nullptr ? base + 1 : path);
+				}
+				else
+				{
+					std::snprintf(owner, ownerSize, "jmp %p", reinterpret_cast<void*>(target));
+				}
+			}
+			return false;
+		}
 
 		template <typename... Args>
 		void Log(const char* format, Args... args) noexcept
@@ -982,6 +1039,8 @@ namespace ExtraUtilities::PathBlock
 	void ResetMissionState() noexcept
 	{
 		g_enabled = true;
+		g_standDown = false;
+		std::snprintf(g_owner, sizeof(g_owner), "none");
 		g_inStub = false;
 		try
 		{
@@ -998,10 +1057,24 @@ namespace ExtraUtilities::PathBlock
 		try
 		{
 			ResetMissionState();
-			const int hooked = HookedSiteCount();
-			Log("exu: pathing: %d/%d BlockCells call sites redirected", hooked, kSiteCount);
 			if (!RuntimeGate::IsSupported())
 				return;
+			char owner[64] = {};
+			if (!BlockCellsEntryIsStock(owner, sizeof(owner)))
+			{
+				// OpenShim's detour already applied every BlockCells of this map
+				// under the same contract; a second recompute could only differ
+				// in how opened cells get their terrain bits back.
+				g_standDown = true;
+				std::snprintf(g_owner, sizeof(g_owner), "%s", owner);
+				Log("exu: pathing: BlockCells entry is detoured (%s); standing down, that module owns the footprints", owner);
+				return;
+			}
+			for (InlinePatch& site : g_sites)
+				site.SetStatus(BasicPatch::Status::ACTIVE);
+			const int hooked = HookedSiteCount();
+			std::snprintf(g_owner, sizeof(g_owner), "%s", hooked > 0 ? "exu" : "none");
+			Log("exu: pathing: %d/%d BlockCells call sites redirected", hooked, kSiteCount);
 			const int applied = RefreshInternal(false);
 			if (applied < 0)
 				Log("exu: pathing: no path grid yet; the map load pass will go through the hooks");
@@ -1018,6 +1091,11 @@ namespace ExtraUtilities::PathBlock
 	{
 		if (!RuntimeGate::IsSupported())
 			return -1;
+		if (g_standDown)
+		{
+			Log("exu: pathing: Refresh skipped; %s owns the footprints", g_owner);
+			return 0;
+		}
 		try
 		{
 			const int applied = RefreshInternal(true);
@@ -1165,6 +1243,8 @@ namespace ExtraUtilities::PathBlock
 		out.hookSites = kSiteCount;
 		out.hookedSites = HookedSiteCount();
 		out.enabled = g_enabled;
+		out.standDown = g_standDown;
+		std::snprintf(out.owner, sizeof(out.owner), "%s", g_owner);
 		M::Grid grid;
 		std::uint8_t* cells = nullptr;
 		out.gridReady = ReadGrid(grid, cells);
