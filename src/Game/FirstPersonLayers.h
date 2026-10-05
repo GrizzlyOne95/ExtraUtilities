@@ -1344,4 +1344,12 @@ namespace ExtraUtilities::Lua::FirstPersonLayers
 	// the FSM is playing (null when unknown); triggerHeld is the local fire
 	// bind (PlayerTrigger::IsHeld).
 	void ApplyLocal(void* firstPersonEntity, float dt, const char* engineClip, bool triggerHeld) noexcept;
+
+	// Hook only (after ApplyLocal on the same tick): the base weight applied
+	// to the FSM's current first-person clip this tick (1 when unset), and
+	// whether a layer the hook is driving has this name. Used by the
+	// transition cross-fade (PersonAnimBlend), which keeps its weights
+	// summing to the base and never touches a clip a layer owns.
+	float CurrentBaseWeight() noexcept;
+	bool IsDrivenLayerName(const char* name) noexcept;
 }

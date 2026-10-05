@@ -102,6 +102,7 @@ error("This is a definition file, use require(\"exu\")")
 --- @field pilotFsmIntercept boolean
 --- @field pilotAnimationOverrides boolean
 --- @field firstPersonLayers boolean
+--- @field transitionBlend boolean
 --- @field managedClock boolean
 --- @field nativeAdvancement string
 --- @field firstPersonStatus string

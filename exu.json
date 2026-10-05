@@ -1125,6 +1125,51 @@
         "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
       }
     },
+    "DeathCamera": {
+      "ExplodePilotPushCameraCall": {
+        "address": "0x004AD831",
+        "type": "hook site (5 bytes: call rel32 to CameraPush)",
+        "description": "In the player branch of the pilot-kill path 0x004AD700 (snipe), the first of the two calls that leave the cockpit view: call 0x0061A000 (camera stack save). EXU redirects it to a stub that skips it while exu.fps.SetDeathCamera(\"first\") keeps the first-person view during death1.",
+        "pattern": "E8 CA C7 16 00 8B 85 70 FF FF FF 8B 88 F0 00 00 00 51",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text; the rel32 ties it to this site. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/Research/DEATH_CAMERA_RE_20261005.md)."
+      },
+      "ExplodePilotSetViewCall": {
+        "address": "0x004AD843",
+        "type": "hook site (5 bytes: call rel32 to CameraSetFreeEye, cdecl 1 arg, caller pops)",
+        "description": "Second call of that branch: call 0x0061CF30(*(Person+0xF0)) switches the camera to free-eye mode 0xB at the body. Redirected to the same opt-in stub pair.",
+        "pattern": "E8 E8 F6 16 00 83 C4 04 C7 05 E4 98 91 00 01 00 00 00",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/Research/DEATH_CAMERA_RE_20261005.md)."
+      },
+      "CameraPush": {
+        "address": "0x0061A000",
+        "type": "function: int __cdecl(void)",
+        "description": "Saves the current camera block (0x008EAAD0, 0x238 bytes) to the camera stack (count 0x008EAD14).",
+        "pattern": "55 8B EC 56 57 83 3D 14 AD 8E 00 01",
+        "pattern_kind": "code",
+        "note": "Unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/Research/DEATH_CAMERA_RE_20261005.md)."
+      },
+      "CameraSetFreeEye": {
+        "address": "0x0061CF30",
+        "type": "function: void __cdecl(void* renderBridge)",
+        "description": "Puts the camera in free-eye mode (0x008EAAD8 = 0xB) at the bridge object matrix and clears the attached bridge 0x008EACB8.",
+        "pattern": null,
+        "note": "Prologue shared with five other camera functions; identified by the call-site rel32s (ExplodePilotSetViewCall, Person::Simulate 0x0059D49A). Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/Research/DEATH_CAMERA_RE_20261005.md)."
+      },
+      "CameraMode": {
+        "address": "0x008EAAD8",
+        "type": "int32 (.data)",
+        "description": "Camera mode. 0 = attached to a render bridge (cockpit/chase; set by 0x0061AB00/0x0061A780/0x0061A940), 0xB = free eye, 0xC = saved-restore mode.",
+        "pattern": null
+      },
+      "CameraAttachedBridge": {
+        "address": "0x008EACB8",
+        "type": "void* (.data)",
+        "description": "Render bridge the camera follows in mode 0; read by the per-frame camera update 0x0061A510 (via 0x00439E70), which takes the POV transform from the WORLD entity (bridge+0x94) and POV bone (bridge+0xE0) in 0x0067DAC0.",
+        "pattern": null
+      }
+    },
     "ScreenFlash": {
       "CraftDamageFlashSite": {
         "address": "0x004AA6F6",
