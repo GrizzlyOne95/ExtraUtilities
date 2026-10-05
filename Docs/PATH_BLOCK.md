@@ -29,8 +29,8 @@ Keys are read through the engine's ParameterDB, as Lua `GetODFString` reads them
 - **Geometry:** the LOD0 GEO faces of the SDF hierarchy (`GeoCache_SelectLOD(obj, 0)`, skipping objects with OBJ76 flag bit 0, as `get_obj_bounding_box` does), fan-triangulated, in the root's local frame. The root's own matrix is the identity.
 - **Placement:** the root world matrix exactly as `BlockCells` uses it. World (x, z) = `right.xz * lx + front.xz * lz + posit.xz`, and the up row is ignored. A cell centre maps back to root-local (lx, lz) through the inverse of that 2x2. The sample height is root-local y.
 - **Grid:**
-  - Cell size is `Terrain.Grid_Size`, read at runtime (10 m on stock maps).
-  - World x maps to cell `floor(x * Grid_Scale) - GridMinX`, clamped. Its centre is `(absoluteIndex + 0.5) * Grid_Size`.
+  - Cell size is `Terrain.Grid_Size` at 0x02CC50E0, read at runtime: 5.0 m, stored by terrain init 0x0077E990.
+  - Cell (gx, gz) = (`floor(x * Grid_Scale)`, `floor(z * Grid_Scale)`), with Grid_Scale = 1 / size at 0x02CC50E4. The byte index is `(gx - MinX) + (MaxX - MinX) * (gz - MinZ)`, with MinX/MaxX at 0x02CE99C0/0x02CE99A0 and MinZ/MaxZ at 0x02CD9984/0x02CE99C4. The cell centre is `(g + 0.5) * size`.
   - Cell byte bits: 0/1 slope/steep (3 = cliff), 2 lava, 3 perimeter. A building ORs in `0x0B`.
 
 ## Idempotence
@@ -45,6 +45,25 @@ Every edit recomputes the affected cells from scratch, so one, both, or repeated
    - flagged objects use their face mask.
 
 The region recomputed is the object's stored world AABB rectangle, the same rectangle `UpdateCells` visits. `InvalidateStrips` is called over it afterwards.
+
+## Coexistence with OpenShim (PR #407)
+
+OpenShim detours the **entry** of `BlockCells` (0x00468A70) from process start, so it sees every add and remove of every map. In `luaopen_exu`, EXU reads that entry:
+
+- **Stock prologue `55 8B EC 83 EC 64`:** EXU installs its eight call-site redirects and runs its init refresh. `GetCapabilities().owner == "exu"`.
+- **Anything else (OpenShim's `jmp` into winmm.dll, or another patch):** EXU stands down. It installs no redirects, and `Refresh`/`SetEnabled` recompute nothing. `owner` names the detour's module and `standDown == true`. `GetMode` and `DumpGrid` still work, read-only.
+
+A map's grid is therefore written by exactly one implementation, whichever load order. There is no second recompute, so terrain bits are never unblocked twice and no stale pre-call bytes are applied.
+
+Remaining differences between the two implementations, which matter only when comparing EXU-only grids with OpenShim-only grids:
+
+| Point | EXU | OpenShim |
+| --- | --- | --- |
+| Opened cell | re-derives the terrain bits as `ProcessCliffs` does (cliff 3) and re-adds perimeter bit 3 | restores the byte from before the stock call, or uses `BuildingUnblock` (steep/slope only) for a cell already blocked |
+| Faces | the engine's loaded LOD0 GEOs | `<baseName>.sdf`, GEOs whose 4th name character is `1` |
+| Tie rule | top-left edge ownership | Sunday half-open rule |
+
+Both use vertex-order normals, never the stored GEO "plane" values (not normals), and the same sign. Inside an outward part the count is -1. Points away from triangle edges get the same answer from both.
 
 ## Timing and removal
 
@@ -75,4 +94,4 @@ The region recomputed is the object's stored world AABB rectangle, the same rect
 
 ## Offline check
 
-`tools/pathblock_dryrun.py <folder> <name> --yaw 0,30,45 --offset 0,0 --offset 5,5` loads an SDF and its GEOs and prints the mask the native code writes. It mirrors `src/Game/PathBlockMath.h`; a cross-check on `bbsubtun` agreed on all 5681 sample points. For the 16 m `bbsubtun` tunnel with 10 m cells, a 4-connected open corridor exists at every yaw from 0 to 90 degrees in 5-degree steps and every offset from 0 to 8 m in 2 m steps. A corridor wider than 10√2 ≈ 14.1 m always contains one.
+`tools/pathblock_dryrun.py <folder> <name> --cell 5 --yaw 0,30,45 --offset 0,0 --offset 2.5,1` loads an SDF and its GEOs and prints the mask the native code writes. It mirrors `src/Game/PathBlockMath.h`; a cross-check on `bbsubtun` agreed on all 5681 sample points. With the real 5 m cells (`--cell 5`), the 16 m `bbsubtun` tunnel has a 4-connected open corridor at all 285 placements tested: yaw 0 to 90 degrees in 5-degree steps, x offsets 0 to 4 m, z offsets 0 to 3 m. The deck either side is blocked; its battered outer 2 m and the side control room are open. A corridor wider than 5√2 ≈ 7.1 m always contains one. The same check at 10 m passed 475/475.
