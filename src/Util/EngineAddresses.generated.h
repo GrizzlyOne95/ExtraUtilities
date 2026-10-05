@@ -477,6 +477,25 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
+	namespace DeathCamera
+	{
+		enum : uintptr_t
+		{
+			// hook site (5 bytes: call rel32 to CameraPush)
+			ExplodePilotPushCameraCall = 0x004AD831u,
+			// hook site (5 bytes: call rel32 to CameraSetFreeEye, cdecl 1 arg, caller pops)
+			ExplodePilotSetViewCall = 0x004AD843u,
+			// function: int __cdecl(void)
+			CameraPush = 0x0061A000u,
+			// function: void __cdecl(void* renderBridge)
+			CameraSetFreeEye = 0x0061CF30u,
+			// int32 (.data)
+			CameraMode = 0x008EAAD8u,
+			// void* (.data)
+			CameraAttachedBridge = 0x008EACB8u,
+		};
+	}
+
 	namespace ScreenFlash
 	{
 		enum : uintptr_t
@@ -564,5 +583,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 176u;
+	inline constexpr unsigned kEntryCount = 182u;
 }
