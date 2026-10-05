@@ -63,7 +63,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int GetSubEntityCount(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
 		{
@@ -84,7 +84,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int GetMaterialName(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
 		{
@@ -120,7 +120,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int GetSubEntityMaterial(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
 		{
@@ -143,7 +143,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetMaterialName(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		const char* const materialName = luaL_checkstring(L, 2);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
@@ -166,7 +166,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetEntityMaterial(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		const char* const materialName = luaL_checkstring(L, 2);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
@@ -181,7 +181,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetSubEntityMaterial(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		luaL_checkinteger(L, 2);
 		const char* const materialName = luaL_checkstring(L, 3);
 		void* entity = GetRenderableEntity(h);

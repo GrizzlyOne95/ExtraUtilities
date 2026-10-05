@@ -55,6 +55,9 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{
 				GameObject,
 				LocalFirstPerson,
+				// A craft's cockpit Entity (render bridge +0xC0): the second
+				// Entity the first-person cockpit view draws. Re-read per call.
+				Cockpit,
 			};
 
 			struct Target
@@ -72,13 +75,20 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 			const char* TargetKindName(TargetKind kind)
 			{
-				return kind == TargetKind::GameObject ? "gameObject" : "localFirstPerson";
+				switch (kind)
+				{
+				case TargetKind::GameObject: return "gameObject";
+				case TargetKind::Cockpit: return "cockpit";
+				default: return "localFirstPerson";
+				}
 			}
 
 			bool IsTargetSupported(const Target& target)
 			{
 				if (target.kind == TargetKind::GameObject)
 					return target.handle != 0;
+				if (target.kind == TargetKind::Cockpit)
+					return target.handle != 0 && FirstPersonTarget::IsNativeResolverAvailable();
 				return OpenShimBridge::HasLocalFirstPersonEntityBridge() ||
 					FirstPersonTarget::IsNativeResolverAvailable();
 			}
@@ -133,6 +143,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 					*generation = 0;
 				if (target.kind == TargetKind::GameObject)
 					return target.handle ? GameObject::ResolveAnimationEntity(target.handle) : nullptr;
+				if (target.kind == TargetKind::Cockpit)
+					return target.handle ? GameObject::ResolveCockpitEntity(target.handle) : nullptr;
 
 				void* entity = nullptr;
 				const bool hasOpenShimResolver = OpenShimBridge::HasLocalFirstPersonEntityBridge();
@@ -189,6 +201,10 @@ namespace ExtraUtilities::Lua::AnimationApi
 				{
 					target.kind = TargetKind::LocalFirstPerson;
 				}
+				else if (std::strcmp(kind, "cockpit") == 0)
+				{
+					target.kind = TargetKind::Cockpit;
+				}
 				else
 				{
 					lua_pop(L, 1);
@@ -196,7 +212,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 				}
 				lua_pop(L, 1);
 
-				if (target.kind == TargetKind::GameObject)
+				if (target.kind == TargetKind::GameObject || target.kind == TargetKind::Cockpit)
 				{
 					lua_getfield(L, absIndex, "handle");
 					target.handle = CheckHandle(L, -1);
@@ -384,6 +400,20 @@ namespace ExtraUtilities::Lua::AnimationApi
 			return 1;
 		}
 
+		// exu.animation.TargetCockpit(h) -> { kind = "cockpit", handle = h }.
+		// Also accepted by the handle-based entity, sub-entity material and
+		// entity-animation functions (exu.SetEntityAnimationTime(target, ...)).
+		int TargetCockpit(lua_State* L)
+		{
+			const BZR::handle handle = CheckHandle(L, 1);
+			lua_createtable(L, 0, 2);
+			lua_pushstring(L, "cockpit");
+			lua_setfield(L, -2, "kind");
+			Detail::PushHandle(L, handle);
+			lua_setfield(L, -2, "handle");
+			return 1;
+		}
+
 		int TargetLocalFirstPerson(lua_State* L)
 		{
 			lua_createtable(L, 0, 1);
@@ -401,6 +431,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 			const bool hasNativeFpResolver = FirstPersonTarget::IsNativeResolverAvailable();
 			lua_pushboolean(L, (hasFpBridge || hasNativeFpResolver) ? 1 : 0);
 			lua_setfield(L, -2, "localFirstPersonTarget");
+			lua_pushboolean(L, hasNativeFpResolver ? 1 : 0);
+			lua_setfield(L, -2, "cockpitTarget");
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "animationInventory");
 			lua_pushboolean(L, 1);
@@ -1975,6 +2007,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 		static const luaL_Reg functions[] = {
 			{ "Target", &Target },
 			{ "TargetLocalFirstPerson", &TargetLocalFirstPerson },
+			{ "TargetCockpit", &TargetCockpit },
 			{ "GetCapabilities", &GetCapabilities },
 			{ "Has", &Has },
 			{ "GetInfo", &GetInfo },
@@ -2040,6 +2073,6 @@ namespace ExtraUtilities::Lua::AnimationApi
 		lua_setfield(L, -2, "fps");
 		lua_settop(L, originalTop);
 
-		Logging::LogMessage("exu: installed high-level animation API (gameObject + standalone/OpenShim local-first-person targets) and local first-person facade");
+		Logging::LogMessage("exu: installed high-level animation API (gameObject, cockpit + standalone/OpenShim local-first-person targets) and local first-person facade");
 	}
 }
