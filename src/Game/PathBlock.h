@@ -56,6 +56,11 @@ namespace ExtraUtilities::PathBlock
 		bool gridReady = false;  // the path grid exists
 		float cellSize = 0.0f;
 		bool enabled = true;
+		// OpenShim (or another module) detoured BlockCells: EXU hooks and
+		// recomputes nothing; owner names who applies the footprints
+		// ("exu", the detour's module, or "none").
+		bool standDown = false;
+		char owner[64] = {};
 	};
 
 	// Game thread only.
