@@ -39,6 +39,7 @@
 #include "Game/PersonAnimBlend.h"
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotFsmIntercept.h"
+#include "Game/ShellCasings.h"
 #include "Game/StaticGeometry.h"
 #include "LuaState.h"
 #include "LuaCppBarrier.h"
@@ -133,6 +134,7 @@ namespace ExtraUtilities::Lua
 		AnimationApi::Install(L);
 		StorageApi::Install(L);
 		ContinuityApi::Install(L);
+		ShellCasings::Install(L);
 		Logging::LogMessage(
 			"exu: attached Lua state %p generation=%llu",
 			static_cast<void*>(L),
@@ -184,12 +186,16 @@ namespace ExtraUtilities::Lua
 			ResetMissionScopedState();
 			Overlay::ShutdownOverlaySupport();
 			StaticGeometry::Shutdown();
+			// Before the DLL can unload: removes the Ogre frame listener.
+			ShellCasings::Shutdown();
 			Environment::Shutdown();
 			state.Clear(L);
 			Logging::LogMessage("exu: Lua state closed; native state invalidated");
 		}
 		catch (...)
 		{
+			// The frame listener must never outlive the DLL.
+			ShellCasings::Shutdown();
 			state.Clear(L);
 			OutputDebugStringA("ExtraUtilities: exception during Lua-state shutdown\n");
 		}
