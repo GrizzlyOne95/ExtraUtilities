@@ -515,6 +515,8 @@ namespace ExtraUtilities::Lua::PersonAnimBlend
 	struct PreCall
 	{
 		bool valid = false;
+		// Identity only: the post-call read must find the same bridge.
+		const void* bridge = nullptr;
 		std::int32_t index = -1;
 		BridgeSide world{};
 		BridgeSide firstPerson{};

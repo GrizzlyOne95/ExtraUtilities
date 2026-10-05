@@ -109,6 +109,7 @@ namespace ExtraUtilities::Lua::PersonAnimBlend
 				{
 					return false;
 				}
+				out.bridge = bridge;
 				out.index = ReadAt<std::int32_t>(person, kPersonAnimIndexOffset);
 				out.world.entity = ReadAt<void*>(bridge, kBridgeWorldEntity);
 				out.world.on = ReadAt<std::int32_t>(bridge, kBridgeWorldOn) != 0;
@@ -560,8 +561,11 @@ namespace ExtraUtilities::Lua::PersonAnimBlend
 		{
 			return;
 		}
+		// A Person that lost or changed its render bridge inside the stock
+		// call (removal, model rebuild) is left alone this tick; its tracks
+		// are dropped on a later tick by the entity check, never touched.
 		PreCall after{};
-		if (!ReadBridgeSeh(person, after))
+		if (!ReadBridgeSeh(person, after) || after.bridge != pre.bridge)
 		{
 			return;
 		}
