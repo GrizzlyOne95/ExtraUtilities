@@ -351,6 +351,32 @@ function fps.SetTransitionBlend(options) end
 --- @return ExuTransitionBlend
 function fps.GetTransitionBlend() end
 
+--- @class ExuDeathCamera
+--- @field mode "first"|"stock"
+--- @field available boolean The build qualified for native patches.
+--- @field patched boolean Both call-site redirects are in place.
+--- @field armed boolean A death1 is playing in first person right now.
+--- @field probe boolean Diagnostic logging to exu.log while armed.
+--- @field kept integer Deaths kept in first person this mission.
+--- @field forced integer Times the guard handed the camera back early.
+--- @field declined integer Deaths left stock because a condition failed.
+
+--- Keeps the camera on the local pilot's POV bone while `death1` plays after
+--- a snipe (`"first"`), instead of the stock free-eye switch (`"stock"`/nil).
+--- Single player only (checked at the moment of death); ordinary chunk deaths
+--- are unaffected. When death1 ends, the stock camera switch runs as usual.
+--- Mission-scoped: stock at every mission boundary. Returns whether first
+--- person is active.
+--- @param mode "first"|"stock"|nil
+--- @param options { probe: boolean? }?
+--- @return boolean active
+function fps.SetDeathCamera(mode, options) end
+
+--- Returns the death camera mode and counters.
+--- @nodiscard
+--- @return ExuDeathCamera
+function fps.GetDeathCamera() end
+
 --- Returns whether the local fire/auto-fire bind was held at the engine's last
 --- poll. False when `firstPersonTrigger` is false.
 --- @nodiscard

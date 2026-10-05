@@ -672,6 +672,40 @@ start-time (`0x008E8EF4`) tables, and only `enterCrouch`/`exitCrouch` have a
 Both would need new profile fields (a loop flag and a per-slot rate) and a
 fourth qualified table in the seam.
 
+## First-person death view
+
+When the local pilot is sniped, the engine plays `death1` but immediately
+switches the camera to a free-eye view of the body, so the first-person clip
+is never seen. Opt in to keep the camera on the pilot's POV bone until
+`death1` finishes:
+
+```lua
+exu.fps.SetDeathCamera("first")                    -- returns whether it is active
+exu.fps.SetDeathCamera("first", { probe = true })  -- plus diagnostic lines in exu.log
+exu.fps.SetDeathCamera("stock")                    -- or nil: stock behaviour
+local d = exu.fps.GetDeathCamera()
+print(d.mode, d.patched, d.armed, d.kept, d.forced, d.declined)
+```
+
+- It applies only at the moment of a snipe death, and only when the session
+  is single player, the user object is a Person with a dedicated
+  first-person entity, and the camera is attached to that pilot. Otherwise
+  the stock switch runs (`declined` counts these). Ordinary deaths that turn
+  the pilot into chunks never take this path.
+- When `death1` finishes, the stock code switches to the free-eye camera
+  exactly as before and removes the pilot.
+- Guard: if the pilot stops being the user object (or leaves `death1`) while
+  the camera still follows it, EXU runs the stock camera switch itself
+  (`forced`).
+- The view follows the pilot's POV bone as `death1` moves it; the camera
+  reads that bone from the world skeleton (static RE: `0x0067DAC0`), so the
+  world `death1` decides the fall and the first-person `death1` is drawn at
+  the camera. `probe = true` logs the entities and bone every 10 pilot ticks
+  to confirm this in game.
+- Mission-scoped: stock again at every mission boundary. Two call sites are
+  redirected only while the mode is `"first"`. RE notes:
+  `Docs/Research/DEATH_CAMERA_RE_20261005.md`.
+
 ## First-person particles (effects on FP bones)
 
 Attach an EXU-managed particle system (`exu.CreateParticleSystem`) to a bone of
