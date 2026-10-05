@@ -25,7 +25,7 @@ native code would write: '#' blocked (inside solid at either sample height),
 the same as the C++; see Docs/PATH_BLOCK.md.
 
     python tools/pathblock_dryrun.py <folder> <name> [--yaw 0,30,45] [--offset 0,0]
-        [--cell 10] [--h1 1.5] [--h2 3.0]
+        [--cell 5] [--h1 1.5] [--h2 3.0]
 """
 from __future__ import annotations
 
@@ -195,7 +195,7 @@ def main(argv=None):
     ap.add_argument("name")
     ap.add_argument("--yaw", default="0,30,45,90")
     ap.add_argument("--offset", action="append", default=None, help="x,z (repeatable)")
-    ap.add_argument("--cell", type=float, default=10.0)
+    ap.add_argument("--cell", type=float, default=5.0)  # Grid_Size 0x02CC50E0 at runtime
     ap.add_argument("--h1", type=float, default=1.5)
     ap.add_argument("--h2", type=float, default=3.0)
     a = ap.parse_args(argv)
