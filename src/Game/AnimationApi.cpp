@@ -19,6 +19,7 @@
 #include "Game/AnimationApi.h"
 
 #include "Game/FirstPersonLayers.h"
+#include "Game/PersonAnimBlend.h"
 #include "Game/FirstPersonParticles.h"
 #include "Game/FirstPersonTarget.h"
 #include "Game/GameObject.h"
@@ -417,6 +418,10 @@ namespace ExtraUtilities::Lua::AnimationApi
 			// presentation-only, so multiplayer does not affect this flag.
 			lua_pushboolean(L, FirstPersonLayers::IsAvailable() ? 1 : 0);
 			lua_setfield(L, -2, "firstPersonLayers");
+			// exu.fps.SetTransitionBlend: presentation-only weights on the same
+			// seam, every Person, multiplayer included.
+			lua_pushboolean(L, PersonAnimBlend::IsAvailable() ? 1 : 0);
+			lua_setfield(L, -2, "transitionBlend");
 			// The local fire-held signal (exu.fps.IsTriggerHeld, the layer `fire`
 			// option): both UserProcess read sites matched at install.
 			lua_pushboolean(L, PlayerTrigger::IsAvailable() ? 1 : 0);
@@ -1556,6 +1561,125 @@ namespace ExtraUtilities::Lua::AnimationApi
 			return 2;
 		}
 
+		bool ReadBlendBoolean(lua_State* L, int valueIndex, const char* key)
+		{
+			if (lua_type(L, valueIndex) != LUA_TBOOLEAN)
+			{
+				luaL_error(L, "exu.fps.SetTransitionBlend: option '%s' must be a boolean", key);
+			}
+			return lua_toboolean(L, valueIndex) != 0;
+		}
+
+		// exu.fps.SetTransitionBlend(options | nil | false) -> available.
+		// A table replaces the whole setting (omitted keys take their
+		// defaults) and turns the blend on unless enabled = false; nil/false
+		// turns it off. Mission-scoped.
+		int FpsSetTransitionBlend(lua_State* L)
+		{
+			PersonAnimBlend::Settings settings{};
+			if (lua_isnoneornil(L, 1) || (lua_type(L, 1) == LUA_TBOOLEAN && !lua_toboolean(L, 1)))
+			{
+				settings.enabled = false;
+			}
+			else
+			{
+				luaL_checktype(L, 1, LUA_TTABLE);
+				settings.enabled = true;
+				lua_settop(L, 1);
+				lua_pushnil(L);
+				while (lua_next(L, 1) != 0)
+				{
+					const int keyIndex = lua_gettop(L) - 1;
+					const int valueIndex = lua_gettop(L);
+					if (lua_type(L, keyIndex) != LUA_TSTRING)
+					{
+						luaL_error(L, "exu.fps.SetTransitionBlend: option keys must be strings");
+					}
+					const char* key = lua_tostring(L, keyIndex);
+					if (std::strcmp(key, "time") == 0)
+					{
+						if (lua_type(L, valueIndex) != LUA_TNUMBER)
+						{
+							luaL_error(L, "exu.fps.SetTransitionBlend: option 'time' must be a number");
+						}
+						const double seconds = static_cast<double>(lua_tonumber(L, valueIndex));
+						if (!PersonAnimBlend::IsValidBlendSeconds(seconds))
+						{
+							luaL_error(L, "exu.fps.SetTransitionBlend: option 'time' must be in [0, %g] seconds",
+								PersonAnimBlend::kMaxBlendSeconds);
+						}
+						settings.time = static_cast<float>(seconds);
+					}
+					else if (std::strcmp(key, "enabled") == 0)
+					{
+						settings.enabled = ReadBlendBoolean(L, valueIndex, key);
+					}
+					else if (std::strcmp(key, "phaseCarry") == 0)
+					{
+						settings.phaseCarry = ReadBlendBoolean(L, valueIndex, key);
+					}
+					else if (std::strcmp(key, "fp") == 0)
+					{
+						settings.firstPerson = ReadBlendBoolean(L, valueIndex, key);
+					}
+					else if (std::strcmp(key, "world") == 0)
+					{
+						settings.world = ReadBlendBoolean(L, valueIndex, key);
+					}
+					else if (std::strcmp(key, "death") == 0)
+					{
+						settings.death = ReadBlendBoolean(L, valueIndex, key);
+					}
+					else
+					{
+						luaL_error(L,
+							"exu.fps.SetTransitionBlend: unknown option '%s' (expected enabled, time, phaseCarry, fp, world, death)",
+							key);
+					}
+					lua_settop(L, keyIndex);
+				}
+			}
+			PersonAnimBlend::SetSettings(settings);
+			lua_settop(L, 0);
+			lua_pushboolean(L, PersonAnimBlend::IsAvailable() ? 1 : 0);
+			return 1;
+		}
+
+		// exu.fps.GetTransitionBlend() -> settings plus live counters.
+		int FpsGetTransitionBlend(lua_State* L)
+		{
+			const PersonAnimBlend::Settings settings = PersonAnimBlend::GetSettings();
+			PersonAnimBlend::Stats stats{};
+			PersonAnimBlend::GetStats(stats);
+			lua_settop(L, 0);
+			lua_createtable(L, 0, 12);
+			lua_pushboolean(L, settings.enabled ? 1 : 0);
+			lua_setfield(L, -2, "enabled");
+			lua_pushnumber(L, static_cast<lua_Number>(settings.time));
+			lua_setfield(L, -2, "time");
+			lua_pushboolean(L, settings.phaseCarry ? 1 : 0);
+			lua_setfield(L, -2, "phaseCarry");
+			lua_pushboolean(L, settings.firstPerson ? 1 : 0);
+			lua_setfield(L, -2, "fp");
+			lua_pushboolean(L, settings.world ? 1 : 0);
+			lua_setfield(L, -2, "world");
+			lua_pushboolean(L, settings.death ? 1 : 0);
+			lua_setfield(L, -2, "death");
+			lua_pushboolean(L, stats.available ? 1 : 0);
+			lua_setfield(L, -2, "available");
+			lua_pushboolean(L, stats.faulted ? 1 : 0);
+			lua_setfield(L, -2, "faulted");
+			lua_pushinteger(L, static_cast<lua_Integer>(stats.transitions));
+			lua_setfield(L, -2, "transitions");
+			lua_pushinteger(L, static_cast<lua_Integer>(stats.phaseCarries));
+			lua_setfield(L, -2, "phaseCarries");
+			lua_pushinteger(L, static_cast<lua_Integer>(stats.activeTracks));
+			lua_setfield(L, -2, "activeFades");
+			lua_pushinteger(L, static_cast<lua_Integer>(stats.evictions));
+			lua_setfield(L, -2, "evictions");
+			return 1;
+		}
+
 		int FpsIsTriggerHeld(lua_State* L)
 		{
 			lua_settop(L, 0);
@@ -1811,6 +1935,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{ "GetLayers", &FpsGetLayers },
 			{ "SetBaseWeight", &FpsSetBaseWeight },
 			{ "GetBaseWeight", &FpsGetBaseWeight },
+			{ "SetTransitionBlend", &FpsSetTransitionBlend },
+			{ "GetTransitionBlend", &FpsGetTransitionBlend },
 			{ "IsTriggerHeld", &FpsIsTriggerHeld },
 			{ "AttachParticleToBone", &FpsAttachParticleToBone },
 			{ "IsParticleAttached", &FpsIsParticleAttached },

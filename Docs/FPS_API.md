@@ -38,6 +38,7 @@ print(caps.pilotStateInspection)
 print(caps.pilotFsmIntercept)
 print(caps.pilotAnimationOverrides)
 print(caps.firstPersonLayers)
+print(caps.transitionBlend)
 print(caps.firstPersonTrigger)
 print(caps.firstPersonParticles)
 print(caps.firstPersonStatus)
@@ -562,6 +563,114 @@ A mod that needs its own trigger logic can leave out `fire` and drive
 through speeds 0 -> 1 -> 3 -> 0 and prints `GetLayers()` each phase.
 `tests/runtime/fp_trigger_check.lua` keeps the trigger-driven barrel layer
 above alive and prints `IsTriggerHeld()` changes with `effectiveSpeed`.
+
+## Transition cross-fade (FSM clip switches)
+
+The native Person FSM hard-cuts: when the animation index changes, its apply
+helpers disable the old clip, enable the new one and restart it at the
+start-time table. Nothing in the executable ever sets a weight. An opt-in
+cross-fade replaces the cut with a short blend, for every rig with no
+asset changes:
+
+```lua
+if exu.fps.GetCapabilities().transitionBlend then
+    exu.fps.SetTransitionBlend({ time = 0.15 })   -- defaults for everything else
+end
+exu.fps.SetTransitionBlend({ time = 0.2, phaseCarry = true, fp = true, world = true, death = false })
+exu.fps.SetTransitionBlend(nil)                    -- or false: off (stock hard cut)
+
+local b = exu.fps.GetTransitionBlend()
+print(b.enabled, b.time, b.transitions, b.phaseCarries, b.activeFades, b.faulted)
+```
+
+`SetTransitionBlend(options | nil | false)` returns whether the seam is active.
+A table replaces the whole setting: omitted keys take their defaults, and it
+turns the blend on unless it has `enabled = false`. Options:
+
+- `time`: blend seconds, 0..2 (default 0.15; 0 = hard cut).
+- `phaseCarry` (default true): on a switch between two looping locomotion
+  clips (`runForward`/`runBackward`/`runLeft`/`runRight`, indices 4-7) the
+  incoming clip starts at the outgoing clip's phase,
+  `frac(oldTime / oldLength) * newLength`, so strides line up.
+- `fp` (default true): the local pilot's first-person entity.
+- `world` (default true): the world (third-person) entity of **every**
+  Person, AI and remote pilots included.
+- `death` (default true): also fade into `death1`. `false` keeps the hard cut
+  into death.
+
+Unknown keys and wrong types raise. It is **off by default** and turned off
+again at every mission/Lua-state boundary, so a mod that never calls it sees
+the stock behaviour. It is presentation-only (weights and the outgoing clip's
+clock), so it also works in multiplayer.
+
+`GetTransitionBlend()` returns the settings plus `available` (the seam is
+active), `faulted` (an Ogre call failed; the blend is off for this Lua state),
+`transitions` (fades started), `phaseCarries`, `activeFades` (entities fading
+now) and `evictions` (fades dropped because 32 entities were already fading).
+
+### How it is applied
+
+The existing `Person::Simulate` seam reads the render bridge's latched clip
+before and after every stock call (every Person). When the animation index
+changed and the latched clip name differs, the outgoing clip becomes a
+*ghost*:
+
+- EXU re-enables it (the stock helper just disabled it) and advances it
+  every tick at its latched rate (bridge `+0xBC` world / `+0xD4` first
+  person), with the same end gate as the stock tick (it holds once
+  `time + dt * rate` reaches the end-time table entry). Looping ghosts wrap.
+- Its weight ramps linearly to 0 over `time` while the incoming clip's weight
+  ramps up; the weights always sum to the base weight (1 for world entities;
+  the `SetBaseWeight` value on the first-person entity), so a stock
+  `average`-blend skeleton sees a plain linear blend and never leans towards
+  the bind pose. A `cumulative` skeleton blends the same way.
+- The incoming clip's time is **never** touched except for the phase carry
+  between two looping run clips. Kneel, stand, land, jump and death
+  completion is measured on the incoming clip's own time, so the FSM timing
+  is exactly stock.
+- A ghost that has faded out is disabled and gets weight 1 back (stock code
+  never sets weights, so a leftover weight would stick to the next stock
+  enable).
+- If the FSM switches back to a clip that is still fading out, that ghost is
+  dropped without a disable (it is the current clip again) and fades from
+  where it was; up to three ghosts per entity fade at once (a fourth switch
+  inside one fade folds the faintest into the newest).
+- A first-person ghost with the same name as an `exu.fps.SetLayer` layer is
+  left to the layer. Layers (and `SetBaseWeight`) keep working on top.
+- An entity that disappears or changes (mesh swap, the pilot boards a craft,
+  death removal) ends its fade at once **without** any call on the old
+  entity: EXU only touches an entity the render bridge yields again in the
+  same `Person::Simulate` call. Nothing is cached across ticks except names
+  and weights.
+- Turning the blend off, or setting `time = 0`, ends every running fade on the
+  next tick of its Person (ghosts disabled, current clip back at the base).
+
+### Idle looping and the jump rate (not available)
+
+Two related limits are **not** changed by this and cannot be changed through
+`SetPilotAnimationProfile` today: the profile seam rewrites names, end times
+and rates of its six slots but never the loop-flag (`0x008E8F54`) or
+start-time (`0x008E8EF4`) tables, and only `enterCrouch`/`exitCrouch` have a
+`completion` (rate) setting.
+
+- `idle` (index 2) is non-looping with end time 0.967, so a long idle clip
+  freezes at 0.967 clip-seconds (about 1.9 s at rate 0.5). Making it loop
+  natively needs both its loop byte set and its end time raised past the clip
+  length. A first-person-only workaround with the existing API: author the
+  long idle as a separate clip (for example `idleLong`) and, while
+  `exu.fps.GetPilotState().animationIndex == 2` (the FSM is on `idle`),
+  run it as a layer over a faded base:
+  `exu.fps.SetLayer("idleLong", { loop = true, fadeIn = 0.2 })` plus
+  `exu.fps.SetBaseWeight(0, 0.2)`, and undo both
+  (`exu.fps.ClearLayer("idleLong", 0.2)`, `exu.fps.SetBaseWeight(1, 0.2)`)
+  when it changes.
+- `jump` (index 11) has a first-person rate of 0.05 (world 0.6) and start
+  time 0.2, so the first-person view sees an almost frozen pose. There is no
+  API for that rate; the same layer workaround applies (`PlayLayer` of a jump
+  clip on the jump frame).
+
+Both would need new profile fields (a loop flag and a per-slot rate) and a
+fourth qualified table in the seam.
 
 ## First-person particles (effects on FP bones)
 
