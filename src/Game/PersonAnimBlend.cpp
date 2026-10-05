@@ -37,6 +37,13 @@ namespace ExtraUtilities::Lua::PersonAnimBlend
 		// what the per-tick advance in Person::Simulate reads.
 		constexpr std::size_t kPersonRenderBridgeOffset = 0x0F0;
 		constexpr std::size_t kPersonAnimIndexOffset = 0x2A8;
+		// Removal flags: Person::Simulate removes the object when
+		// *(Person+0xF4)+0x14 has 0x200 (death1 finished) or 0x1000000.
+		constexpr std::size_t kPersonObjectOffset = 0x0F4;
+		constexpr std::size_t kObjectFlagsOffset = 0x014;
+		constexpr std::uint32_t kRemoveFlag = 0x200u;
+		constexpr std::uint32_t kRemoveAltFlag = 1u << 24;
+		constexpr std::uint32_t kRemovalFlags = kRemoveFlag | kRemoveAltFlag;
 
 		constexpr std::size_t kBridgeWorldEntity = 0x094;
 		constexpr std::size_t kBridgeWorldName = 0x0B4;
@@ -533,6 +540,39 @@ namespace ExtraUtilities::Lua::PersonAnimBlend
 		g_tracks.Reset();
 		g_hookSettings = Settings{};
 		g_tick = 0;
+	}
+
+	bool IsRemovalPending(const void* person) noexcept
+	{
+		if (person == nullptr)
+		{
+			return true;
+		}
+		__try
+		{
+			const void* const object = ReadAt<const void*>(person, kPersonObjectOffset);
+			if (object == nullptr)
+			{
+				return true;
+			}
+			return (ReadAt<std::uint32_t>(object, kObjectFlagsOffset) & kRemovalFlags) != 0;
+		}
+		__except (Seh::Filter(GetExceptionCode()))
+		{
+			return true;
+		}
+	}
+
+	void ForgetPerson(const void* person) noexcept
+	{
+		for (Side side : { Side::World, Side::FirstPerson })
+		{
+			if (Track* track = g_tracks.Find(person, side))
+			{
+				g_tracks.Release(*track);
+			}
+		}
+		PublishTrackCount();
 	}
 
 	bool CapturePre(const void* person, PreCall& out) noexcept

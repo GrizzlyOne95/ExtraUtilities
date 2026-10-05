@@ -522,6 +522,13 @@ namespace ExtraUtilities::Lua::PersonAnimBlend
 		BridgeSide firstPerson{};
 	};
 
+	// Hook only, before the stock call: the Person's removal flags
+	// (*(Person+0xF4)+0x14 & 0x1000200) are set, so this call may take the
+	// stock removal branch and the Person must not be read afterwards.
+	bool IsRemovalPending(const void* person) noexcept;
+	// Drops the Person's fades without touching any entity.
+	void ForgetPerson(const void* person) noexcept;
+
 	// Hook only. Captured before the stock Person::Simulate call; returns
 	// false (and does nothing) when the blend is off and nothing is fading.
 	bool CapturePre(const void* person, PreCall& out) noexcept;

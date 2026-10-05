@@ -19,6 +19,7 @@
 #include "Game/AnimationApi.h"
 
 #include "Game/FirstPersonLayers.h"
+#include "Game/DeathCamera.h"
 #include "Game/PersonAnimBlend.h"
 #include "Game/FirstPersonParticles.h"
 #include "Game/FirstPersonTarget.h"
@@ -1680,6 +1681,79 @@ namespace ExtraUtilities::Lua::AnimationApi
 			return 1;
 		}
 
+		// exu.fps.SetDeathCamera("first" | "stock" | nil, { probe = bool }?)
+		// -> active. Mission-scoped; single player only at the moment of death.
+		int FpsSetDeathCamera(lua_State* L)
+		{
+			DeathCamera::Mode mode = DeathCamera::Mode::Stock;
+			if (!lua_isnoneornil(L, 1))
+			{
+				const char* name = luaL_checkstring(L, 1);
+				if (std::strcmp(name, "first") == 0)
+				{
+					mode = DeathCamera::Mode::First;
+				}
+				else if (std::strcmp(name, "stock") != 0)
+				{
+					luaL_error(L, "exu.fps.SetDeathCamera: mode must be \"first\" or \"stock\"");
+				}
+			}
+			bool probe = false;
+			if (!lua_isnoneornil(L, 2))
+			{
+				luaL_checktype(L, 2, LUA_TTABLE);
+				lua_settop(L, 2);
+				lua_pushnil(L);
+				while (lua_next(L, 2) != 0)
+				{
+					const int keyIndex = lua_gettop(L) - 1;
+					if (lua_type(L, keyIndex) != LUA_TSTRING ||
+						std::strcmp(lua_tostring(L, keyIndex), "probe") != 0)
+					{
+						luaL_error(L, "exu.fps.SetDeathCamera: unknown option (expected probe)");
+					}
+					if (lua_type(L, keyIndex + 1) != LUA_TBOOLEAN)
+					{
+						luaL_error(L, "exu.fps.SetDeathCamera: option 'probe' must be a boolean");
+					}
+					probe = lua_toboolean(L, keyIndex + 1) != 0;
+					lua_settop(L, keyIndex);
+				}
+			}
+			DeathCamera::SetProbe(probe);
+			const bool ok = DeathCamera::SetMode(mode);
+			lua_settop(L, 0);
+			lua_pushboolean(L, (ok && mode == DeathCamera::Mode::First) ? 1 : 0);
+			return 1;
+		}
+
+		// exu.fps.GetDeathCamera() -> { mode, available, patched, armed, probe,
+		// kept, forced, declined }.
+		int FpsGetDeathCamera(lua_State* L)
+		{
+			DeathCamera::Stats stats{};
+			DeathCamera::GetStats(stats);
+			lua_settop(L, 0);
+			lua_createtable(L, 0, 8);
+			lua_pushstring(L, DeathCamera::GetMode() == DeathCamera::Mode::First ? "first" : "stock");
+			lua_setfield(L, -2, "mode");
+			lua_pushboolean(L, stats.available ? 1 : 0);
+			lua_setfield(L, -2, "available");
+			lua_pushboolean(L, stats.patched ? 1 : 0);
+			lua_setfield(L, -2, "patched");
+			lua_pushboolean(L, stats.armed ? 1 : 0);
+			lua_setfield(L, -2, "armed");
+			lua_pushboolean(L, stats.probe ? 1 : 0);
+			lua_setfield(L, -2, "probe");
+			lua_pushinteger(L, static_cast<lua_Integer>(stats.kept));
+			lua_setfield(L, -2, "kept");
+			lua_pushinteger(L, static_cast<lua_Integer>(stats.forced));
+			lua_setfield(L, -2, "forced");
+			lua_pushinteger(L, static_cast<lua_Integer>(stats.declined));
+			lua_setfield(L, -2, "declined");
+			return 1;
+		}
+
 		int FpsIsTriggerHeld(lua_State* L)
 		{
 			lua_settop(L, 0);
@@ -1937,6 +2011,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{ "GetBaseWeight", &FpsGetBaseWeight },
 			{ "SetTransitionBlend", &FpsSetTransitionBlend },
 			{ "GetTransitionBlend", &FpsGetTransitionBlend },
+			{ "SetDeathCamera", &FpsSetDeathCamera },
+			{ "GetDeathCamera", &FpsGetDeathCamera },
 			{ "IsTriggerHeld", &FpsIsTriggerHeld },
 			{ "AttachParticleToBone", &FpsAttachParticleToBone },
 			{ "IsParticleAttached", &FpsIsParticleAttached },
