@@ -209,6 +209,7 @@
     <ClCompile Include="src\UI\Renderer.cpp" />
     <ClCompile Include="src\UI\Reticle.cpp" />
     <ClCompile Include="src\Game\Satellite.cpp" />
+    <ClCompile Include="src\Game\ShellCasings.cpp" />
     <ClCompile Include="src\Game\StaticGeometry.cpp" />
     <ClCompile Include="src\Patches\ScreenFlash.cpp" />
     <ClCompile Include="src\Patches\StatusHud.cpp" />
@@ -299,6 +300,8 @@
     <ClInclude Include="src\UI\Renderer.h" />
     <ClInclude Include="src\UI\Reticle.h" />
     <ClInclude Include="src\Game\Satellite.h" />
+    <ClInclude Include="src\Game\ShellCasings.h" />
+    <ClInclude Include="src\Game\ShellCasingMath.h" />
     <ClInclude Include="src\Game\StaticGeometry.h" />
     <ClInclude Include="src\BasicScanner.h" />
     <ClInclude Include="src\Patches\ScreenFlash.h" />
