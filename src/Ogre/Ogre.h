@@ -219,6 +219,24 @@ namespace ExtraUtilities::Ogre
 	using _GetSubEntityByIndex = void*(__thiscall*)(void*, uint32_t);
 	inline constinit OgreExport<_GetSubEntityByIndex> GetSubEntityByIndex{ "?getSubEntity@Entity@Ogre@@QBEPAVSubEntity@2@I@Z" };
 
+	// SubEntity is a Renderable, not a MovableObject: its visibility and
+	// render queue are its own virtuals, and a SubEntity* must never be passed
+	// to a MovableObject export.
+	using _SubEntitySetVisible = void(__thiscall*)(void*, bool);
+	inline constinit OgreExport<_SubEntitySetVisible> SubEntitySetVisible{ "?setVisible@SubEntity@Ogre@@UAEX_N@Z" };
+
+	using _SubEntitySetRenderQueueGroup = void(__thiscall*)(void*, uint8_t);
+	inline constinit OgreExport<_SubEntitySetRenderQueueGroup> SubEntitySetRenderQueueGroup{ "?setRenderQueueGroup@SubEntity@Ogre@@UAEXE@Z" };
+
+	using _SubEntitySetRenderQueueGroupAndPriority = void(__thiscall*)(void*, uint8_t, uint16_t);
+	inline constinit OgreExport<_SubEntitySetRenderQueueGroupAndPriority> SubEntitySetRenderQueueGroupAndPriority{ "?setRenderQueueGroupAndPriority@SubEntity@Ogre@@UAEXEG@Z" };
+
+	using _SubEntityGetRenderQueueGroup = uint8_t(__thiscall*)(void*);
+	inline constinit OgreExport<_SubEntityGetRenderQueueGroup> SubEntityGetRenderQueueGroup{ "?getRenderQueueGroup@SubEntity@Ogre@@UBEEXZ" };
+
+	using _SubEntityIsRenderQueueGroupSet = bool(__thiscall*)(void*);
+	inline constinit OgreExport<_SubEntityIsRenderQueueGroupSet> SubEntityIsRenderQueueGroupSet{ "?isRenderQueueGroupSet@SubEntity@Ogre@@UBE_NXZ" };
+
 	using _GetMaterialNameSubEntity = const std::string&(__thiscall*)(void*);
 	inline constinit OgreExport<_GetMaterialNameSubEntity> GetMaterialNameSubEntity{ "?getMaterialName@SubEntity@Ogre@@QBEABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@XZ" };
 

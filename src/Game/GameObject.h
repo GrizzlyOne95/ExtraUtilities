@@ -79,6 +79,8 @@ namespace ExtraUtilities::Lua::GameObject
 	int SetEntityQueryFlags(lua_State* L);
 	int SetEntityRenderQueueGroup(lua_State* L);
 	int SetSubEntityVisible(lua_State* L);
+	int SetSubEntityRenderQueueGroup(lua_State* L);
+	int GetSubEntityRenderQueueGroup(lua_State* L);
 	int GetSubEntityCount(lua_State* L);
 	int GetSubEntityMaterial(lua_State* L);
 	int SetSubEntityMaterial(lua_State* L);
@@ -90,6 +92,8 @@ namespace ExtraUtilities::Lua::GameObject
 	int CloneMaterial(lua_State* L);
 	int SetMaterialTexture(lua_State* L);
 	int SetMaterialTextureScroll(lua_State* L);
+	int SetMaterialTextureScale(lua_State* L);
+	int SetMaterialTextureWindow(lua_State* L);
 	int SetMaterialTextureRotate(lua_State* L);
 	int SetMaterialTextureScrollAnimation(lua_State* L);
 	int SetMaterialTextureRotateAnimation(lua_State* L);

@@ -87,6 +87,8 @@ namespace ExtraUtilities::Lua::GameObject
 			MaterialTextureUnitHandle& outHandle);
 		bool TrySetMaterialTextureName(::Ogre::TextureUnitState* textureUnit, const std::string& textureName);
 		bool TrySetMaterialTextureScroll(::Ogre::TextureUnitState* textureUnit, float u, float v);
+		bool TryGetMaterialTechniqueCount(const std::string& materialName, const std::string& resourceGroup, int& outCount);
+		bool TrySetMaterialTextureScale(::Ogre::TextureUnitState* textureUnit, float uScale, float vScale);
 		bool TrySetMaterialTextureRotate(::Ogre::TextureUnitState* textureUnit, float radians);
 		bool TrySetMaterialTextureScrollAnimation(::Ogre::TextureUnitState* textureUnit, float uSpeed, float vSpeed);
 		bool TrySetMaterialTextureRotateAnimation(::Ogre::TextureUnitState* textureUnit, float speed);
