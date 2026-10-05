@@ -497,4 +497,26 @@ namespace ExtraUtilities::Lua::FirstPersonLayers
 		}
 		g_results.Publish(results);
 	}
+
+	float CurrentBaseWeight() noexcept
+	{
+		return g_baseTracker.Weight();
+	}
+
+	bool IsDrivenLayerName(const char* name) noexcept
+	{
+		if (name == nullptr || g_faulted.load(std::memory_order_acquire))
+		{
+			return false;
+		}
+		for (std::uint32_t i = 0; i < g_tracker.Count(); ++i)
+		{
+			const TrackedLayer& tracked = g_tracker.At(i);
+			if (!tracked.ended && std::strncmp(tracked.name, name, kMaxLayerName + 1) == 0)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
 }

@@ -314,6 +314,69 @@ function fps.SetBaseWeight(weight, fadeSeconds) end
 --- @return number target
 function fps.GetBaseWeight() end
 
+--- @class ExuTransitionBlendOptions
+--- @field enabled boolean? Default true when a table is given.
+--- @field time number? Blend seconds, 0..2 (default 0.15; 0 = hard cut).
+--- @field phaseCarry boolean? Line up strides on run<->run switches (default true).
+--- @field fp boolean? Fade the local pilot's first-person entity (default true).
+--- @field world boolean? Fade every Person's world (third-person) entity (default true).
+--- @field death boolean? Also fade into death1 (default true).
+
+--- @class ExuTransitionBlend
+--- @field enabled boolean
+--- @field time number
+--- @field phaseCarry boolean
+--- @field fp boolean
+--- @field world boolean
+--- @field death boolean
+--- @field available boolean The Person::Simulate seam is active.
+--- @field faulted boolean An Ogre call faulted; the blend is off for this Lua state.
+--- @field transitions integer Fades started this mission.
+--- @field phaseCarries integer Run<->run switches whose stride phase was carried.
+--- @field activeFades integer Entities fading right now.
+--- @field evictions integer Fades dropped because the 32-entity table was full.
+
+--- Cross-fades the clip switches of the native Person animation FSM (every
+--- Person's world entity and the local first-person entity) instead of the
+--- stock hard cut. A table replaces the whole setting (omitted keys take their
+--- defaults); `nil`/`false` turns it off. Off by default and at every mission
+--- boundary. Presentation only (weights and the outgoing clip's clock), so it
+--- also works in multiplayer. Returns whether the seam is active.
+--- @param options ExuTransitionBlendOptions|false|nil
+--- @return boolean available
+function fps.SetTransitionBlend(options) end
+
+--- Returns the transition blend settings and live counters.
+--- @nodiscard
+--- @return ExuTransitionBlend
+function fps.GetTransitionBlend() end
+
+--- @class ExuDeathCamera
+--- @field mode "first"|"stock"
+--- @field available boolean The build qualified for native patches.
+--- @field patched boolean Both call-site redirects are in place.
+--- @field armed boolean A death1 is playing in first person right now.
+--- @field probe boolean Diagnostic logging to exu.log while armed.
+--- @field kept integer Deaths kept in first person this mission.
+--- @field forced integer Times the guard handed the camera back early.
+--- @field declined integer Deaths left stock because a condition failed.
+
+--- Keeps the camera on the local pilot's POV bone while `death1` plays after
+--- a snipe (`"first"`), instead of the stock free-eye switch (`"stock"`/nil).
+--- Single player only (checked at the moment of death); ordinary chunk deaths
+--- are unaffected. When death1 ends, the stock camera switch runs as usual.
+--- Mission-scoped: stock at every mission boundary. Returns whether first
+--- person is active.
+--- @param mode "first"|"stock"|nil
+--- @param options { probe: boolean? }?
+--- @return boolean active
+function fps.SetDeathCamera(mode, options) end
+
+--- Returns the death camera mode and counters.
+--- @nodiscard
+--- @return ExuDeathCamera
+function fps.GetDeathCamera() end
+
 --- Returns whether the local fire/auto-fire bind was held at the engine's last
 --- poll. False when `firstPersonTrigger` is false.
 --- @nodiscard
