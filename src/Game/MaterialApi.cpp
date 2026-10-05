@@ -17,6 +17,10 @@
 */
 
 #include "GameObjectInternal.h"
+#include "Game/TextureWindowMath.h"
+
+#include <algorithm>
+#include <cmath>
 
 // Material Lua bindings: sub-entity materials, clone/exists, pass colours and
 // texture-unit animation. The Ogre wrappers are in Ogre/OgreMaterialRuntime.cpp.
@@ -352,6 +356,93 @@ namespace ExtraUtilities::Lua::GameObject
 		}
 
 		lua_pushboolean(L, success ? 1 : 0);
+		return 1;
+	}
+
+	// exu.SetMaterialTextureScale(material, uScale, vScale[, technique, pass, unit, group])
+	// Ogre's TextureUnitState::setTextureScale (about the texture centre; 2 =
+	// the texture looks twice as big). Same defaults as SetMaterialTextureScroll.
+	int SetMaterialTextureScale(lua_State* L)
+	{
+		const std::string_view materialNameArg = luaL_checkstring(L, 1);
+		const float uScale = static_cast<float>(luaL_checknumber(L, 2));
+		const float vScale = static_cast<float>(luaL_checknumber(L, 3));
+		const int techniqueIndex = luaL_optint(L, 4, 0);
+		const int passIndex = luaL_optint(L, 5, 0);
+		const int textureUnitIndex = luaL_optint(L, 6, 0);
+		const std::string_view resourceGroupArg = CheckOptionalResourceGroup(L, 7);
+		const std::string materialName(materialNameArg);
+		const std::string resourceGroup(resourceGroupArg);
+		if (!std::isfinite(uScale) || !std::isfinite(vScale) || uScale == 0.0f || vScale == 0.0f)
+		{
+			return luaL_error(L, "Extra Utilities: texture scale must be finite and non-zero");
+		}
+
+		MaterialTextureUnitHandle handle;
+		if (!TryResolveMaterialTextureUnit(materialName, resourceGroup, techniqueIndex, passIndex, textureUnitIndex, handle))
+		{
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+		lua_pushboolean(L, TrySetMaterialTextureScale(handle.textureUnit, uScale, vScale) ? 1 : 0);
+		return 1;
+	}
+
+	// exu.SetMaterialTextureWindow(material, u0, v0, du, dv[, technique, pass, unit, group])
+	// Sets scale and scroll so the unit samples the window [u0, u0 + du] x
+	// [v0, v0 + dv] across the mesh's UV 0..1, like an overlay panel's
+	// uv_coords (a negative extent mirrors). technique -1 applies it to every
+	// technique of the material, so one call covers the DX11 and DX9
+	// techniques. Rotation is left alone (set it to 0 for an exact window).
+	// Returns the number of texture units changed.
+	int SetMaterialTextureWindow(lua_State* L)
+	{
+		const std::string_view materialNameArg = luaL_checkstring(L, 1);
+		const float u0 = static_cast<float>(luaL_checknumber(L, 2));
+		const float v0 = static_cast<float>(luaL_checknumber(L, 3));
+		const float du = static_cast<float>(luaL_checknumber(L, 4));
+		const float dv = static_cast<float>(luaL_checknumber(L, 5));
+		const int techniqueArg = luaL_optint(L, 6, 0);
+		const int passIndex = luaL_optint(L, 7, 0);
+		const int textureUnitIndex = luaL_optint(L, 8, 0);
+		const std::string_view resourceGroupArg = CheckOptionalResourceGroup(L, 9);
+		const std::string materialName(materialNameArg);
+		const std::string resourceGroup(resourceGroupArg);
+
+		TextureWindowMath::Transform transform;
+		if (!TextureWindowMath::FromWindow(u0, v0, du, dv, transform))
+		{
+			return luaL_error(L, "Extra Utilities: texture window must be finite with a non-zero extent");
+		}
+
+		int firstTechnique = techniqueArg;
+		int lastTechnique = techniqueArg;
+		if (techniqueArg < 0)
+		{
+			int count = 0;
+			if (!TryGetMaterialTechniqueCount(materialName, resourceGroup, count) || count <= 0)
+			{
+				lua_pushinteger(L, 0);
+				return 1;
+			}
+			firstTechnique = 0;
+			lastTechnique = (std::min)(count, 64) - 1;
+		}
+		int changed = 0;
+		for (int technique = firstTechnique; technique <= lastTechnique; ++technique)
+		{
+			MaterialTextureUnitHandle handle;
+			if (!TryResolveMaterialTextureUnit(materialName, resourceGroup, technique, passIndex, textureUnitIndex, handle))
+			{
+				continue;    // this technique has no such pass/unit
+			}
+			if (TrySetMaterialTextureScale(handle.textureUnit, transform.scaleU, transform.scaleV) &&
+				TrySetMaterialTextureScroll(handle.textureUnit, transform.scrollU, transform.scrollV))
+			{
+				++changed;
+			}
+		}
+		lua_pushinteger(L, changed);
 		return 1;
 	}
 

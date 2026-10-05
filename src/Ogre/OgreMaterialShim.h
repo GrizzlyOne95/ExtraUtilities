@@ -228,6 +228,19 @@ namespace Ogre
 		return true;
 	}
 
+	inline bool SetTextureUnitStateTextureScale(TextureUnitState* textureUnitState, float uScale, float vScale)
+	{
+		using Fn = void(__thiscall*)(TextureUnitState*, float, float);
+		static Fn fn = ResolveOgreProc<Fn>("?setTextureScale@TextureUnitState@Ogre@@QAEXMM@Z");
+		if (fn == nullptr || textureUnitState == nullptr)
+		{
+			return false;
+		}
+
+		fn(textureUnitState, uScale, vScale);
+		return true;
+	}
+
 	inline bool SetTextureUnitStateTextureRotate(TextureUnitState* textureUnitState, float radians)
 	{
 		using Fn = void(__thiscall*)(TextureUnitState*, const Radian&);

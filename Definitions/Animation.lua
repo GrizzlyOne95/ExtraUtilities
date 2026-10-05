@@ -26,6 +26,8 @@
 --- @field gameObjectTarget boolean
 --- @field localFirstPersonTarget boolean True when either the optional OpenShim resolver or EXU's native BZR resolver is available.
 --- @field cockpitTarget boolean True when EXU's native supported-build render-bridge read (used by `TargetCockpit`) is available.
+--- @field subEntityRenderQueue boolean True when the OgreMain SubEntity render queue exports resolved (`SetSubEntityRenderQueue`, `exu.SetSubEntityRenderQueueGroup`).
+--- @field glass boolean True when a cockpit glass submesh can be drawn after the world: `subEntityRenderQueue` and `cockpitTarget` (see Docs/COCKPIT_GLASS.md).
 --- @field animationInventory boolean True when `List` is available.
 --- @field pilotStateInspection boolean True when the read-only local Person FSM snapshot API is compiled in.
 --- @field pilotFsmIntercept boolean True when the verified observe-only Person::Simulate entry detour is active.
@@ -66,6 +68,22 @@ function animation.TargetLocalFirstPerson() end
 --- @param h Handle
 --- @return ExuAnimationTarget
 function animation.TargetCockpit(h) end
+
+--- Same as `exu.SetSubEntityRenderQueueGroup`, here beside `TargetCockpit`.
+--- @param target Handle|ExuAnimationTarget
+--- @param selector integer|string Sub-entity index or material name
+--- @param group integer
+--- @param priority integer?
+--- @return integer changed
+--- @return integer? firstIndex
+function animation.SetSubEntityRenderQueue(target, selector, group, priority) end
+
+--- Same as `exu.GetSubEntityRenderQueueGroup`.
+--- @param target Handle|ExuAnimationTarget
+--- @param subEntityIndex integer
+--- @return integer? group
+--- @return boolean? isOwnGroup
+function animation.GetSubEntityRenderQueue(target, subEntityIndex) end
 
 --- Returns the currently implemented target/clock capabilities.
 --- @nodiscard
