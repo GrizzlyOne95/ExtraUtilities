@@ -98,6 +98,43 @@ end
 
 When OpenShim is installed, EXU preserves the existing OpenShim resolver and its generation/lifetime qualification.
 
+## Cockpit target
+
+A craft's first-person cockpit is drawn from a separate Ogre entity, not the
+world entity a handle selects. For a mesh whose cockpit parts hang off `2`
+bones (`2` at name index 3), Redux builds a second Entity of the same mesh
+(render bridge `+0xC0`, BZR 2.2.301 0x67E5A0) with every `2` bone live and every
+`1` bone hidden; in the world entity (`+0x94`) the `2` bones are manual and
+scaled to 0. For a separate `<name>_cockpit.mesh`, `+0xC0` is that entity.
+Clips on cockpit bones and cockpit sub-entity material swaps therefore only
+show when applied to the cockpit entity:
+
+```lua
+local ck = exu.animation.TargetCockpit(GetPlayerHandle())
+if exu.animation.Has(ck, "ck_throttle") then
+    exu.animation.SetEnabled(ck, "ck_throttle", true)
+    exu.animation.Seek(ck, "ck_throttle", 1.0) -- absolute time, set every frame
+end
+
+-- The handle-based functions accept the same target as argument 1:
+exu.SetEntityAnimationTime(ck, "ck_stick_yaw", 0.5)
+local n = exu.GetSubEntityCount(ck)            -- nil when no cockpit entity
+exu.SetSubEntityMaterial(ck, 3, "My/Clone")
+```
+
+- Resolved afresh on every call (the entity is per craft and may be rebuilt on
+  view or craft changes); EXU never caches it.
+- Fails closed: `false` / `nil` / no-op when the cockpit entity is absent
+  (outside cockpit view, before the renderer builds it, unsupported build).
+- Works for any GameObject (no `Person` qualification, no clip requirements).
+- Redux never advances or resets animation states on vehicles, so a script owns
+  the clip time completely; set it absolutely each update.
+- Material-name operations (`SetMaterialPassColors`, `SetMaterialTexture`,
+  `SetMaterialTextureScroll`, `CloneMaterial`) act on the shared material and
+  need no target.
+- `GetCapabilities().cockpitTarget` reports whether the native render-bridge
+  read is available.
+
 Without OpenShim, EXU now resolves the target directly from the current user-controlled object on every operation:
 
 ```text

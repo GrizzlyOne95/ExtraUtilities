@@ -1544,91 +1544,91 @@ function exu.GetHandle(obj) end
 
 --- Gets whether the object's Ogre entity is currently visible.
 --- @nodiscard
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @return boolean | nil
 function exu.GetEntityVisible(h) end
 
 --- Gets whether the object's Ogre entity currently casts shadows.
 --- @nodiscard
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @return boolean | nil
 function exu.GetEntityCastShadows(h) end
 
 --- Gets the object's Ogre rendering distance.
 --- @nodiscard
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @return number | nil
 function exu.GetEntityRenderingDistance(h) end
 
 --- Gets the object's Ogre visibility flags mask.
 --- @nodiscard
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @return integer | nil
 function exu.GetEntityVisibilityFlags(h) end
 
 --- Gets the object's Ogre query flags mask.
 --- @nodiscard
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @return integer | nil
 function exu.GetEntityQueryFlags(h) end
 
 --- Gets the object's Ogre render queue group.
 --- @nodiscard
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @return integer | nil
 function exu.GetEntityRenderQueueGroup(h) end
 
 --- Sets whether the object's Ogre entity is visible.
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param visible boolean
 function exu.SetEntityVisible(h, visible) end
 
 --- Sets whether the object's Ogre entity casts shadows.
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param castShadows boolean
 function exu.SetEntityCastShadows(h, castShadows) end
 
 --- Sets the object's Ogre rendering distance.
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param distance number
 function exu.SetEntityRenderingDistance(h, distance) end
 
 --- Sets the object's Ogre visibility flags mask.
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param flags integer
 function exu.SetEntityVisibilityFlags(h, flags) end
 
 --- Sets the object's Ogre query flags mask.
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param flags integer
 function exu.SetEntityQueryFlags(h, flags) end
 
 --- Sets the object's Ogre render queue group.
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param group integer
 function exu.SetEntityRenderQueueGroup(h, group) end
 
 --- Sets whether a specific sub-entity is visible.
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param subEntityIndex integer
 --- @param visible boolean
 function exu.SetSubEntityVisible(h, subEntityIndex, visible) end
 
 --- Gets the number of Ogre sub-entities attached to the object's render entity.
 --- @nodiscard
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @return integer | nil
 function exu.GetSubEntityCount(h) end
 
 --- Gets the number of Ogre sub-entities attached to the object's render entity.
 --- @nodiscard
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @return integer | nil
 function exu.GetNumSubEntities(h) end
 
 --- Gets the material name used by the given sub-entity.
 --- @nodiscard
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param subEntityIndex integer
 --- @return string | nil
 function exu.GetSubEntityMaterial(h, subEntityIndex) end
@@ -1636,14 +1636,14 @@ function exu.GetSubEntityMaterial(h, subEntityIndex) end
 --- Gets the material name used by the object's render entity.
 --- If no sub-entity index is provided, returns the material on sub-entity 0.
 --- @nodiscard
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param subEntityIndex integer? optional
 --- @return string | nil
 function exu.GetMaterialName(h, subEntityIndex) end
 
 --- Sets the material name used by the object's whole render entity.
 --- The resource group defaults to "General".
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param materialName string
 --- @param resourceGroup string? optional
 function exu.SetEntityMaterial(h, materialName, resourceGroup) end
@@ -1689,7 +1689,7 @@ function exu.SetStaticGeometryVisible(name, visible) end
 
 --- Sets the material name used by a specific sub-entity.
 --- The resource group defaults to "General".
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param subEntityIndex integer
 --- @param materialName string
 --- @param resourceGroup string? optional
@@ -1698,7 +1698,7 @@ function exu.SetSubEntityMaterial(h, subEntityIndex, materialName, resourceGroup
 --- Sets the material name used by the object's render entity.
 --- If a sub-entity index is provided, changes only that sub-entity. Otherwise changes the whole entity.
 --- The resource group defaults to "General".
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param materialName string
 --- @param subEntityIndex integer? optional
 --- @param resourceGroup string? optional
@@ -1828,38 +1828,38 @@ function exu.SetMaterialPassColors(materialName, colors, techniqueIndex, passInd
 
 --- Returns whether the entity has a named animation state.
 --- @nodiscard
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param animationName string
 --- @return boolean
 function exu.HasEntityAnimation(h, animationName) end
 
 --- Returns the current values for a named entity animation state.
 --- @nodiscard
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param animationName string
 --- @return table | nil
 function exu.GetEntityAnimationInfo(h, animationName) end
 
 --- Enables or disables a named entity animation state.
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param animationName string
 --- @param enabled boolean
 function exu.SetEntityAnimationEnabled(h, animationName, enabled) end
 
 --- Sets whether a named entity animation loops.
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param animationName string
 --- @param loop boolean
 function exu.SetEntityAnimationLoop(h, animationName, loop) end
 
 --- Sets the blend weight of a named entity animation.
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param animationName string
 --- @param weight number
 function exu.SetEntityAnimationWeight(h, animationName, weight) end
 
 --- Sets the current time position of a named entity animation.
---- @param h Handle
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
 --- @param animationName string
 --- @param timePosition number
 function exu.SetEntityAnimationTime(h, animationName, timePosition) end

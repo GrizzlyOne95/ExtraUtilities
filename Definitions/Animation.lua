@@ -3,8 +3,8 @@
 --- This file augments Definitions/ExtraUtils.lua; it is editor metadata only.
 
 --- @class ExuAnimationTarget
---- @field kind "gameObject"|"localFirstPerson"
---- @field handle Handle? Present for `gameObject` targets.
+--- @field kind "gameObject"|"localFirstPerson"|"cockpit"
+--- @field handle Handle? Present for `gameObject` and `cockpit` targets.
 
 --- @class ExuAnimationPlayOptions
 --- @field restart boolean? Reset the animation time to 0 before enabling it. Defaults to true.
@@ -13,7 +13,7 @@
 
 --- @class ExuAnimationInfo
 --- @field name string
---- @field targetKind "gameObject"|"localFirstPerson"
+--- @field targetKind "gameObject"|"localFirstPerson"|"cockpit"
 --- @field enabled boolean
 --- @field loop boolean
 --- @field weight number
@@ -25,6 +25,7 @@
 --- @class ExuAnimationCapabilities
 --- @field gameObjectTarget boolean
 --- @field localFirstPersonTarget boolean True when either the optional OpenShim resolver or EXU's native BZR resolver is available.
+--- @field cockpitTarget boolean True when EXU's native supported-build render-bridge read (used by `TargetCockpit`) is available.
 --- @field animationInventory boolean True when `List` is available.
 --- @field pilotStateInspection boolean True when the read-only local Person FSM snapshot API is compiled in.
 --- @field pilotFsmIntercept boolean True when the verified observe-only Person::Simulate entry detour is active.
@@ -50,6 +51,21 @@ function animation.Target(h) end
 --- re-resolved on every operation and never cached. See Docs/ANIMATION_API.md.
 --- @return ExuAnimationTarget
 function animation.TargetLocalFirstPerson() end
+
+--- Selects a craft's COCKPIT Ogre entity: the entity Redux draws in the
+--- first-person cockpit view (render bridge +0xC0). For a mesh with in-mesh
+--- cockpit bones (`2` at name index 3) it is a second Entity of the same mesh
+--- whose `2` bones are live; for a separate `<name>_cockpit.mesh` it is that
+--- entity. A plain handle selects the world entity, where `2` bones are
+--- manual and scaled to 0, so cockpit clips/material swaps there are invisible.
+--- Resolved afresh on every call, never cached; fails closed (false/nil) when
+--- the cockpit entity does not exist (outside cockpit view, before the
+--- renderer builds it, unsupported build). Works for any GameObject, no clip
+--- requirements. Also accepted as argument 1 by the handle-based entity,
+--- sub-entity material and `*EntityAnimation*` functions.
+--- @param h Handle
+--- @return ExuAnimationTarget
+function animation.TargetCockpit(h) end
 
 --- Returns the currently implemented target/clock capabilities.
 --- @nodiscard

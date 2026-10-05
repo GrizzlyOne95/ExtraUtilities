@@ -49,6 +49,10 @@ namespace ExtraUtilities::Lua::GameObject
 	// Entity-level animation bridge shared by handle targets and OpenShim-owned
 	// runtime targets. Each operation is SEH guarded and stores no Ogre pointer.
 	void* ResolveAnimationEntity(BZR::handle handle);
+	// The object's cockpit Entity (render bridge +0xC0), validated as a live
+	// renderable Entity distinct from the main one. Null when absent (not in
+	// cockpit view, no renderer yet, runtime gate closed). Never cached.
+	void* ResolveCockpitEntity(BZR::handle handle);
 	bool HasAnimation(void* entity, const std::string& name);
 	bool GetAnimationInfo(void* entity, const std::string& name, EntityAnimationInfo& outInfo);
 	bool GetAnimationInventory(void* entity, std::vector<EntityAnimationSnapshot>& outInventory);
