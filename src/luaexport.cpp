@@ -24,6 +24,7 @@
 #include "Game/Culling.h"
 #include "Game/FirstPersonLayers.h"
 #include "Game/DeathCamera.h"
+#include "Game/PathBlock.h"
 #include "Game/PersonAnimBlend.h"
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotFsmIntercept.h"
@@ -543,6 +544,9 @@ namespace ExtraUtilities::Lua
 			Logging::LogMessage("exu: deferred patches activated");
 			PilotFsmIntercept::Install();
 			PlayerTrigger::Qualify();
+			// Re-applies ODF-flagged buildings the map load already blocked
+			// (EXU usually loads after AiUtilFeature::PostLoad).
+			PathBlock::OnInit();
 		}
 		else
 		{
