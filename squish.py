@@ -37,6 +37,8 @@ RELOCATIONS: dict[str, str] = {
     # before any path setup runs. At the Build root it would only resolve after an
     # explicit RequireFix.Initialize(), which examples/Weather.lua does not call.
     "exu_weather.lua": os.path.join("Scripts", "exu_weather.lua"),
+    # Same for the ring gauge module: required by bare name from mission scripts.
+    "exu_ring_gauge.lua": os.path.join("Scripts", "exu_ring_gauge.lua"),
     "monkey.jpg": os.path.join("Assets", "monkey.jpg"),
 }
 

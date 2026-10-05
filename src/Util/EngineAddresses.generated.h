@@ -490,6 +490,35 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
+	namespace StatusHud
+	{
+		enum : uintptr_t
+		{
+			// hook site (5 bytes: call rel32; cdecl, caller pops)
+			WeaponRowPlateSite = 0x005DC843u,
+			// hook site (5 bytes: call rel32; cdecl, caller pops)
+			WeaponIconSite = 0x005DCAB5u,
+			// hook site (5 bytes: call rel32; cdecl, caller pops)
+			WeaponNameSite = 0x005DCB37u,
+			// hook site (5 bytes: call rel32; cdecl, caller pops)
+			HullLabelSite = 0x005DCDF4u,
+			// hook site (5 bytes: call rel32; cdecl, caller pops)
+			HullBarSite = 0x005DCEF5u,
+			// hook site (5 bytes: call rel32; cdecl, caller pops)
+			AmmoLabelSite = 0x005DD0C4u,
+			// hook site (5 bytes: call rel32; cdecl, caller pops)
+			AmmoBarSite = 0x005DD1C5u,
+			// hook site (5 bytes: call rel32; cdecl, caller pops)
+			AmmoShotsTextSite = 0x005DD2F8u,
+			// hook site (5 bytes: call rel32; cdecl, caller pops)
+			AmmoCostMarkSite1 = 0x005DD3EEu,
+			// hook site (5 bytes: call rel32; cdecl, caller pops)
+			AmmoCostMarkSite2 = 0x005DD41Eu,
+			// hook site (5 bytes: call rel32; cdecl, caller pops)
+			AmmoCostMarkSite3 = 0x005DD44Eu,
+		};
+	}
+
 	namespace Turbo
 	{
 		enum : uintptr_t
@@ -564,5 +593,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 176u;
+	inline constexpr unsigned kEntryCount = 187u;
 }

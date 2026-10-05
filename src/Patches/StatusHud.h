@@ -16,22 +16,19 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-/*
-* Combined header for patches
-*/
-
 #pragma once
 
-#include "Patches/AddScrapCallback.h"
-#include "Patches/AiHudBridges.h"
-#include "Patches/AiTargetSelect.h"
-#include "Patches/Cheats.h"
-#include "Patches/EngineFlameColor.h"
-#include "Patches/GlobalTurbo.h"
-#include "Patches/KillMessages.h"
-#include "Patches/OrdnanceVelocity.h"
-#include "Patches/ScreenFlash.h"
-#include "Patches/StatusHud.h"
-#include "Patches/ShotConvergence.h"
-#include "Patches/UnitVo.h"
-#include "Patches/WeaponMask.h"
+#include <lua.hpp>
+
+// Suppression of the stock player status display's draws (StatusDisplay
+// render, fn 0x005DC300) in three groups: "hull" (label and bar), "ammo"
+// (label, bar, shots-remaining count and ammo-cost marker) and "weapons"
+// (row plates, hardpoint icons and names). Only the draw calls are removed;
+// the renderer still runs, so its low-hull and out-of-ammo voice warnings
+// and its pane bookkeeping are unchanged. The patches default to inactive and
+// BasicPatch resets them at Lua-state close, so suppression is mission scoped.
+namespace ExtraUtilities::Lua::Patches
+{
+	int GetStockStatusHudVisible(lua_State* L);
+	int SetStockStatusHudVisible(lua_State* L);
+}
