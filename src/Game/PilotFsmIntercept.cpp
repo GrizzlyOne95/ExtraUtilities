@@ -14,6 +14,8 @@
 #include "Game/FirstPersonLayers.h"
 #include "Game/FirstPersonTarget.h"
 #include "Game/GameObject.h"
+#include "Game/DeathCamera.h"
+#include "Game/PersonAnimBlend.h"
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotState.h"
 #include "Game/PilotTrace.h"
@@ -903,6 +905,18 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 				}
 			}
 
+			// Transition cross-fade (every Person): the render bridge's latched
+			// clip before the stock call. Pure reads; does nothing while the
+			// blend is off and nothing is fading.
+			// A Person entering with its removal flags set may be removed by
+			// this very call: nothing after it may read the Person then.
+			const bool removalPending = PersonAnimBlend::IsRemovalPending(person);
+			PersonAnimBlend::PreCall blendPre{};
+			if (!removalPending)
+			{
+				PersonAnimBlend::CapturePre(person, blendPre);
+			}
+
 			// Write -> stock -> restore. Nothing between the write above and the
 			// restore below can return early; the stock call is the only code in
 			// between.
@@ -930,6 +944,20 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 					ApplyFirstPersonLayers(person, after, dt);
 				}
 			}
+
+			// After the layers, so the first-person fade sees this tick's base
+			// weight and can stay off any clip a layer drives. Presentation
+			// only (weights and ghost clocks), so also in multiplayer.
+			if (removalPending)
+			{
+				PersonAnimBlend::ForgetPerson(person);
+			}
+			else
+			{
+				PersonAnimBlend::ApplyPost(person, blendPre, dt, isLocal);
+			}
+			// First-person death view guard (exu.fps.SetDeathCamera).
+			DeathCamera::AfterSimulate(person, removalPending);
 		}
 	}
 
