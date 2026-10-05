@@ -1368,6 +1368,222 @@
         "description": "Redux native soundtrack GetDSBuffer. Fixed address for the existing qualified 2.2.301 layout; only used after the full EXU build gate and all three soundtrack anchors match their recorded addresses uniquely. See Docs/NATIVE_SOUNDTRACK.md for identity and validation limits.",
         "pattern": null
       }
+    },
+    "PathBlock": {
+      "BlockCells": {
+        "address": "0x00468A70",
+        "type": "function: void __cdecl(GameObject*, bool block)",
+        "description": "Blocks (or unblocks) a building's oriented SDF bbox in the AI path grid; records its world AABB in buildingArea/perimeterArea and rasterizes through UpdateCells with BuildingBlock/BuildingUnblock (or PerimeterBlock for class 5).",
+        "pattern": "55 8B EC 83 EC 64 A1 00 70 8E 00 33 C5 89 45 FC 83",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "ProcessBuildingsCall": {
+        "address": "0x00469D77",
+        "type": "hook site (5 bytes: call rel32 to BlockCells)",
+        "description": "call BlockCells in ProcessBuildings 0x00469C70 (map PostLoad pass, block=1). EXU redirects it to a stub that calls BlockCells and then recomputes the cells of ODF-flagged objects (exu.pathing).",
+        "pattern": "E8 F4 EC FF FF",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "AddObjectCall": {
+        "address": "0x0046B18A",
+        "type": "hook site (5 bytes: call rel32 to BlockCells)",
+        "description": "call BlockCells in AiUtilFeature::AddObject 0x0046B100 (runtime spawn, block=1). EXU redirects it to a stub that calls BlockCells and then recomputes the cells of ODF-flagged objects (exu.pathing).",
+        "pattern": "E8 E1 D8 FF FF 83 C4 08 8B",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "DeleteObjectCall": {
+        "address": "0x0046B22A",
+        "type": "hook site (5 bytes: call rel32 to BlockCells)",
+        "description": "call BlockCells in AiUtilFeature::DeleteObject 0x0046B1A0 (removal, block=0). EXU redirects it to a stub that calls BlockCells and then recomputes the cells of ODF-flagged objects (exu.pathing).",
+        "pattern": "E8 41 D8 FF FF",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "DeployUnblockCallA": {
+        "address": "0x005AC047",
+        "type": "hook site (5 bytes: call rel32 to BlockCells)",
+        "description": "call BlockCells in 0x005ABFF0 (deployable building teardown, block=0). EXU redirects it to a stub that calls BlockCells and then recomputes the cells of ODF-flagged objects (exu.pathing).",
+        "pattern": "E8 24 CA EB FF",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "DeployUnblockCallB": {
+        "address": "0x005AC0A8",
+        "type": "hook site (5 bytes: call rel32 to BlockCells)",
+        "description": "call BlockCells in 0x005AC070 (deployable building teardown, block=0). EXU redirects it to a stub that calls BlockCells and then recomputes the cells of ODF-flagged objects (exu.pathing).",
+        "pattern": "E8 C3 C9 EB FF",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "DeployBlockCallA": {
+        "address": "0x005AC95B",
+        "type": "hook site (5 bytes: call rel32 to BlockCells)",
+        "description": "call BlockCells in 0x005AC580 (deployable building state change). EXU redirects it to a stub that calls BlockCells and then recomputes the cells of ODF-flagged objects (exu.pathing).",
+        "pattern": "E8 10 C1 EB FF",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "DeployBlockCallB": {
+        "address": "0x005AD46D",
+        "type": "hook site (5 bytes: call rel32 to BlockCells)",
+        "description": "call BlockCells in 0x005AC580 (deployable building state change). EXU redirects it to a stub that calls BlockCells and then recomputes the cells of ODF-flagged objects (exu.pathing).",
+        "pattern": "E8 FE B5 EB FF",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "DeployBlockCallC": {
+        "address": "0x005AFF38",
+        "type": "hook site (5 bytes: call rel32 to BlockCells)",
+        "description": "call BlockCells in 0x005AFEC0 (deployable building deploy, block=1). EXU redirects it to a stub that calls BlockCells and then recomputes the cells of ODF-flagged objects (exu.pathing).",
+        "pattern": "E8 33 8B EB FF",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "CellIsCliff": {
+        "address": "0x00468980",
+        "type": "function: bool __cdecl(int gridX, int gridZ)",
+        "description": "Terrain cliff test (height step > 100 units on a cell edge); ProcessCliffs 0x00469D90 sets cellType |= 3 for it.",
+        "pattern": "55 8B EC 56 8B 45 0C 50 8B 4D 08 51 E8 AF",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "CellIsSteep": {
+        "address": "0x00468890",
+        "type": "function: bool __cdecl(int gridX, int gridZ)",
+        "description": "Terrain steep test; ProcessCliffs sets cellType |= 2.",
+        "pattern": "55 8B EC 56 8B 45 0C 50 8B 4D 08 51 E8 9F",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "CellIsSlope": {
+        "address": "0x00468450",
+        "type": "function: bool __cdecl(int gridX, int gridZ)",
+        "description": "Terrain slope test; ProcessCliffs sets cellType |= 1.",
+        "pattern": "55 8B EC 56 8B 45 0C 50 8B 4D 08 51 E8 DF",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "InvalidateStrips": {
+        "address": "0x0058D090",
+        "type": "function: void __cdecl(float x0, float z0, float x1, float z1)",
+        "description": "Invalidates the planner strips over a world rectangle; UpdateCells 0x004690F0 calls it after every grid edit.",
+        "pattern": "55 8B EC 83 EC 18 F3 0F 10 45 08 F3 0F 59 05 E4 50 CC 02 F3",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "ObjBoundingBox": {
+        "address": "0x0062E650",
+        "type": "function: void __cdecl(OBJ76* root, float min[3], float max[3])",
+        "description": "get_obj_bounding_box: LOD0 GEO vertices of the hierarchy in the root's local frame (BlockCells' bbox).",
+        "pattern": "55 8B EC 81 EC 84 00 00 00 A1 00 70 8E 00 33 C5 89 45 FC 56 57 8B 45 08 83",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "GeoSelectLod": {
+        "address": "0x004E3620",
+        "type": "function: bool(int) __cdecl(OBJ76*, int lod)",
+        "description": "GeoCache_SelectLOD: points OBJ76+0x64 at the GEO of the requested LOD; returns 1 when one is present (get_obj_bounding_box calls it with 0).",
+        "pattern": "55 8B EC 83 EC 14 8B 45 08 83 C0 68 89 45 FC",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "ResourceFileSize": {
+        "address": "0x00481A60",
+        "type": "function: int __cdecl(const char* fileName)",
+        "description": "Size of a game resource file (archives, then loose search path); 0 when absent. ParameterDB's loader uses it. The pattern runs into the next function because 0x00481AF0 is a byte-identical wrapper.",
+        "pattern": "55 8B EC 8B 45 08 50 6A 00 E8 12 00 00 00 83 C4 08 5D C3 CC CC CC CC CC CC CC CC CC CC CC CC CC 55 8B EC 83 EC 0C",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "ParameterDbOpen": {
+        "address": "0x00589430",
+        "type": "function: ParameterDB* __thiscall(ParameterDB* self, const char* fileName)",
+        "description": "ParameterDB constructor (Lua OpenODF): a 4-byte handle onto the refcounted parsed-file cache 0x009C9208.",
+        "pattern": "55 8B EC 6A FF 68 1C 64 84 00 64 A1 00 00 00 00 50 83 EC 1C A1 00 70 8E 00 33 C5 50 8D 45 F4 64 A3 00 00 00 00 89 4D F0",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "ParameterDbClose": {
+        "address": "0x00589530",
+        "type": "function: void __thiscall(ParameterDB* self)",
+        "description": "ParameterDB destructor (drops the cache reference).",
+        "pattern": "55 8B EC 83 EC 28 89 4D FC 8B 45 FC 8B 08",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "ParameterDbGetString": {
+        "address": "0x00589620",
+        "type": "function: const char* __thiscall(ParameterDB* self, uint32 sectionHash, uint32 keyHash)",
+        "description": "Value of a key, or null (Lua GetODFString).",
+        "pattern": "55 8B EC 83 EC 18 89 4D F0 8B 45 F0",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "ParameterHash": {
+        "address": "0x00446460",
+        "type": "function: uint32 __cdecl(const char* text, uint32 seed)",
+        "description": "Lower-case FNV-1a/32 used for ParameterDB section and key names (seed 0x811C9DC5).",
+        "pattern": "55 8B EC 51 83 7D 08 00 75 04 33 C0 EB 40",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in .text. Verified in GOG 2.2.301 .text 2026-10-05 (docs: Docs/PATH_BLOCK.md)."
+      },
+      "CellTypeArray": {
+        "address": "0x0260D178",
+        "type": "uint8_t* (.data)",
+        "description": "Path-grid cell bytes, row-major (GridMaxX - GridMinX) per row. Bits 0/1 slope/steep (3 = cliff), 2 lava, 3 perimeter; buildings OR 0x0B. Null before the grid exists.",
+        "pattern": null
+      },
+      "GridMinX": {
+        "address": "0x02CE99C0",
+        "type": "int32",
+        "description": "Path-grid minimum cell X (absolute cell index).",
+        "pattern": null
+      },
+      "GridMaxX": {
+        "address": "0x02CE99A0",
+        "type": "int32",
+        "description": "Path-grid exclusive maximum cell X.",
+        "pattern": null
+      },
+      "GridMinZ": {
+        "address": "0x02CD9984",
+        "type": "int32",
+        "description": "Path-grid minimum cell Z.",
+        "pattern": null
+      },
+      "GridMaxZ": {
+        "address": "0x02CE99C4",
+        "type": "int32",
+        "description": "Path-grid exclusive maximum cell Z.",
+        "pattern": null
+      },
+      "GridSize": {
+        "address": "0x02CC50E0",
+        "type": "float",
+        "description": "Terrain.Grid_Size, metres per path-grid cell (set with GridScale by 0x0077E990).",
+        "pattern": null
+      },
+      "GridScale": {
+        "address": "0x02CC50E4",
+        "type": "float",
+        "description": "Terrain.Grid_Scale = 1 / Grid_Size.",
+        "pattern": null
+      },
+      "BuildingAreaMap": {
+        "address": "0x0094DE74",
+        "type": "std::map<GameObject*, Area> (MSVC: head node*, size)",
+        "description": "buildingArea: world AABB {x0,z0,x1,z1} BlockCells stored for each box-blocked object. Node: left, parent, right, color, isnil(+0x0D), key at +0x10, Area at +0x14.",
+        "pattern": null
+      },
+      "PerimeterAreaMap": {
+        "address": "0x0094DE44",
+        "type": "std::map<GameObject*, Area>",
+        "description": "perimeterArea: the same for class-5 objects (PerimeterBlock, bit 3).",
+        "pattern": null
+      }
     }
   }
 }
