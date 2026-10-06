@@ -98,6 +98,15 @@ namespace ExtraUtilities
 			return Filter(exceptionCode);
 		}
 
+		// Same decision, also recording the code and the faulting instruction
+		// address for a caller that reports them. Pass GetExceptionInformation()
+		// (valid only inside the __except filter expression).
+		inline int Filter(unsigned long exceptionCode, unsigned int& outExceptionCode, void*& outFaultAddress, EXCEPTION_POINTERS* info) noexcept
+		{
+			outFaultAddress = (info != nullptr && info->ExceptionRecord != nullptr) ? info->ExceptionRecord->ExceptionAddress : nullptr;
+			return Filter(exceptionCode, outExceptionCode);
+		}
+
 		// Describes the exception currently being handled. Call only from inside
 		// a catch handler. Allocation-free, never throws.
 		inline void DescribeCurrentException(char* buffer, size_t size) noexcept
