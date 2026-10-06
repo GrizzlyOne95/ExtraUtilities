@@ -31,6 +31,7 @@
 --- @field pilotFsmIntercept boolean True when the verified observe-only Person::Simulate entry detour is active.
 --- @field pilotAnimationOverrides boolean True when `exu.fps.SetPilotAnimationProfile` can apply non-stock pilot animation overrides in this session: the build supports them AND the Person::Simulate seam is active with its native clip tables qualified. Overrides are still single player only (the setter errors in multiplayer).
 --- @field firstPersonLayers boolean True when `exu.fps.SetLayer` layers can be advanced: the Person::Simulate seam is active. Presentation-only, so also true in multiplayer.
+--- @field personLongClips boolean True when `exu.animation.SetPersonLongClips` can let long run/idle clips play: the Person::Simulate seam is active and its clip table entries qualified. Presentation-only, so also true in multiplayer.
 --- @field transitionBlend boolean True when `exu.fps.SetTransitionBlend` can cross-fade pilot FSM clip switches: the Person::Simulate seam is active. Presentation-only, so also true in multiplayer.
 --- @field managedClock boolean False while Redux/Ogre remains responsible for advancing the clips it plays (EXU clocks only `exu.fps.SetLayer` layers).
 --- @field nativeAdvancement "unvalidated"|string
@@ -143,6 +144,36 @@ function animation.SetWeight(target, name, weight) end
 --- @param timePosition number Non-negative seconds.
 --- @return boolean success
 function animation.Seek(target, name, timePosition) end
+
+--- @class ExuPersonLongClipsOptions
+--- @field runs boolean? Let run clips (runForward/Backward/Left/Right) longer than 0.967 s keep looping. Default true.
+--- @field idle boolean? Loop a WORLD idle longer than 0.967 s instead of freezing it. Default true.
+
+--- @class ExuPersonLongClips
+--- @field runs boolean
+--- @field idle boolean
+--- @field available boolean The Person::Simulate seam is active and the clip table entries qualified.
+--- @field faulted boolean A table write faulted; off for this Lua state.
+--- @field raisedCalls integer Person::Simulate calls made with a raised end time this mission.
+--- @field idleLoops integer Long idles looped this mission.
+
+--- Lets every Person (pilots, creatures) play clips longer than the engine's hardcoded
+--- end time. Person::Simulate stops advancing a clip once timePosition + dt*rate reaches
+--- 0.967 s for idle and the runs, looped or not, so a long walk cycle freezes mid-stride
+--- and the body slides. EXU raises that end time around each Simulate call of a Person
+--- playing such a clip and restores it right after; short stock clips are unaffected.
+--- The kneel, death and air clips keep their stock timing (they drive the FSM).
+--- Presentation only, so also in multiplayer. Mission-scoped; off by default.
+--- `true` = both on; a table replaces the setting (omitted keys true); nil/false = stock.
+--- See Docs/Research/PERSON_LONG_CLIPS_RE_20261005.md.
+--- @param options ExuPersonLongClipsOptions|boolean|nil
+--- @return boolean available
+function animation.SetPersonLongClips(options) end
+
+--- Returns the long-clip settings and live counters.
+--- @nodiscard
+--- @return ExuPersonLongClips
+function animation.GetPersonLongClips() end
 
 --- @class exu
 --- @field animation ExuAnimationApi
