@@ -16,6 +16,7 @@
 #include "Game/GameObject.h"
 #include "Game/DeathCamera.h"
 #include "Game/PersonAnimBlend.h"
+#include "Game/PersonLongClips.h"
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotState.h"
 #include "Game/PilotTrace.h"
@@ -917,10 +918,18 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 				PersonAnimBlend::CapturePre(person, blendPre);
 			}
 
+			// Long run/idle clips (every Person, also in multiplayer): raises
+			// the current clip's end time for this call only, on top of any
+			// policy write, and restores it before the policy restore.
+			PersonLongClips::PreCall longClips{};
+			PersonLongClips::BeforeCall(person, longClips);
+
 			// Write -> stock -> restore. Nothing between the write above and the
 			// restore below can return early; the stock call is the only code in
 			// between.
 			original(person, dt);
+
+			PersonLongClips::AfterCall(person, longClips, removalPending);
 
 			if (plan.write)
 			{
@@ -1014,6 +1023,7 @@ namespace ExtraUtilities::Lua::PilotFsmIntercept
 		{
 			g_tablesQualified.store(QualifyTables(), std::memory_order_release);
 		}
+		PersonLongClips::Qualify();
 
 		g_detour->SetStatus(true);
 		if (!g_detour->IsActive())
