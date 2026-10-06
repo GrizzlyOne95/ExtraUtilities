@@ -881,5 +881,94 @@ namespace ExtraUtilities::Lua::GameObject
 		{
 			return Seh::CatchCpp("TrySetSpotlightRange", [&] { return TrySetSpotlightRangeSeh(light, innerAngle, outerAngle, falloff); }, false);
 		}
+
+		bool TrySetSubEntityVisibleSeh(void* subEntity, bool visible)
+		{
+			if (subEntity == nullptr || !Ogre::SubEntitySetVisible)
+			{
+				return false;
+			}
+			__try
+			{
+				Ogre::SubEntitySetVisible(subEntity, visible);
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				LogMaterialFault("[EXU::Render] SubEntity::setVisible crashed subEntity=%p visible=%d code=0x%08X", subEntity, visible ? 1 : 0, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetSubEntityVisible(void* subEntity, bool visible)
+		{
+			return Seh::CatchCpp("TrySetSubEntityVisible", [&] { return TrySetSubEntityVisibleSeh(subEntity, visible); }, false);
+		}
+
+		bool SubEntityRenderQueueSupported() noexcept
+		{
+			return static_cast<bool>(Ogre::SubEntitySetRenderQueueGroup) &&
+				static_cast<bool>(Ogre::SubEntitySetRenderQueueGroupAndPriority) &&
+				static_cast<bool>(Ogre::SubEntityGetRenderQueueGroup) &&
+				static_cast<bool>(Ogre::SubEntityIsRenderQueueGroupSet);
+		}
+
+		bool TrySetSubEntityRenderQueueSeh(void* subEntity, uint8_t group, bool hasPriority, uint16_t priority)
+		{
+			if (subEntity == nullptr || !SubEntityRenderQueueSupported())
+			{
+				return false;
+			}
+			__try
+			{
+				if (hasPriority)
+				{
+					Ogre::SubEntitySetRenderQueueGroupAndPriority(subEntity, group, priority);
+				}
+				else
+				{
+					Ogre::SubEntitySetRenderQueueGroup(subEntity, group);
+				}
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				LogMaterialFault("[EXU::Render] SubEntity::setRenderQueueGroup crashed subEntity=%p group=%u code=0x%08X", subEntity, group, GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetSubEntityRenderQueue(void* subEntity, uint8_t group, bool hasPriority, uint16_t priority)
+		{
+			return Seh::CatchCpp("TrySetSubEntityRenderQueue", [&] { return TrySetSubEntityRenderQueueSeh(subEntity, group, hasPriority, priority); }, false);
+		}
+
+		bool TryGetSubEntityRenderQueueSeh(void* subEntity, uint8_t& outGroup, bool& outIsSet)
+		{
+			outGroup = 0;
+			outIsSet = false;
+			if (subEntity == nullptr || !SubEntityRenderQueueSupported())
+			{
+				return false;
+			}
+			__try
+			{
+				outIsSet = Ogre::SubEntityIsRenderQueueGroupSet(subEntity);
+				outGroup = Ogre::SubEntityGetRenderQueueGroup(subEntity);
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				LogMaterialFault("[EXU::Render] SubEntity::getRenderQueueGroup crashed subEntity=%p code=0x%08X", subEntity, GetExceptionCode());
+				outGroup = 0;
+				outIsSet = false;
+				return false;
+			}
+		}
+
+		bool TryGetSubEntityRenderQueue(void* subEntity, uint8_t& outGroup, bool& outIsSet)
+		{
+			return Seh::CatchCpp("TryGetSubEntityRenderQueue", [&] { return TryGetSubEntityRenderQueueSeh(subEntity, outGroup, outIsSet); }, [&] { outGroup = 0; outIsSet = false; return false; });
+		}
 	}
 }

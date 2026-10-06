@@ -47,6 +47,12 @@ namespace ExtraUtilities::Lua::GameObject
 		bool TrySetQueryFlags(void* entity, uint32_t flags);
 		bool TryGetRenderQueueGroup(void* renderable, uint8_t& outGroup);
 		bool TrySetRenderQueueGroup(void* entity, uint8_t group);
+		// SubEntity (Renderable) calls: never route a SubEntity* through the
+		// MovableObject wrappers above.
+		bool TrySetSubEntityVisible(void* subEntity, bool visible);
+		bool SubEntityRenderQueueSupported() noexcept;
+		bool TrySetSubEntityRenderQueue(void* subEntity, uint8_t group, bool hasPriority, uint16_t priority);
+		bool TryGetSubEntityRenderQueue(void* subEntity, uint8_t& outGroup, bool& outIsSet);
 		void* GetNamedAnimationState(void* entity, const std::string& name);
 		bool TryGetAnimationLength(void* animationState, float& outValue);
 		bool TryGetAnimationTimePosition(void* animationState, float& outValue);

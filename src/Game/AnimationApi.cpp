@@ -25,6 +25,7 @@
 #include "Game/FirstPersonParticles.h"
 #include "Game/FirstPersonTarget.h"
 #include "Game/GameObject.h"
+#include "Ogre/OgreEntityRuntime.h"
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotAnimationProfile.h"
 #include "Game/PilotFsmIntercept.h"
@@ -425,7 +426,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 
 		int GetCapabilities(lua_State* L)
 		{
-			lua_createtable(L, 0, 12);
+			lua_createtable(L, 0, 16);
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "gameObjectTarget");
 			const bool hasFpBridge = OpenShimBridge::HasLocalFirstPersonEntityBridge();
@@ -434,6 +435,14 @@ namespace ExtraUtilities::Lua::AnimationApi
 			lua_setfield(L, -2, "localFirstPersonTarget");
 			lua_pushboolean(L, hasNativeFpResolver ? 1 : 0);
 			lua_setfield(L, -2, "cockpitTarget");
+			// Cockpit glass: a sub-entity of the cockpit entity moved into its
+			// own render queue group (exu.SetSubEntityRenderQueueGroup on a
+			// TargetCockpit target) plus exu.SetMaterialTextureWindow/Scale.
+			const bool subEntityQueue = GameObject::SubEntityRenderQueueSupported();
+			lua_pushboolean(L, subEntityQueue ? 1 : 0);
+			lua_setfield(L, -2, "subEntityRenderQueue");
+			lua_pushboolean(L, (subEntityQueue && hasNativeFpResolver) ? 1 : 0);
+			lua_setfield(L, -2, "glass");
 			lua_pushboolean(L, 1);
 			lua_setfield(L, -2, "animationInventory");
 			lua_pushboolean(L, 1);
@@ -2089,6 +2098,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{ "Target", &Target },
 			{ "TargetLocalFirstPerson", &TargetLocalFirstPerson },
 			{ "TargetCockpit", &TargetCockpit },
+			{ "SetSubEntityRenderQueue", &GameObject::SetSubEntityRenderQueueGroup },
+			{ "GetSubEntityRenderQueue", &GameObject::GetSubEntityRenderQueueGroup },
 			{ "GetCapabilities", &GetCapabilities },
 			{ "Has", &Has },
 			{ "GetInfo", &GetInfo },
