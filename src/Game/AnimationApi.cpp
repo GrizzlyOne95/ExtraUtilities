@@ -21,6 +21,7 @@
 #include "Game/FirstPersonLayers.h"
 #include "Game/DeathCamera.h"
 #include "Game/PersonAnimBlend.h"
+#include "Game/PersonLongClips.h"
 #include "Game/FirstPersonParticles.h"
 #include "Game/FirstPersonTarget.h"
 #include "Game/GameObject.h"
@@ -455,6 +456,10 @@ namespace ExtraUtilities::Lua::AnimationApi
 			// seam, every Person, multiplayer included.
 			lua_pushboolean(L, PersonAnimBlend::IsAvailable() ? 1 : 0);
 			lua_setfield(L, -2, "transitionBlend");
+			// exu.animation.SetPersonLongClips: same seam, every Person,
+			// presentation-only, multiplayer included.
+			lua_pushboolean(L, PersonLongClips::IsAvailable() ? 1 : 0);
+			lua_setfield(L, -2, "personLongClips");
 			// The local fire-held signal (exu.fps.IsTriggerHeld, the layer `fire`
 			// option): both UserProcess read sites matched at install.
 			lua_pushboolean(L, PlayerTrigger::IsAvailable() ? 1 : 0);
@@ -1603,6 +1608,82 @@ namespace ExtraUtilities::Lua::AnimationApi
 			return lua_toboolean(L, valueIndex) != 0;
 		}
 
+		// exu.animation.SetPersonLongClips(options | true | false | nil)
+		// -> available. true = { runs = true, idle = true }; a table replaces
+		// the whole setting (omitted keys default to true); nil/false turns
+		// both off (stock). Mission-scoped.
+		int SetPersonLongClips(lua_State* L)
+		{
+			PersonLongClips::Settings settings{};
+			const int type = lua_type(L, 1);
+			if (type == LUA_TBOOLEAN)
+			{
+				settings.runs = settings.idle = lua_toboolean(L, 1) != 0;
+			}
+			else if (type == LUA_TTABLE)
+			{
+				settings.runs = settings.idle = true;
+				lua_pushnil(L);
+				while (lua_next(L, 1) != 0)
+				{
+					if (lua_type(L, -2) != LUA_TSTRING)
+					{
+						luaL_error(L, "exu.animation.SetPersonLongClips: option keys must be strings");
+					}
+					const char* key = lua_tostring(L, -2);
+					if (lua_type(L, -1) != LUA_TBOOLEAN)
+					{
+						luaL_error(L, "exu.animation.SetPersonLongClips: option '%s' must be a boolean", key);
+					}
+					const bool value = lua_toboolean(L, -1) != 0;
+					if (std::strcmp(key, "runs") == 0)
+					{
+						settings.runs = value;
+					}
+					else if (std::strcmp(key, "idle") == 0)
+					{
+						settings.idle = value;
+					}
+					else
+					{
+						luaL_error(L, "exu.animation.SetPersonLongClips: unknown option '%s' (expected runs, idle)", key);
+					}
+					lua_pop(L, 1);
+				}
+			}
+			else if (type != LUA_TNONE && type != LUA_TNIL)
+			{
+				luaL_error(L, "exu.animation.SetPersonLongClips: expected a table, boolean or nil");
+			}
+			PersonLongClips::SetSettings(settings);
+			lua_settop(L, 0);
+			lua_pushboolean(L, PersonLongClips::IsAvailable() ? 1 : 0);
+			return 1;
+		}
+
+		// exu.animation.GetPersonLongClips() -> settings plus live counters.
+		int GetPersonLongClips(lua_State* L)
+		{
+			const PersonLongClips::Settings settings = PersonLongClips::GetSettings();
+			PersonLongClips::Stats stats{};
+			PersonLongClips::GetStats(stats);
+			lua_settop(L, 0);
+			lua_createtable(L, 0, 6);
+			lua_pushboolean(L, settings.runs ? 1 : 0);
+			lua_setfield(L, -2, "runs");
+			lua_pushboolean(L, settings.idle ? 1 : 0);
+			lua_setfield(L, -2, "idle");
+			lua_pushboolean(L, stats.available ? 1 : 0);
+			lua_setfield(L, -2, "available");
+			lua_pushboolean(L, stats.faulted ? 1 : 0);
+			lua_setfield(L, -2, "faulted");
+			lua_pushinteger(L, static_cast<lua_Integer>(stats.raisedCalls));
+			lua_setfield(L, -2, "raisedCalls");
+			lua_pushinteger(L, static_cast<lua_Integer>(stats.idleLoops));
+			lua_setfield(L, -2, "idleLoops");
+			return 1;
+		}
+
 		// exu.fps.SetTransitionBlend(options | nil | false) -> available.
 		// A table replaces the whole setting (omitted keys take their
 		// defaults) and turns the blend on unless enabled = false; nil/false
@@ -2019,6 +2100,8 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{ "SetLoop", &SetLoop },
 			{ "SetWeight", &SetWeight },
 			{ "Seek", &Seek },
+			{ "SetPersonLongClips", &SetPersonLongClips },
+			{ "GetPersonLongClips", &GetPersonLongClips },
 			{ nullptr, nullptr },
 		};
 
