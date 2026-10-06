@@ -840,8 +840,7 @@ namespace
 		{
 			return EnableDx11TextShadersBody(overlayElement, fontName, outMaterial, outResult);
 		}
-		__except (g_dx11TextFaultAddress = GetExceptionInformation()->ExceptionRecord->ExceptionAddress,
-			ExtraUtilities::Seh::Filter(GetExceptionCode(), outExceptionCode))
+		__except (ExtraUtilities::Seh::Filter(GetExceptionCode(), outExceptionCode, g_dx11TextFaultAddress, GetExceptionInformation()))
 		{
 			return false;
 		}
