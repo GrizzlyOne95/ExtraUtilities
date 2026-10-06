@@ -144,6 +144,9 @@
     <ClCompile Include="src\Game\ShellCasings.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Game\MuzzleFlash.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Game\StaticGeometry.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
@@ -450,6 +453,12 @@
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\ShellCasingMath.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\MuzzleFlash.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\MuzzleFlashCore.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\StaticGeometry.h">
