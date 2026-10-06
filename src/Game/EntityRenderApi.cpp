@@ -19,7 +19,9 @@
 #include "GameObjectInternal.h"
 #include "Ogre/OgreAnimationInventoryBridge.h"
 #include "Util/SehGuard.h"
+#include "Game/FirstPersonTarget.h"
 
+#include <cstring>
 #include <utility>
 
 // Entity render, light and animation API: the renderable-entity and light
@@ -140,6 +142,40 @@ namespace ExtraUtilities::Lua::GameObject
 			return GetRenderableEntity(BZR::GameObject::GetObj(h));
 		}
 
+		EntityTarget CheckEntityTarget(lua_State* L, int idx)
+		{
+			EntityTarget target{};
+			if (!lua_istable(L, idx))
+			{
+				target.handle = CheckHandle(L, idx);
+				return target;
+			}
+
+			const int absIndex = AbsoluteStackIndex(L, idx);
+			lua_getfield(L, absIndex, "kind");
+			const char* const kind = lua_tostring(L, -1);
+			if (kind != nullptr && std::strcmp(kind, "cockpit") == 0)
+			{
+				target.cockpit = true;
+			}
+			else if (kind == nullptr || std::strcmp(kind, "gameObject") != 0)
+			{
+				lua_pop(L, 1);
+				luaL_argerror(L, idx, "entity target must be a handle or a gameObject/cockpit target");
+			}
+			lua_pop(L, 1);
+
+			lua_getfield(L, absIndex, "handle");
+			target.handle = CheckHandle(L, -1);
+			lua_pop(L, 1);
+			return target;
+		}
+
+		void* GetRenderableEntity(const EntityTarget& target)
+		{
+			return target.cockpit ? ResolveCockpitEntity(target.handle) : GetRenderableEntity(target.handle);
+		}
+
 		void* GetFirstSubEntity(void* entity)
 		{
 			uint32_t count = 0;
@@ -171,6 +207,30 @@ namespace ExtraUtilities::Lua::GameObject
 	void* ResolveAnimationEntity(BZR::handle handle)
 	{
 		return GetRenderableEntity(handle);
+	}
+
+	void* ResolveCockpitEntity(BZR::handle handle)
+	{
+		BZR::GameObject* const obj = handle ? BZR::GameObject::GetObj(handle) : nullptr;
+		if (obj == nullptr)
+		{
+			return nullptr;
+		}
+
+		void* worldEntity = nullptr;
+		void* cockpitEntity = nullptr;
+		if (!FirstPersonTarget::ReadRenderBridgeEntities(obj, worldEntity, cockpitEntity) ||
+			cockpitEntity == nullptr || cockpitEntity == worldEntity)
+		{
+			return nullptr;
+		}
+
+		if (!IsRenderableEntityCandidate(cockpitEntity))
+		{
+			LogMaterialDebug("[EXU::Material] cockpit entity validation failed obj=%p entity=%p", obj, cockpitEntity);
+			return nullptr;
+		}
+		return cockpitEntity;
 	}
 
 	bool HasAnimation(void* entity, const std::string& name)
@@ -263,7 +323,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int GetEntityVisible(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
 		{
@@ -284,7 +344,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int GetEntityCastShadows(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
 		{
@@ -305,7 +365,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int GetEntityRenderingDistance(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
 		{
@@ -326,7 +386,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int GetEntityVisibilityFlags(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
 		{
@@ -347,7 +407,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int GetEntityQueryFlags(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
 		{
@@ -368,7 +428,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int GetEntityRenderQueueGroup(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
 		{
@@ -389,7 +449,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetEntityVisible(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		bool visible = CheckBool(L, 2);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
@@ -403,7 +463,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetEntityCastShadows(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		bool castShadows = CheckBool(L, 2);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
@@ -417,7 +477,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetEntityRenderingDistance(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		float distance = static_cast<float>(luaL_checknumber(L, 2));
 		if (!std::isfinite(distance) || distance < 0.0f)
 		{
@@ -436,7 +496,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetEntityVisibilityFlags(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		uint32_t flags = static_cast<uint32_t>(luaL_checkinteger(L, 2));
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
@@ -450,7 +510,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetEntityQueryFlags(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		uint32_t flags = static_cast<uint32_t>(luaL_checkinteger(L, 2));
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
@@ -464,7 +524,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetEntityRenderQueueGroup(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		int groupValue = luaL_checkinteger(L, 2);
 		if (groupValue < 0 || groupValue > 255)
 		{
@@ -483,7 +543,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetSubEntityVisible(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
 		{
@@ -714,7 +774,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int HasEntityAnimation(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		std::string animationName = luaL_checkstring(L, 2);
 		void* entity = GetRenderableEntity(h);
 		lua_pushboolean(L, entity != nullptr && GetNamedAnimationState(entity, animationName) != nullptr);
@@ -723,7 +783,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int GetEntityAnimationInfo(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		std::string animationName = luaL_checkstring(L, 2);
 		void* entity = GetRenderableEntity(h);
 		if (entity == nullptr)
@@ -770,7 +830,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetEntityAnimationEnabled(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		const char* const animationName = luaL_checkstring(L, 2);
 		bool enabled = CheckBool(L, 3);
 		void* entity = GetRenderableEntity(h);
@@ -788,7 +848,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetEntityAnimationLoop(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		const char* const animationName = luaL_checkstring(L, 2);
 		bool loop = CheckBool(L, 3);
 		void* entity = GetRenderableEntity(h);
@@ -806,7 +866,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetEntityAnimationWeight(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		const char* const animationName = luaL_checkstring(L, 2);
 		float weight = static_cast<float>(luaL_checknumber(L, 3));
 		if (!std::isfinite(weight))
@@ -829,7 +889,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int SetEntityAnimationTime(lua_State* L)
 	{
-		BZR::handle h = CheckHandle(L, 1);
+		const EntityTarget h = CheckEntityTarget(L, 1);
 		const char* const animationName = luaL_checkstring(L, 2);
 		float timePosition = static_cast<float>(luaL_checknumber(L, 3));
 		if (!std::isfinite(timePosition))

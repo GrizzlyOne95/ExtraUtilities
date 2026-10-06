@@ -1042,6 +1042,12 @@ namespace ExtraUtilities::Lua::Overlay
 		{
 			Logging::LogMessage("[EXU::Overlay] SetOverlayTextFont failed name=%s font=%s", name.c_str(), fontName.c_str());
 		}
+		else
+		{
+			// A fixed-function font pass throws on D3D11 and loses the frame's
+			// remaining overlays; this fails closed, leaving the font as it was.
+			Native::TryEnableDx11TextShaders(element, fontName.c_str());
+		}
 		lua_pushboolean(L, success ? 1 : 0);
 		return 1;
 	}

@@ -1196,6 +1196,96 @@
         "note": "Code pattern at the address, verified unique in GOG 2.2.301 .text 2026-10-03; the call rel32 makes it site-specific."
       }
     },
+    "StatusHud": {
+      "WeaponRowPlateSite": {
+        "address": "0x005DC843",
+        "type": "hook site (5 bytes: call rel32; cdecl, caller pops)",
+        "description": "SpriteDraw (0x0068CA30) of the faction weapon-row plate (sprite [0x00918364]), inside the per-weapon loop. In StatusDisplay render (fn 0x005DC300).",
+        "pattern": "E8 E8 01 0B 00 83 C4 24",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address (the call plus the caller's add esp), verified unique in GOG 2.2.301 executable sections 2026-10-03; the call rel32 makes it site-specific."
+      },
+      "WeaponIconSite": {
+        "address": "0x005DCAB5",
+        "type": "hook site (5 bytes: call rel32; cdecl, caller pops)",
+        "description": "Sprite draw (0x0068C560) of a weapon row's hardpoint icon. In StatusDisplay render (fn 0x005DC300).",
+        "pattern": "E8 A6 FA 0A 00 83 C4 18",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address (the call plus the caller's add esp), verified unique in GOG 2.2.301 executable sections 2026-10-03; the call rel32 makes it site-specific."
+      },
+      "WeaponNameSite": {
+        "address": "0x005DCB37",
+        "type": "hook site (5 bytes: call rel32; cdecl, caller pops)",
+        "description": "Font draw (0x00689D10) of a weapon row's name. In StatusDisplay render (fn 0x005DC300).",
+        "pattern": "E8 D4 D1 0A 00 83 C4 14",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address (the call plus the caller's add esp), verified unique in GOG 2.2.301 executable sections 2026-10-03; the call rel32 makes it site-specific."
+      },
+      "HullLabelSite": {
+        "address": "0x005DCDF4",
+        "type": "hook site (5 bytes: call rel32; cdecl, caller pops)",
+        "description": "SpriteDraw of the hull label (status object +0x10). In StatusDisplay render (fn 0x005DC300).",
+        "pattern": "E8 37 FC 0A 00 83 C4 24",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address (the call plus the caller's add esp), verified unique in GOG 2.2.301 executable sections 2026-10-03; the call rel32 makes it site-specific."
+      },
+      "HullBarSite": {
+        "address": "0x005DCEF5",
+        "type": "hook site (5 bytes: call rel32; cdecl, caller pops)",
+        "description": "Pane-clipped SpriteDraw of the hull bar (status object +0x14). In StatusDisplay render (fn 0x005DC300).",
+        "pattern": "E8 36 FB 0A 00 83 C4 24",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address (the call plus the caller's add esp), verified unique in GOG 2.2.301 executable sections 2026-10-03; the call rel32 makes it site-specific."
+      },
+      "AmmoLabelSite": {
+        "address": "0x005DD0C4",
+        "type": "hook site (5 bytes: call rel32; cdecl, caller pops)",
+        "description": "SpriteDraw of the ammo label (status object +0x1C). In StatusDisplay render (fn 0x005DC300).",
+        "pattern": "E8 67 F9 0A 00 83 C4 24",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address (the call plus the caller's add esp), verified unique in GOG 2.2.301 executable sections 2026-10-03; the call rel32 makes it site-specific."
+      },
+      "AmmoBarSite": {
+        "address": "0x005DD1C5",
+        "type": "hook site (5 bytes: call rel32; cdecl, caller pops)",
+        "description": "Pane-clipped SpriteDraw of the ammo bar (status object +0x20). In StatusDisplay render (fn 0x005DC300).",
+        "pattern": "E8 66 F8 0A 00 83 C4 24",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address (the call plus the caller's add esp), verified unique in GOG 2.2.301 executable sections 2026-10-03; the call rel32 makes it site-specific."
+      },
+      "AmmoShotsTextSite": {
+        "address": "0x005DD2F8",
+        "type": "hook site (5 bytes: call rel32; cdecl, caller pops)",
+        "description": "Font draw of the shots-remaining count beside the ammo bar. In StatusDisplay render (fn 0x005DC300).",
+        "pattern": "E8 13 CA 0A 00 83 C4 14",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address (the call plus the caller's add esp), verified unique in GOG 2.2.301 executable sections 2026-10-03; the call rel32 makes it site-specific."
+      },
+      "AmmoCostMarkSite1": {
+        "address": "0x005DD3EE",
+        "type": "hook site (5 bytes: call rel32; cdecl, caller pops)",
+        "description": "First filled-rect (0x0068AF70) row of the selected weapons' ammo-cost marker. In StatusDisplay render (fn 0x005DC300).",
+        "pattern": "E8 7D DB 0A 00 83 C4 1C",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address (the call plus the caller's add esp), verified unique in GOG 2.2.301 executable sections 2026-10-03; the call rel32 makes it site-specific."
+      },
+      "AmmoCostMarkSite2": {
+        "address": "0x005DD41E",
+        "type": "hook site (5 bytes: call rel32; cdecl, caller pops)",
+        "description": "Second filled-rect row of the ammo-cost marker. In StatusDisplay render (fn 0x005DC300).",
+        "pattern": "E8 4D DB 0A 00 83 C4 1C",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address (the call plus the caller's add esp), verified unique in GOG 2.2.301 executable sections 2026-10-03; the call rel32 makes it site-specific."
+      },
+      "AmmoCostMarkSite3": {
+        "address": "0x005DD44E",
+        "type": "hook site (5 bytes: call rel32; cdecl, caller pops)",
+        "description": "Third filled-rect row of the ammo-cost marker. In StatusDisplay render (fn 0x005DC300).",
+        "pattern": "E8 1D DB 0A 00 83 C4 1C",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address (the call plus the caller's add esp), verified unique in GOG 2.2.301 executable sections 2026-10-03; the call rel32 makes it site-specific."
+      }
+    },
     "Turbo": {
       "TurboPatchBegin": {
         "address": "0x00601C92",
