@@ -2971,4 +2971,42 @@ function exu.RestoreNativeHudMeter(meter) end
 --- @return string? reason
 function exu.RestoreAllNativeHudMeters() end
 
+--- Path-grid footprint from collision faces (Docs/PATH_BLOCK.md). An ODF
+--- opts in under [GameObjectClass] with pathBlock = "faces" (block only the
+--- cells whose centre is inside the LOD0 collision faces at pathBlockHeight
+--- or pathBlockHeight2, default 1.5 / 3.0 m above the origin) or "none" (block
+--- nothing). Applied automatically when EXU loads and for every later spawn
+--- and removal.
+exu.pathing = {}
+
+--- Recomputes the grid cells of every flagged object (idempotent).
+--- @return integer|nil count flagged objects re-applied; nil without a grid
+function exu.pathing.Refresh() end
+
+--- false puts flagged objects back on the stock bbox (re-applied at once).
+--- @param enabled boolean
+--- @return integer|nil count as Refresh
+function exu.pathing.SetEnabled(enabled) end
+
+--- @return boolean
+function exu.pathing.IsEnabled() end
+
+--- The effective mode of an object and its footprint.
+--- @nodiscard
+--- @param h Handle
+--- @return "box"|"faces"|"none"|nil mode
+--- @return table|nil details { odf, configured, effective, cellsInBox, cellsBlocked, triangles, inGrid }
+function exu.pathing.GetMode(h) end
+
+--- ASCII picture of the path grid around a point or object.
+--- @nodiscard
+--- @param pos Vector|Handle
+--- @param radius number? metres, default 40
+--- @return string|nil
+function exu.pathing.DumpGrid(pos, radius) end
+
+--- @nodiscard
+--- @return table { pathBlock, available, hookedSites, hookSites, gridReady, cellSize, enabled }
+function exu.pathing.GetCapabilities() end
+
 return exu
