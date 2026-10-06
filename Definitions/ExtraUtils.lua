@@ -3010,3 +3010,19 @@ function exu.pathing.DumpGrid(pos, radius) end
 function exu.pathing.GetCapabilities() end
 
 return exu
+
+---Opt-in GOG vehicle contact experiment. OpenShim owns the native hook.
+---Only one selected craft; other hovercraft retain their COLP source body.
+---Terrain and projectile contact remain stock. Cleared when the mission closes.
+exu.collision = {}
+---@return table capabilities available, owner, scope, experimental
+function exu.collision.GetCapabilities() end
+---@param h handle
+---@param enabled boolean
+---@return boolean accepted false means stock contact remains active
+function exu.collision.SetGeometry(h, enabled) end
+---@param h handle
+---@return table? stats mode, enabled, parts, faces, checks, hits, fallbacks
+function exu.collision.GetStats(h) end
+---@return boolean cleared
+function exu.collision.Clear() end

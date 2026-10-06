@@ -37,6 +37,7 @@
 #include "Game/FirstPersonLayers.h"
 #include "Game/DeathCamera.h"
 #include "Game/PathBlock.h"
+#include "Game/GeometryContactApi.h"
 #include "Game/PersonAnimBlend.h"
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotFsmIntercept.h"
@@ -139,6 +140,7 @@ namespace ExtraUtilities::Lua
 		ShellCasings::Install(L);
 		MuzzleFlash::Install(L);
 		PathBlock::Install(L);
+		GeometryContact::Install(L);
 		Logging::LogMessage(
 			"exu: attached Lua state %p generation=%llu",
 			static_cast<void*>(L),
@@ -169,6 +171,7 @@ namespace ExtraUtilities::Lua
 		PersonAnimBlend::ResetMissionState();
 		DeathCamera::ResetMissionState();
 		PathBlock::ResetMissionState();
+		GeometryContact::ResetMissionState();
 		Patch::AiTargetSelect::dispatchEnabled = false;
 		Patch::AiTargetSelect::scoreDispatchEnabled = false;
 	}
