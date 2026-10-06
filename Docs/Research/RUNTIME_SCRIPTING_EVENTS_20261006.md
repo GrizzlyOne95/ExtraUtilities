@@ -82,14 +82,19 @@ and avoid C++ objects across raising Lua operations.
 
 ## Producer research map
 
+Fresh read-only Ghidra evidence is recorded in
+[native producer findings](RUNTIME_EVENT_PRODUCERS_GOG_20261006.md). The imported
+GOG build and eight selected entry ranges match the installed executable;
+this is static evidence, not live hook qualification.
+
 | Event | Practical starting point and qualification needed |
 | --- | --- |
 | `OnDamage` | Reuse OpenShim's damage observations through the native handoff. Separate damage signal from actual applied damage; absent amount/type fields remain absent. |
 | `OnKill` | Generic death observation independent of career tracking. Test real death versus removal/recycle/load, last-hit changes, snipe and ejection. Label inference until a committed death transition is qualified. |
-| `OnTargetChanged` | Find committed target changes. EXU's AI selection/scoring callbacks are decisions, not proof a target changed; watched-handle polling can be a labeled limited fallback. |
+| `OnTargetChanged` | A native setter reached by Lua SetTarget and engine callers commits the target handle. Observe old/new values after stock execution; qualify bypasses, initialization and load. AI selection/scoring remains a decision API. |
 | `OnPilotEnter` | Observe committed boarding/possession, including AI pilots. Local player-handle changes alone do not cover all pilots or distinguish morphing. |
 | `OnPilotExit` | Pair pilot/previous vehicle and known reason. Distinguish voluntary exit, ejection, snipe, removal and load. |
-| `OnCommand` | Accepted unit orders with target/location/priority when known. Keep separate from chat Command and EXU's synchronous Hunt replacement. Find AI/script bypasses. |
+| `OnCommand` | A common routine transfers pending orders into active command state. Observe that transfer, including its special no-transfer branch; Lua/native request setters alone are incomplete. Qualify resets, repeated orders and AI bypasses; copy known target/location/priority. |
 | `OnBuildSelection` | Existing OpenShim producer/rig SetActiveMode paths are candidates. Distinguish menu navigation, committed build selection, accepted order and completed object. |
 | `OnWeaponFired` | Successful weapon activation, not held trigger input or arbitrary projectile creation. Cannon's accepted-shot seam is useful but does not cover every weapon. Test pellets, bursts, beams, missiles, AI and script-built ordnance. |
 | `OnPlayerJoined` | Reuse stock CreatePlayer/AddPlayer with an explicit forwarding adapter first; qualify their meanings and deduplicate. Preserve existing handlers. Do not infer remote handles through broken GetPlayerHandle(team). |
