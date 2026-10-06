@@ -81,6 +81,9 @@
     <ClCompile Include="src\Game\PersonAnimBlend.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Game\PersonLongClips.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Game\FirstPersonParticles.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
@@ -300,6 +303,12 @@
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\PersonAnimBlend.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\PersonLongClips.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\PersonLongClipsCore.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\FirstPersonParticles.h">
