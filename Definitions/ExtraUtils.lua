@@ -1614,6 +1614,33 @@ function exu.SetEntityRenderQueueGroup(h, group) end
 --- @param visible boolean
 function exu.SetSubEntityVisible(h, subEntityIndex, visible) end
 
+--- Moves sub-entities into their own Ogre render queue group, ahead of the
+--- entity's group (Ogre's Entity::_updateRenderQueue prefers a sub-entity's
+--- own group). The selector is a 0-based sub-entity index, or a material name
+--- (case-insensitive) that selects every sub-entity drawn with it. With
+--- `exu.animation.TargetCockpit(h)` this draws a cockpit glass submesh after
+--- the world (the rest of the cockpit stays in group 10, before terrain, and
+--- its depth hides the glass behind the frame and dash). The cockpit entity
+--- is rebuilt on vehicle and view changes, which drops the setting: re-apply
+--- it while the view is up. Returns how many sub-entities changed (0 when the
+--- entity is absent or nothing matched) and the first changed index.
+--- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
+--- @param selector integer|string Sub-entity index or material name
+--- @param group integer Render queue group 0..255
+--- @param priority integer? Optional priority 0..65535 within the group
+--- @return integer changed
+--- @return integer? firstIndex
+function exu.SetSubEntityRenderQueueGroup(h, selector, group, priority) end
+
+--- Returns a sub-entity's render queue group, and whether it is the
+--- sub-entity's own (false while it follows its entity's group).
+--- Returns nothing when the entity is absent.
+--- @param h Handle|ExuAnimationTarget
+--- @param subEntityIndex integer
+--- @return integer? group
+--- @return boolean? isOwnGroup
+function exu.GetSubEntityRenderQueueGroup(h, subEntityIndex) end
+
 --- Gets the number of Ogre sub-entities attached to the object's render entity.
 --- @nodiscard
 --- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
@@ -1746,6 +1773,37 @@ function exu.SetMaterialTexture(materialName, textureName, techniqueIndex, passI
 --- @param resourceGroup string? optional
 --- @return boolean
 function exu.SetMaterialTextureScroll(materialName, u, v, techniqueIndex, passIndex, textureUnitIndex, resourceGroup) end
+
+--- Sets the UV scale of a material pass texture unit (Ogre setTextureScale,
+--- about the texture centre: 2 makes the texture look twice as big). Same
+--- defaults as SetMaterialTextureScroll.
+--- @param materialName string
+--- @param uScale number Non-zero
+--- @param vScale number Non-zero
+--- @param techniqueIndex integer? optional
+--- @param passIndex integer? optional
+--- @param textureUnitIndex integer? optional
+--- @param resourceGroup string? optional
+--- @return boolean
+function exu.SetMaterialTextureScale(materialName, uScale, vScale, techniqueIndex, passIndex, textureUnitIndex, resourceGroup) end
+
+--- Points a material pass texture unit at the texture window [u0, u0 + du] x
+--- [v0, v0 + dv] across the mesh's UV 0..1, like an overlay panel's
+--- `uv_coords` (a negative extent mirrors that axis). Sets scale and scroll;
+--- rotation is left as it is. techniqueIndex -1 applies it to every technique
+--- (for example the DX11 and DX9 techniques at once). Returns the number of
+--- texture units changed.
+--- @param materialName string
+--- @param u0 number
+--- @param v0 number
+--- @param du number Non-zero
+--- @param dv number Non-zero
+--- @param techniqueIndex integer? optional, default 0; -1 = every technique
+--- @param passIndex integer? optional
+--- @param textureUnitIndex integer? optional
+--- @param resourceGroup string? optional
+--- @return integer
+function exu.SetMaterialTextureWindow(materialName, u0, v0, du, dv, techniqueIndex, passIndex, textureUnitIndex, resourceGroup) end
 
 --- Sets the current UV rotation on a material pass texture unit in radians.
 --- The technique index defaults to 0, the pass index defaults to 0, the texture unit index defaults to 0,

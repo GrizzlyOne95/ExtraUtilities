@@ -308,6 +308,7 @@
     <ClInclude Include="src\Game\MuzzleFlash.h" />
     <ClInclude Include="src\Game\MuzzleFlashCore.h" />
     <ClInclude Include="src\Game\ShellCasingMath.h" />
+    <ClInclude Include="src\Game\TextureWindowMath.h" />
     <ClInclude Include="src\Game\StaticGeometry.h" />
     <ClInclude Include="src\BasicScanner.h" />
     <ClInclude Include="src\Patches\ScreenFlash.h" />

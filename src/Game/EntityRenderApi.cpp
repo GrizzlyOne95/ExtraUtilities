@@ -21,7 +21,9 @@
 #include "Util/SehGuard.h"
 #include "Game/FirstPersonTarget.h"
 
+#include <cctype>
 #include <cstring>
+#include <string>
 #include <utility>
 
 // Entity render, light and animation API: the renderable-entity and light
@@ -552,8 +554,150 @@ namespace ExtraUtilities::Lua::GameObject
 
 		void* subEntity = GetSubEntity(L, entity, 2);
 		bool visible = CheckBool(L, 3);
-		TrySetVisible(subEntity, visible);
+		// SubEntity::setVisible, not MovableObject::setVisible: a SubEntity is
+		// a Renderable, and the MovableObject export wrote into the wrong
+		// object layout.
+		TrySetSubEntityVisible(subEntity, visible);
 		return 0;
+	}
+
+	namespace
+	{
+		bool MaterialNameMatches(const std::string& a, const char* b)
+		{
+			const size_t n = std::strlen(b);
+			if (a.size() != n)
+			{
+				return false;
+			}
+			for (size_t i = 0; i < n; ++i)
+			{
+				const unsigned char x = static_cast<unsigned char>(a[i]);
+				const unsigned char y = static_cast<unsigned char>(b[i]);
+				if (std::tolower(x) != std::tolower(y))
+				{
+					return false;
+				}
+			}
+			return true;
+		}
+	}
+
+	// exu.SetSubEntityRenderQueueGroup(target, indexOrMaterialName, group[, priority])
+	// Moves one sub-entity (a 0-based index) or every sub-entity drawn with a
+	// material (name, case-insensitive) into its own render queue group.
+	// Ogre's Entity::_updateRenderQueue uses a sub-entity's own group before
+	// the entity's, so this is how a cockpit's glass submesh is drawn after the
+	// world while the rest of the cockpit stays in group 10. Works with
+	// exu.animation.TargetCockpit(h) (re-resolved on every call: the cockpit
+	// entity is rebuilt on vehicle and view changes, which also drops the
+	// setting, so callers re-apply it). Returns the number of sub-entities
+	// changed and the first index changed, or 0 when the entity is absent or
+	// nothing matched.
+	int SetSubEntityRenderQueueGroup(lua_State* L)
+	{
+		const EntityTarget h = CheckEntityTarget(L, 1);
+		const bool byName = lua_type(L, 2) == LUA_TSTRING;
+		if (!byName)
+		{
+			luaL_checkinteger(L, 2);
+		}
+		const int groupValue = luaL_checkinteger(L, 3);
+		if (groupValue < 0 || groupValue > 255)
+		{
+			return luaL_argerror(L, 3, "render queue group must be in range 0..255");
+		}
+		const bool hasPriority = !lua_isnoneornil(L, 4);
+		int priorityValue = 0;
+		if (hasPriority)
+		{
+			priorityValue = luaL_checkinteger(L, 4);
+			if (priorityValue < 0 || priorityValue > 65535)
+			{
+				return luaL_argerror(L, 4, "render queue priority must be in range 0..65535");
+			}
+		}
+
+		void* entity = GetRenderableEntity(h);
+		if (entity == nullptr || !SubEntityRenderQueueSupported())
+		{
+			lua_pushinteger(L, 0);
+			return 1;
+		}
+
+		const auto group = static_cast<uint8_t>(groupValue);
+		const auto priority = static_cast<uint16_t>(priorityValue);
+		if (!byName)
+		{
+			void* subEntity = GetSubEntity(L, entity, 2);
+			const bool ok = TrySetSubEntityRenderQueue(subEntity, group, hasPriority, priority);
+			lua_pushinteger(L, ok ? 1 : 0);
+			if (!ok)
+			{
+				return 1;
+			}
+			lua_pushinteger(L, lua_tointeger(L, 2));
+			return 2;
+		}
+
+		const char* const materialName = lua_tostring(L, 2);
+		uint32_t count = 0;
+		if (!TryGetNumSubEntities(entity, count) || count > 256)
+		{
+			lua_pushinteger(L, 0);
+			return 1;
+		}
+		int changed = 0;
+		int first = -1;
+		std::string name;
+		for (uint32_t i = 0; i < count; ++i)
+		{
+			void* subEntity = nullptr;
+			if (!TryGetSubEntityByIndex(entity, i, subEntity) || subEntity == nullptr ||
+				!TryGetMaterialName(subEntity, name) || !MaterialNameMatches(name, materialName))
+			{
+				continue;
+			}
+			if (TrySetSubEntityRenderQueue(subEntity, group, hasPriority, priority))
+			{
+				if (first < 0)
+				{
+					first = static_cast<int>(i);
+				}
+				++changed;
+			}
+		}
+		lua_pushinteger(L, changed);
+		if (first < 0)
+		{
+			return 1;
+		}
+		lua_pushinteger(L, first);
+		return 2;
+	}
+
+	// exu.GetSubEntityRenderQueueGroup(target, index) -> group, isOwnGroup
+	// isOwnGroup is false while the sub-entity still follows its entity's group.
+	int GetSubEntityRenderQueueGroup(lua_State* L)
+	{
+		const EntityTarget h = CheckEntityTarget(L, 1);
+		luaL_checkinteger(L, 2);
+		void* entity = GetRenderableEntity(h);
+		if (entity == nullptr)
+		{
+			return 0;
+		}
+
+		void* subEntity = GetSubEntity(L, entity, 2);
+		uint8_t group = 0;
+		bool isSet = false;
+		if (!TryGetSubEntityRenderQueue(subEntity, group, isSet))
+		{
+			return 0;
+		}
+		lua_pushinteger(L, group);
+		lua_pushboolean(L, isSet ? 1 : 0);
+		return 2;
 	}
 
 	int SetHeadlightDiffuse(lua_State* L)

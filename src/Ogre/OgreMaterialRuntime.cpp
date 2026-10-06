@@ -850,6 +850,68 @@ namespace ExtraUtilities::Lua::GameObject
 			return Seh::CatchCpp("TrySetMaterialTextureScroll", [&] { return TrySetMaterialTextureScrollSeh(textureUnit, u, v); }, false);
 		}
 
+		bool TryGetMaterialTechniqueCountCpp(const std::string& materialName, const std::string& resourceGroup, int& outCount)
+		{
+			try
+			{
+				outCount = 0;
+				::Ogre::Material* material = nullptr;
+				if (!TryResolveMaterialCpp(materialName, resourceGroup, material) || material == nullptr)
+				{
+					return false;
+				}
+				outCount = static_cast<int>(::Ogre::GetMaterialNumTechniques(material));
+				return true;
+			}
+			catch (...)
+			{
+				outCount = 0;
+				return false;
+			}
+		}
+
+		bool TryGetMaterialTechniqueCountSeh(const std::string& materialName, const std::string& resourceGroup, int& outCount)
+		{
+			__try
+			{
+				return TryGetMaterialTechniqueCountCpp(materialName, resourceGroup, outCount);
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				LogMaterialFault("[EXU::Material] technique count crashed material=%s code=0x%08X", materialName.c_str(), GetExceptionCode());
+				outCount = 0;
+				return false;
+			}
+		}
+
+		bool TryGetMaterialTechniqueCount(const std::string& materialName, const std::string& resourceGroup, int& outCount)
+		{
+			return Seh::CatchCpp("TryGetMaterialTechniqueCount", [&] { return TryGetMaterialTechniqueCountSeh(materialName, resourceGroup, outCount); }, [&] { outCount = 0; return false; });
+		}
+
+		bool TrySetMaterialTextureScaleSeh(::Ogre::TextureUnitState* textureUnit, float uScale, float vScale)
+		{
+			__try
+			{
+				return ::Ogre::SetTextureUnitStateTextureScale(textureUnit, uScale, vScale);
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				LogMaterialFault(
+					"[EXU::Material] SetTextureScale crashed textureUnit=%p u=%g v=%g code=0x%08X",
+					textureUnit,
+					uScale,
+					vScale,
+					GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TrySetMaterialTextureScale(::Ogre::TextureUnitState* textureUnit, float uScale, float vScale)
+		{
+			return Seh::CatchCpp("TrySetMaterialTextureScale", [&] { return TrySetMaterialTextureScaleSeh(textureUnit, uScale, vScale); }, false);
+		}
+
 		bool TrySetMaterialTextureRotateSeh(::Ogre::TextureUnitState* textureUnit, float radians)
 		{
 			__try

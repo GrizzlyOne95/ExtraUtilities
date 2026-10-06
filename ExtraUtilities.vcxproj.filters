@@ -476,6 +476,9 @@
     <ClInclude Include="src\Game\ShellCasingMath.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
+    <ClInclude Include="src\Game\TextureWindowMath.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
     <ClInclude Include="src\Game\MuzzleFlash.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
