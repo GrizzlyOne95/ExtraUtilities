@@ -1,7 +1,10 @@
 # Runtime scripting events in EXU
 
-Research and proposed implementation, 2026-10-06. Nothing below is implemented
-by this checkpoint. No runtime code, mission scripts or installed DLLs changed.
+Research and proposed implementation, 2026-10-06. The dispatcher and API below
+are not implemented. A later opt-in
+[isdftest fixture/probe](RUNTIME_EVENT_ISDFTEST_PROBE_20261006.md) provides narrow
+live producer evidence; installed mission changes were temporary and restored,
+and no EXU/OpenShim DLLs were replaced.
 
 **EXU owns scripting events:** listener registration, runtime queues, Lua
 references and safe delivery. OpenShim supplies native observations where it
@@ -84,8 +87,12 @@ and avoid C++ objects across raising Lua operations.
 
 Fresh read-only Ghidra evidence is recorded in
 [native producer findings](RUNTIME_EVENT_PRODUCERS_GOG_20261006.md). The imported
-GOG build and thirty-two selected entry ranges match the installed executable;
+GOG build and thirty-three selected entry ranges match the installed executable;
 this is static evidence, not live hook qualification.
+
+The subsequent Windows/GOG isdftest probe confirms Person damage/health/fatal
+behavior, SG-2 full/partial/empty emission counts and narrow pilot exit/kill
+results. It does not qualify Lua delivery, production detours or multiplayer.
 
 | Event | Practical starting point and qualification needed |
 | --- | --- |
