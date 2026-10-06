@@ -193,6 +193,18 @@ namespace ExtraUtilities::Lua::GameObject
 		bool TryGetClassLabelFromLua(lua_State* L, BZR::handle h, std::string& outClassLabel);
 		void* GetRenderableEntity(BZR::GameObject* obj);
 		void* GetRenderableEntity(BZR::handle h);
+
+		// Argument 1 of the handle-based entity/material/animation functions:
+		// a handle (the object's main Entity) or an exu.animation target table
+		// ({ kind = "gameObject" | "cockpit", handle = h }). "cockpit" selects
+		// the craft's cockpit Entity, re-read from the render bridge per call.
+		struct EntityTarget
+		{
+			BZR::handle handle{};
+			bool cockpit = false;
+		};
+		EntityTarget CheckEntityTarget(lua_State* L, int idx);
+		void* GetRenderableEntity(const EntityTarget& target);
 		void* GetFirstSubEntity(void* entity);
 		void* GetSubEntity(lua_State* L, void* entity, int idx);
 	}

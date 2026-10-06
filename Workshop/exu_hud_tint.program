@@ -1,0 +1,96 @@
+// exu_hud_tint.program
+//
+// Shaders for EXU's scripted HUD panels (exu_hud.material). Ogre overlay
+// Panels carry no vertex colour, so the vertex stage colours the panel with
+// the pass diffuse (surface_diffuse_colour) and applies texture_matrix 0, so
+// a material's texture rotation turns its art about the panel centre. The
+// fragment stage is texture * colour.
+//
+// Plain per-target programs, not a unified wrapper: SM4 for DX11, SM3 for
+// DX9, GLSL for GL. OpenShim's DX11 compatibility pass recognises SM4
+// programs with vs_4_0/ps_4_0 targets as native and leaves them alone; a
+// unified wrapper has no resolvable target and was drawn shaderless on DX11.
+
+vertex_program EXU_HudTint_vertex_SM4 hlsl
+{
+    source exu_hud_tint-sm4.hlsl
+    target vs_4_0
+    entry_point exu_hud_tint_vertex
+
+    default_params
+    {
+        param_named_auto wvpMat worldviewproj_matrix
+        param_named_auto texMat texture_matrix 0
+        param_named_auto tintColor surface_diffuse_colour
+    }
+}
+
+fragment_program EXU_HudTint_fragment_SM4 hlsl
+{
+    source exu_hud_tint-sm4.hlsl
+    target ps_4_0
+    entry_point exu_hud_tint_fragment
+}
+
+vertex_program EXU_HudTint_vertex_SM3 hlsl
+{
+    source exu_hud_tint.hlsl
+    target vs_3_0
+    entry_point exu_hud_tint_vertex
+
+    default_params
+    {
+        param_named_auto wvpMat worldviewproj_matrix
+        param_named_auto texMat texture_matrix 0
+        param_named_auto tintColor surface_diffuse_colour
+    }
+}
+
+fragment_program EXU_HudTint_fragment_SM3 hlsl
+{
+    source exu_hud_tint.hlsl
+    target ps_3_0
+    entry_point exu_hud_tint_fragment
+}
+
+vertex_program EXU_HudTint_vertex_GLSL glsl
+{
+    source exu_hud_tint-vertex.glsl
+    syntax glsl120
+
+    default_params
+    {
+        param_named_auto wvpMat worldviewproj_matrix
+        param_named_auto texMat texture_matrix 0
+        param_named_auto tintColor surface_diffuse_colour
+    }
+}
+
+fragment_program EXU_HudTint_fragment_GLSL glsl
+{
+    source exu_hud_tint-fragment.glsl
+    syntax glsl120
+
+    default_params
+    {
+        param_named diffuseMap int 0
+    }
+}
+
+// Overlay TextArea text on DX11. Ogre builds font materials as fixed-function
+// passes, which D3D11 cannot draw (Ogre throws, and the rest of the overlay
+// queue is lost for that frame). When the renderer supports vs_4_0, EXU gives
+// each TextArea a per-font clone of EXU_HUD/Text pointing at the font's
+// texture. TextArea vertices carry their colour; Ogre-generated colour is
+// already RGBA on D3D11, so no swizzle.
+vertex_program EXU_HudText_vertex_SM4 hlsl
+{
+    source exu_hud_tint-sm4.hlsl
+    target vs_4_0
+    entry_point exu_hud_text_vertex
+
+    default_params
+    {
+        param_named_auto wvpMat worldviewproj_matrix
+    }
+}

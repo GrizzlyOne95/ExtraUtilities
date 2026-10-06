@@ -231,16 +231,22 @@ namespace ExtraUtilities::Lua::FirstPersonTarget
 	bool ReadPersonRenderEntities(const void* person, void*& outWorldEntity,
 		void*& outFirstPersonEntity) noexcept
 	{
+		return ReadRenderBridgeEntities(person, outWorldEntity, outFirstPersonEntity);
+	}
+
+	bool ReadRenderBridgeEntities(const void* object, void*& outWorldEntity,
+		void*& outFirstPersonEntity) noexcept
+	{
 		outWorldEntity = nullptr;
 		outFirstPersonEntity = nullptr;
-		if (person == nullptr || !IsNativeResolverAvailable())
+		if (object == nullptr || !IsNativeResolverAvailable())
 		{
 			return false;
 		}
 
 		__try
 		{
-			auto* const personBytes = reinterpret_cast<const uint8_t*>(person);
+			auto* const personBytes = reinterpret_cast<const uint8_t*>(object);
 			void* const renderBridge =
 				*reinterpret_cast<void* const*>(personBytes + kPersonRenderBridgeOffset);
 			if (renderBridge == nullptr)

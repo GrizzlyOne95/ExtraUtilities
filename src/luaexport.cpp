@@ -936,6 +936,8 @@ namespace ExtraUtilities::Lua
 			{ "SetDamageFlashEnabled", &Patches::SetDamageFlashEnabled },
 			{ "GetHeatFlashEnabled", &Patches::GetHeatFlashEnabled },
 			{ "SetHeatFlashEnabled", &Patches::SetHeatFlashEnabled },
+			{ "GetStockStatusHudVisible", &Patches::GetStockStatusHudVisible },
+			{ "SetStockStatusHudVisible", &Patches::SetStockStatusHudVisible },
 			{ "GetInfiniteAmmo", &Patches::GetInfiniteAmmo },
 			{ "SetInfiniteAmmo", &Patches::SetInfiniteAmmo },
 			{ "GetInfiniteScrap", &Patches::GetInfiniteScrap },

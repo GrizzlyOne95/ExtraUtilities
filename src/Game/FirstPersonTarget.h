@@ -56,4 +56,14 @@ namespace ExtraUtilities::Lua::FirstPersonTarget
 	// null person/bridge or a faulting read. One-operation snapshot.
 	bool ReadPersonRenderEntities(const void* person, void*& outWorldEntity,
 		void*& outFirstPersonEntity) noexcept;
+
+	// The same render-bridge read for ANY GameObject (the bridge layout lives
+	// on GameObject, not Person). For a craft, +0xC0 is the cockpit Entity the
+	// first-person view draws: a second Entity of the main mesh whose '2'
+	// (cockpit) bones are live and '1' bones are hidden (0x67E5A0), or the
+	// separate <name>_cockpit.mesh Entity. Null outside cockpit view or before
+	// the renderer creates it. Same contract: one-operation snapshot, false
+	// only on a null object/bridge, a closed runtime gate or a faulting read.
+	bool ReadRenderBridgeEntities(const void* object, void*& outWorldEntity,
+		void*& outFirstPersonEntity) noexcept;
 }
