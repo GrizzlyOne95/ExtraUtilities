@@ -84,19 +84,19 @@ and avoid C++ objects across raising Lua operations.
 
 Fresh read-only Ghidra evidence is recorded in
 [native producer findings](RUNTIME_EVENT_PRODUCERS_GOG_20261006.md). The imported
-GOG build and eight selected entry ranges match the installed executable;
+GOG build and thirty-two selected entry ranges match the installed executable;
 this is static evidence, not live hook qualification.
 
 | Event | Practical starting point and qualification needed |
 | --- | --- |
 | `OnDamage` | Reuse OpenShim's damage observations through the native handoff. Separate damage signal from actual applied damage; absent amount/type fields remain absent. |
-| `OnKill` | Generic death observation independent of career tracking. Test real death versus removal/recycle/load, last-hit changes, snipe and ejection. Label inference until a committed death transition is qualified. |
+| `OnKill` | Observe the class-specific fatal damage branches plus separate sniper occupant kills. Boarding retires a living pilot using removal bits, so those bits/disappearance are insufficient. Qualify object versus occupant identity, attribution and deduplication independently of career tracking. |
 | `OnTargetChanged` | A native setter reached by Lua SetTarget and engine callers commits the target handle. Observe old/new values after stock execution; qualify bypasses, initialization and load. AI selection/scoring remains a decision API. |
-| `OnPilotEnter` | Observe committed boarding/possession, including AI pilots. Local player-handle changes alone do not cover all pilots or distinguish morphing. |
-| `OnPilotExit` | Pair pilot/previous vehicle and known reason. Distinguish voluntary exit, ejection, snipe, removal and load. |
+| `OnPilotEnter` | Person's successful boarding branch transfers player control or AI process and retires the old Person. Capture pilot/vehicle handles before retirement; local handle switching alone is insufficient. |
+| `OnPilotExit` | Native voluntary exit/ejection create a new Person through a shared helper; ejection may produce no survivor and pilot death uses another path. Pair known cause/vehicle with the new handle when present; do not promise persistent pilot identity. |
 | `OnCommand` | A common routine transfers pending orders into active command state. Observe that transfer, including its special no-transfer branch; Lua/native request setters alone are incomplete. Qualify resets, repeated orders and AI bypasses; copy known target/location/priority. |
-| `OnBuildSelection` | Existing OpenShim producer/rig SetActiveMode paths are candidates. Distinguish menu navigation, committed build selection, accepted order and completed object. |
-| `OnWeaponFired` | Successful weapon activation, not held trigger input or arbitrary projectile creation. Cannon's accepted-shot seam is useful but does not cover every weapon. Test pellets, bursts, beams, missiles, AI and script-built ordnance. |
+| `OnBuildSelection` | Producer, rig and separate Armory paths are mapped. Exclude named/category/Back modes and OpenShim's fake class stubs; copy real-item ODF. Return values are not a universal success flag, and selection/order/completion remain distinct. |
+| `OnWeaponFired` | RTTI maps 20 Weapon-family vtables to 13 simulation methods. Cannon's factory loops over a salvo: qualify first successful emission as one discharge and keep pellet snapshots separate. Qualify beam onset, charge/burst grouping and deployables separately. The global factory includes non-weapon/received effects and misses object-building activations; cosmetic feature settings must not gate events. |
 | `OnPlayerJoined` | Reuse stock CreatePlayer/AddPlayer with an explicit forwarding adapter first; qualify their meanings and deduplicate. Preserve existing handlers. Do not infer remote handles through broken GetPlayerHandle(team). |
 | `OnPlayerLeft` | Forward stock DeletePlayer initially. Capture player ID/name/team; test reconnect/ID reuse and distinguish mission exit from lobby departure. |
 
@@ -111,8 +111,10 @@ delivery does not make a local Lua mutation replicated.
    delivery before adding native hook sites. Add only the small handoff needed
    for observations OpenShim already owns; preserve the legacy SDK queue.
 2. **Damage/kill and queued projectile snapshots.** Make observation independent
-   of career settings. Add distinct projectile-spawn/hit snapshots; these are
-   not aliases for weapon activation/damage. Inventory consumers before changing
+   of career settings; use fatal damage/pilot transitions rather than removal
+   inference, with explicit object-versus-occupant coverage. Add distinct
+   projectile-spawn/hit snapshots; these are not aliases for weapon activation/
+   damage. Inventory consumers before changing
    direct callbacks. ISDFC's `isdfcshots` chains them for recoil, casings and combat
    effects; opt those consumers into queued snapshots and measure timing.
 3. **Remaining producers one at a time.** Target, boarding/exit, unit orders,
@@ -136,7 +138,8 @@ is measured and consumers have migrated.
 - VM close/reload, pinned EXU DLL, same-address VM/handle reuse, save/load and
   no records or code pointers surviving into the wrong mission.
 - Career stats ON/OFF; damage/death/removal fixtures; intensive minigun/shotgun
-  traffic; copied projectile data and presentation latency versus legacy paths.
+  traffic; partial/delayed salvos; cosmetic features OFF; copied projectile data
+  and presentation latency versus legacy paths.
 - Per-producer native ABI/build qualification, preserved engine side effects,
   GOG/settled Steam checks, and two-peer MP locality/authority tests where relevant.
 - Release x86 builds, applicable host/hardening tests and Wine/Proton checks
