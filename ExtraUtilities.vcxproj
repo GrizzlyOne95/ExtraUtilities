@@ -141,6 +141,7 @@
     <ClCompile Include="src\Game\AnimationApi.cpp" />
     <ClCompile Include="src\Game\FirstPersonLayers.cpp" />
     <ClCompile Include="src\Game\PersonAnimBlend.cpp" />
+    <ClCompile Include="src\Game\PersonLongClips.cpp" />
     <ClCompile Include="src\Game\DeathCamera.cpp" />
     <ClCompile Include="src\Game\PathBlock.cpp" />
     <ClCompile Include="src\Game\PathBlockApi.cpp" />
@@ -315,6 +316,8 @@
     <ClInclude Include="src\Game\AnimationApi.h" />
     <ClInclude Include="src\Game\FirstPersonLayers.h" />
     <ClInclude Include="src\Game\PersonAnimBlend.h" />
+    <ClInclude Include="src\Game\PersonLongClips.h" />
+    <ClInclude Include="src\Game\PersonLongClipsCore.h" />
     <ClInclude Include="src\Game\DeathCamera.h" />
     <ClInclude Include="src\Game\PathBlock.h" />
     <ClInclude Include="src\Game\PathBlockMath.h" />
