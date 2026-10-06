@@ -24,6 +24,7 @@
 #include "Game/Culling.h"
 #include "Game/FirstPersonLayers.h"
 #include "Game/DeathCamera.h"
+#include "Game/PersonLongClips.h"
 #include "Game/PathBlock.h"
 #include "Game/PersonAnimBlend.h"
 #include "Game/PilotAnimationPolicy.h"
@@ -528,6 +529,7 @@ namespace ExtraUtilities::Lua
 		FirstPersonLayers::ResetMissionState();
 		PersonAnimBlend::ResetMissionState();
 		DeathCamera::ResetMissionState();
+		PersonLongClips::ResetMissionState();
 		Logging::LogMessage("exu: Init starting");
 		Patches::ResetOpenShimMissionOverrides();
 		// Scripted content gets the legacy jump-snipe crouch fix on by default.
