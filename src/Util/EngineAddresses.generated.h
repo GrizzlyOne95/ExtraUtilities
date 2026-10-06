@@ -632,5 +632,70 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 196u;
+	namespace PathBlock
+	{
+		enum : uintptr_t
+		{
+			// function: void __cdecl(GameObject*, bool block)
+			BlockCells = 0x00468A70u,
+			// hook site (5 bytes: call rel32 to BlockCells)
+			ProcessBuildingsCall = 0x00469D77u,
+			// hook site (5 bytes: call rel32 to BlockCells)
+			AddObjectCall = 0x0046B18Au,
+			// hook site (5 bytes: call rel32 to BlockCells)
+			DeleteObjectCall = 0x0046B22Au,
+			// hook site (5 bytes: call rel32 to BlockCells)
+			DeployUnblockCallA = 0x005AC047u,
+			// hook site (5 bytes: call rel32 to BlockCells)
+			DeployUnblockCallB = 0x005AC0A8u,
+			// hook site (5 bytes: call rel32 to BlockCells)
+			DeployBlockCallA = 0x005AC95Bu,
+			// hook site (5 bytes: call rel32 to BlockCells)
+			DeployBlockCallB = 0x005AD46Du,
+			// hook site (5 bytes: call rel32 to BlockCells)
+			DeployBlockCallC = 0x005AFF38u,
+			// function: bool __cdecl(int gridX, int gridZ)
+			CellIsCliff = 0x00468980u,
+			// function: bool __cdecl(int gridX, int gridZ)
+			CellIsSteep = 0x00468890u,
+			// function: bool __cdecl(int gridX, int gridZ)
+			CellIsSlope = 0x00468450u,
+			// function: void __cdecl(float x0, float z0, float x1, float z1)
+			InvalidateStrips = 0x0058D090u,
+			// function: void __cdecl(OBJ76* root, float min[3], float max[3])
+			ObjBoundingBox = 0x0062E650u,
+			// function: bool(int) __cdecl(OBJ76*, int lod)
+			GeoSelectLod = 0x004E3620u,
+			// function: int __cdecl(const char* fileName)
+			ResourceFileSize = 0x00481A60u,
+			// function: ParameterDB* __thiscall(ParameterDB* self, const char* fileName)
+			ParameterDbOpen = 0x00589430u,
+			// function: void __thiscall(ParameterDB* self)
+			ParameterDbClose = 0x00589530u,
+			// function: const char* __thiscall(ParameterDB* self, uint32 sectionHash, uint32 keyHash)
+			ParameterDbGetString = 0x00589620u,
+			// function: uint32 __cdecl(const char* text, uint32 seed)
+			ParameterHash = 0x00446460u,
+			// uint8_t* (.data)
+			CellTypeArray = 0x0260D178u,
+			// int32
+			GridMinX = 0x02CE99C0u,
+			// int32
+			GridMaxX = 0x02CE99A0u,
+			// int32
+			GridMinZ = 0x02CD9984u,
+			// int32
+			GridMaxZ = 0x02CE99C4u,
+			// float
+			GridSize = 0x02CC50E0u,
+			// float
+			GridScale = 0x02CC50E4u,
+			// std::map<GameObject*, Area> (MSVC: head node*, size)
+			BuildingAreaMap = 0x0094DE74u,
+			// std::map<GameObject*, Area>
+			PerimeterAreaMap = 0x0094DE44u,
+		};
+	}
+
+	inline constexpr unsigned kEntryCount = 225u;
 }
