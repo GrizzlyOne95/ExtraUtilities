@@ -612,6 +612,26 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
+	namespace Terrain
+	{
+		enum : uintptr_t
+		{
+			// function: double __cdecl(double x, double z)
+			HeightAt = 0x007855E0u,
+		};
+	}
+
+	namespace Time
+	{
+		enum : uintptr_t
+		{
+			// float*
+			SimTimeSeconds = 0x02CC1B2Cu,
+			// int32_t*
+			Paused = 0x02CC1B1Cu,
+		};
+	}
+
 	namespace PathBlock
 	{
 		enum : uintptr_t
@@ -677,5 +697,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 222u;
+	inline constexpr unsigned kEntryCount = 225u;
 }

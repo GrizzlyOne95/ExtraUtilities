@@ -80,6 +80,7 @@ SUB_API_TABLES = (
     ("exu.fps", "src/Game/AnimationApi.cpp", "Definitions/Fps.lua", "fps", "luaL_Reg fpsFunctions[] = {"),
     ("exu.storage", "src/Util/StorageApi.cpp", "Definitions/Storage.lua", "storage", "luaL_Reg functions[] = {"),
     ("exu.continuity", "src/Game/ContinuityApi.cpp", "Definitions/Continuity.lua", "continuity", "luaL_Reg functions[] = {"),
+    ("exu.casing", "src/Game/ShellCasings.cpp", "Definitions/Casing.lua", "casing", "luaL_Reg functions[] = {"),
 )
 
 
