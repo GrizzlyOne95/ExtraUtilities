@@ -13,7 +13,7 @@ bridge. The imported Windows x86 GOG executable is Redux 2.2.301, image base
 
 `8d71f56c1314e69a8ad38f4eeaf20a8ff825965a84cf196e5f77ea4cc3377413`
 
-Thirty-two selected entry byte ranges also match the disk image, including the
+Thirty-three selected entry byte ranges also match the disk image, including the
 target/order methods, four damage handlers, pilot transitions, build selection
 and weapon simulation methods. Evidence comes from Lua registration entries,
 callers, disassembly, field writes and RTTI in the released executable.
@@ -22,7 +22,9 @@ output remains in ignored private scratch; only findings are recorded here.
 
 All addresses below are provisional research anchors for this exact build.
 They are not Steam signatures, validated detours or proof of multiplayer
-authority. No game, DLL deployment or live hook test was performed.
+authority. This initial investigation was static. The later
+[isdftest probe](RUNTIME_EVENT_ISDFTEST_PROBE_20261006.md) records limited live
+observations separately; no production callback hooks or DLLs were deployed.
 
 ## Target changes: useful committed setter
 
@@ -100,6 +102,10 @@ false-kill path to that inference; this has not been reproduced live. The
 career source comment that all four damage handlers set the same `0x200` latch
 also overstates the actual class-specific code. Do not reuse either assumption
 for exact EXU `OnKill` delivery.
+
+The later isdftest probe confirms nonfatal/healing Person damage returning
+false, zero HP without the fatal latch, and negative HP with it. It did not
+complete boarding, so the retirement/false-kill path remains a static finding.
 
 ## Pilot transitions and sniper kills
 
@@ -197,6 +203,10 @@ salvo, preserving separate per-projectile snapshots. Trace the acceptance and
 emission facts together before adopting that grouping; include partial ammo,
 delayed salvos, multiple selected hardpoints and weapon replacement.
 
+The later live probe observed 12 successful creations per full SG-2 blast,
+one with five ammo and none with zero ammo. These are narrow Cannon observations;
+they do not qualify the broader weapon families or a production event hook.
+
 The existing Cannon/MachineGun casing bridge already runs the native factory
 first and preserves its EAX result. Its observation is gated by casing enable,
 filter and queue capacity; startup can remove both call patches when casings are
@@ -238,6 +248,10 @@ parking/reload code, so ammo loss alone is not a universal fire event.
   from those existing callbacks, preserving mission handlers. Initial roster
   population versus joining, duplicate callbacks and reconnects still need MP
   qualification; no new native player hook is needed for the first adapter.
+  Released RTTI confirms primary slots `+0x24`, `+0x28`, `+0x2C` in LuaMission,
+  LuaMissionMP and four instant/multiplayer mission subclasses. The wrappers
+  check for functions and make protected calls; this confirms dispatch shape,
+  not join/roster/authority semantics. The SP probe did not exercise membership.
 
 ## Focused qualification fixture
 
