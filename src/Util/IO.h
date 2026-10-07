@@ -74,4 +74,7 @@ namespace ExtraUtilities::Lua::IO
 	int IsGameUiOpen(lua_State* L);
 	int IsPauseMenuOpen(lua_State* L);
 	int GetPauseMenuDebugState(lua_State* L);
+	int IsTextEntryActive(lua_State* L);
+	int IsAllyPromptOpen(lua_State* L);
+	int GetTextEntryDebugState(lua_State* L);
 }

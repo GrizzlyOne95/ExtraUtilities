@@ -126,6 +126,54 @@
         "pattern": "89 0D 7C 55 94 00",
         "pattern_kind": "reference",
         "note": "Reference pattern: matches 'mov dword ptr [0x94557c], ecx' at 0x007A4C0C, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "FindFocusedTextEntry": {
+        "address": "0x00823CE0",
+        "type": "function: void* __cdecl()",
+        "description": "Legacy in-mission text editor lookup: walks TextEntryListHead via node+0, reads entry at node+8 and returns the first node with entry+0x120 flags bit 0x100. The window procedure calls this at 0x0061964E before routing keyboard messages to the editor; input collection also calls it at 0x0062128A. EXU reproduces this read-only lookup with SEH and a 64-node bound.",
+        "pattern": "55 8B EC 83 EC 08 A1 40 1B CC 02 89 45 FC EB 08 8B 4D FC 8B 11 89 55 FC 83 7D FC 00 74 20 8B 45 FC 8B 48 08 89 4D F8 8B 55 F8 8B 82 20 01 00 00 25 00 01 00 00",
+        "pattern_kind": "code",
+        "note": "Measured in the shipped GOG 2.2.301 executable (SHA-256 8d71f56c1314e69a8ad38f4eeaf20a8ff825965a84cf196e5f77ea4cc3377413), 2026-10-07. Relative calls wildcarded; data operands and measured node/flag layout remain literal. See OpenShim reverse_engineering/coopflow/TEXT_ENTRY_STATE.md. Static evidence; live validation pending."
+      },
+      "ChatEntryInitSite": {
+        "address": "0x00624330",
+        "type": "code: initialization identity site (not callable)",
+        "description": "Instruction site inside chat initialization at 0x00624210. Installs submit callback 0x00624780 and recipient-cycle callback 0x00625070, calls the legacy editor constructor and publishes ChatEntryNode. Optional feature-specific identity anchor for the text entry state probe.",
+        "pattern": "C7 45 B0 80 47 62 00 C7 45 B4 70 50 62 00 8D 8D 70 FF FF FF 51 E8 ?? ?? ?? ?? 83 C4 04 A3 8C 74 A1 02",
+        "pattern_kind": "code",
+        "note": "Measured in the shipped GOG 2.2.301 executable (SHA-256 8d71f56c1314e69a8ad38f4eeaf20a8ff825965a84cf196e5f77ea4cc3377413), 2026-10-07. Relative calls wildcarded; data operands and measured node/flag layout remain literal. See OpenShim reverse_engineering/coopflow/TEXT_ENTRY_STATE.md. Static evidence; live validation pending."
+      },
+      "AllyPromptInitSite": {
+        "address": "0x0046CCC4",
+        "type": "code: initialization identity site (not callable)",
+        "description": "Instruction site inside ally/unally prompt initialization at 0x0046CC80. Installs submit callback 0x0046CED0, calls the legacy editor constructor and publishes AllyPromptNode. Optional feature-specific identity anchor for the text entry state probe.",
+        "pattern": "C7 45 F4 D0 CE 46 00 C7 45 F8 00 00 00 00 8D 55 B4 52 E8 ?? ?? ?? ?? 83 C4 04 A3 84 D1 60 02",
+        "pattern_kind": "code",
+        "note": "Measured in the shipped GOG 2.2.301 executable (SHA-256 8d71f56c1314e69a8ad38f4eeaf20a8ff825965a84cf196e5f77ea4cc3377413), 2026-10-07. Relative calls wildcarded; data operands and measured node/flag layout remain literal. See OpenShim reverse_engineering/coopflow/TEXT_ENTRY_STATE.md. Static evidence; live validation pending."
+      },
+      "TextEntryListHead": {
+        "address": "0x02CC1B40",
+        "type": "void** (legacy text editor list node)",
+        "description": "Head of the legacy in-mission text editor list. A node has next at +0 and editor payload at +8; the payload flags at +0x120 use bit 0x100 for keyboard focus and bit 1 for visibility. A nonnull list or chat/ally node alone does not mean input is active.",
+        "pattern": "55 8B EC 83 EC 08 A1 40 1B CC 02 89 45 FC EB 08 8B 4D FC 8B 11 89 55 FC 83 7D FC 00 74 20 8B 45 FC 8B 48 08 89 4D F8 8B 55 F8 8B 82 20 01 00 00 25 00 01 00 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern starts at 0x00823CE0 (FindFocusedTextEntry) and embeds this global operand. Verified from GOG 2.2.301 instructions and decompilation, 2026-10-07. Runtime reads require the three optional Text entry profile anchors plus RuntimeGate and SEH; no addresses inferred from a leaked PDB."
+      },
+      "ChatEntryNode": {
+        "address": "0x02A1748C",
+        "type": "void** (legacy text editor list node)",
+        "description": "Legacy in-mission multiplayer chat editor node, published by 0x00624210 and cleared by 0x006246D0. Distinct from lobby cUI_TextEntry chatEntry. Input focus is determined by membership in TextEntryListHead and payload+0x120 bit 0x100.",
+        "pattern": "C7 45 B0 80 47 62 00 C7 45 B4 70 50 62 00 8D 8D 70 FF FF FF 51 E8 ?? ?? ?? ?? 83 C4 04 A3 8C 74 A1 02",
+        "pattern_kind": "reference",
+        "note": "Reference pattern starts at 0x00624330 (ChatEntryInitSite) and embeds this global operand. Verified from GOG 2.2.301 instructions and decompilation, 2026-10-07. Runtime reads require the three optional Text entry profile anchors plus RuntimeGate and SEH; no addresses inferred from a leaked PDB."
+      },
+      "AllyPromptNode": {
+        "address": "0x0260D184",
+        "type": "void** (legacy text editor list node)",
+        "description": "Shared legacy ally/unally team-number editor node, published by 0x0046CC80 and cleared by 0x0046CE20. A persistent allocation, not an open flag; active only when it is the focused legacy editor node.",
+        "pattern": "C7 45 F4 D0 CE 46 00 C7 45 F8 00 00 00 00 8D 55 B4 52 E8 ?? ?? ?? ?? 83 C4 04 A3 84 D1 60 02",
+        "pattern_kind": "reference",
+        "note": "Reference pattern starts at 0x0046CCC4 (AllyPromptInitSite) and embeds this global operand. Verified from GOG 2.2.301 instructions and decompilation, 2026-10-07. Runtime reads require the three optional Text entry profile anchors plus RuntimeGate and SEH; no addresses inferred from a leaked PDB."
       }
     },
     "Camera": {

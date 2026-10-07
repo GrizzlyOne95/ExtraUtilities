@@ -125,4 +125,42 @@ namespace ExtraUtilities::Lua::IO
 
 		return 1;
 	}
+
+	int IsTextEntryActive(lua_State* L)
+	{
+		lua_pushboolean(L, ExtraUtilities::GameState::IsTextEntryActive());
+		return 1;
+	}
+
+	int IsAllyPromptOpen(lua_State* L)
+	{
+		lua_pushboolean(L, ExtraUtilities::GameState::IsAllyPromptOpen());
+		return 1;
+	}
+
+	int GetTextEntryDebugState(lua_State* L)
+	{
+		ExtraUtilities::GameState::TextEntryDebugState state{};
+		const bool ok = ExtraUtilities::GameState::TryGetTextEntryDebugState(state);
+		lua_newtable(L);
+		lua_pushboolean(L, ok);
+		lua_setfield(L, -2, "ok");
+		lua_pushboolean(L, state.textEntryActive);
+		lua_setfield(L, -2, "textEntryActive");
+		lua_pushboolean(L, state.chatOpen);
+		lua_setfield(L, -2, "chatOpen");
+		lua_pushboolean(L, state.allyPromptOpen);
+		lua_setfield(L, -2, "allyPromptOpen");
+		lua_pushinteger(L, static_cast<lua_Integer>(state.focusedNode));
+		lua_setfield(L, -2, "focusedNode");
+		lua_pushinteger(L, static_cast<lua_Integer>(state.focusedEntry));
+		lua_setfield(L, -2, "focusedEntry");
+		lua_pushinteger(L, static_cast<lua_Integer>(state.chatNode));
+		lua_setfield(L, -2, "chatNode");
+		lua_pushinteger(L, static_cast<lua_Integer>(state.allyNode));
+		lua_setfield(L, -2, "allyNode");
+		lua_pushinteger(L, static_cast<lua_Integer>(state.entryFlags));
+		lua_setfield(L, -2, "entryFlags");
+		return 1;
+	}
 }

@@ -2149,6 +2149,29 @@ function exu.IsPauseMenuOpen() end
 --- @return table
 function exu.GetPauseMenuDebugState() end
 
+--- Returns whether a stock in-mission text editor has keyboard focus.
+--- Includes multiplayer chat and the ally/unally team-number prompt.
+--- Combine with IsGameUiOpen() when suppressing mission key commands.
+--- Returns false if the native probe is unavailable; use the debug state's `ok` to detect that case.
+--- @nodiscard
+--- @return boolean
+function exu.IsTextEntryActive() end
+
+--- Returns whether the multiplayer ally or unally team-number prompt has keyboard focus.
+--- Returns false if the native probe is unavailable.
+--- @nodiscard
+--- @return boolean
+function exu.IsAllyPromptOpen() end
+
+--- Returns a snapshot of the stock in-mission text editor focus state.
+--- Fields: `ok`, `textEntryActive`, `chatOpen`, `allyPromptOpen`, `focusedNode`,
+--- `focusedEntry`, `chatNode`, `allyNode`, `entryFlags`. Pointers are diagnostic integers.
+--- An unavailable build or failed/corrupt native read returns `ok=false` with all other fields false/zero.
+--- Shell/lobby cUI_TextEntry controls are covered separately by IsGameUiOpen().
+--- @nodiscard
+--- @return table
+function exu.GetTextEntryDebugState() end
+
 --- Multiplayer
 ---
 --- These functions work exclusively in multiplayer to help with various things.

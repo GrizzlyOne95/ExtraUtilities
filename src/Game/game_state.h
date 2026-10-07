@@ -42,7 +42,22 @@ namespace ExtraUtilities
 			uint32_t multiplayerPauseFlag = 0;
 		};
 
+		struct TextEntryDebugState
+		{
+			bool textEntryActive = false;
+			bool chatOpen = false;
+			bool allyPromptOpen = false;
+			uintptr_t focusedNode = 0;
+			uintptr_t focusedEntry = 0;
+			uintptr_t chatNode = 0;
+			uintptr_t allyNode = 0;
+			uint32_t entryFlags = 0;
+		};
+
 		bool IsGameUiOpen() noexcept;
+		bool IsTextEntryActive() noexcept;
+		bool IsAllyPromptOpen() noexcept;
+		bool TryGetTextEntryDebugState(TextEntryDebugState& outState) noexcept;
 		bool IsPauseMenuOpen() noexcept;
 		bool TryGetPauseMenuDebugState(PauseMenuDebugState& outState) noexcept;
 		const char* DescribeScreenType(uint32_t screenType) noexcept;
