@@ -2571,6 +2571,15 @@ function exu.GetReticleObject() end
 --- @return Vector
 function exu.GetReticlePos() end
 
+--- Captures the current smart-reticle hit without returning a stale terrain position.
+--- Returns nil for no hit, out of range, an invalid object, or an unsupported build.
+--- Object hits return "object", handle, nil; terrain hits return "terrain", nil, position.
+--- This reads the current cockpit smart-reticle result; it does not extend its range.
+--- @return string? kind
+--- @return Handle? object
+--- @return Vector? position
+function exu.GetReticleHit() end
+
 --- Gets the current range of the smart cursor (default 200m).
 --- @nodiscard
 --- @return number

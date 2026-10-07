@@ -333,6 +333,10 @@ namespace ExtraUtilities::EngineAddresses
 	{
 		enum : uintptr_t
 		{
+			// int*
+			groundHit = 0x025CE778u,
+			// GameObject**
+			selectObject = 0x025CE77Cu,
 			// float*
 			angle = 0x025CE714u,
 			// VECTOR_3D*
@@ -593,5 +597,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 187u;
+	inline constexpr unsigned kEntryCount = 189u;
 }

@@ -769,6 +769,18 @@
       }
     },
     "Reticle": {
+      "groundHit": {
+        "address": "0x025CE778",
+        "type": "int*",
+        "description": "Current-frame FindGroundPos result at Reticle+0xA8. Zero means position is stale. Qualified 2.2.301 layout used by OpenShim weapon_convergence_hooks.cpp.",
+        "pattern": null
+      },
+      "selectObject": {
+        "address": "0x025CE77C",
+        "type": "GameObject**",
+        "description": "Current-frame smart reticle object pointer at Reticle+0xAC. Compare with the live handle lookup before returning an object hit.",
+        "pattern": null
+      },
       "angle": {
         "address": "0x025CE714",
         "type": "float*",
