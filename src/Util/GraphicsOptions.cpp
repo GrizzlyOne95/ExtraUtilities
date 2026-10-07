@@ -20,6 +20,7 @@
 
 #include "bzr.h"
 #include "Game/Camera.h"
+#include "LuaHelpers.h"
 
 #include <cmath>
 
@@ -33,7 +34,9 @@ namespace ExtraUtilities::Lua::GraphicsOptions
 
 	int GetGameResolution(lua_State* L)
 	{
+		if (!RuntimeGate::IsSupported()) return PushUnsupportedBuild(L);
 		BZR::BZR_Camera* cam = Camera::mainCam.Get();
+		if (cam == nullptr) return PushUnsupportedBuild(L);
 
 		// We floor them here because they are floating point values
 		// and sometimes the resulting value might be 1 pixel bigger
