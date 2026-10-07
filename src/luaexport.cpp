@@ -22,6 +22,7 @@
 
 #include "About.h"
 #include "Game/Culling.h"
+#include "Game/DamageResistance.h"
 #include "Game/FirstPersonLayers.h"
 #include "Game/DeathCamera.h"
 #include "Game/PersonLongClips.h"
@@ -978,6 +979,10 @@ namespace ExtraUtilities::Lua
 			{ "SetWeaponMaskCarrierBiasEnabled", &Patches::SetWeaponMaskCarrierBiasEnabled },
 			{ "SetAiOdfGameplayTuningEnabled", &Patches::SetAiOdfGameplayTuningEnabled },
 			{ "SetAiUnitTuning", &Patches::SetAiUnitTuning },
+			{ "HasNativeDamageResistance", &DamageResistance::HasNativeDamageResistance },
+			{ "SetUnitDamageMultiplier", &DamageResistance::SetUnitDamageMultiplier },
+			{ "ClearUnitDamageMultiplier", &DamageResistance::ClearUnitDamageMultiplier },
+			{ "ResetUnitDamageMultipliers", &DamageResistance::ResetUnitDamageMultipliers },
 			{ "GetAiUnitTuning", &Patches::GetAiUnitTuning },
 			{ "ClearAiUnitTuning", &Patches::ClearAiUnitTuning },
 			{ "ClearAllAiUnitTuning", &Patches::ClearAllAiUnitTuning },

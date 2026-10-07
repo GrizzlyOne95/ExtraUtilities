@@ -2857,6 +2857,29 @@ function exu.SetAiTargetSelectEnabled(...) end
 --- @param ... any
 function exu.SetAiUnitTuning(...) end
 
+--- True when OpenShim qualifies and installs the native Craft damage hook.
+--- Currently qualified on Windows/GOG Redux 2.2.301; unsupported builds return false.
+--- @return boolean available
+function exu.HasNativeDamageResistance() end
+
+--- Sets mission-scoped incoming Craft damage scaling before health/death.
+--- 0 is immunity, 1 restores stock damage. Healing and direct SetCurHealth edits
+--- are unchanged. Applies after stock difficulty adjustment; never changes the
+--- shared blast damage record. Reapply after loading a mission save.
+--- @param h Handle live craft handle
+--- @param multiplier number finite number in [0, 1]
+--- @return boolean accepted false for stale handles or unavailable native support
+function exu.SetUnitDamageMultiplier(h, multiplier) end
+
+--- Clears an override, including after destruction. Does not dereference h.
+--- @param h Handle
+--- @return boolean accepted
+function exu.ClearUnitDamageMultiplier(h) end
+
+--- Clears all mission damage overrides. EXU also does this at VM teardown/init.
+--- @return boolean accepted
+function exu.ResetUnitDamageMultipliers() end
+
 --- @param ... any
 function exu.SetAttackRevealEnabled(...) end
 

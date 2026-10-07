@@ -156,6 +156,7 @@
     <ClCompile Include="src\Game\CommandReplacement.cpp" />
     <ClCompile Include="src\Game\ContinuityApi.cpp" />
     <ClCompile Include="src\Game\Culling.cpp" />
+    <ClCompile Include="src\Game\DamageResistance.cpp" />
     <ClCompile Include="src\UI\ControlPanel.cpp" />
     <ClCompile Include="src\UI\NativeHud.cpp" />
     <ClCompile Include="src\UI\NativeHudLua.cpp" />
@@ -241,6 +242,7 @@
     <ClInclude Include="src\Patches\Cheats.h" />
     <ClInclude Include="src\Game\CommandReplacement.h" />
     <ClInclude Include="src\Game\Culling.h" />
+    <ClInclude Include="src\Game\DamageResistance.h" />
     <ClInclude Include="src\UI\ControlPanel.h" />
     <ClInclude Include="src\UI\NativeHud.h" />
     <ClInclude Include="src\UI\NativeHudControls.h" />
