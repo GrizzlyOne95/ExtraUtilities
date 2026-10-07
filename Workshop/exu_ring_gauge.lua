@@ -225,16 +225,74 @@ function Ring.WeaponLabel(odfName)
     return entry.prefix, entry.name
 end
 
+local function OdfValue(getter, odf, section, label)
+    local ok, v = pcall(getter, odf, section, label, 0)
+    return ok and type(v) == "number" and v or 0
+end
+
+-- Engine ammo per trigger pull: ammoCost (the weapon's, else its ordnance's)
+-- times the cannon salvoCount, as fpcontroller ShotCost. nil when the weapon
+-- costs nothing or its ODF cannot be read.
+local costCache = {}
+function Ring.ShotCost(odfName)
+    local cost = costCache[odfName]
+    if cost == nil then
+        cost = false
+        local ok, odf = pcall(OpenODF, odfName)
+        if ok and odf then
+            local per = OdfValue(GetODFInt, odf, "WeaponClass", "ammoCost")
+            if per <= 0 then
+                local okN, ord = pcall(GetODFString, odf, "WeaponClass", "ordName", "")
+                ord = okN and Clean(ord) or nil
+                local okD, ordOdf = false, nil
+                if ord then okD, ordOdf = pcall(OpenODF, ord) end
+                if okD and ordOdf then per = OdfValue(GetODFFloat, ordOdf, "OrdnanceClass", "ammoCost") end
+            end
+            local salvo = math.max(1, OdfValue(GetODFInt, odf, "CannonClass", "salvoCount"))
+            if per > 0 then cost = per * salvo end
+        end
+        costCache[odfName] = cost
+    end
+    return cost or nil
+end
+
+-- Shots as at most four characters: 999, 1.2K, 12K.
+function Ring.ShotText(shots)
+    if shots < 1000 then return tostring(shots) end
+    if shots < 10000 then return string.format("%.1fK", math.floor(shots / 100) / 10) end
+    return string.format("%dK", math.floor(shots / 1000))
+end
+
+-- text cut to at most `chars` characters, at a word break when there is one.
+function Ring.Fit(text, chars)
+    if #text <= chars then return text end
+    return text:sub(1, chars + 1):match("^(.*%S)%s") or text:sub(1, chars)
+end
+
 -- The BZ2-demo status cluster, bottom right by default: a bezelled plate,
 -- the hull ring on its upper-left quarter and the ammo ring on its lower-left
--- quarter, percentages inside the ring and weapon lines beside the ammo
--- figure. opts = {
+-- quarter, percentages inside the rings (the hull points above the hull
+-- figure). The plate's right half is a column split at the ring's centre
+-- line (the plate's red rule): status lines above it, as many as fit, and one
+-- line per weapon below it with its shots left (ammo / Ring.ShotCost) at the
+-- right end; a weapon with no shot left turns red. The hull ring flashes pale
+-- on each hit and its lit segments blink while the hull is critical.
+-- opts = {
 --   name = "exu_status", overlay = "exu_status",  zOrder = 600,
 --   radius = vertical ring radius in pixels (default 7.5% of screen height),
 --   aspect = 2.2,                      -- ring width / height
 --   x, y = ring centre in pixels (default: plate in the bottom-right corner),
 --   font = "CRBZoneOverlayFont", plate = true,
+--   statusLines = 3,                   -- most status rows; fewer when they do not fit
+--   status = function(player) -> { "text" or { text = , color = , blink = Hz }, ... } or nil,
+--                                      -- in order; a blinking line dims to a quarter
+--                                      -- of its alpha for the off half of each cycle
 --   weaponLabel = function(odf, slot) -> prefix, name,
+--   shots = function(player, slot, odf) -> shots left, or nil for ammo / Ring.ShotCost,
+--   dryColor, dimDryColor = {r,g,b,a}, -- weapon lines with no shot left
+--   hitFlash = 0.12,                   -- s the hull ring flashes on a hit (false: never);
+--                                      -- at most one flash per 0.3 s under sustained fire
+--   criticalBelow = 0.10, criticalBlink = 3,  -- hull ratio and Hz the hull ring blinks at
 --   dimPrefixColor, dimWeaponColor = {r,g,b,a},  -- unselected weapon lines
 --                                      (selection from exu.GetSelectedWeaponMask)
 --   hideStock = true,                  -- hide the stock hull/ammo/weapon readout
@@ -281,8 +339,8 @@ function Ring.NewStatus(api, opts)
     local ammo = Ring.New(api, { name = name .. "/ammo", parent = root, start = 270, step = -9,
         aspect = aspect, on = Ring.AMMO_COLOR })
 
-    local texts = {}
-    local function NewText(key, align, color)
+    local texts, textSize = {}, {}
+    local function NewText(key, align, color, size)
         local element = string.format("%s/%s", name, key)
         if not api.HasOverlayElement(element) then api.CreateOverlayElement("TextArea", element) end
         api.SetOverlayMetricsMode(element, PIXELS)
@@ -290,22 +348,36 @@ function Ring.NewStatus(api, opts)
         api.SetOverlayParameter(element, "alignment", align)
         api.SetOverlayTextColor(element, color[1], color[2], color[3], color[4])
         api.AddOverlayElementChild(root, element)
-        texts[key] = element
+        texts[key], textSize[key] = element, size
         return element
     end
     local figure = { 0.85, 0.88, 0.95, 1 }
+    local valueColor = { 0.62, 0.66, 0.74, 1 }
+    local statusColor = { 0.85, 0.88, 0.95, 1 }
     local prefixColor = { 0.95, 0.95, 0.95, 1 }
     local weaponColor = { 0.8, 0.85, 0.35, 1 }
     -- Unselected weapon lines; selected ones keep the colours above.
     local dimPrefixColor = opts.dimPrefixColor or { 0.45, 0.47, 0.5, 0.8 }
     local dimWeaponColor = opts.dimWeaponColor or { 0.4, 0.42, 0.22, 0.8 }
-    NewText("hullText", "right", figure)
-    NewText("ammoText", "right", figure)
+    local dryColor = opts.dryColor or { 1.0, 0.32, 0.26, 1 }
+    local dimDryColor = opts.dimDryColor or { 0.55, 0.2, 0.17, 0.8 }
+    local statusLines = opts.statusLines or 3
+    NewText("hullText", "right", figure, "figure")
+    NewText("hullValue", "right", valueColor, "value")
+    NewText("ammoText", "right", figure, "figure")
+    for line = 1, statusLines do
+        NewText("status" .. line, "left", statusColor, "status")
+    end
     for slot = 0, 4 do
-        NewText("prefix" .. slot, "left", prefixColor)
-        NewText("weapon" .. slot, "left", weaponColor)
+        NewText("prefix" .. slot, "left", prefixColor, "weapon")
+        NewText("weapon" .. slot, "left", weaponColor, "weapon")
+        NewText("shots" .. slot, "right", weaponColor, "weapon")
     end
 
+    -- CRBZoneOverlayFont's widest glyphs are 0.56 of the char height; the
+    -- shots figure ("999", "1.5K") keeps 3.6 of them clear at the right end
+    -- of a weapon line, and longer weapon names are cut at a word break.
+    local GLYPH, SHOT_CHARS = 0.56, 3.6
     local layout = {}
     function self.Layout()
         local w, h = api.GetGameResolution()
@@ -323,31 +395,85 @@ function Ring.NewStatus(api, opts)
             api.SetOverlayDimensions(plate, (Ring.PLATE.left + Ring.PLATE.right) * rv * stretch,
                 2 * Ring.PLATE.half * rv)
         end
-        local char = math.max(8, math.floor(rv * 0.22))
+        -- The right-hand column runs from just off the rule to `inner` (0.98
+        -- radii; the plate's inside is 1.06) above and below it, and from the
+        -- centre to ~2.0 radii right. Five weapon lines fill the lower half;
+        -- the upper half takes as many status lines as fit, from the top.
         local gapY = math.floor(rv * 0.06)
-        for _, element in pairs(texts) do
-            api.SetOverlayTextCharHeight(element, char)
+        local inner = math.floor(rv * 0.98)
+        local weaponChar = math.max(8, math.min(math.floor(rv * 0.19), math.floor((inner - gapY) / (5 * 1.06))))
+        local sizes = {
+            figure = math.max(8, math.floor(rv * 0.22)),
+            value = math.max(8, math.floor(rv * 0.17)),
+            status = math.max(8, math.floor(rv * 0.19)),
+            weapon = weaponChar,
+        }
+        for key, element in pairs(texts) do
+            api.SetOverlayTextCharHeight(element, sizes[textSize[key]])
         end
+        local char = sizes.figure
         local figureX = x - 0.03 * rh
         api.SetOverlayPosition(texts.hullText, figureX, y - gapY - char)
+        api.SetOverlayPosition(texts.hullValue, figureX, y - gapY - char - math.floor(rv * 0.04) - sizes.value)
         api.SetOverlayPosition(texts.ammoText, figureX, y + gapY)
-        local lineX = x + 0.05 * rh
-        for slot = 0, 4 do
-            local lineY = y + gapY + slot * math.floor(char * 1.05)
-            api.SetOverlayPosition(texts["prefix" .. slot], lineX, lineY)
-            api.SetOverlayPosition(texts["weapon" .. slot], lineX + math.floor(char * 1.1), lineY)
+
+        local lineX = x + 0.11 * rv * stretch
+        local shotsX = x + 1.95 * rv * stretch
+        local statusPitch = math.ceil(sizes.status * 1.06)
+        layout.statusFit = math.min(statusLines, math.floor((inner - gapY) / statusPitch))
+        for line = 1, statusLines do
+            api.SetOverlayPosition(texts["status" .. line], lineX, y - inner + (line - 1) * statusPitch)
         end
+        local weaponPitch = math.ceil(weaponChar * 1.06)
+        local nameX = lineX + math.floor(weaponChar * 1.1)
+        for slot = 0, 4 do
+            local lineY = y + gapY + slot * weaponPitch
+            api.SetOverlayPosition(texts["prefix" .. slot], lineX, lineY)
+            api.SetOverlayPosition(texts["weapon" .. slot], nameX, lineY)
+            api.SetOverlayPosition(texts["shots" .. slot], shotsX, lineY)
+        end
+        layout.nameChars = math.max(4, math.floor((shotsX - nameX) / (GLYPH * weaponChar) - SHOT_CHARS))
+        layout.statusChars = math.max(4, math.floor((shotsX - lineX) / (GLYPH * sizes.status)))
     end
 
-    -- Text colour changes only when a line's selection does.
-    local lineSelected = {}
-    local function SetLineSelected(line, selected)
-        if lineSelected[line] == selected then return end
-        lineSelected[line] = selected
+    -- Text colour changes only when a line's selection or dryness does.
+    local lineState = {}
+    local function SetLineState(line, selected, dry)
+        local state = (selected and "s" or "-") .. (dry and "d" or "-")
+        if lineState[line] == state then return end
+        lineState[line] = state
         local p = selected and prefixColor or dimPrefixColor
-        local w = selected and weaponColor or dimWeaponColor
+        local w
+        if dry then w = selected and dryColor or dimDryColor
+        else w = selected and weaponColor or dimWeaponColor end
         api.SetOverlayTextColor(texts["prefix" .. line], p[1], p[2], p[3], p[4])
         api.SetOverlayTextColor(texts["weapon" .. line], w[1], w[2], w[3], w[4])
+        api.SetOverlayTextColor(texts["shots" .. line], w[1], w[2], w[3], w[4])
+    end
+
+    -- Status lines from opts.status, clamped to the lines that fit; a line's
+    -- colour is set only when it changes (a blink changes it twice a cycle).
+    local statusShown = {}
+    local function UpdateStatus(player)
+        local entries
+        if type(opts.status) == "function" then entries = opts.status(player) end
+        local now = type(GetTime) == "function" and GetTime() or 0
+        for line = 1, statusLines do
+            local entry = line <= layout.statusFit and type(entries) == "table" and entries[line] or nil
+            local text = type(entry) == "table" and entry.text or entry
+            local c = Color(type(entry) == "table" and entry.color or nil, statusColor)
+            local blink = type(entry) == "table" and entry.blink
+            if type(blink) == "number" and blink > 0 and math.floor(now * blink * 2) % 2 == 1 then
+                c = { c[1], c[2], c[3], c[4] * 0.25 }
+            end
+            local key = ColorKey(c)
+            if statusShown[line] ~= key then
+                statusShown[line] = key
+                api.SetOverlayTextColor(texts["status" .. line], c[1], c[2], c[3], c[4])
+            end
+            api.SetOverlayCaption(texts["status" .. line],
+                type(text) == "string" and Ring.Fit(text, layout.statusChars) or "")
+        end
     end
 
     local function Ratio(cur, max)
@@ -357,6 +483,28 @@ function Ring.NewStatus(api, opts)
 
     local function Percent(ratio)
         return ratio and string.format("%d%%", math.floor(ratio * 100 + 0.5)) or "--"
+    end
+
+    -- The hull ring's colour: pale for a moment after a hit, dark for the off
+    -- half of each blink while critical, else Ring.HealthColor.
+    local WHITE = { 1, 1, 1, 1 }
+    local hit = { handle = nil, hull = nil, flashUntil = 0, nextFlash = 0 }
+    local function HullColor(player, cur, max, ratio, now)
+        local c = Ring.HealthColor(ratio)
+        local flash = opts.hitFlash == nil and 0.12 or opts.hitFlash
+        if flash and type(cur) == "number" then
+            local drop = hit.handle == player and hit.hull and hit.hull - cur or 0
+            if drop > math.max(0.5, (max or 0) * 0.002) and now >= hit.nextFlash then
+                hit.flashUntil, hit.nextFlash = now + flash, now + math.max(0.3, flash * 2)
+            end
+            hit.handle, hit.hull = player, cur
+            if now < hit.flashUntil then return Lerp(c, WHITE, 0.75) end
+        end
+        local blink = opts.criticalBlink or 3
+        if ratio < (opts.criticalBelow or 0.10) and blink > 0 and math.floor(now * blink * 2) % 2 == 1 then
+            return { c[1] * 0.3, c[2] * 0.3, c[3] * 0.3, c[4] }
+        end
+        return c
     end
 
     -- Call once per frame. Reacquires the local player every time: ejection,
@@ -374,12 +522,18 @@ function Ring.NewStatus(api, opts)
         end
         api.ShowOverlay(overlay)
 
-        local hullRatio = Ratio(GetCurHealth(player), GetMaxHealth(player))
-        local ammoRatio = Ratio(GetCurAmmo(player), GetMaxAmmo(player))
-        hull.SetRatio(hullRatio or 0, Ring.HealthColor(hullRatio or 0))
+        local now = type(GetTime) == "function" and GetTime() or 0
+        local curHull, curAmmo = GetCurHealth(player), GetCurAmmo(player)
+        local maxHull = GetMaxHealth(player)
+        local hullRatio = Ratio(curHull, maxHull)
+        local ammoRatio = Ratio(curAmmo, GetMaxAmmo(player))
+        hull.SetRatio(hullRatio or 0, HullColor(player, curHull, maxHull, hullRatio or 0, now))
         ammo.SetRatio(ammoRatio or 0)
         api.SetOverlayCaption(texts.hullText, Percent(hullRatio))
+        api.SetOverlayCaption(texts.hullValue,
+            type(curHull) == "number" and tostring(math.floor(curHull + 0.5)) or "")
         api.SetOverlayCaption(texts.ammoText, Percent(ammoRatio))
+        UpdateStatus(player)
 
         local label = opts.weaponLabel or function(odf) return Ring.WeaponLabel(odf) end
         local selectedMask = Ring.SelectedWeaponMask(api, player)
@@ -389,15 +543,22 @@ function Ring.NewStatus(api, opts)
             if odf then
                 local prefix, weapon = label(odf, slot)
                 local selected = selectedMask == nil or Ring.IsSlotSelected(selectedMask, slot)
+                local n = type(opts.shots) == "function" and opts.shots(player, slot, odf) or nil
+                if type(n) ~= "number" then
+                    local cost = Ring.ShotCost(odf)
+                    n = cost and type(curAmmo) == "number" and math.floor(curAmmo / cost) or nil
+                end
                 api.SetOverlayCaption(texts["prefix" .. line], prefix or "")
-                api.SetOverlayCaption(texts["weapon" .. line], weapon or "")
-                SetLineSelected(line, selected)
+                api.SetOverlayCaption(texts["weapon" .. line], Ring.Fit(weapon or "", layout.nameChars))
+                api.SetOverlayCaption(texts["shots" .. line], n and Ring.ShotText(math.max(0, n)) or "")
+                SetLineState(line, selected, n ~= nil and n <= 0)
                 line = line + 1
             end
         end
         for slot = line, 4 do
             api.SetOverlayCaption(texts["prefix" .. slot], "")
             api.SetOverlayCaption(texts["weapon" .. slot], "")
+            api.SetOverlayCaption(texts["shots" .. slot], "")
         end
     end
 
