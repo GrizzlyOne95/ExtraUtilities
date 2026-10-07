@@ -60,7 +60,9 @@ namespace ExtraUtilities::Lua::Camera
 
 	int GetOrigins(lua_State* L)
 	{
+		if (!RuntimeGate::IsSupported()) return PushUnsupportedBuild(L);
 		BZR::BZR_Camera* cam = mainCam.Get();
+		if (cam == nullptr) return PushUnsupportedBuild(L);
 		
 		lua_createtable(L, 0, 4); // table with 4 non array (map) elements
 
@@ -104,7 +106,10 @@ namespace ExtraUtilities::Lua::Camera
 
 	int GetViewMatrix(lua_State* L)
 	{
-		BZR::MAT_3D viewMatrix = mainCam.Get()->Matrix;
+		if (!RuntimeGate::IsSupported()) return PushUnsupportedBuild(L);
+		BZR::BZR_Camera* cam = mainCam.Get();
+		if (cam == nullptr) return PushUnsupportedBuild(L);
+		BZR::MAT_3D viewMatrix = cam->Matrix;
 
 		PushMatrix(L, viewMatrix);
 
