@@ -991,6 +991,7 @@ namespace ExtraUtilities::Lua
 			{ "GetReticleMatrix", &Reticle::GetMatrix },
 			{ "GetReticleObject", &Reticle::GetObject },
 			{ "GetReticlePos",    &Reticle::GetPosition },
+			{ "GetReticleHit",    &Reticle::GetHit },
 			{ "GetReticleRange",  &Reticle::GetRange },
 			{ "SetReticleRange",  &Reticle::SetRange },
 

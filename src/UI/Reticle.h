@@ -28,6 +28,8 @@
 namespace ExtraUtilities::Lua::Reticle
 {
 	inline const Scanner position(BZR::Reticle::position);
+	inline const Scanner groundHit(BZR::Reticle::groundHit);
+	inline const Scanner selectObject(BZR::Reticle::selectObject);
 	inline Scanner range(BZR::Reticle::range);
 	inline const Scanner object(BZR::Reticle::object);
 	inline const Scanner matrix(BZR::Reticle::matrix);
@@ -35,6 +37,7 @@ namespace ExtraUtilities::Lua::Reticle
 	int GetMatrix(lua_State* L);
 	int GetObject(lua_State* L);
 	int GetPosition(lua_State* L);
+	int GetHit(lua_State* L);
 	int GetRange(lua_State* L);
 	int SetRange(lua_State* L);
 }

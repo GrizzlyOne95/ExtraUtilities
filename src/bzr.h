@@ -602,6 +602,8 @@ namespace BZR
 
 	namespace Reticle
 	{
+		inline auto groundHit = (int*)EngineAddresses::Reticle::groundHit;
+		inline auto selectObject = (GameObject**)EngineAddresses::Reticle::selectObject;
 		inline auto angle = (float*)EngineAddresses::Reticle::angle;
 		inline auto position = (VECTOR_3D*)EngineAddresses::Reticle::position;
 		inline auto range = (float*)EngineAddresses::Reticle::range;
