@@ -5,6 +5,10 @@ Read-only Ghidra investigation, 2026-10-06. This supplements
 implement or qualify any new hook. EXU owns listener registration, the runtime
 queue and Lua delivery. OpenShim supplies observations at hooks it owns.
 
+The later [damage-attribution investigation](RUNTIME_DAMAGE_ATTRIBUTION_GOG_20261007.md)
+extends the damage section with projectile/explosion construction, ownership
+and handle-domain evidence; its new live fixture remains unexecuted.
+
 ## Build and evidence
 
 The existing Ghidra MCP backend was accessible through Claude's configured
