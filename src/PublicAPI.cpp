@@ -49,6 +49,7 @@
 #include "UI/Overlay.h"
 #include "Util/PlayOption.h"
 #include "Game/Culling.h"
+#include "Game/DamageResistance.h"
 #include "Game/GameObject.h"
 #include "Patches/AiTargetSelect.h"
 #include "Patches/EngineFlameColor.h"
@@ -132,6 +133,7 @@ namespace ExtraUtilities::Lua
 		Logging::ResetLogFileForCurrentProcess("exu_environment_debug.log");
 		Logging::ResetLogFileForCurrentProcess("exu_material_debug.log");
 		InitializeDebugConsole();
+		DamageResistance::ResetMissionState();
 		InstallLifecycleSentinel(L);
 		AnimationApi::Install(L);
 		StorageApi::Install(L);
@@ -161,6 +163,7 @@ namespace ExtraUtilities::Lua
 		GameObject::ClearMaterialCache();
 		ExtraUtilities::Culling::ResetMissionState();
 		Patch::ResetTurboMissionState();
+		DamageResistance::ResetMissionState();
 		Patch::ResetUnitVoMissionState();
 		Patch::ResetKillMessages();
 		Patch::ResetEngineFlameColors();
@@ -201,6 +204,7 @@ namespace ExtraUtilities::Lua
 		catch (...)
 		{
 			// The frame listener must never outlive the DLL.
+			DamageResistance::ResetMissionState();
 			ShellCasings::Shutdown();
 			MuzzleFlash::Shutdown();
 			state.Clear(L);
