@@ -6,6 +6,11 @@ are not implemented. A later opt-in
 live producer evidence; installed mission changes were temporary and restored,
 and no EXU/OpenShim DLLs were replaced.
 
+The [damage-attribution follow-up](RUNTIME_DAMAGE_ATTRIBUTION_GOG_20261007.md)
+maps direct/splash record construction, non-GameObject sources and distinct
+native/Lua handle domains. Those new findings are static; its interrupted
+live attempt did not reach fixture actions.
+
 **EXU owns scripting events:** listener registration, runtime queues, Lua
 references and safe delivery. OpenShim supplies native observations where it
 already owns the engine hooks. Avoid a second general callback framework in
@@ -96,7 +101,7 @@ results. It does not qualify Lua delivery, production detours or multiplayer.
 
 | Event | Practical starting point and qualification needed |
 | --- | --- |
-| `OnDamage` | Reuse OpenShim's damage observations through the native handoff. Separate damage signal from actual applied damage; absent amount/type fields remain absent. |
+| `OnDamage` | Reuse the existing native hook owner through a copied handoff. Preserve immediate damager, physical source and qualified owner relationships separately; a projectile/explosion source need not have a Lua handle. Separate incoming amount from applied HP loss and qualify nested forwarding. Absent facts remain absent. |
 | `OnKill` | Observe the class-specific fatal damage branches plus separate sniper occupant kills. Boarding retires a living pilot using removal bits, so those bits/disappearance are insufficient. Qualify object versus occupant identity, attribution and deduplication independently of career tracking. |
 | `OnTargetChanged` | A native setter reached by Lua SetTarget and engine callers commits the target handle. Observe old/new values after stock execution; qualify bypasses, initialization and load. AI selection/scoring remains a decision API. |
 | `OnPilotEnter` | Person's successful boarding branch transfers player control or AI process and retires the old Person. Capture pilot/vehicle handles before retirement; local handle switching alone is insufficient. |
