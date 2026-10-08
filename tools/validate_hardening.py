@@ -487,7 +487,7 @@ def check_patch_preimages() -> None:
 # updated in all four. Line endings are normalised so Windows and Linux
 # checkouts agree.
 SHARED_BZR_DOCS = {
-    "Docs/BZR_LUA_AGENT_REFERENCE.md": "95a146ae81c94a84c2b4c0767f7e2a6ab4aa1ee40148e2414a72733b13ac2fd1",
+    "Docs/BZR_LUA_AGENT_REFERENCE.md": "ed560acf91206732bacb173e3b56ddb501db85f84393bc8f2e89b00ca4df6bca",
     "Docs/BZR_PLATFORM_COMPATIBILITY.md": "b9af9f6452996080a046949f3164e102ec8aa4eefaa9d0c4b8d194e52b516fb3",
 }
 
