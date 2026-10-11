@@ -386,11 +386,14 @@ def check_hardening_markers() -> None:
             and "g_tablesQualified.store(QualifyTables()" in pilot_intercept,
         ),
         # The clip tables are global to every Person: the local call's writes
-        # are undone straight after the stock call, with nothing in between.
+        # are undone straight after the stock call. Only the long-clip restore
+        # (noexcept, nested inside the policy write) may sit in between.
         (
             "pilot clip tables restored after the stock call",
             re.search(
-                r"original\(person, dt\);\s*if \(plan\.write\)\s*\{\s*if \(!WriteTablesSeh\(plan\.stock\)\)",
+                r"original\(person, dt\);\s*"
+                r"(?:PersonLongClips::AfterCall\(person, longClips, removalPending\);\s*)?"
+                r"if \(plan\.write\)\s*\{\s*if \(!WriteTablesSeh\(plan\.stock\)\)",
                 pilot_intercept,
             ) is not None,
         ),
