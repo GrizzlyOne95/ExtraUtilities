@@ -153,18 +153,26 @@ namespace Ogre
 		return true;
 	}
 
-	inline Technique* GetMaterialTechnique(Material* material, unsigned short index)
-	{
-		using Fn = Technique * (__thiscall*)(Material*, unsigned short);
-		static Fn fn = ResolveOgreProc<Fn>("?getTechnique@Material@Ogre@@QAEPAVTechnique@2@G@Z");
-		return fn == nullptr || material == nullptr ? nullptr : fn(material, index);
-	}
-
 	inline unsigned short GetMaterialNumTechniques(const Material* material)
 	{
 		using Fn = unsigned short(__thiscall*)(const Material*);
 		static Fn fn = ResolveOgreProc<Fn>("?getNumTechniques@Material@Ogre@@QBEGXZ");
 		return fn == nullptr || material == nullptr ? 0 : fn(material);
+	}
+
+	// Ogre's indexed getters only assert the bound, and the shipped OgreMain is a
+	// release build: an index past the end returns whatever follows the vector, and
+	// writing through that pointer corrupts the heap. Every indexed getter here
+	// checks the count first and returns nullptr instead.
+	inline Technique* GetMaterialTechnique(Material* material, unsigned short index)
+	{
+		using Fn = Technique * (__thiscall*)(Material*, unsigned short);
+		static Fn fn = ResolveOgreProc<Fn>("?getTechnique@Material@Ogre@@QAEPAVTechnique@2@G@Z");
+		if (fn == nullptr || material == nullptr || index >= GetMaterialNumTechniques(material))
+		{
+			return nullptr;
+		}
+		return fn(material, index);
 	}
 
 	inline const String* GetTechniqueSchemeName(const Technique* technique)
@@ -185,7 +193,11 @@ namespace Ogre
 	{
 		using Fn = Pass * (__thiscall*)(Technique*, unsigned short);
 		static Fn fn = ResolveOgreProc<Fn>("?getPass@Technique@Ogre@@QAEPAVPass@2@G@Z");
-		return fn == nullptr || technique == nullptr ? nullptr : fn(technique, index);
+		if (fn == nullptr || technique == nullptr || index >= GetTechniqueNumPasses(technique))
+		{
+			return nullptr;
+		}
+		return fn(technique, index);
 	}
 
 	inline unsigned short GetPassNumTextureUnitStates(const Pass* pass)
@@ -199,7 +211,11 @@ namespace Ogre
 	{
 		using Fn = TextureUnitState * (__thiscall*)(Pass*, unsigned short);
 		static Fn fn = ResolveOgreProc<Fn>("?getTextureUnitState@Pass@Ogre@@QAEPAVTextureUnitState@2@G@Z");
-		return fn == nullptr || pass == nullptr ? nullptr : fn(pass, index);
+		if (fn == nullptr || pass == nullptr || index >= GetPassNumTextureUnitStates(pass))
+		{
+			return nullptr;
+		}
+		return fn(pass, index);
 	}
 
 	inline bool SetTextureUnitStateTextureName(TextureUnitState* textureUnitState, const String& name, TextureType type = TEX_TYPE_2D)
