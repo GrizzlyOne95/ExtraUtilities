@@ -210,6 +210,22 @@ namespace ExtraUtilities::Lua::Overlay
 			return steamappsDirectory / "workshop" / "content" / kBattlezoneWorkshopAppId;
 		}
 
+		// The overlay font's glyph table addresses the bzfont.dds sprite sheet.
+		// A mod may ship its own sheet on the same grid (ISDF Chronicles ships
+		// the BZ2/BZCC face), and the HUD then draws with it. Ogre textures are
+		// global by name, so whichever resource group loads bzfont.dds first
+		// decides it for every user. On DX11 the overlay font loads before the
+		// HUD, so pointing these groups at the stock sheet put the BZ98 face
+		// back on the whole HUD under DX11 only. Prefer the loading mod's sheet.
+		std::string ResolveFontTextureDirectory(const std::string& moduleDirectory, const std::string& gameRootDirectory)
+		{
+			if (!moduleDirectory.empty() && IsRegularFile(std::filesystem::path(moduleDirectory) / "bzfont.dds"))
+			{
+				return moduleDirectory;
+			}
+			return gameRootDirectory + "\\BZ_ASSETS\\pc\\textures\\MISC_DDS";
+		}
+
 		void EnsureOverlayRuntimeResources()
 		{
 			if (overlayRuntimeResourcesReady || overlayRuntimeResourcesAttempted)
@@ -303,7 +319,7 @@ namespace ExtraUtilities::Lua::Overlay
 					gameRootDirectory.c_str());
 			}
 
-			const std::string stockTextureDirectory = gameRootDirectory + "\\BZ_ASSETS\\pc\\textures\\MISC_DDS";
+			const std::string stockTextureDirectory = ResolveFontTextureDirectory(moduleDirectory, gameRootDirectory);
 			if (!Native::TryAddResourceLocation(stockTextureDirectory.c_str(), kOverlayRuntimeResourceGroup))
 			{
 				return;
@@ -474,7 +490,7 @@ namespace ExtraUtilities::Lua::Overlay
 			{
 				const std::filesystem::path fontScriptPath(overlayRuntimeFontScriptPath);
 				const std::string fontScriptDirectory = fontScriptPath.parent_path().string();
-				const std::string stockTextureDirectory = gameRootDirectory + "\\BZ_ASSETS\\pc\\textures\\MISC_DDS";
+				const std::string stockTextureDirectory = ResolveFontTextureDirectory(GetCurrentModuleDirectory(), gameRootDirectory);
 				if (!fontScriptDirectory.empty()
 					&& Native::TryAddResourceLocation(fontScriptDirectory.c_str(), kOverlayRuntimeFontResourceGroup)
 					&& Native::TryAddResourceLocation(stockTextureDirectory.c_str(), kOverlayRuntimeFontResourceGroup)
