@@ -632,6 +632,15 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
+	namespace ChunkEffect
+	{
+		enum : uintptr_t
+		{
+			// function: void __thiscall(ChunkEffect*, OBJ76* root, const float* velocity, uint8_t preserve)
+			FullFragmentObject = 0x00492640u,
+		};
+	}
+
 	namespace PathBlock
 	{
 		enum : uintptr_t
@@ -724,5 +733,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 235u;
+	inline constexpr unsigned kEntryCount = 236u;
 }

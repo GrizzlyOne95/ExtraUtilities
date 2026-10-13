@@ -25,6 +25,12 @@
     <Filter Include="Source Files\Patches">
       <UniqueIdentifier>{9757a244-77e8-42d2-b27f-8eb07342bf15}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Gibs\NativeChunks">
+      <UniqueIdentifier>{5b0e3c1a-7d42-4f6b-9a18-2c4d8e7f1b30}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Gibs\NativeChunks">
+      <UniqueIdentifier>{c93a6f52-1e08-4b7d-8a64-0f5e2d9b7c11}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Header Files\Patches">
       <UniqueIdentifier>{cedb2a92-2dfc-4210-a305-192194eb5841}</UniqueIdentifier>
     </Filter>
@@ -162,6 +168,15 @@
     <ClCompile Include="src\Game\MuzzleFlash.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Gibs\GibPayloads.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Gibs\SkinnedGibs.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Ogre\OgreGibRuntime.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Game\StaticGeometry.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
@@ -287,6 +302,18 @@
     </ClCompile>
     <ClCompile Include="src\Patches\WeaponMask.cpp">
       <Filter>Source Files\Patches</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Gibs\NativeChunks\native_chunk_mesh.cpp">
+      <Filter>Source Files\Gibs\NativeChunks</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Gibs\NativeChunks\native_chunk_prune.cpp">
+      <Filter>Source Files\Gibs\NativeChunks</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Gibs\NativeChunks\native_chunk_cache.cpp">
+      <Filter>Source Files\Gibs\NativeChunks</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Gibs\NativeChunks\gib_flesh_texture.cpp">
+      <Filter>Source Files\Gibs\NativeChunks</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -488,6 +515,18 @@
     <ClInclude Include="src\Game\ShellCasingMath.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
+    <ClInclude Include="src\Gibs\GibPayloads.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Gibs\SkinnedGibCore.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Gibs\SkinnedGibs.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ogre\OgreGibRuntime.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
     <ClInclude Include="src\Game\TextureWindowMath.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
@@ -673,6 +712,21 @@
     </ClInclude>
     <ClInclude Include="Resource\resource.h">
       <Filter>Resource Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Gibs\NativeChunks\native_chunk_mesh.h">
+      <Filter>Header Files\Gibs\NativeChunks</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Gibs\NativeChunks\native_chunk_prune.h">
+      <Filter>Header Files\Gibs\NativeChunks</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Gibs\NativeChunks\native_chunk_cache.h">
+      <Filter>Header Files\Gibs\NativeChunks</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Gibs\NativeChunks\gib_flesh_texture.h">
+      <Filter>Header Files\Gibs\NativeChunks</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Gibs\NativeChunks\chunk_proxy_generic_meshes.inl">
+      <Filter>Header Files\Gibs\NativeChunks</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
