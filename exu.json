@@ -1702,6 +1702,88 @@
         "description": "perimeterArea: the same for class-5 objects (PerimeterBlock, bit 3).",
         "pattern": null
       }
+    },
+    "Plant": {
+      "ClsnSounds": {
+        "address": "0x004436C0",
+        "type": "hook site (6 bytes: push ebp; mov ebp,esp; sub esp,0x2C)",
+        "description": "ClsnSounds(CLSN_INFO* a, CLSN_INFO* b), void __cdecl: plays the collision bump sound when one side is the user's craft; CLSN_INFO+4 is the OBJ76*. EXU's plant feature detours the entry and skips the sound when either object is a plant.",
+        "pattern": "55 8B EC 83 EC 2C A1 00 70 8E 00 33 C5 89 45 FC 8B 45 08 8B",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in GOG 2.2.301 .text (checked 2026-10-13: the shorter prefixes match more than one site, so the pattern runs on until unique). Verified against GOG 2.2.301 by disassembly 2026-10-13 (Docs/Research/PLANT_COLLISION_RE_20261013.md). Only the stolen whole instructions (push ebp; mov ebp,esp; sub esp,imm) are copied; none has a relative operand."
+      },
+      "OrdnanceHit": {
+        "address": "0x00480750",
+        "type": "hook site (9 bytes: push ebp; mov ebp,esp; sub esp,0xD0)",
+        "description": "Ordnance::Hit(Ordnance* this, GameObject* hit, float* normal), void __thiscall: applies damage and builds one hit explosion chosen by the hit object's class id (xplBuilding for buildings). EXU's plant feature detours the entry to swap that explosion for the plant's hit explosion for the duration of the call. BulletHitHook (0x00480771) sits inside this function after the stolen bytes and is unaffected.",
+        "pattern": "55 8B EC 81 EC D0 00 00 00 A1 00 70 8E 00 33 C5 89 45 FC 56 57 89 8D",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in GOG 2.2.301 .text (checked 2026-10-13: the shorter prefixes match more than one site, so the pattern runs on until unique). Verified against GOG 2.2.301 by disassembly 2026-10-13 (Docs/Research/PLANT_COLLISION_RE_20261013.md). Only the stolen whole instructions (push ebp; mov ebp,esp; sub esp,imm) are copied; none has a relative operand."
+      },
+      "CreateChunklet": {
+        "address": "0x004927D0",
+        "type": "hook site (9 bytes: push ebp; mov ebp,esp; sub esp,0xB8)",
+        "description": "ChunkEffect::CreateChunklet(ChunkEffect* this, a, b, bool), void __thiscall, ret 0x0C: throws one geometry chip; Building::DamageAlloc calls it per ordnance hit. EXU's plant feature detours the entry and drops the chip while a plant is being hit.",
+        "pattern": "55 8B EC 81 EC B8 00 00 00 A1 00 70 8E 00 33 C5 89 45 FC 56 57 89",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in GOG 2.2.301 .text (checked 2026-10-13: the shorter prefixes match more than one site, so the pattern runs on until unique). Verified against GOG 2.2.301 by disassembly 2026-10-13 (Docs/Research/PLANT_COLLISION_RE_20261013.md). Only the stolen whole instructions (push ebp; mov ebp,esp; sub esp,imm) are copied; none has a relative operand."
+      },
+      "BuildingExplode": {
+        "address": "0x0047F330",
+        "type": "hook site (9 bytes: push ebp; mov ebp,esp; sub esp,0x124)",
+        "description": "Building::Explode(this = GameObject+0x18), void __thiscall (secondary vtable slot 5): the building death sequence. EXU's plant feature detours the entry and, for plants, runs a reduced sequence (flag, explosion, light, cleanup, optional scrap) instead.",
+        "pattern": "55 8B EC 81 EC 24 01 00 00 A1 00 70 8E 00 33 C5 89 45 FC 56 57 89 8D 3C",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in GOG 2.2.301 .text (checked 2026-10-13: the shorter prefixes match more than one site, so the pattern runs on until unique). Verified against GOG 2.2.301 by disassembly 2026-10-13 (Docs/Research/PLANT_COLLISION_RE_20261013.md). Only the stolen whole instructions (push ebp; mov ebp,esp; sub esp,imm) are copied; none has a relative operand."
+      },
+      "ObjSetFlag": {
+        "address": "0x0062DE40",
+        "type": "function: void __cdecl(OBJ76* obj, uint32 flags)",
+        "description": "obj_set_flag: ORs flags into OBJ76+0x14 (0x200 = dying) and notifies the render object when present.",
+        "pattern": "55 8B EC 83 7D 08 00 74 31 8B 45 08 8B 48",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in GOG 2.2.301 .text (checked 2026-10-13: the shorter prefixes match more than one site, so the pattern runs on until unique). Verified against GOG 2.2.301 by disassembly 2026-10-13 (Docs/Research/PLANT_COLLISION_RE_20261013.md)."
+      },
+      "RemoveLightSource": {
+        "address": "0x0068A2D0",
+        "type": "function: void __cdecl(OBJ76* obj)",
+        "description": "Remove_Light_Source: drops the dynamic light registered for an object (Building::Explode calls it when OBJ76 flags has 0x800).",
+        "pattern": "55 8B EC 51 56 57 C7 45 FC 00 00 00 00 EB",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in GOG 2.2.301 .text (checked 2026-10-13: the shorter prefixes match more than one site, so the pattern runs on until unique). Verified against GOG 2.2.301 by disassembly 2026-10-13 (Docs/Research/PLANT_COLLISION_RE_20261013.md)."
+      },
+      "ExplosionFind": {
+        "address": "0x004CB870",
+        "type": "function: ExplosionClass* __cdecl(uint32 nameLo, uint32 nameHi)",
+        "description": "ExplosionClass::Find: the 8-character explosion name packed little-endian and zero padded (masked with 0x7F7F7F7F); returns the loaded class, builds it from <name>.odf on demand, or returns null (logging) when missing.",
+        "pattern": "55 8B EC 6A FF 68 88 9E 84 00 64 A1 00 00 00 00 50 83 EC 60 A1 00 70 8E 00 33 C5 89 45 F0 57 50 8D 45 F4 64 A3 00 00 00 00 8B 45 08 25 7F 7F 7F 7F 8B 4D 0C 81 E1 7F 7F 7F 7F 89 45 08 89 4D 0C 8B 55 08 0B 55 0C 75 07 33 C0 E9 FB 01 00 00 8D 4D CC E8 A9",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in GOG 2.2.301 .text (checked 2026-10-13: the shorter prefixes match more than one site, so the pattern runs on until unique). Verified against GOG 2.2.301 by disassembly 2026-10-13 (Docs/Research/PLANT_COLLISION_RE_20261013.md)."
+      },
+      "ExplosionBuild": {
+        "address": "0x004CB7B0",
+        "type": "function: void __thiscall(ExplosionClass* self, MAT_3D* transform, OBJ76* owner), ret 8",
+        "description": "ExplosionClass::Build: spawns the explosion at a transform; owner may be null.",
+        "pattern": "55 8B EC 83 EC 10 89 4D FC 8B 45 FC 8B 48 2C",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in GOG 2.2.301 .text (checked 2026-10-13: the shorter prefixes match more than one site, so the pattern runs on until unique). Verified against GOG 2.2.301 by disassembly 2026-10-13 (Docs/Research/PLANT_COLLISION_RE_20261013.md)."
+      },
+      "MakeScrapField": {
+        "address": "0x005C65A0",
+        "type": "function: void __cdecl(VECTOR_3D* position, int count)",
+        "description": "MakeScrapField: scatters count scrap pickups around a float position. Building::Explode calls it at 0x0047F9E8 with &position (3 floats from the OBJ76 transform doubles at +0x28/+0x30/+0x38 of the matrix) and the ODF scrap value objClass+0x4C.",
+        "pattern": "55 8B EC 81 EC 2C 01 00 00 A1 00 70 8E 00 33 C5 89 45 FC 56 57 8B 0D",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in GOG 2.2.301 .text (checked 2026-10-13: the shorter prefixes match more than one site, so the pattern runs on until unique). Verified against GOG 2.2.301 by disassembly 2026-10-13 (Docs/Research/PLANT_COLLISION_RE_20261013.md)."
+      },
+      "ParameterDbGetBool": {
+        "address": "0x00589920",
+        "type": "function: bool __thiscall(ParameterDB* self, uint32 sectionHash, uint32 keyHash, bool* out, bool defaultValue), ret 0x10",
+        "description": "Reads a boolean ODF key; returns whether the key exists. Hashes come from PathBlock.ParameterHash; strings use PathBlock.ParameterDbGetString.",
+        "pattern": "55 8B EC 83 EC 0C 89 4D F4 8B 45 0C 50 8B 4D 08 51 8B",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in GOG 2.2.301 .text (checked 2026-10-13: the shorter prefixes match more than one site, so the pattern runs on until unique). Verified against GOG 2.2.301 by disassembly 2026-10-13 (Docs/Research/PLANT_COLLISION_RE_20261013.md)."
+      }
     }
   }
 }

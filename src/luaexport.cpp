@@ -27,6 +27,7 @@
 #include "Game/DeathCamera.h"
 #include "Game/PersonLongClips.h"
 #include "Game/PathBlock.h"
+#include "Game/Plant.h"
 #include "Game/PersonAnimBlend.h"
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotFsmIntercept.h"
@@ -546,6 +547,7 @@ namespace ExtraUtilities::Lua
 		{
 			Logging::LogMessage("exu: deferred patches activated");
 			PilotFsmIntercept::Install();
+			Plant::Install();
 			PlayerTrigger::Qualify();
 			// Re-applies ODF-flagged buildings the map load already blocked
 			// (EXU usually loads after AiUtilFeature::PostLoad).
@@ -993,6 +995,8 @@ namespace ExtraUtilities::Lua
 			{ "SetTurretAimPitchEnabled", &Patches::SetTurretAimPitchEnabled },
 			{ "SetAttackRevealEnabled", &Patches::SetAttackRevealEnabled },
 			{ "SetJumpSnipeCrouch", &Patches::SetJumpSnipeCrouch },
+			{ "SetPlant", &Plant::SetPlant },
+			{ "IsPlant", &Plant::IsPlant },
 			{ "ResetMissionHookOverrides", &Patches::ResetMissionHookOverrides },
 
 			// Play Options
