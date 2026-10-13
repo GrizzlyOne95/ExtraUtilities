@@ -81,6 +81,7 @@ SUB_API_TABLES = (
     ("exu.storage", "src/Util/StorageApi.cpp", "Definitions/Storage.lua", "storage", "luaL_Reg functions[] = {"),
     ("exu.continuity", "src/Game/ContinuityApi.cpp", "Definitions/Continuity.lua", "continuity", "luaL_Reg functions[] = {"),
     ("exu.casing", "src/Game/ShellCasings.cpp", "Definitions/Casing.lua", "casing", "luaL_Reg functions[] = {"),
+    ("exu.gibs", "src/Gibs/SkinnedGibs.cpp", "Definitions/Gibs.lua", "gibs", "luaL_Reg functions[] = {"),
 )
 
 

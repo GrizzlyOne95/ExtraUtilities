@@ -135,7 +135,10 @@ test_host_cpp() {
     for src in "$ROOT"/tests/host/*.cpp; do
         local name
         name="$(basename "$src" .cpp)"
-        "$cxx" -std=c++17 -Wall -Wextra -Werror -I "$ROOT/src" -o "$build/$name" "$src" \
+        # native_chunk_* tests exercise the vendored sources in src/Gibs/NativeChunks.
+        local extra=()
+        case "$name" in native_chunk_*) extra=("$ROOT"/src/Gibs/NativeChunks/*.cpp) ;; esac
+        "$cxx" -std=c++17 -Wall -Wextra -Werror -I "$ROOT/src" -o "$build/$name" "$src" ${extra[@]+"${extra[@]}"} \
             || { rm -rf "$build"; fail "compile failed: $src"; }
         "$build/$name" || { rm -rf "$build"; fail "test failed: $name"; }
     done

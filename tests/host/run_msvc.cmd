@@ -28,19 +28,27 @@ set "OUT=%TEMP%\exu-host-tests"
 if not exist "%OUT%" mkdir "%OUT%" || exit /b 1
 
 set FAILED=0
-for %%f in ("%ROOT%\tests\host\*.cpp") do (
-    cl /nologo /std:c++17 /EHsc /W4 /WX /permissive- /I "%ROOT%\src" /Fe"%OUT%\%%~nf.exe" /Fo"%OUT%\\" "%%f" >"%OUT%\%%~nf.log"
-    if errorlevel 1 (
-        type "%OUT%\%%~nf.log"
-        echo FAIL: compile %%~nxf 1>&2
-        set FAILED=1
-    ) else (
-        "%OUT%\%%~nf.exe"
-        if errorlevel 1 (
-            echo FAIL: %%~nf 1>&2
-            set FAILED=1
-        )
-    )
-)
+for %%f in ("%ROOT%\tests\host\*.cpp") do call :runtest "%%f"
 
 exit /b %FAILED%
+
+rem Tests named native_chunk_* exercise the vendored sources in
+rem src\Gibs\NativeChunks, so those are compiled and linked in with them.
+:runtest
+set "TESTNAME=%~n1"
+set "EXTRA="
+echo %TESTNAME%| findstr /b /c:"native_chunk_" >nul && set EXTRA="%ROOT%\src\Gibs\NativeChunks\*.cpp"
+if not exist "%OUT%\%TESTNAME%.objs" mkdir "%OUT%\%TESTNAME%.objs"
+cl /nologo /std:c++17 /EHsc /W4 /WX /permissive- /I "%ROOT%\src" /Fe"%OUT%\%TESTNAME%.exe" /Fo"%OUT%\%TESTNAME%.objs\\" %1 %EXTRA% >"%OUT%\%TESTNAME%.log"
+if errorlevel 1 (
+    type "%OUT%\%TESTNAME%.log"
+    echo FAIL: compile %~nx1 1>&2
+    set FAILED=1
+    exit /b 0
+)
+"%OUT%\%TESTNAME%.exe"
+if errorlevel 1 (
+    echo FAIL: %TESTNAME% 1>&2
+    set FAILED=1
+)
+exit /b 0

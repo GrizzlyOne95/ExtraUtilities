@@ -43,6 +43,7 @@
 #include "Game/PilotFsmIntercept.h"
 #include "Game/MuzzleFlash.h"
 #include "Game/ShellCasings.h"
+#include "Gibs/SkinnedGibs.h"
 #include "Game/StaticGeometry.h"
 #include "LuaState.h"
 #include "LuaCppBarrier.h"
@@ -140,6 +141,7 @@ namespace ExtraUtilities::Lua
 		StorageApi::Install(L);
 		ContinuityApi::Install(L);
 		ShellCasings::Install(L);
+		SkinnedGibs::Install(L);
 		MuzzleFlash::Install(L);
 		PathBlock::Install(L);
 		Logging::LogMessage(
@@ -199,6 +201,8 @@ namespace ExtraUtilities::Lua
 			StaticGeometry::Shutdown();
 			// Before the DLL can unload: removes the Ogre frame listener.
 			ShellCasings::Shutdown();
+			// Removes the death detour and its frame listener as well.
+			SkinnedGibs::Shutdown();
 			MuzzleFlash::Shutdown();
 			Environment::Shutdown();
 			state.Clear(L);
@@ -209,6 +213,7 @@ namespace ExtraUtilities::Lua
 			// The frame listener must never outlive the DLL.
 			DamageResistance::ResetMissionState();
 			ShellCasings::Shutdown();
+			SkinnedGibs::Shutdown();
 			MuzzleFlash::Shutdown();
 			state.Clear(L);
 			OutputDebugStringA("ExtraUtilities: exception during Lua-state shutdown\n");
