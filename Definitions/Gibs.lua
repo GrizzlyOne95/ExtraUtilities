@@ -13,7 +13,7 @@
 ---
 --- The first death of each model pays for the mesh split (watch the `prepareMs`
 --- line in exu.log); the result is cached under
---- %LOCALAPPDATA%\ExtraUtilities\cache\gibs\ and later missions are free.
+--- <game dir>\exu\cache\gibs\ and later missions are free.
 ---
 --- Off by default: a mission opts in with Enable(true). Purely local visuals:
 --- nothing is networked and nothing touches the simulation, so it is safe (but

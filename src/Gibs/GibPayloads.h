@@ -25,7 +25,7 @@
 // and describes the pieces. Owns the disk cache and the ExuGibPayloads
 // resource group that lets Ogre load the cached piece meshes.
 //
-//   cache root : %LOCALAPPDATA%\ExtraUtilities\cache\
+//   cache root : <game dir>\exu\cache\
 //   pieces     : <root>\gibs\v6\<fnv1a64(mesh + skeleton) hex>\<piece>.mesh
 //   materials  : <root>\openshim_gib_flesh*.material and the textures they use
 //

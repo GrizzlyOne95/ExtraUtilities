@@ -28,6 +28,7 @@
 #include "Gibs/NativeChunks/native_chunk_prune.h"
 #include "Ogre/OgreGibRuntime.h"
 #include "Util/Logging.h"
+#include "Util/ModulePath.h"
 #include "Util/SehGuard.h"
 
 #include <Windows.h>
@@ -89,21 +90,16 @@ namespace ExtraUtilities::Gibs::Payloads
 			return Lower(s);
 		}
 
+		// <game dir>\exu\cache, beside OpenShim's openshim\cache: one place per
+		// install, removed with the game, shared by every mod that uses EXU.
 		std::filesystem::path CacheRoot()
 		{
-			const DWORD required = GetEnvironmentVariableW(L"LOCALAPPDATA", nullptr, 0);
-			if (required == 0)
+			const std::string game = ModulePath::GetGameRootDirectory();
+			if (game.empty())
 			{
 				return {};
 			}
-			std::wstring buffer(static_cast<size_t>(required), L'\0');
-			const DWORD written = GetEnvironmentVariableW(L"LOCALAPPDATA", buffer.data(), required);
-			if (written == 0 || written >= required)
-			{
-				return {};
-			}
-			buffer.resize(written);
-			return std::filesystem::path(buffer) / L"ExtraUtilities" / L"cache";
+			return std::filesystem::path(game) / "exu" / "cache";
 		}
 
 		// The pieces are keyed by what they were cut from: two mods reusing a
@@ -144,7 +140,7 @@ namespace ExtraUtilities::Gibs::Payloads
 			const std::filesystem::path root = CacheRoot();
 			if (root.empty())
 			{
-				Logging::LogMessage("[EXU::Gibs] unsupported mesh=%s reason=LOCALAPPDATA unavailable", meshName.c_str());
+				Logging::LogMessage("[EXU::Gibs] unsupported mesh=%s reason=game directory unavailable", meshName.c_str());
 				return nullptr;
 			}
 			const std::string folder = std::string(kGibFolder) + ContentHash(bytes, skeleton);
@@ -366,7 +362,7 @@ namespace ExtraUtilities::Gibs::Payloads
 			const std::filesystem::path root = CacheRoot();
 			if (root.empty())
 			{
-				Logging::LogMessage("[EXU::Gibs] payload resources unavailable: LOCALAPPDATA is not set");
+				Logging::LogMessage("[EXU::Gibs] payload resources unavailable: game directory unknown");
 				return;
 			}
 			std::error_code ec;
