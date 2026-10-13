@@ -34,7 +34,7 @@ OpenShim installs its own detour on this entry lazily, from `ChunkEffect::Simula
 ## Payloads
 
 - Source bytes: the dead entity's mesh (`Entity::getMesh`, `Resource::getName/getGroup`) and its skeleton (`NativeChunks::SkeletonName`), read with `ResourceGroupManager::openResource` into EXU-owned storage (OpenShim `native_chunk_runtime.cpp` `readResource`: Redux `DataStream` vtable slot 3 is `read`; release through the owning DLL's destructor and `StdAllocPolicy::deallocateBytes`, never the CRT).
-- Cache: `%LOCALAPPDATA%\ExtraUtilities\cache\` + `gibs/v6/<fnv1a64(mesh+skeleton) hex>/`, via `NativeChunks::ReadGibCache/WriteGibCache`. The hash keys the folder, so two mods reusing a basename never share pieces.
+- Cache: `<game dir>\exu\cache\` (beside OpenShim's `openshim\cache`) + `gibs/v6/<fnv1a64(mesh+skeleton) hex>/`, via `NativeChunks::ReadGibCache/WriteGibCache`. The hash keys the folder, so two mods reusing a basename never share pieces.
 - Ogre: one resource group `ExuGibPayloads` with the cache root added recursively (`createResourceGroup`, `addResourceLocation(root, "FileSystem", group, recursive=true, readOnly=true)`, `initialiseResourceGroup`), registered once per process before the first entity is made. Piece resource names are `gibs/v6/<hash>/<piece>.mesh`.
 - Flesh caps: the pieces reference `openshim_gib_flesh*` materials. Their scripts and TGAs (`NativeChunks::GibFleshMaterialScript`, `GibFleshZoneMaterialScript`, `GibFleshTextures`) are written to the cache root with OpenShim's rules: rewritten when the version header line is stale, left alone when the first line lacks the marker (the user's), stepped aside when a pack ships the same file name. Written before the group is initialised so the scripts parse. A missing material draws as BaseWhite.
 
@@ -77,7 +77,6 @@ Off by default; a mod opts in per mission. `Shutdown` (mission end) removes the 
 
 - The catalog entry `ChunkEffect.FullFragmentObject` pattern runs past the 16-byte entry (it matches 17 functions) to the first call, rel32 wildcarded, so qualification finds it uniquely. At run time all 16 entry bytes must still match before the detour is built (a foreign detour fails closed), and only the first 6 are stolen.
 - "Stepped aside when a pack ships the same file name" means: another Ogre resource group already holds a resource of that file name (`ResourceGroupManager::resourceExistsInAnyGroup`), checked once, when the group is first created in the process. An existing `ExuGibPayloads` group (EXU reloads per mission; Ogre keeps the group) is reused as is.
-- The cache lives at `%LOCALAPPDATA%\ExtraUtilities\cache\`, as designed, which is not the `%LOCALAPPDATA%\Battlezone 98 Redux\ExtraUtilities\Storage` tree `exu.storage` uses.
 - `Enable(false)` removes the hook only; gibs already shown finish their life and `Shutdown` destroys the rest. `Clear()` hides every live gib (the pooled objects are kept).
 - Terrain is sampled in simulation space with `x + origin.x`, `-(z + origin.z)` and the height is returned as `h - origin.y`: the inverse of `OgreRenderSpace::SimPositionToRender`.
 
