@@ -706,5 +706,32 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 226u;
+	namespace Plant
+	{
+		enum : uintptr_t
+		{
+			// hook site (6 bytes: push ebp; mov ebp,esp; sub esp,0x2C)
+			ClsnSounds = 0x004436C0u,
+			// hook site (9 bytes: push ebp; mov ebp,esp; sub esp,0xD0)
+			OrdnanceHit = 0x00480750u,
+			// hook site (9 bytes: push ebp; mov ebp,esp; sub esp,0xB8)
+			CreateChunklet = 0x004927D0u,
+			// hook site (9 bytes: push ebp; mov ebp,esp; sub esp,0x124)
+			BuildingExplode = 0x0047F330u,
+			// function: void __cdecl(OBJ76* obj, uint32 flags)
+			ObjSetFlag = 0x0062DE40u,
+			// function: void __cdecl(OBJ76* obj)
+			RemoveLightSource = 0x0068A2D0u,
+			// function: ExplosionClass* __cdecl(uint32 nameLo, uint32 nameHi)
+			ExplosionFind = 0x004CB870u,
+			// function: void __thiscall(ExplosionClass* self, MAT_3D* transform, OBJ76* owner), ret 8
+			ExplosionBuild = 0x004CB7B0u,
+			// function: void __cdecl(VECTOR_3D* position, int count)
+			MakeScrapField = 0x005C65A0u,
+			// function: bool __thiscall(ParameterDB* self, uint32 sectionHash, uint32 keyHash, bool* out, bool defaultValue), ret 0x10
+			ParameterDbGetBool = 0x00589920u,
+		};
+	}
+
+	inline constexpr unsigned kEntryCount = 236u;
 }

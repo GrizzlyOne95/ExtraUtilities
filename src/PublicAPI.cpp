@@ -37,6 +37,7 @@
 #include "Game/FirstPersonLayers.h"
 #include "Game/DeathCamera.h"
 #include "Game/PathBlock.h"
+#include "Game/Plant.h"
 #include "Game/PersonAnimBlend.h"
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotFsmIntercept.h"
@@ -174,6 +175,7 @@ namespace ExtraUtilities::Lua
 		PersonAnimBlend::ResetMissionState();
 		DeathCamera::ResetMissionState();
 		PathBlock::ResetMissionState();
+		Plant::ResetMissionState();
 		Patch::AiTargetSelect::dispatchEnabled = false;
 		Patch::AiTargetSelect::scoreDispatchEnabled = false;
 	}
@@ -193,6 +195,7 @@ namespace ExtraUtilities::Lua
 			CommandReplacement::ReleaseState(L);
 			BasicPatch::UnloadAllPatches();
 			PilotFsmIntercept::Shutdown();
+			Plant::Shutdown();
 			ResetMissionScopedState();
 			Overlay::ShutdownOverlaySupport();
 			StaticGeometry::Shutdown();
