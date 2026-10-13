@@ -37,6 +37,7 @@
 #include "Game/FirstPersonLayers.h"
 #include "Game/DeathCamera.h"
 #include "Game/PathBlock.h"
+#include "Game/BettyVoice.h"
 #include "Game/Plant.h"
 #include "Game/PersonAnimBlend.h"
 #include "Game/PilotAnimationPolicy.h"
@@ -196,6 +197,7 @@ namespace ExtraUtilities::Lua
 			BasicPatch::UnloadAllPatches();
 			PilotFsmIntercept::Shutdown();
 			Plant::Shutdown();
+			BettyVoice::Shutdown();
 			ResetMissionScopedState();
 			Overlay::ShutdownOverlaySupport();
 			StaticGeometry::Shutdown();

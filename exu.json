@@ -1794,6 +1794,22 @@
         "pattern_kind": "code",
         "note": "Code pattern at the address, unique in GOG 2.2.301 .text (checked 2026-10-13: the shorter prefixes match more than one site, so the pattern runs on until unique). Verified against GOG 2.2.301 by disassembly 2026-10-13 (Docs/Research/PLANT_COLLISION_RE_20261013.md)."
       }
+    },
+    "BettyVoice": {
+      "AmmoWarning": {
+        "address": "0x0047C330",
+        "type": "function: void __thiscall(BettyVoice*, GameObject*)",
+        "description": "Queues Betty voice event 6 (user) or 4 (own-team unit) when ammo is depleted. Called only from StatusDisplay::Render (0x005DCB90). exu.SetUserAmmoWarning detours the entry (first 8 bytes: push ebp; mov ebp,esp; push ecx; push esi; mov [ebp-4],ecx) to drop the call for the user object; exu.PlayUserAmmoWarning calls it directly.",
+        "pattern": "55 8B EC 51 56 89 4D FC E8 ?? ?? ?? ?? 39 45 08 75 0C 6A 06 8B 4D FC E8 ?? ?? ?? ?? EB 26 8B 4D 08 83 C1 18 8B 45 08 8B 50 18 8B 42 04 FF D0 8B F0 E8 ?? ?? ?? ?? 3B F0 75 0A 6A 04 8B 4D FC E8 ?? ?? ?? ?? 5E 8B E5 5D C2 04 00",
+        "pattern_kind": "code",
+        "note": "Unique in GOG 2.2.301 .text (verified 2026-10-13). Detour-safe first 5 bytes: 55 8B EC 51 56; EXU steals 8 (adds 89 4D FC, also position-independent). The E8 at +8 is not stolen."
+      },
+      "bettyVoice": {
+        "address": "0x0094F4B0",
+        "type": "BettyVoice (global object)",
+        "description": "The Betty voice object; passed in ECX as `this` to BettyVoice::AmmoWarning by StatusDisplay::Render.",
+        "pattern": null
+      }
     }
   }
 }
