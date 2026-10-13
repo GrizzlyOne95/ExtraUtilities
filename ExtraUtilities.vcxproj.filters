@@ -84,6 +84,9 @@
     <ClCompile Include="src\Game\PathBlockApi.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Game\BettyVoice.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Game\Plant.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
@@ -342,6 +345,9 @@
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\PathBlockMath.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\BettyVoice.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\Plant.h">

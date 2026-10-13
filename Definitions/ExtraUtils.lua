@@ -2936,6 +2936,25 @@ function exu.IsPlant(odf) end
 --- @param enabled boolean|nil
 function exu.SetPlant(odf, enabled) end
 
+--- Turns Betty's "ammo depleted" voice for the player's own object on or off. Pass `false`
+--- when a script holds the engine ammo at 0 as a dead trigger (reloads, bolt cycling) and
+--- would otherwise make Betty speak every time; use `exu.PlayUserAmmoWarning` to play the
+--- line when truly dry. The detour is installed on the first `false`; own-team units are
+--- unaffected. Mission-scoped: Betty is back on at mission end.
+--- @param enabled boolean false silences the user's line, true restores stock behaviour
+--- @return boolean ok false when unavailable (unsupported build)
+function exu.SetUserAmmoWarning(enabled) end
+
+--- Returns whether Betty's ammo-depleted voice for the player's own object is on (stock).
+--- @return boolean enabled
+function exu.GetUserAmmoWarning() end
+
+--- Queues the stock Betty ammo-depleted line for the player's own object now, regardless
+--- of `exu.SetUserAmmoWarning`. Does nothing when there is no user object or the engine
+--- function is unavailable.
+--- @return boolean played
+function exu.PlayUserAmmoWarning() end
+
 --- Selects and plays a single looping NN.ogg soundtrack through the native manager.
 --- Works with EXU alone on the qualified Redux build. Cancels EXU fades.
 --- Missing content leaves the current track and fade unchanged.

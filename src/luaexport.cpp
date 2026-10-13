@@ -27,6 +27,7 @@
 #include "Game/DeathCamera.h"
 #include "Game/PersonLongClips.h"
 #include "Game/PathBlock.h"
+#include "Game/BettyVoice.h"
 #include "Game/Plant.h"
 #include "Game/PersonAnimBlend.h"
 #include "Game/PilotAnimationPolicy.h"
@@ -997,6 +998,9 @@ namespace ExtraUtilities::Lua
 			{ "SetJumpSnipeCrouch", &Patches::SetJumpSnipeCrouch },
 			{ "SetPlant", &Plant::SetPlant },
 			{ "IsPlant", &Plant::IsPlant },
+			{ "SetUserAmmoWarning", &BettyVoice::SetUserAmmoWarning },
+			{ "GetUserAmmoWarning", &BettyVoice::GetUserAmmoWarning },
+			{ "PlayUserAmmoWarning", &BettyVoice::PlayUserAmmoWarning },
 			{ "ResetMissionHookOverrides", &Patches::ResetMissionHookOverrides },
 
 			// Play Options
