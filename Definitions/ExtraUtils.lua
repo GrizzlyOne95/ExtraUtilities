@@ -2919,6 +2919,23 @@ function exu.SetInfiniteScrap(enabled) end
 --- @param ... any
 function exu.SetJumpSnipeCrouch(...) end
 
+--- Returns whether an ODF is treated as a plant: the Lua override from `exu.SetPlant` if
+--- there is one, otherwise `[PlantClass] isPlant = 1` in the ODF. Plants keep normal
+--- collision but lose the building bump sound, chips and building hit explosion, and
+--- die with a plant explosion instead of the building death sequence.
+--- @param odf string ODF name, with or without ".odf" (case-insensitive)
+--- @return boolean isPlant
+function exu.IsPlant(odf) end
+
+--- Overrides the plant verdict of an ODF for this mission. `true` makes it a plant
+--- (the ODF's `[PlantClass]` keys hitExplosion, explosionName and dropScrap still
+--- apply, with their defaults when absent), `false` forces it to not be a plant, and
+--- `nil` removes the override. Overrides beat the ODF `isPlant` flag.
+--- In multiplayer this is local to each machine: every peer's mission script must make the same call.
+--- @param odf string ODF name, with or without ".odf" (case-insensitive)
+--- @param enabled boolean|nil
+function exu.SetPlant(odf, enabled) end
+
 --- Selects and plays a single looping NN.ogg soundtrack through the native manager.
 --- Works with EXU alone on the qualified Redux build. Cancels EXU fades.
 --- Missing content leaves the current track and fade unchanged.
