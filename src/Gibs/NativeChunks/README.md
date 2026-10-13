@@ -38,4 +38,5 @@ override those by file name).
   named `native_chunk_*`. The optional `--gibs` / mesh-dump modes of the mesh
   test only run when arguments are passed, so the harness skips them.
 
-No engine or Ogre code lives here. Nothing in EXU calls this code yet.
+No engine or Ogre code lives here. `src/Gibs/GibPayloads.cpp` is its only caller
+(exu.gibs, Docs/Research/SKINNED_GIBS_PORT_20261013.md).

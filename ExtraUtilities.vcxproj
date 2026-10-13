@@ -219,6 +219,9 @@
     <ClCompile Include="src\Gibs\NativeChunks\native_chunk_prune.cpp" />
     <ClCompile Include="src\Gibs\NativeChunks\native_chunk_cache.cpp" />
     <ClCompile Include="src\Gibs\NativeChunks\gib_flesh_texture.cpp" />
+    <ClCompile Include="src\Gibs\GibPayloads.cpp" />
+    <ClCompile Include="src\Gibs\SkinnedGibs.cpp" />
+    <ClCompile Include="src\Ogre\OgreGibRuntime.cpp" />
     <ClCompile Include="src\Game\StaticGeometry.cpp" />
     <ClCompile Include="src\Patches\ScreenFlash.cpp" />
     <ClCompile Include="src\Patches\StatusHud.cpp" />
@@ -317,6 +320,10 @@
     <ClInclude Include="src\Gibs\NativeChunks\native_chunk_cache.h" />
     <ClInclude Include="src\Gibs\NativeChunks\gib_flesh_texture.h" />
     <ClInclude Include="src\Gibs\NativeChunks\chunk_proxy_generic_meshes.inl" />
+    <ClInclude Include="src\Gibs\GibPayloads.h" />
+    <ClInclude Include="src\Gibs\SkinnedGibCore.h" />
+    <ClInclude Include="src\Gibs\SkinnedGibs.h" />
+    <ClInclude Include="src\Ogre\OgreGibRuntime.h" />
     <ClInclude Include="src\Game\MuzzleFlashCore.h" />
     <ClInclude Include="src\Game\ShellCasingMath.h" />
     <ClInclude Include="src\Game\TextureWindowMath.h" />
