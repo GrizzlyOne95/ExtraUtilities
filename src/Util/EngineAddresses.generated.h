@@ -733,5 +733,16 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 236u;
+	namespace BettyVoice
+	{
+		enum : uintptr_t
+		{
+			// function: void __thiscall(BettyVoice*, GameObject*)
+			AmmoWarning = 0x0047C330u,
+			// BettyVoice (global object)
+			bettyVoice = 0x0094F4B0u,
+		};
+	}
+
+	inline constexpr unsigned kEntryCount = 238u;
 }
