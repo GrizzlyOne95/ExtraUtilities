@@ -239,6 +239,21 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
+	namespace Ownership
+	{
+		enum : uintptr_t
+		{
+			// function: void __thiscall(DistributedObject* = GameObject+0x18)
+			SetLocal = 0x004B8460u,
+			// function: void __cdecl(AiMission*, GameObject*)
+			AiProcessAttach = 0x00461440u,
+			// AiMission**
+			p_currentMission = 0x00915694u,
+			// vftable (.rdata)
+			NetProcess_vftable = 0x00884BB4u,
+		};
+	}
+
 	namespace Ogre
 	{
 		enum : uintptr_t
@@ -744,5 +759,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 238u;
+	inline constexpr unsigned kEntryCount = 242u;
 }

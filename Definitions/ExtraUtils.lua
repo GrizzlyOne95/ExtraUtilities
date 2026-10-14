@@ -2259,6 +2259,19 @@ function exu.SetShowScoreboard(state) end
 --- Prevents the starting recycler from spawning in strategy and MPI missions. CALL LOOSE IN THE SCRIPT PRE-START!
 function exu.DisableStartingRecycler() end
 
+--- Network games only. Takes over a remote AI object on this machine and gives
+--- it a working AI here, the way the engine does when a pilot boards an empty
+--- craft: claims ownership with SetLocal (the previous owner stops running its
+--- AI) and attaches a fresh AI process from the object's ODF. Pass `team` to
+--- move it to that team first; its AI class depends on the team. Call it on one
+--- machine only, never on the player's own craft. Pending orders do not carry
+--- over; give new ones afterwards.
+--- @param h handle
+--- @param team? integer 0-15
+--- @return boolean ok
+--- @return string? reason when not ok
+function exu.AdoptObject(h, team) end
+
 --- Sets the OpenShim target-reticle popup mode.
 --- 1 = Default, 3 = Explicit Only
 --- 2 remains reserved for the experimental neutral-only path and downgrades to Default in normal builds.
