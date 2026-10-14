@@ -410,6 +410,27 @@ namespace BZR
 		inline auto uiScaling = (int*)EngineAddresses::GraphicsOptions::uiScaling;
 	}
 
+	// Network ownership of game objects. The DistributedObject subobject sits
+	// at GameObject+0x18; its state byte at +0x68 is 0 unowned, 1 local
+	// (simulated and broadcast here), 2 remote (a copy driven by packets).
+	namespace Ownership
+	{
+		inline constexpr uintptr_t distributedObjectOffset = 0x18;
+		inline constexpr uintptr_t stateOffset = 0x68; // within the DistributedObject
+		inline constexpr uint8_t stateLocal = 1;
+		inline constexpr uint8_t stateRemote = 2;
+
+		using _SetLocal = void(__thiscall*)(void* distributedObject);
+		inline _SetLocal SetLocal = (_SetLocal)EngineAddresses::Ownership::SetLocal;
+
+		using _AiProcessAttach = void(__cdecl*)(void* mission, GameObject* obj);
+		inline _AiProcessAttach AiProcessAttach = (_AiProcessAttach)EngineAddresses::Ownership::AiProcessAttach;
+
+		inline auto p_currentMission = (void**)EngineAddresses::Ownership::p_currentMission;
+
+		inline constexpr uintptr_t netProcessVftable = EngineAddresses::Ownership::NetProcess_vftable;
+	}
+
 	namespace Multiplayer
 	{
 		inline auto isNetGame = (bool*)EngineAddresses::Multiplayer::isNetGame;

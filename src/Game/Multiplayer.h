@@ -50,4 +50,6 @@ namespace ExtraUtilities::Lua::Multiplayer
 	int SetShowScoreboard(lua_State* L);
 
 	int DisableStartingRecycler(lua_State*);
+
+	int AdoptObject(lua_State* L);
 }
