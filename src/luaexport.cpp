@@ -813,6 +813,7 @@ namespace ExtraUtilities::Lua
 			// GameObject
 			{ "SetAsUser",		&GameObject::SetAsUser },
 			{ "IsCommTowerPowered", &GameObject::IsCommTowerPowered },
+			{ "IsObjectiveOn",	&GameObject::IsObjectiveOn },
 			{ "GetHandle",		&GameObject::GetHandle },
 			{ "GetEntityVisible", &GameObject::GetEntityVisible },
 			{ "GetEntityCastShadows", &GameObject::GetEntityCastShadows },

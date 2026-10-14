@@ -64,6 +64,7 @@ namespace ExtraUtilities::Lua::GameObject
 	int SetAsUser(lua_State* L);
 
 	int IsCommTowerPowered(lua_State* L);
+	int IsObjectiveOn(lua_State* L);
 
 	int GetHandle(lua_State* L);
 	int GetEntityVisible(lua_State* L);
