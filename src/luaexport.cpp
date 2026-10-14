@@ -917,6 +917,7 @@ namespace ExtraUtilities::Lua
 			{ "GetShowScoreboard", &Multiplayer::GetShowScoreboard },
 			{ "SetShowScoreboard", &Multiplayer::SetShowScoreboard },
 			{ "DisableStartingRecycler", &Multiplayer::DisableStartingRecycler },
+			{ "AdoptObject", &Multiplayer::AdoptObject },
 
 			// Ordnance
 			{ "BuildOrdnance", &Ordnance::BuildOrdnance },
