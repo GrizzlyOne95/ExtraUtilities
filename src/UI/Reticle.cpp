@@ -32,6 +32,37 @@ namespace
 
 namespace ExtraUtilities::Lua::Reticle
 {
+	int GetHit(lua_State* L)
+	{
+		if (!RuntimeGate::IsSupported())
+			return PushUnsupportedBuild(L);
+
+		// One game-thread snapshot. Position alone retains the previous terrain
+		// hit when the sight moves onto an object, the sky, or outside range.
+		auto* currentObject = selectObject.Read();
+		if (currentObject != nullptr)
+		{
+			const BZR::handle h = object.Read();
+			if (h != 0 && BZR::GameObject::GetObj(h) == currentObject)
+			{
+				lua_pushliteral(L, "object");
+				lua_pushlightuserdata(L, reinterpret_cast<void*>(h));
+				lua_pushnil(L);
+				return 3;
+			}
+			return PushUnsupportedBuild(L);
+		}
+		if (groundHit.Read() == 0)
+			return PushUnsupportedBuild(L);
+		const auto pos = position.Read();
+		if (!std::isfinite(pos.x) || !std::isfinite(pos.y) || !std::isfinite(pos.z))
+			return PushUnsupportedBuild(L);
+		lua_pushliteral(L, "terrain");
+		lua_pushnil(L);
+		PushVector(L, pos);
+		return 3;
+	}
+
 	int GetPosition(lua_State* L)
 	{
 		BZR::VECTOR_3D pos = position.Read();

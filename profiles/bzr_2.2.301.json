@@ -107,6 +107,36 @@
       "required": false,
       "runtime_gate": true,
       "reason": "Optional feature-specific identity. Soundtrack.cpp requires all three at their recorded VAs with unique text matches; missing music support must not disable other EXU features."
+    },
+    {
+      "name": "Text entry focus lookup",
+      "source": "catalog",
+      "catalog_path": "GameUI.FindFocusedTextEntry",
+      "match": "expected_va",
+      "expected_va": "0x00823CE0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional, feature-specific identity. GameState checks all three Text entry anchors before reading the legacy editor list; unavailable text entry probing must not disable unrelated EXU features."
+    },
+    {
+      "name": "Text entry chat identity",
+      "source": "catalog",
+      "catalog_path": "GameUI.ChatEntryInitSite",
+      "match": "expected_va",
+      "expected_va": "0x00624330",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional, feature-specific identity. GameState checks all three Text entry anchors before reading the legacy editor list; unavailable text entry probing must not disable unrelated EXU features."
+    },
+    {
+      "name": "Text entry ally identity",
+      "source": "catalog",
+      "catalog_path": "GameUI.AllyPromptInitSite",
+      "match": "expected_va",
+      "expected_va": "0x0046CCC4",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional, feature-specific identity. GameState checks all three Text entry anchors before reading the legacy editor list; unavailable text entry probing must not disable unrelated EXU features."
     }
   ]
 }
