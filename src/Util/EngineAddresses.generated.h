@@ -62,6 +62,18 @@ namespace ExtraUtilities::EngineAddresses
 			MultiplayerPauseFlag = 0x00945549u,
 			// void**
 			MultiplayerPauseRoot = 0x0094557Cu,
+			// function: void* __cdecl()
+			FindFocusedTextEntry = 0x00823CE0u,
+			// code: initialization identity site (not callable)
+			ChatEntryInitSite = 0x00624330u,
+			// code: initialization identity site (not callable)
+			AllyPromptInitSite = 0x0046CCC4u,
+			// void** (legacy text editor list node)
+			TextEntryListHead = 0x02CC1B40u,
+			// void** (legacy text editor list node)
+			ChatEntryNode = 0x02A1748Cu,
+			// void** (legacy text editor list node)
+			AllyPromptNode = 0x0260D184u,
 		};
 	}
 
@@ -348,6 +360,10 @@ namespace ExtraUtilities::EngineAddresses
 	{
 		enum : uintptr_t
 		{
+			// int*
+			groundHit = 0x025CE778u,
+			// GameObject**
+			selectObject = 0x025CE77Cu,
 			// float*
 			angle = 0x025CE714u,
 			// VECTOR_3D*
@@ -759,5 +775,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 242u;
+	inline constexpr unsigned kEntryCount = 250u;
 }

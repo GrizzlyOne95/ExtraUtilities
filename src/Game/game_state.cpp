@@ -19,9 +19,12 @@
 #include "game_state.h"
 #include "Util/SehGuard.h"
 #include "Util/EngineAddresses.generated.h"
+#include "Util/BuildValidation.h"
+#include "Util/RuntimeGate.h"
 
 #include <Windows.h>
 #include <cstdint>
+#include <cstring>
 
 namespace ExtraUtilities
 {
@@ -45,6 +48,33 @@ namespace ExtraUtilities
 			constexpr uint32_t kMissionFailedScreenType = 0x13;
 			constexpr uint32_t kMissionSuccessScreenType = 0x14;
 			constexpr uint32_t kRestartScreenType = 0x17;
+
+			constexpr uintptr_t kTextEntryNodeEntryOffset = 0x08;
+			constexpr uintptr_t kTextEntryFlagsOffset = 0x120;
+			constexpr uint32_t kTextEntryFocused = 0x100;
+			constexpr size_t kMaxTextEntryNodes = 64;
+
+			bool IsTextEntryProbeAvailable() noexcept
+			{
+				if (!RuntimeGate::IsSupported())
+					return false;
+				const HMODULE module = GetModuleHandleA(nullptr);
+				if (reinterpret_cast<uintptr_t>(module) != BzrBuildProfile::kImageBase)
+					return false;
+
+				// Fixed-address checks are cheap enough for per-frame polling.
+				// These optional anchors qualify only this read-only feature.
+				size_t matched = 0;
+				for (const auto& anchor : BzrBuildProfile::kRuntimeAnchors)
+				{
+					if (std::strncmp(anchor.name, "Text entry ", 11) != 0)
+						continue;
+					if (!BuildValidation::Detail::MatchAnchor(module, anchor))
+						return false;
+					++matched;
+				}
+				return matched == 3;
+			}
 
 			bool IsCursorVisible() noexcept
 			{
@@ -140,6 +170,61 @@ namespace ExtraUtilities
 				return false;
 			}
 			return state.pauseMenuOpen;
+		}
+
+		bool TryGetTextEntryDebugState(TextEntryDebugState& outState) noexcept
+		{
+			outState = {};
+			__try
+			{
+				if (!IsTextEntryProbeAvailable())
+					return false;
+				TextEntryDebugState state{};
+				state.chatNode = *reinterpret_cast<const uintptr_t*>(EngineAddresses::GameUI::ChatEntryNode);
+				state.allyNode = *reinterpret_cast<const uintptr_t*>(EngineAddresses::GameUI::AllyPromptNode);
+				uintptr_t node = *reinterpret_cast<const uintptr_t*>(EngineAddresses::GameUI::TextEntryListHead);
+				for (size_t count = 0; node != 0; ++count)
+				{
+					// Match the engine's first-focused-node lookup, with a bound
+					// so corrupt/cyclic lists cannot hang the mission Lua update.
+					if (count == kMaxTextEntryNodes || node < 0x10000 || (node & 3) != 0 ||
+						node > UINTPTR_MAX - kTextEntryNodeEntryOffset)
+						return false;
+					const uintptr_t entry = *reinterpret_cast<const uintptr_t*>(node + kTextEntryNodeEntryOffset);
+					if (entry < 0x10000 || (entry & 3) != 0 || entry > UINTPTR_MAX - kTextEntryFlagsOffset)
+						return false;
+					const uint32_t flags = *reinterpret_cast<const uint32_t*>(entry + kTextEntryFlagsOffset);
+					if ((flags & kTextEntryFocused) != 0)
+					{
+						state.textEntryActive = true;
+						state.chatOpen = node == state.chatNode;
+						state.allyPromptOpen = node == state.allyNode;
+						state.focusedNode = node;
+						state.focusedEntry = entry;
+						state.entryFlags = flags;
+						break;
+					}
+					node = *reinterpret_cast<const uintptr_t*>(node);
+				}
+				outState = state;
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return false;
+			}
+		}
+
+		bool IsTextEntryActive() noexcept
+		{
+			TextEntryDebugState state{};
+			return TryGetTextEntryDebugState(state) && state.textEntryActive;
+		}
+
+		bool IsAllyPromptOpen() noexcept
+		{
+			TextEntryDebugState state{};
+			return TryGetTextEntryDebugState(state) && state.allyPromptOpen;
 		}
 	}
 }

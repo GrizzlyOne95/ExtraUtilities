@@ -906,6 +906,9 @@ namespace ExtraUtilities::Lua
 			{ "IsGameUiOpen", &IO::IsGameUiOpen },
 			{ "IsPauseMenuOpen", &IO::IsPauseMenuOpen },
 			{ "GetPauseMenuDebugState", &IO::GetPauseMenuDebugState },
+			{ "IsTextEntryActive", &IO::IsTextEntryActive },
+			{ "IsAllyPromptOpen", &IO::IsAllyPromptOpen },
+			{ "GetTextEntryDebugState", &IO::GetTextEntryDebugState },
 
 			// Multiplayer
 			{ "BuildAsyncObject", &Multiplayer::BuildAsyncObject },
@@ -1020,6 +1023,7 @@ namespace ExtraUtilities::Lua
 			{ "GetReticleMatrix", &Reticle::GetMatrix },
 			{ "GetReticleObject", &Reticle::GetObject },
 			{ "GetReticlePos",    &Reticle::GetPosition },
+			{ "GetReticleHit",    &Reticle::GetHit },
 			{ "GetReticleRange",  &Reticle::GetRange },
 			{ "SetReticleRange",  &Reticle::SetRange },
 
