@@ -164,6 +164,24 @@ namespace ExtraUtilities::Lua::GameObject
 			return Seh::CatchCpp("TrySetAsUser", [&] { return TrySetAsUserSeh(obj); }, false);
 		}
 
+		// GameObject::SetObjective (0x0049F300) keeps the objective flag in
+		// this byte and the marked objects in a fixed 32-entry list.
+		constexpr uintptr_t objectiveFlagOffset = 0x189;
+
+		bool TryReadObjectiveFlag(BZR::GameObject* obj, bool& outOn)
+		{
+			__try
+			{
+				outOn = *(reinterpret_cast<const uint8_t*>(obj) + objectiveFlagOffset) != 0;
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				LogMaterialFault("[EXU::IsObjectiveOn] crashed obj=%p code=0x%08X", obj, GetExceptionCode());
+				return false;
+			}
+		}
+
 		bool TryGetCommTowerPowerHandle(BZR::GameObject* obj, BZR::handle& outHandle)
 		{
 			__try
@@ -194,6 +212,22 @@ namespace ExtraUtilities::Lua::GameObject
 			TrySetAsUser(obj);
 		}
 		return 0;
+	}
+
+	// exu.IsObjectiveOn(h) -> boolean | nil (nil for an invalid handle or an
+	// unsupported build). Stock Lua can set the flag but not read it.
+	int IsObjectiveOn(lua_State* L)
+	{
+		BZR::handle h = CheckHandle(L, 1);
+		BZR::GameObject* obj = RuntimeGate::IsSupported() ? BZR::GameObject::GetObj(h) : nullptr;
+		bool on = false;
+		if (obj == nullptr || !TryReadObjectiveFlag(obj, on))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		lua_pushboolean(L, on ? 1 : 0);
+		return 1;
 	}
 
 	int IsCommTowerPowered(lua_State* L)

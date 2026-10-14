@@ -1535,6 +1535,14 @@ function exu.SetAsUser(h) end
 --- @return boolean
 function exu.IsCommTowerPowered(h) end
 
+--- Whether the object's objective marker is on (SetObjectiveOn). Stock Lua
+--- can set the flag but not read it, and stock ObjectiveObjects() is broken.
+--- The engine's objective list holds 32 objects and is not bounds-checked, so
+--- keep the number of marked objects well under that.
+--- @param h handle
+--- @return boolean? on nil for an invalid handle or an unsupported build
+function exu.IsObjectiveOn(h) end
+
 --- Converts a GameObject* (as returned by exu.GetObj) into a handle that can be used in lua.
 --- Returns nil when obj is not a live GameObject.
 --- @nodiscard
