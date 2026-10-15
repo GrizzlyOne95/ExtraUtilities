@@ -137,6 +137,76 @@
       "required": false,
       "runtime_gate": true,
       "reason": "Optional, feature-specific identity. GameState checks all three Text entry anchors before reading the legacy editor list; unavailable text entry probing must not disable unrelated EXU features."
+    },
+    {
+      "name": "Multiplayer HUD KillNotice",
+      "source": "catalog",
+      "catalog_path": "Multiplayer.KillNotice",
+      "match": "expected_va",
+      "expected_va": "0x00626130",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional multiplayer HUD feature identity; failure disables this API, not unrelated EXU features."
+    },
+    {
+      "name": "Multiplayer HUD FindNetPlayer",
+      "source": "catalog",
+      "catalog_path": "Multiplayer.FindNetPlayer",
+      "match": "expected_va",
+      "expected_va": "0x005771B0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional multiplayer HUD feature identity; failure disables this API, not unrelated EXU features."
+    },
+    {
+      "name": "Multiplayer HUD NetPlayerData",
+      "source": "catalog",
+      "catalog_path": "Multiplayer.NetPlayerData",
+      "match": "expected_va",
+      "expected_va": "0x00575510",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional multiplayer HUD feature identity; failure disables this API, not unrelated EXU features."
+    },
+    {
+      "name": "Multiplayer HUD NetPlayerName",
+      "source": "catalog",
+      "catalog_path": "Multiplayer.NetPlayerName",
+      "match": "expected_va",
+      "expected_va": "0x005765E0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional multiplayer HUD feature identity; failure disables this API, not unrelated EXU features."
+    },
+    {
+      "name": "Multiplayer HUD NetPlayerPing",
+      "source": "catalog",
+      "catalog_path": "Multiplayer.NetPlayerPing",
+      "match": "expected_va",
+      "expected_va": "0x00575F80",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional multiplayer HUD feature identity; failure disables this API, not unrelated EXU features."
+    },
+    {
+      "name": "Multiplayer HUD NetPlayerLoss",
+      "source": "catalog",
+      "catalog_path": "Multiplayer.NetPlayerLoss",
+      "match": "expected_va",
+      "expected_va": "0x00575FF0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional multiplayer HUD feature identity; failure disables this API, not unrelated EXU features."
+    },
+    {
+      "name": "Multiplayer HUD ScoreboardRowIdentity",
+      "source": "catalog",
+      "catalog_path": "Multiplayer.ScoreboardRowIdentity",
+      "match": "expected_va",
+      "expected_va": "0x006265DA",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional multiplayer HUD feature identity; failure disables this API, not unrelated EXU features."
     }
   ]
 }

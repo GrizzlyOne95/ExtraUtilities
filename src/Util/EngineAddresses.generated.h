@@ -248,6 +248,20 @@ namespace ExtraUtilities::EngineAddresses
 			BuildObjectSyncCall = 0x005C833Du,
 			// patch site (5 bytes)
 			SkipStartingRecycler = 0x0056F014u,
+			// void __cdecl(int killedTeam, int killerTeam, char reason, int flag)
+			KillNotice = 0x00626130u,
+			// void* __cdecl(unsigned short id)
+			FindNetPlayer = 0x005771B0u,
+			// void* __thiscall(void*, int slot)
+			NetPlayerData = 0x00575510u,
+			// const char* __thiscall(void*)
+			NetPlayerName = 0x005765E0u,
+			// unsigned int __thiscall(void*)
+			NetPlayerPing = 0x00575F80u,
+			// int __thiscall(void*)
+			NetPlayerLoss = 0x00575FF0u,
+			// code identity anchor
+			ScoreboardRowIdentity = 0x006265DAu,
 		};
 	}
 
@@ -775,5 +789,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 250u;
+	inline constexpr unsigned kEntryCount = 257u;
 }

@@ -46,6 +46,8 @@ namespace ExtraUtilities::Lua::Multiplayer
 
 	int GetMyNetID(lua_State* L);
 
+	int GetPlayerNetworkStats(lua_State* L);
+
 	int GetShowScoreboard(lua_State* L);
 	int SetShowScoreboard(lua_State* L);
 

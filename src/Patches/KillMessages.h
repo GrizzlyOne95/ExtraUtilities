@@ -28,6 +28,8 @@ namespace ExtraUtilities::Patch
 
 namespace ExtraUtilities::Lua::Patches
 {
+	int GetShowKillMessages(lua_State* L);
+	int SetShowKillMessages(lua_State* L);
 	int GetCustomKillMessage(lua_State* L);
 	int SetCustomKillMessage(lua_State* L);
 }

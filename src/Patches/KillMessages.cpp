@@ -19,6 +19,9 @@
 #include "KillMessages.h"
 
 #include "Hook.h"
+#include "InlinePatch.h"
+#include "Util/BuildValidation.h"
+#include "Util/RuntimeGate.h"
 #include "Util/EngineAddresses.generated.h"
 
 #include <string>
@@ -26,12 +29,26 @@
 #include <fstream>
 namespace ExtraUtilities::Patch
 {
+	// This is a presentation-only function; native score recording is upstream.
+	InlinePatch hideKillNotices(EngineAddresses::Multiplayer::KillNotice,
+		BasicPatch::RET, 1, BasicPatch::Status::INACTIVE, {0x55});
+	bool killNoticeQualified = false;
+	bool QualifyKillNotice()
+	{
+		if (killNoticeQualified) return true;
+		if (!RuntimeGate::IsSupported()) return false;
+		for (const auto& anchor : BzrBuildProfile::kRuntimeAnchors)
+			if (std::strcmp(anchor.name, "Multiplayer HUD KillNotice") == 0)
+				return killNoticeQualified = BuildValidation::Detail::MatchAnchor(GetModuleHandleA(nullptr), anchor);
+		return false;
+	}
 	constexpr size_t TEAM_MAX_LENGTH = 0x20;
 	std::unordered_map<int, std::string> messageMap;
 
 	void ResetKillMessages() noexcept
 	{
 		messageMap.clear();
+		hideKillNotices.SetStatus(false);
 	}
 
 	static void __cdecl ProcessKillMessage(int killedTeam, int killerTeam, char* killedTeamName, char* killerTeamName)
@@ -96,6 +113,19 @@ namespace ExtraUtilities::Patch
 
 namespace ExtraUtilities::Lua::Patches
 {
+	int GetShowKillMessages(lua_State* L)
+	{
+		lua_pushboolean(L, !Patch::hideKillNotices.IsActive());
+		return 1;
+	}
+	int SetShowKillMessages(lua_State* L)
+	{
+		const bool show = lua_toboolean(L, 1) != 0;
+		if (show) Patch::hideKillNotices.SetStatus(false);
+		else if (Patch::QualifyKillNotice()) Patch::hideKillNotices.SetStatus(true);
+		lua_pushboolean(L, Patch::hideKillNotices.IsActive() == !show);
+		return 1;
+	}
 	int GetCustomKillMessage(lua_State* L)
 	{
 		int team = luaL_checkinteger(L, 1);

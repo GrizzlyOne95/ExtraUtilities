@@ -25,6 +25,8 @@
 #include <Windows.h>
 
 #include <cstdint>
+#include <algorithm>
+#include <cstring>
 #include <lua.hpp>
 
 namespace ExtraUtilities::Lua::Multiplayer
@@ -177,6 +179,100 @@ namespace ExtraUtilities::Lua::Multiplayer
 	int BuildSyncObject(lua_State* L)
 	{
 		return BuildObjectWithPatch(L, buildObjectAlwaysSync);
+	}
+
+	namespace
+	{
+		struct NetworkStats
+		{
+			int team = 0, deaths = 0, kills = 0, lives = 0;
+			bool hasDeaths = false, hasKills = false, hasLives = false, remote = false;
+			unsigned int ping = 0;
+			int loss = 0;
+			char name[34] = {};
+		};
+		bool QualifyNetworkStats()
+		{
+			static bool qualified = false;
+			if (qualified) return true;
+			if (!RuntimeGate::IsSupported()) return false;
+			unsigned int matched = 0;
+			for (const auto& anchor : BzrBuildProfile::kRuntimeAnchors)
+			{
+				if (std::strncmp(anchor.name, "Multiplayer HUD ", 16) != 0 ||
+					std::strcmp(anchor.name, "Multiplayer HUD KillNotice") == 0) continue;
+				if (!BuildValidation::Detail::MatchAnchor(GetModuleHandleA(nullptr), anchor)) return false;
+				++matched;
+			}
+			return qualified = matched == 6;
+		}
+		bool ReadNetworkStatsSeh(unsigned short id, NetworkStats& out, unsigned int& faultCode)
+		{
+			using namespace EngineAddresses::Multiplayer;
+			using FindFn = void* (__cdecl*)(unsigned short);
+			using DataFn = void* (__thiscall*)(void*, int);
+			using NameFn = const char* (__thiscall*)(void*);
+			using PingFn = unsigned int (__thiscall*)(void*);
+			using LossFn = int (__thiscall*)(void*);
+			__try
+			{
+				auto* player = static_cast<unsigned char*>(reinterpret_cast<FindFn>(FindNetPlayer)(id));
+				if (!player || *reinterpret_cast<unsigned short*>(player + 0x28) != id) return false;
+				out.team = player[0x68];
+				if (out.team > 15) return false;
+				const char* name = reinterpret_cast<NameFn>(NetPlayerName)(player);
+				if (name) for (unsigned int i = 0; i < sizeof(out.name)-1 && name[i]; ++i) out.name[i] = name[i];
+				const int slots[] = {16,15,19};
+				int* values[] = {&out.deaths,&out.kills,&out.lives};
+				bool* present[] = {&out.hasDeaths,&out.hasKills,&out.hasLives};
+				for (unsigned int i=0;i<3;++i)
+				{
+					auto** data = static_cast<unsigned char**>(reinterpret_cast<DataFn>(NetPlayerData)(player, slots[i]));
+					// The stock scoreboard accepts precisely one 32-bit scalar.
+					if (data && reinterpret_cast<uintptr_t>(data[1]) - reinterpret_cast<uintptr_t>(data[0]) == sizeof(int))
+					{
+						*values[i] = *reinterpret_cast<int*>(data[0]);
+						*present[i] = true;
+					}
+				}
+				out.remote = id != myNetID.Read();
+				if (out.remote)
+				{
+					// Bound the native reader's iteration before calling it.
+					const int count = *reinterpret_cast<int*>(player + 0x94);
+					if (count < 0 || count > 10) return false;
+					out.ping = (std::min)(9999u, reinterpret_cast<PingFn>(NetPlayerPing)(player));
+					out.loss = reinterpret_cast<LossFn>(NetPlayerLoss)(player);
+					if (out.loss < 0 || out.loss > 100) return false;
+				}
+				return true;
+			}
+			__except(Seh::Filter(GetExceptionCode(),faultCode)) { return false; }
+		}
+	}
+	// A copied snapshot of the same data the stock scoreboard reads. It does
+	// not toggle/refresh the scoreboard, modify scores or retain NetPlayer pointers.
+	int GetPlayerNetworkStats(lua_State* L)
+	{
+		const int id = luaL_checkinteger(L, 1);
+		if (id < 0 || id > 65534) return luaL_argerror(L, 1, "network id must be 0-65534");
+		NetworkStats snapshot;
+		unsigned int faultCode = 0;
+		if (!QualifyNetworkStats() || !isNetGame.Read() ||
+			!Seh::CatchCpp("GetPlayerNetworkStats", [&] { return ReadNetworkStatsSeh(static_cast<unsigned short>(id),snapshot,faultCode); }, false))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		lua_newtable(L);
+		auto integer = [&](const char* key, int value) { lua_pushinteger(L,value); lua_setfield(L,-2,key); };
+		integer("id",id); integer("team",snapshot.team);
+		lua_pushstring(L,snapshot.name); lua_setfield(L,-2,"name");
+		integer("deaths",snapshot.deaths);
+		integer("kills",snapshot.kills);
+		integer("lives",snapshot.lives);
+		if (snapshot.remote) { integer("pingMs",snapshot.ping); integer("lossPercent",snapshot.loss); }
+		return 1;
 	}
 
 	int GetLives(lua_State* L)
