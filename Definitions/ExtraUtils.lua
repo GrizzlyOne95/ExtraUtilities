@@ -2278,6 +2278,29 @@ function exu.SetLives(lives) end
 --- @return number
 function exu.GetMyNetID() end
 
+--- Whether stock multiplayer death/ejection/destruction HUD notices are enabled.
+--- Does not affect scoring, human chat or mission DisplayMessage calls.
+--- @return boolean
+function exu.GetShowKillMessages() end
+
+--- Mission-scoped local presentation switch, reset when the Lua state closes.
+--- Returns false if the released executable's formatter cannot be qualified.
+--- @param state boolean
+--- @return boolean applied
+function exu.SetShowKillMessages(state) end
+
+--- Read-only snapshot of the native scoreboard data for a network player id.
+--- Fields: id, team, name, deaths, kills, lives. Missing score slots use the
+--- native scoreboard default of zero.
+--- Remote players also have pingMs (native average, clamped 9999) and lossPercent
+--- (stock ten-packet history indicator). Local ping/loss are absent, not fake zero.
+--- Returns nil outside a network mission, for absent players or unsupported sites.
+--- Does not show/refresh the scoreboard or retain native pointers. Query on the
+--- game thread, at a modest UI refresh rate (e.g. once per second).
+--- @param id integer Net ID used by CreatePlayer/Receive, not the team number
+--- @return table|nil
+function exu.GetPlayerNetworkStats(id) end
+
 --- Gets if the multiplayer scoreboard is visible.
 --- @nodiscard
 --- @return boolean

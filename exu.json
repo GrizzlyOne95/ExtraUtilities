@@ -609,6 +609,62 @@
         "pattern": "8B 45 9C 50 8B 4D 98 51 E8 ?? ?? ?? ?? 83 C4 08 89 45 90",
         "pattern_kind": "code",
         "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "KillNotice": {
+        "address": "0x00626130",
+        "type": "void __cdecl(int killedTeam, int killerTeam, char reason, int flag)",
+        "description": "Stock multiplayer death/ejection notice formatter. All branches only format/display a local HUD message; scoring occurs before callers reach this routine. Suppression returns at entry, leaving chat, mission messages and NetPlayer scoring untouched.",
+        "pattern": "55 8B EC 83 EC 74 A1 00 70 8E 00 33 C5 89 45 FC 83 7D 08 00 7F 05 E9 0B",
+        "pattern_kind": "code",
+        "note": "Derived from GOG 2.2.301 released executable instructions, 2026-10-15. Feature-specific optional identity, checked before use; no private-PDB offsets used."
+      },
+      "FindNetPlayer": {
+        "address": "0x005771B0",
+        "type": "void* __cdecl(unsigned short id)",
+        "description": "Native NetPlayer lookup by network id, called by the scoreboard row constructor at 0x626558 and scoreboard refresh. Returns null for absent ids; no pointer is retained.",
+        "pattern": "55 8B EC 83 EC 08 8D 45 08 50 8D 4D FC 51 B9 B8 8F 9C 00 E8 E8 17 00 00",
+        "pattern_kind": "code",
+        "note": "Derived from GOG 2.2.301 released executable instructions, 2026-10-15. Feature-specific optional identity, checked before use; no private-PDB offsets used."
+      },
+      "NetPlayerData": {
+        "address": "0x00575510",
+        "type": "void* __thiscall(void*, int slot)",
+        "description": "Read-only NetPlayer data-slot lookup. Scoreboard row constructor reads slot 15 kills, 16 deaths, 19 lives. Returned vector contains a scalar only when end-begin is exactly 4.",
+        "pattern": "55 8B EC 83 EC 0C 89 4D FC 8D 45 08 50 8D 4D F8 51 8B 4D FC 83 C1 10 E8",
+        "pattern_kind": "code",
+        "note": "Derived from GOG 2.2.301 released executable instructions, 2026-10-15. Feature-specific optional identity, checked before use; no private-PDB offsets used."
+      },
+      "NetPlayerName": {
+        "address": "0x005765E0",
+        "type": "const char* __thiscall(void*)",
+        "description": "Native player nickname string accessor; called by scoreboard row constructor at 0x626572, bounded copy made immediately.",
+        "pattern": "55 8B EC 51 89 4D FC 8B 4D FC 83 C1 74 E8 7E 92 EA FF 8B E5 5D C3 CC CC",
+        "pattern_kind": "code",
+        "note": "Derived from GOG 2.2.301 released executable instructions, 2026-10-15. Feature-specific optional identity, checked before use; no private-PDB offsets used."
+      },
+      "NetPlayerPing": {
+        "address": "0x00575F80",
+        "type": "unsigned int __thiscall(void*)",
+        "description": "Native average ping reader used by scoreboard refresh, sums samples at +0x9c with stride 0x1c and count +0x94. Result is clamped to 9999 by scoreboard formatter.",
+        "pattern": "55 8B EC 83 EC 0C 89 4D F4 C7 45 FC 00 00 00 00 8B 45 F4 83 B8 94 00 00",
+        "pattern_kind": "code",
+        "note": "Derived from GOG 2.2.301 released executable instructions, 2026-10-15. Feature-specific optional identity, checked before use; no private-PDB offsets used."
+      },
+      "NetPlayerLoss": {
+        "address": "0x00575FF0",
+        "type": "int __thiscall(void*)",
+        "description": "Native scoreboard loss percentage: 100 minus ten per set bit in the low ten bits of +0x1b0. This is the stock short history indicator, not an end-to-end packet-loss measurement.",
+        "pattern": "55 8B EC 83 EC 0C 89 4D F4 C7 45 F8 64 00 00 00 8B 45 F4 8B 88 B0 01 00",
+        "pattern_kind": "code",
+        "note": "Derived from GOG 2.2.301 released executable instructions, 2026-10-15. Feature-specific optional identity, checked before use; no private-PDB offsets used."
+      },
+      "ScoreboardRowIdentity": {
+        "address": "0x006265DA",
+        "type": "code identity anchor",
+        "description": "Released executable scoreboard constructor reads kills slot 15 then deaths slot 16 and lives slot 19; this anchor ties the stats API to the native row layout.",
+        "pattern": "6A 0F 8B 4D F8 E8 2C EF F4 FF 89 45 F4 8B 4D F4 E8 A1 4D E9 FF 83 F8 04",
+        "pattern_kind": "code",
+        "note": "Derived from GOG 2.2.301 released executable instructions, 2026-10-15. Feature-specific optional identity, checked before use; no private-PDB offsets used."
       }
     },
     "Ownership": {

@@ -913,6 +913,9 @@ namespace ExtraUtilities::Lua
 			// Multiplayer
 			{ "BuildAsyncObject", &Multiplayer::BuildAsyncObject },
 			{ "BuildSyncObject", &Multiplayer::BuildSyncObject },
+			{ "GetShowKillMessages", &Patches::GetShowKillMessages },
+			{ "SetShowKillMessages", &Patches::SetShowKillMessages },
+			{ "GetPlayerNetworkStats", &Multiplayer::GetPlayerNetworkStats },
 			{ "GetCustomKillMessage", &Patches::GetCustomKillMessage },
 			{ "SetCustomKillMessage", &Patches::SetCustomKillMessage },
 			{ "GetLives", &Multiplayer::GetLives },
