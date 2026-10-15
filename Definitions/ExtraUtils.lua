@@ -2294,6 +2294,8 @@ function exu.SetShowKillMessages(state) end
 --- native scoreboard default of zero.
 --- Remote players also have pingMs (native average, clamped 9999) and lossPercent
 --- (stock ten-packet history indicator). Local ping/loss are absent, not fake zero.
+--- Remote pingSamples (0-10) is the native measurement-history count; zero means
+--- no measurements yet, so consumers should not present default zeros as a healthy link.
 --- Returns nil outside a network mission, for absent players or unsupported sites.
 --- Does not show/refresh the scoreboard or retain native pointers. Query on the
 --- game thread, at a modest UI refresh rate (e.g. once per second).
