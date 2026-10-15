@@ -2303,6 +2303,19 @@ function exu.SetShowKillMessages(state) end
 --- @return table|nil
 function exu.GetPlayerNetworkStats(id) end
 
+--- Local-client BZR UDP observations from optional OpenShim telemetry.
+--- Fields: txBytes/rxBytes, txPackets/rxPackets (since observed lobby reset),
+--- txBytesPerSecond/rxBytesPerSecond, txPacketsPerSecond/rxPacketsPerSecond,
+--- windowMs (2000), sampledAtMs, route (relay/direct/mixed/unknown/idle),
+--- routeAgeMs/receiveAgeMs when observed, coverageLimited.
+--- Tx counts Winsock-accepted submissions, including pending sends; Rx counts
+--- completed observed receives. Payload bytes include BZR headers, not IP/UDP
+--- overhead. Totals aggregate this client's peers; no per-player attribution.
+--- Passive route evidence expires from the rate window; it is not a route setting.
+--- Returns nil outside network play or when the optional OpenShim API is absent.
+--- @return table|nil
+function exu.GetNetworkTrafficStats() end
+
 --- Gets if the multiplayer scoreboard is visible.
 --- @nodiscard
 --- @return boolean

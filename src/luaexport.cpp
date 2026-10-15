@@ -916,6 +916,7 @@ namespace ExtraUtilities::Lua
 			{ "GetShowKillMessages", &Patches::GetShowKillMessages },
 			{ "SetShowKillMessages", &Patches::SetShowKillMessages },
 			{ "GetPlayerNetworkStats", &Multiplayer::GetPlayerNetworkStats },
+			{ "GetNetworkTrafficStats", &Multiplayer::GetNetworkTrafficStats },
 			{ "GetCustomKillMessage", &Patches::GetCustomKillMessage },
 			{ "SetCustomKillMessage", &Patches::SetCustomKillMessage },
 			{ "GetLives", &Multiplayer::GetLives },

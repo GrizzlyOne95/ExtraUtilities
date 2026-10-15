@@ -19,6 +19,7 @@
 #include "Multiplayer.h"
 
 #include "LuaHelpers.h"
+#include "OpenShimBridge.h"
 #include "Util/Logging.h"
 #include "Util/SehGuard.h"
 
@@ -253,6 +254,48 @@ namespace ExtraUtilities::Lua::Multiplayer
 	}
 	// A copied snapshot of the same data the stock scoreboard reads. It does
 	// not toggle/refresh the scoreboard, modify scores or retain NetPlayer pointers.
+
+    namespace
+    {
+struct NetworkTrafficSnapshot
+{
+    uint32_t version = 1, structSize = sizeof(NetworkTrafficSnapshot);
+    uint32_t available = 0, windowMs = 2000;
+    uint64_t sampledAtMs = 0, txBytes = 0, rxBytes = 0, txPackets = 0, rxPackets = 0;
+    uint32_t txBytesPerSecond = 0, rxBytesPerSecond = 0;
+    uint32_t txPacketsPerSecond = 0, rxPacketsPerSecond = 0;
+    uint32_t route = 0; // 0 idle/unknown, 1 relay observed, 2 direct observed, 3 mixed, 4 unclassified UDP
+    uint32_t routeAgeMs = UINT32_MAX, receiveAgeMs = UINT32_MAX;
+    uint32_t coverageLimited = 0; // pending completion registration overflow/unsupported path
+};
+static_assert(sizeof(NetworkTrafficSnapshot) == 88, "SDK traffic record layout");
+
+
+    }
+    int GetNetworkTrafficStats(lua_State* L)
+    {
+        using Fn = BOOL (WINAPI*)(void*, DWORD);
+        static OpenShimBridge::CachedExport<Fn> bridge("OpenShimGetNetworkTrafficSnapshot");
+        NetworkTrafficSnapshot snapshot;
+        const auto read = bridge.Get();
+        if (!RuntimeGate::IsSupported() || !isNetGame.Read() || !read || !read(&snapshot, sizeof(snapshot)) ||
+            snapshot.version != 1 || snapshot.structSize != sizeof(snapshot) || !snapshot.available)
+        { lua_pushnil(L); return 1; }
+        lua_newtable(L);
+        auto number = [&](const char* key, double value) { lua_pushnumber(L,value); lua_setfield(L,-2,key); };
+        number("sampledAtMs",static_cast<double>(snapshot.sampledAtMs));
+        number("windowMs",snapshot.windowMs);
+        number("txBytes",static_cast<double>(snapshot.txBytes)); number("rxBytes",static_cast<double>(snapshot.rxBytes));
+        number("txPackets",static_cast<double>(snapshot.txPackets)); number("rxPackets",static_cast<double>(snapshot.rxPackets));
+        number("txBytesPerSecond",snapshot.txBytesPerSecond); number("rxBytesPerSecond",snapshot.rxBytesPerSecond);
+        number("txPacketsPerSecond",snapshot.txPacketsPerSecond); number("rxPacketsPerSecond",snapshot.rxPacketsPerSecond);
+        if (snapshot.receiveAgeMs != UINT32_MAX) number("receiveAgeMs",snapshot.receiveAgeMs);
+        if (snapshot.routeAgeMs != UINT32_MAX) number("routeAgeMs",snapshot.routeAgeMs);
+        const char* routes[] = {"idle", "relay", "direct", "mixed", "unknown"};
+        lua_pushstring(L,snapshot.route < 5 ? routes[snapshot.route] : "unknown"); lua_setfield(L,-2,"route");
+        lua_pushboolean(L,snapshot.coverageLimited != 0); lua_setfield(L,-2,"coverageLimited");
+        return 1;
+    }
 	int GetPlayerNetworkStats(lua_State* L)
 	{
 		const int id = luaL_checkinteger(L, 1);
