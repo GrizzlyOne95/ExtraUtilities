@@ -74,7 +74,8 @@ All clients survive final validation, with clean Lua, Ogre and subtitle logs.
 The test uses explicitly labelled player/objective healing and is not a story
 completion test. Clients and the loopback server were stopped gracefully.
 
-CR owns the default-off policy and reusable live fixture in draft CR #214.
+CR owns the default-off policy and reusable live fixture in draft CR #215
+(the earlier DX11/input #214 merged while this validation was in progress).
 No custom stats overlay is enabled by this API. Windows Steam, Proton and Wine
 runtime acceptance is not implied by a GOG local test. Optional identity failure
 disables the feature rather than changing addresses heuristically.
