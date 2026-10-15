@@ -79,3 +79,20 @@ CR owns the default-off policy and reusable live fixture in draft CR #215
 No custom stats overlay is enabled by this API. Windows Steam, Proton and Wine
 runtime acceptance is not implied by a GOG local test. Optional identity failure
 disables the feature rather than changing addresses heuristically.
+
+## Native ping sample count for diagnostics
+
+Follow-up branch `agent/coop-netdiag-samples-20261015` starts from main `ff886ae`
+after #110 merged. GetPlayerNetworkStats now also returns remote `pingSamples`
+(0-10), using the same already-bounded native history count read before the
+existing ping/loss getters. Zero means no measurements yet. It is a retained
+history size, not a last-packet timestamp, traffic rate or freshness guarantee.
+Local pingSamples is absent alongside local ping/loss. No new patch, address,
+signature, transport hook or module dependency is introduced.
+
+Release x86 build and hardening checks pass. The three-client DX11 GOG native
+local-server diagnostics acceptance sees native sample counts on all remote
+rows while the scoreboard stays hidden. CR's separate heartbeat/receipt observer
+detects quiet/stalled co-op messages and recovers even while native ping history
+remains populated; history count is deliberately not used as liveness evidence.
+The CR Coop Diagnostics page handles older EXU and unsupported readers explicitly.

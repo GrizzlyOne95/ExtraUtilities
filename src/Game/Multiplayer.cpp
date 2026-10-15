@@ -188,7 +188,7 @@ namespace ExtraUtilities::Lua::Multiplayer
 			int team = 0, deaths = 0, kills = 0, lives = 0;
 			bool hasDeaths = false, hasKills = false, hasLives = false, remote = false;
 			unsigned int ping = 0;
-			int loss = 0;
+			int loss = 0, pingSamples = 0;
 			char name[34] = {};
 		};
 		bool QualifyNetworkStats()
@@ -241,6 +241,7 @@ namespace ExtraUtilities::Lua::Multiplayer
 					// Bound the native reader's iteration before calling it.
 					const int count = *reinterpret_cast<int*>(player + 0x94);
 					if (count < 0 || count > 10) return false;
+					out.pingSamples = count;
 					out.ping = (std::min)(9999u, reinterpret_cast<PingFn>(NetPlayerPing)(player));
 					out.loss = reinterpret_cast<LossFn>(NetPlayerLoss)(player);
 					if (out.loss < 0 || out.loss > 100) return false;
@@ -271,7 +272,7 @@ namespace ExtraUtilities::Lua::Multiplayer
 		integer("deaths",snapshot.deaths);
 		integer("kills",snapshot.kills);
 		integer("lives",snapshot.lives);
-		if (snapshot.remote) { integer("pingMs",snapshot.ping); integer("lossPercent",snapshot.loss); }
+		if (snapshot.remote) { integer("pingMs",snapshot.ping); integer("lossPercent",snapshot.loss); integer("pingSamples",snapshot.pingSamples); }
 		return 1;
 	}
 
