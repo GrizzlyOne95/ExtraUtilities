@@ -39,6 +39,7 @@
 #include "Game/PathBlock.h"
 #include "Game/BettyVoice.h"
 #include "Game/Plant.h"
+#include "Game/PlayerControls.h"
 #include "Game/PersonAnimBlend.h"
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotFsmIntercept.h"
@@ -197,6 +198,7 @@ namespace ExtraUtilities::Lua
 			// valid, then disable native callbacks before invalidating the pointer.
 			ReleaseLuaStateBindings(L);
 			CommandReplacement::ReleaseState(L);
+			PlayerControls::Shutdown();
 			BasicPatch::UnloadAllPatches();
 			PilotFsmIntercept::Shutdown();
 			VehicleControl::Shutdown();
@@ -218,6 +220,7 @@ namespace ExtraUtilities::Lua
 		{
 			// The frame listener must never outlive the DLL.
 			VehicleControl::Shutdown();
+			PlayerControls::Shutdown();
 			DamageResistance::ResetMissionState();
 			ShellCasings::Shutdown();
 			SkinnedGibs::Shutdown();

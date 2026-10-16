@@ -2250,6 +2250,39 @@ function exu.GetUIScaling() end
 --- @return boolean
 function exu.GetGameKey(key) end
 
+--- Suppress selected native LOCAL player controls under a named mission owner.
+--- Mask bits come from exu.CONTROL; combine distinct bits with addition or bit.bor.
+--- A mask of 0 releases this owner. Owners combine with OR; releasing one cannot
+--- unlock another. Limited to 16 owners with names of 1..63 bytes without NUL.
+--- Single player only. Returns false for an unsupported/unqualified runtime or
+--- exhausted owner capacity. Invalid owner/mask arguments raise a Lua error.
+--- Opt-in native filtering starts on the next UserProcess simulation, follows
+--- pilot/craft changes, preserves UI keys, and clears at Lua-state teardown.
+--- This filters user input, not scripted FireAt/EjectPilot or physical momentum.
+---@param owner string
+---@param mask integer
+---@return boolean accepted
+function exu.SetPlayerControlMask(owner, mask) end
+
+--- Idempotently release only the named owner's control mask.
+---@param owner string
+---@return boolean
+function exu.ClearPlayerControlMask(owner) end
+
+--- Inspect support and actual simulation applications separately from requests.
+--- Fields: available, hookActive, requestedMask, lastAppliedMask, ownerCount,
+--- applications, reason. lastAppliedMask records the last successful application,
+--- not proof that the current frame's UI/focus permits gameplay.
+---@return table
+function exu.GetPlayerControlState() end
+
+--- Native player input suppression flags. Zero permits all controls.
+exu.CONTROL = {
+    THROTTLE=1, STRAFE=2, LOOK=4, FIRE=8, JUMP=16, DEPLOY=32,
+    EJECT=64, ABANDON=128, TURBO=256, WEAPONS=512, NAV=1024,
+    JETPACK=2048, MOVEMENT=2323, ALL=4095,
+}
+
 --- Returns whether any stock game or shell UI is currently covering gameplay.
 --- This includes the Escape/pause hierarchy, save/load/options pages, and
 --- mission-success or mission-failure screens. Use it to suppress custom HUD.

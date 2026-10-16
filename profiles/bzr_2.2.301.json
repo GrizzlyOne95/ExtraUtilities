@@ -209,6 +209,26 @@
       "reason": "Optional multiplayer HUD feature identity; failure disables this API, not unrelated EXU features."
     },
     {
+      "name": "Player controls UserProcessExecute",
+      "source": "catalog",
+      "catalog_path": "PlayerInput.UserProcessExecute",
+      "match": "expected_va",
+      "expected_va": "0x0060A480",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional opt-in single-player control mask. Its own preimage/buffer checks stand the API down without disabling unrelated EXU features."
+    },
+    {
+      "name": "Player controls UserControlClearRead",
+      "source": "catalog",
+      "catalog_path": "PlayerInput.UserControlClearRead",
+      "match": "expected_va",
+      "expected_va": "0x0060A4C7",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional opt-in single-player control mask. Its own preimage/buffer checks stand the API down without disabling unrelated EXU features."
+    },
+    {
       "name": "VehicleControl.UnitProcessExecute",
       "source": "catalog",
       "catalog_path": "VehicleControl.UnitProcessExecute",

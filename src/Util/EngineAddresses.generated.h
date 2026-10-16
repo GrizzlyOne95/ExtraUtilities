@@ -625,6 +625,12 @@ namespace ExtraUtilities::EngineAddresses
 			WeaponFireHeldRead = 0x0060A93Du,
 			// code (UserProcess::Execute auto-fire-byte read)
 			WeaponFireAutoHeldRead = 0x0060A984u,
+			// function: void __thiscall(UserProcess*)
+			UserProcessExecute = 0x0060A480u,
+			// code (UserProcess USER_CTRL disabled-input clear)
+			UserControlClearRead = 0x0060A4C7u,
+			// uint8_t[56] (USER_CTRL)
+			UserControls = 0x0091989Cu,
 		};
 	}
 
@@ -806,5 +812,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 262u;
+	inline constexpr unsigned kEntryCount = 265u;
 }
