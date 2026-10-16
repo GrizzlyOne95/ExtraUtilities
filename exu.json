@@ -1006,7 +1006,7 @@
         "type": "uint8_t*",
         "description": "Base of user profile sound struct (same base as PlayOption::userProfilePtr). Music display value at +0x2A.",
         "pattern": null,
-        "note": "Aliased with PlayOption::userProfilePtr — same base address, different typed interpretation."
+        "note": "Aliased with PlayOption::userProfilePtr â€” same base address, different typed interpretation."
       },
       "musicOffset": {
         "value": "0x2A",
@@ -1536,6 +1536,28 @@
         "pattern": "0F BE 05 C1 98 91 00 85 C0 0F 84 ?? ?? ?? ?? C6 85 E8 FE FF FF 01",
         "pattern_kind": "code",
         "note": "Code pattern at the address, verified unique in GOG 2.2.301 .text 2026-10-03; the je rel32 is 3F 02 00 00 on this build."
+      },
+      "UserProcessExecute": {
+        "address": "0x0060A480",
+        "type": "function: void __thiscall(UserProcess*)",
+        "description": "Local UserProcess::Execute consumer of USER_CTRL and producer of GAS_CTRL. PlayerControls uses an opt-in nine-byte reloc-free entry detour; process+0x0C is checked against p_userObject before writes. See Docs/Research/PLAYER_CONTROL_MASK_RE_20261016.md.",
+        "pattern": "55 8B EC 81 EC 1C 02 00 00 A1 ?? ?? ?? ?? 33 C5 89 45 FC 56 57 89 8D F0 FE FF FF",
+        "pattern_kind": "code"
+      },
+      "UserControlClearRead": {
+        "address": "0x0060A4C7",
+        "type": "code (UserProcess USER_CTRL disabled-input clear)",
+        "description": "Reads key from USER_CTRL then calls memset(USER_CTRL,0,56); qualifies the exact global buffer address and size used by player-control masking.",
+        "pattern": "66 A1 9C 98 91 00 66 89 85 BC FE FF FF 6A 38 6A 00 68 9C 98 91 00 E8 ?? ?? ?? ?? 83 C4 0C",
+        "pattern_kind": "code"
+      },
+      "UserControls": {
+        "address": "0x0091989C",
+        "type": "uint8_t[56] (USER_CTRL)",
+        "description": "Polled local control buffer; UI key prefix is preserved. Native UserProcess consumes fire at +36/+37, special +40, jump +47, deploy +48, eject +49, abandon +50, nav +53, jetpack +54. Only written at the qualified UserProcess input boundary.",
+        "pattern": "66 A1 9C 98 91 00 66 89 85 BC FE FF FF 6A 38 6A 00 68 9C 98 91 00 E8 ?? ?? ?? ?? 83 C4 0C",
+        "pattern_kind": "reference",
+        "note": "Pattern at 0x0060A4C7 embeds the buffer address at +2 and +18, then clears 0x38 bytes. Unique in the GOG 2.2.301 executable."
       }
     },
     "Soundtrack": {
