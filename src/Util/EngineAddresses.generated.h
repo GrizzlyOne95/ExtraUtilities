@@ -795,5 +795,22 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 260u;
+	namespace VehicleControl
+	{
+		enum : uintptr_t
+		{
+			// function: void __thiscall(UnitProcess*)
+			UnitProcessExecute = 0x005FA6E0u,
+			// vftable*
+			HoverCraftVtable = 0x0087ABE4u,
+			// function: void __thiscall(Carrier*)
+			FireSelected = 0x00511FC0u,
+			// function: void __thiscall(Carrier*, uint32_t)
+			SetSelected = 0x004D9880u,
+			// function: void __thiscall(Carrier*)
+			FireSpecial = 0x00608AA0u,
+		};
+	}
+
+	inline constexpr unsigned kEntryCount = 265u;
 }
