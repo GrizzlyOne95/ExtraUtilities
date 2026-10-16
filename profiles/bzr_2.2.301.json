@@ -207,6 +207,56 @@
       "required": false,
       "runtime_gate": true,
       "reason": "Optional multiplayer HUD feature identity; failure disables this API, not unrelated EXU features."
+    },
+    {
+      "name": "VehicleControl.UnitProcessExecute",
+      "source": "catalog",
+      "catalog_path": "VehicleControl.UnitProcessExecute",
+      "match": "expected_va",
+      "expected_va": "0x005FA6E0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Opt-in controller qualification; support failure must not disable unrelated EXU features."
+    },
+    {
+      "name": "VehicleControl.HoverCraftVtable",
+      "source": "catalog",
+      "catalog_path": "VehicleControl.HoverCraftVtable",
+      "match": "executable_contains",
+      "expected_va": "0x0087ABE4",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Opt-in controller qualification; support failure must not disable unrelated EXU features."
+    },
+    {
+      "name": "VehicleControl.FireSelected",
+      "source": "catalog",
+      "catalog_path": "VehicleControl.FireSelected",
+      "match": "expected_va",
+      "expected_va": "0x00511FC0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Opt-in controller qualification; support failure must not disable unrelated EXU features."
+    },
+    {
+      "name": "VehicleControl.SetSelected",
+      "source": "catalog",
+      "catalog_path": "VehicleControl.SetSelected",
+      "match": "expected_va",
+      "expected_va": "0x004D9880",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Opt-in controller qualification; support failure must not disable unrelated EXU features."
+    },
+    {
+      "name": "VehicleControl.FireSpecial",
+      "source": "catalog",
+      "catalog_path": "VehicleControl.FireSpecial",
+      "match": "expected_va",
+      "expected_va": "0x00608AA0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Opt-in controller qualification; support failure must not disable unrelated EXU features."
     }
   ]
 }

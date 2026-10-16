@@ -1960,6 +1960,48 @@
         "description": "The Betty voice object; passed in ECX as `this` to BettyVoice::AmmoWarning by StatusDisplay::Render.",
         "pattern": null
       }
+    },
+    "VehicleControl": {
+      "UnitProcessExecute": {
+        "address": "0x005FA6E0",
+        "type": "function: void __thiscall(UnitProcess*)",
+        "description": "UnitProcess state transition/task dispatcher. AiMission invokes Execute via slot +0x1C; TankProcess inherits this entry. Nine reloc-free prologue bytes are stolen by the opt-in controller.",
+        "pattern": "55 8B EC 83 EC 08 89 4D FC 8B 45 FC 83 78 20 00 74 26 8B 4D FC",
+        "pattern_kind": "code",
+        "note": "GOG 2.2.301 image SHA256 8d71f56c...3377413, verified single match 2026-10-16. Exact build qualification; see Docs/Research/VEHICLE_CONTROL_20261016.md."
+      },
+      "HoverCraftVtable": {
+        "address": "0x0087ABE4",
+        "type": "vftable*",
+        "description": "Complete HoverCraft primary vtable; ctor 0x004E9723 assigns it at object+0; distributed-object vtable at object+0x18 differs.",
+        "pattern": "C7 02 E4 AB 87 00",
+        "pattern_kind": "reference",
+        "note": "GOG 2.2.301 image SHA256 8d71f56c...3377413, verified single match 2026-10-16. Exact build qualification; see Docs/Research/VEHICLE_CONTROL_20261016.md."
+      },
+      "FireSelected": {
+        "address": "0x00511FC0",
+        "type": "function: void __thiscall(Carrier*)",
+        "description": "Fires selectedMask & enabledMask slots through weapon virtual +8, as stock AI and UserProcess do.",
+        "pattern": "55 8B EC 83 EC 08 89 4D F8 C7 45 FC 00 00 00 00 EB 09 8B 45 FC 83 C0 01 89 45 FC 83 7D FC 05 7D 37 8B 4D F8 8B 55 F8 8B 41 30 23 42 34 BA 01 00 00 00 8B 4D FC D3 E2 23 C2 74 1B 8B 45 FC 8B 4D F8 8B 54 81 18 8B 45 FC 8B 4D F8 8B 12 8B 4C 81 18 8B 42 08 FF D0 EB BA 8B E5 5D C3 CC CC CC CC",
+        "pattern_kind": "code",
+        "note": "GOG 2.2.301 image SHA256 8d71f56c...3377413, verified single match 2026-10-16. Exact build qualification; see Docs/Research/VEHICLE_CONTROL_20261016.md."
+      },
+      "SetSelected": {
+        "address": "0x004D9880",
+        "type": "function: void __thiscall(Carrier*, uint32_t)",
+        "description": "Masks against existing weapons and runs weapon select/deselect methods.",
+        "pattern": "55 8B EC 83 EC 10 89 4D F8 8B 45 F8 8B 4D 08 23 48 2C 89 4D 08 8B 55 F8 8B 42 30 F7 D0 23 45 08 89 45 F4 8B 4D 08 F7 D1 8B 55 F8 23 4A 30 89 4D F0 8B 45 F8 8B 4D 08 89 48 30 C7 45 FC 00 00 00",
+        "pattern_kind": "code",
+        "note": "GOG 2.2.301 image SHA256 8d71f56c...3377413, verified single match 2026-10-16. Exact build qualification; see Docs/Research/VEHICLE_CONTROL_20261016.md."
+      },
+      "FireSpecial": {
+        "address": "0x00608AA0",
+        "type": "function: void __thiscall(Carrier*)",
+        "description": "Fires enabled special slot carrier+0x38 through weapon virtual +8; UserProcess passes ECX=Carrier.",
+        "pattern": "55 8B EC 51 56 89 4D FC 8B 45 FC 83 78 38 00 7D 02 EB 36 8B 4D FC BA 01 00 00 00 8B 49 38 D3 E2 8B 45 FC 23 50 34 74 21 8B 4D FC 8B 51 38 8B 45 FC 8B 4C 90 18 8B 55 FC 8B 42 38 8B 55 FC 8B 31",
+        "pattern_kind": "code",
+        "note": "GOG 2.2.301 image SHA256 8d71f56c...3377413, verified single match 2026-10-16. Exact build qualification; see Docs/Research/VEHICLE_CONTROL_20261016.md."
+      }
     }
   }
 }

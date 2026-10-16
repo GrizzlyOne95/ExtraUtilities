@@ -2124,6 +2124,64 @@ function exu.GetAiTaskState(h) end
 --- @return boolean
 function exu.SetAiTaskState(h, state) end
 
+--- True when this executable's optional vehicle control hooks qualify and the session is single player.
+--- Does not install a hook or claim a vehicle. Currently supports ordinary HoverCraft with stock UnitProcess Execute.
+--- @return boolean
+function exu.HasVehicleControl() end
+
+--- Claims an AI hovercraft for this mission. Starts neutral with a 0.5 simulation-second command lease.
+--- Suppresses stock process/task decisions and firing while commands remain current.
+--- Rejects the player, unsupported craft/processes, dead handles and network sessions.
+--- Repeated claims of the same identity are harmless but do not renew the lease.
+--- @param h Handle
+--- @return boolean accepted
+--- @return string? reason
+function exu.ClaimVehicleControl(h) end
+
+--- @class ExuVehicleControls
+--- @field steer? number Finite [-1,1], defaults to zero.
+--- @field pitch? number Finite [-1,1], defaults to zero.
+--- @field strafe? number Finite [-1,1], defaults to zero.
+--- @field throttle? number Finite [-1,1], defaults to zero.
+--- @field turbo? boolean Defaults to false.
+--- @field jump? boolean Defaults to false.
+--- @field fire? boolean Defaults to false.
+--- @field special? boolean Defaults to false.
+--- @field weaponMask? integer Five hardpoint bits [0,31]; omitted preserves selection.
+--- @field timeout? number Simulation seconds [0.01,5], defaults to 0.5.
+
+--- Replaces the claimed vehicle's held inputs; omitted axes/booleans reset to zero/false.
+--- Fields: steer, pitch, strafe, throttle (finite [-1,1]); turbo, jump, fire, special (booleans);
+--- weaponMask (optional integer [0,31], omitted preserves carrier selection); timeout (0.01..5 simulation seconds, default 0.5).
+--- Unknown fields, wrong types and nonfinite values raise before anything changes.
+--- Renew from Update; expiry clears held movement and returns the vehicle to stock AI.
+--- Fire uses the current native muzzle aim; this API does not solve a new aimPoint or target lock.
+--- @param h Handle
+--- @param controls ExuVehicleControls
+--- @return boolean accepted
+--- @return string? reason
+function exu.SetVehicleControls(h, controls) end
+
+--- Typed hovercraft telemetry: claimed, hookActive, processType, processState/processStateName,
+--- pendingProcessState, savedProcessState, taskType, taskState/taskStateName/pendingTaskState (UnitTask only),
+--- selectedWeaponMask, enabledWeaponMask, inputs. Active claims add requested, lastApplied, applications,
+--- leaseRemaining, fire and special. State numbers for process and task use different enums.
+--- @param h Handle
+--- @return table? state
+--- @return string? reason
+function exu.GetVehicleControlState(h) end
+
+--- Clears held movement and releases to stock AI on the next native update. Accepts destroyed handles.
+--- Existing stock task/order is retained; issue a fresh stock order if resuming after a long scripted sequence.
+--- @param h Handle
+--- @return boolean
+function exu.ReleaseVehicleControl(h) end
+
+--- Clears all mission claims/held movement. Also done automatically on EXU mission teardown.
+--- Reapply claims after loading a save; native claims are not serialized.
+--- @return boolean
+function exu.ResetVehicleControls() end
+
 --- Gets a typed snapshot of the active recycle subtask when the object's AI task is a recycle task.
 --- Useful for scavenger/recycler debugging and scripting around scrap collection flow.
 --- @nodiscard

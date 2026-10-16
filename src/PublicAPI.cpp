@@ -53,6 +53,7 @@
 #include "Util/PlayOption.h"
 #include "Game/Culling.h"
 #include "Game/DamageResistance.h"
+#include "Game/VehicleControl.h"
 #include "Game/GameObject.h"
 #include "Patches/AiTargetSelect.h"
 #include "Patches/EngineFlameColor.h"
@@ -137,6 +138,7 @@ namespace ExtraUtilities::Lua
 		Logging::ResetLogFileForCurrentProcess("exu_material_debug.log");
 		InitializeDebugConsole();
 		DamageResistance::ResetMissionState();
+		VehicleControl::ResetMissionState();
 		InstallLifecycleSentinel(L);
 		AnimationApi::Install(L);
 		StorageApi::Install(L);
@@ -168,6 +170,7 @@ namespace ExtraUtilities::Lua
 		ExtraUtilities::Culling::ResetMissionState();
 		Patch::ResetTurboMissionState();
 		DamageResistance::ResetMissionState();
+		VehicleControl::ResetMissionState();
 		Patch::ResetUnitVoMissionState();
 		Patch::ResetKillMessages();
 		Patch::ResetEngineFlameColors();
@@ -196,6 +199,7 @@ namespace ExtraUtilities::Lua
 			CommandReplacement::ReleaseState(L);
 			BasicPatch::UnloadAllPatches();
 			PilotFsmIntercept::Shutdown();
+			VehicleControl::Shutdown();
 			Plant::Shutdown();
 			BettyVoice::Shutdown();
 			ResetMissionScopedState();
@@ -213,6 +217,7 @@ namespace ExtraUtilities::Lua
 		catch (...)
 		{
 			// The frame listener must never outlive the DLL.
+			VehicleControl::Shutdown();
 			DamageResistance::ResetMissionState();
 			ShellCasings::Shutdown();
 			SkinnedGibs::Shutdown();

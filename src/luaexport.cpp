@@ -23,6 +23,7 @@
 #include "About.h"
 #include "Game/Culling.h"
 #include "Game/DamageResistance.h"
+#include "Game/VehicleControl.h"
 #include "Game/FirstPersonLayers.h"
 #include "Game/DeathCamera.h"
 #include "Game/PersonLongClips.h"
@@ -992,6 +993,12 @@ namespace ExtraUtilities::Lua
 			{ "SetAiOdfGameplayTuningEnabled", &Patches::SetAiOdfGameplayTuningEnabled },
 			{ "SetAiUnitTuning", &Patches::SetAiUnitTuning },
 			{ "HasNativeDamageResistance", &DamageResistance::HasNativeDamageResistance },
+			{ "HasVehicleControl", &VehicleControl::HasVehicleControl },
+			{ "ClaimVehicleControl", &VehicleControl::ClaimVehicleControl },
+			{ "SetVehicleControls", &VehicleControl::SetVehicleControls },
+			{ "GetVehicleControlState", &VehicleControl::GetVehicleControlState },
+			{ "ReleaseVehicleControl", &VehicleControl::ReleaseVehicleControl },
+			{ "ResetVehicleControls", &VehicleControl::ResetVehicleControls },
 			{ "SetUnitDamageMultiplier", &DamageResistance::SetUnitDamageMultiplier },
 			{ "ClearUnitDamageMultiplier", &DamageResistance::ClearUnitDamageMultiplier },
 			{ "ResetUnitDamageMultipliers", &DamageResistance::ResetUnitDamageMultipliers },
