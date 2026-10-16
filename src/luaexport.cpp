@@ -33,6 +33,7 @@
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotFsmIntercept.h"
 #include "Game/PlayerTrigger.h"
+#include "Game/PlayerControls.h"
 #include "Game/RenderEffects.h"
 #include "Game/StaticGeometry.h"
 #include "Exports.h"
@@ -524,6 +525,7 @@ namespace ExtraUtilities::Lua
 		const bool supportedBuild = BuildValidation::IsSupportedBzr2301();
 		RuntimeGate::SetSupported(supportedBuild);
 		Soundtrack::ResetMissionState();
+		PlayerControls::ResetMissionState();
 
 		state = L; // save the state pointer to use in callbacks
 		CommandReplacement::ResetState(L);
@@ -578,6 +580,7 @@ namespace ExtraUtilities::Lua
 		lua_setfield(L, exuIdx, "VERSION");
 
 		MakeEnums(L, exuIdx);
+		PlayerControls::RegisterConstants(L, exuIdx);
 		ForgetForeignStockBindings(L);
 		if (g_stockBindingOwner != L)
 		{
@@ -600,6 +603,10 @@ namespace ExtraUtilities::Lua
 	{
 		static bool announced = false;
 		const luaL_Reg exuExports[] = {
+			// Opt-in local player control suppression
+			{ "SetPlayerControlMask", &PlayerControls::SetMask },
+			{ "ClearPlayerControlMask", &PlayerControls::ClearMask },
+			{ "GetPlayerControlState", &PlayerControls::GetState },
 			// Camera
 			{ "GetCameraOrigins", &Camera::GetOrigins },
 			{ "GetCameraTransformMatrix", &Camera::GetTransformMatrix },

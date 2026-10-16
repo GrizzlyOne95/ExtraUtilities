@@ -49,6 +49,8 @@ namespace ExtraUtilities::BzrBuildProfile
 	inline constexpr int kAnchor14_Multiplayer_HUD_NetPlayerPing[] = { 0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x0C, 0x89, 0x4D, 0xF4, 0xC7, 0x45, 0xFC, 0x00, 0x00, 0x00, 0x00, 0x8B, 0x45, 0xF4, 0x83, 0xB8, 0x94, 0x00, 0x00 };
 	inline constexpr int kAnchor15_Multiplayer_HUD_NetPlayerLoss[] = { 0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x0C, 0x89, 0x4D, 0xF4, 0xC7, 0x45, 0xF8, 0x64, 0x00, 0x00, 0x00, 0x8B, 0x45, 0xF4, 0x8B, 0x88, 0xB0, 0x01, 0x00 };
 	inline constexpr int kAnchor16_Multiplayer_HUD_ScoreboardRowIdentity[] = { 0x6A, 0x0F, 0x8B, 0x4D, 0xF8, 0xE8, 0x2C, 0xEF, 0xF4, 0xFF, 0x89, 0x45, 0xF4, 0x8B, 0x4D, 0xF4, 0xE8, 0xA1, 0x4D, 0xE9, 0xFF, 0x83, 0xF8, 0x04 };
+	inline constexpr int kAnchor17_Player_controls_UserProcessExecute[] = { 0x55, 0x8B, 0xEC, 0x81, 0xEC, 0x1C, 0x02, 0x00, 0x00, 0xA1, -1, -1, -1, -1, 0x33, 0xC5, 0x89, 0x45, 0xFC, 0x56, 0x57, 0x89, 0x8D, 0xF0, 0xFE, 0xFF, 0xFF };
+	inline constexpr int kAnchor18_Player_controls_UserControlClearRead[] = { 0x66, 0xA1, 0x9C, 0x98, 0x91, 0x00, 0x66, 0x89, 0x85, 0xBC, 0xFE, 0xFF, 0xFF, 0x6A, 0x38, 0x6A, 0x00, 0x68, 0x9C, 0x98, 0x91, 0x00, 0xE8, -1, -1, -1, -1, 0x83, 0xC4, 0x0C };
 
 	inline constexpr AnchorSpec kRuntimeAnchors[] =
 	{
@@ -68,7 +70,9 @@ namespace ExtraUtilities::BzrBuildProfile
 		{ "Multiplayer HUD NetPlayerName", kAnchor13_Multiplayer_HUD_NetPlayerName, sizeof(kAnchor13_Multiplayer_HUD_NetPlayerName) / sizeof(kAnchor13_Multiplayer_HUD_NetPlayerName[0]), AnchorMatchMode::ExpectedVa, 0x005765e0u, false },
 		{ "Multiplayer HUD NetPlayerPing", kAnchor14_Multiplayer_HUD_NetPlayerPing, sizeof(kAnchor14_Multiplayer_HUD_NetPlayerPing) / sizeof(kAnchor14_Multiplayer_HUD_NetPlayerPing[0]), AnchorMatchMode::ExpectedVa, 0x00575f80u, false },
 		{ "Multiplayer HUD NetPlayerLoss", kAnchor15_Multiplayer_HUD_NetPlayerLoss, sizeof(kAnchor15_Multiplayer_HUD_NetPlayerLoss) / sizeof(kAnchor15_Multiplayer_HUD_NetPlayerLoss[0]), AnchorMatchMode::ExpectedVa, 0x00575ff0u, false },
-		{ "Multiplayer HUD ScoreboardRowIdentity", kAnchor16_Multiplayer_HUD_ScoreboardRowIdentity, sizeof(kAnchor16_Multiplayer_HUD_ScoreboardRowIdentity) / sizeof(kAnchor16_Multiplayer_HUD_ScoreboardRowIdentity[0]), AnchorMatchMode::ExpectedVa, 0x006265dau, false }
+		{ "Multiplayer HUD ScoreboardRowIdentity", kAnchor16_Multiplayer_HUD_ScoreboardRowIdentity, sizeof(kAnchor16_Multiplayer_HUD_ScoreboardRowIdentity) / sizeof(kAnchor16_Multiplayer_HUD_ScoreboardRowIdentity[0]), AnchorMatchMode::ExpectedVa, 0x006265dau, false },
+		{ "Player controls UserProcessExecute", kAnchor17_Player_controls_UserProcessExecute, sizeof(kAnchor17_Player_controls_UserProcessExecute) / sizeof(kAnchor17_Player_controls_UserProcessExecute[0]), AnchorMatchMode::ExpectedVa, 0x0060a480u, false },
+		{ "Player controls UserControlClearRead", kAnchor18_Player_controls_UserControlClearRead, sizeof(kAnchor18_Player_controls_UserControlClearRead) / sizeof(kAnchor18_Player_controls_UserControlClearRead[0]), AnchorMatchMode::ExpectedVa, 0x0060a4c7u, false }
 	};
 
 	inline constexpr size_t kRuntimeAnchorCount =
