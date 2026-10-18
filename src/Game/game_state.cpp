@@ -109,53 +109,66 @@ namespace ExtraUtilities
 			}
 		}
 
-		bool TryGetPauseMenuDebugState(PauseMenuDebugState& outState) noexcept
+		namespace
 		{
-			outState = {};
-
-			__try
-			{
-				const auto* multiplayerPauseRoot = reinterpret_cast<void* const*>(kMultiplayerPauseRootAddr);
-				const auto* multiplayerPauseFlag = reinterpret_cast<const uint8_t*>(kMultiplayerPauseFlagAddr);
-				const auto* singleplayerPauseRoot = reinterpret_cast<void* const*>(kSingleplayerPauseRootAddr);
-				const auto* uiCurrentScreen = reinterpret_cast<void* const*>(kUiCurrentScreenAddr);
-				const auto* escapeUiWrapperActive = reinterpret_cast<const uint32_t*>(kEscapeUiWrapperActiveAddr);
-				const auto* uiWrapperActive = reinterpret_cast<const uint32_t*>(kUiWrapperActiveAddr);
-				const auto* uiCurrentScreenType = reinterpret_cast<const uint32_t*>(kUiCurrentScreenTypeAddr);
-
-				outState.cursorVisible = IsCursorVisible();
-				outState.singleplayerPauseRoot = reinterpret_cast<uintptr_t>(*singleplayerPauseRoot);
-				outState.multiplayerPauseRoot = reinterpret_cast<uintptr_t>(*multiplayerPauseRoot);
-				outState.uiCurrentScreen = reinterpret_cast<uintptr_t>(*uiCurrentScreen);
-				outState.escapeUiWrapperActive = *escapeUiWrapperActive;
-				outState.uiWrapperActive = *uiWrapperActive;
-				outState.uiCurrentScreenType = *uiCurrentScreenType;
-				outState.multiplayerPauseFlag = static_cast<uint32_t>(*multiplayerPauseFlag);
-				outState.currentScreenMatchesPauseRoot = (*uiCurrentScreen != nullptr) && (*uiCurrentScreen == *singleplayerPauseRoot);
-
-				const bool multiplayerOpen = ((*multiplayerPauseRoot != nullptr) || (*multiplayerPauseFlag != 0)) && outState.cursorVisible;
-				// FUN_005D4690 owns this flag for its entire blocking Escape UI
-				// loop, including every nested options/save/load/restart page.
-				const bool singleplayerOpen = *escapeUiWrapperActive != 0;
-
-				outState.multiplayerPauseOpen = multiplayerOpen;
-				outState.singleplayerPauseOpen = singleplayerOpen;
-				outState.pauseMenuOpen = multiplayerOpen || singleplayerOpen;
-				const bool shellUiOpen = *uiWrapperActive != 0;
-				outState.gameUiOpen = outState.pauseMenuOpen || shellUiOpen;
-				return true;
-			}
-			__except (Seh::Filter(GetExceptionCode()))
+			// GetCursorInfo is a syscall, and OverlaySuppression polls this
+			// every frame. Only the multiplayer check needs the cursor, so
+			// the per-frame callers skip it unless a multiplayer pause is
+			// possible; the debug export always reads it.
+			bool ReadPauseMenuState(PauseMenuDebugState& outState, bool alwaysReadCursor) noexcept
 			{
 				outState = {};
-				return false;
+
+				__try
+				{
+					const auto* multiplayerPauseRoot = reinterpret_cast<void* const*>(kMultiplayerPauseRootAddr);
+					const auto* multiplayerPauseFlag = reinterpret_cast<const uint8_t*>(kMultiplayerPauseFlagAddr);
+					const auto* singleplayerPauseRoot = reinterpret_cast<void* const*>(kSingleplayerPauseRootAddr);
+					const auto* uiCurrentScreen = reinterpret_cast<void* const*>(kUiCurrentScreenAddr);
+					const auto* escapeUiWrapperActive = reinterpret_cast<const uint32_t*>(kEscapeUiWrapperActiveAddr);
+					const auto* uiWrapperActive = reinterpret_cast<const uint32_t*>(kUiWrapperActiveAddr);
+					const auto* uiCurrentScreenType = reinterpret_cast<const uint32_t*>(kUiCurrentScreenTypeAddr);
+
+					const bool multiplayerPauseCandidate = (*multiplayerPauseRoot != nullptr) || (*multiplayerPauseFlag != 0);
+					outState.cursorVisible = (alwaysReadCursor || multiplayerPauseCandidate) && IsCursorVisible();
+					outState.singleplayerPauseRoot = reinterpret_cast<uintptr_t>(*singleplayerPauseRoot);
+					outState.multiplayerPauseRoot = reinterpret_cast<uintptr_t>(*multiplayerPauseRoot);
+					outState.uiCurrentScreen = reinterpret_cast<uintptr_t>(*uiCurrentScreen);
+					outState.escapeUiWrapperActive = *escapeUiWrapperActive;
+					outState.uiWrapperActive = *uiWrapperActive;
+					outState.uiCurrentScreenType = *uiCurrentScreenType;
+					outState.multiplayerPauseFlag = static_cast<uint32_t>(*multiplayerPauseFlag);
+					outState.currentScreenMatchesPauseRoot = (*uiCurrentScreen != nullptr) && (*uiCurrentScreen == *singleplayerPauseRoot);
+
+					const bool multiplayerOpen = multiplayerPauseCandidate && outState.cursorVisible;
+					// FUN_005D4690 owns this flag for its entire blocking Escape UI
+					// loop, including every nested options/save/load/restart page.
+					const bool singleplayerOpen = *escapeUiWrapperActive != 0;
+
+					outState.multiplayerPauseOpen = multiplayerOpen;
+					outState.singleplayerPauseOpen = singleplayerOpen;
+					outState.pauseMenuOpen = multiplayerOpen || singleplayerOpen;
+					const bool shellUiOpen = *uiWrapperActive != 0;
+					outState.gameUiOpen = outState.pauseMenuOpen || shellUiOpen;
+					return true;
+				}
+				__except (Seh::Filter(GetExceptionCode()))
+				{
+					outState = {};
+					return false;
+				}
 			}
+		}
+
+		bool TryGetPauseMenuDebugState(PauseMenuDebugState& outState) noexcept
+		{
+			return ReadPauseMenuState(outState, true);
 		}
 
 		bool IsGameUiOpen() noexcept
 		{
 			PauseMenuDebugState state{};
-			if (!TryGetPauseMenuDebugState(state))
+			if (!ReadPauseMenuState(state, false))
 			{
 				return false;
 			}
@@ -165,7 +178,7 @@ namespace ExtraUtilities
 		bool IsPauseMenuOpen() noexcept
 		{
 			PauseMenuDebugState state{};
-			if (!TryGetPauseMenuDebugState(state))
+			if (!ReadPauseMenuState(state, false))
 			{
 				return false;
 			}
