@@ -33,6 +33,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <limits>
+#include <type_traits>
 
 #undef ABSOLUTE // win32 name collision
 
@@ -185,15 +186,17 @@ namespace ExtraUtilities
 			m_written = false;
 		}
 
+		// Scripts read these every frame, so the read is guarded by SEH rather
+		// than preceded by a VirtualQuery, which cost ~3% of a busy misn17 frame.
 		T Read() const noexcept
 		{
-			if (m_address == nullptr ||
-				!SignatureResolver::IsReadableRange(m_address, sizeof(T)))
+			static_assert(std::is_trivially_copyable_v<T>);
+			T value{};
+			if (m_address == nullptr || !Seh::TryCopy(&value, m_address, sizeof(T)))
 			{
 				return {};
 			}
-
-			return *m_address;
+			return value;
 		}
 
 		// Writes only on the qualified executable: on any other build the
