@@ -2486,6 +2486,19 @@ function exu.SetCoeffBallistic(coeff) end
 ---
 --- These functions can get various information from the operating system (windows only).
 
+--- High-resolution monotonic clock for profiling Lua (the BZR sandbox has no `os.clock`).
+--- Seconds since the first clock read in this game process, from QueryPerformanceCounter.
+--- Wall time, not mission time: it keeps running while paused and across mission loads,
+--- and is local to this machine, so never use it for simulation or multiplayer-synced logic.
+--- @nodiscard
+--- @return number seconds
+function exu.GetClock() end
+
+--- Same clock as `exu.GetClock`, in milliseconds.
+--- @nodiscard
+--- @return number milliseconds
+function exu.GetClockMs() end
+
 --- Gets the screen resolution for the local user.
 --- First value in the multi-return is the width in pixels, second is the height.
 --- @nodiscard

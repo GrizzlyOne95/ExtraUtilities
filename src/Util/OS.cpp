@@ -18,6 +18,8 @@
 
 #include "OS.h"
 
+#include "Clock.h"
+
 #include "EngineAddresses.generated.h"
 #include "Logging.h"
 #include "ModulePath.h"
@@ -862,6 +864,56 @@ namespace ExtraUtilities::Lua::OS
 		MessageBoxA(owner, message != nullptr ? message : "", "Extra Utilities",
 			MB_OK | MB_APPLMODAL | MB_TOPMOST | MB_SETFOREGROUND);
 		return 0;
+	}
+
+	namespace
+	{
+		struct ClockBase
+		{
+			std::int64_t origin = 0;
+			std::int64_t frequency = 0;
+		};
+
+		// Captured on first use: the origin is the first read in this process,
+		// and the frequency is fixed at boot, so neither is queried again.
+		const ClockBase& GetClockBase()
+		{
+			static const ClockBase base = []
+			{
+				ClockBase b;
+				LARGE_INTEGER value{};
+				if (QueryPerformanceFrequency(&value))
+				{
+					b.frequency = value.QuadPart;
+				}
+				if (QueryPerformanceCounter(&value))
+				{
+					b.origin = value.QuadPart;
+				}
+				return b;
+			}();
+			return base;
+		}
+
+		double ReadClockSeconds()
+		{
+			const ClockBase& base = GetClockBase();
+			LARGE_INTEGER now{};
+			QueryPerformanceCounter(&now);
+			return Clock::TicksToSeconds(now.QuadPart, base.origin, base.frequency);
+		}
+	}
+
+	int GetClock(lua_State* L)
+	{
+		lua_pushnumber(L, ReadClockSeconds());
+		return 1;
+	}
+
+	int GetClockMs(lua_State* L)
+	{
+		lua_pushnumber(L, ReadClockSeconds() * 1000.0);
+		return 1;
 	}
 
 	int GetScreenResolution(lua_State* L)

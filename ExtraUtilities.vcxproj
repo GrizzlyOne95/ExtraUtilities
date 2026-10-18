@@ -378,6 +378,7 @@
     <ClInclude Include="src\Util\NativeSaveFlag.h" />
     <ClInclude Include="src\Util\PatternMatch.h" />
     <ClInclude Include="src\Util\SavePathPolicy.h" />
+    <ClInclude Include="src\Util\Clock.h" />
     <ClInclude Include="src\Util\OS.h" />
     <ClInclude Include="src\Util\RuntimeGate.h" />
     <ClInclude Include="src\Util\SehGuard.h" />

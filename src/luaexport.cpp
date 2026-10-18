@@ -942,6 +942,8 @@ namespace ExtraUtilities::Lua
 			{ "SetCoeffBallistic", &Ordnance::SetCoeffBallistic },
 
 			// OS
+			{ "GetClock", &OS::GetClock },
+			{ "GetClockMs", &OS::GetClockMs },
 			{ "GetScreenResolution", &OS::GetScreenResolution },
 			{ "MessageBox",			 &OS::MessageBox },
 			{ "SaveGame",			 &OS::SaveGame },
