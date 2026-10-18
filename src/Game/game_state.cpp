@@ -58,11 +58,15 @@ namespace ExtraUtilities
 			{
 				if (!RuntimeGate::IsSupported())
 					return false;
+				// The anchors are code bytes in the image, so a match holds for
+				// the life of the process; only RuntimeGate is per Lua state.
+				static bool anchorsMatched = false;
+				if (anchorsMatched)
+					return true;
 				const HMODULE module = GetModuleHandleA(nullptr);
 				if (reinterpret_cast<uintptr_t>(module) != BzrBuildProfile::kImageBase)
 					return false;
 
-				// Fixed-address checks are cheap enough for per-frame polling.
 				// These optional anchors qualify only this read-only feature.
 				size_t matched = 0;
 				for (const auto& anchor : BzrBuildProfile::kRuntimeAnchors)
@@ -73,7 +77,8 @@ namespace ExtraUtilities
 						return false;
 					++matched;
 				}
-				return matched == 3;
+				anchorsMatched = matched == 3;
+				return anchorsMatched;
 			}
 
 			bool IsCursorVisible() noexcept

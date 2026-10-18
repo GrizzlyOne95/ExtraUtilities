@@ -76,9 +76,23 @@ namespace ExtraUtilities::RenderProfileBridge
 	using GetCapabilitiesFn = DWORD(WINAPI*)();
 	using SupportsFn = BOOL(WINAPI*)(DWORD);
 
+	namespace Detail
+	{
+		// Lua polls these every frame; CachedExport resolves each once per
+		// winmm.dll module instead of a GetProcAddress per call.
+		inline constinit OpenShimBridge::CachedExport<GetApiVersionFn> getRenderApiVersion{ "OpenShimGetRenderApiVersion" };
+		inline constinit OpenShimBridge::CachedExport<RequestFn> requestRenderProfile{ "OpenShimRequestRenderProfile" };
+		inline constinit OpenShimBridge::CachedExport<GetUserFn> getUserRenderProfile{ "OpenShimGetUserRenderProfile" };
+		inline constinit OpenShimBridge::CachedExport<GetRequestedFn> getRequestedContentRenderProfile{ "OpenShimGetRequestedContentRenderProfile" };
+		inline constinit OpenShimBridge::CachedExport<GetEffectiveFn> getEffectiveRenderProfile{ "OpenShimGetEffectiveRenderProfile" };
+		inline constinit OpenShimBridge::CachedExport<GetBackendFn> getActiveRendererBackend{ "OpenShimGetActiveRendererBackend" };
+		inline constinit OpenShimBridge::CachedExport<GetCapabilitiesFn> getRenderCapabilities{ "OpenShimGetRenderCapabilities" };
+		inline constinit OpenShimBridge::CachedExport<SupportsFn> supportsRenderProfile{ "OpenShimSupportsRenderProfile" };
+	}
+
 	inline std::uint32_t ApiVersion() noexcept
 	{
-		const auto fn = OpenShimBridge::Resolve<GetApiVersionFn>("OpenShimGetRenderApiVersion");
+		const auto fn = Detail::getRenderApiVersion.Get();
 		return fn ? fn() : 0u;
 	}
 
@@ -88,7 +102,7 @@ namespace ExtraUtilities::RenderProfileBridge
 	// OpenShim change and is never 0 when implemented, so it is the probe.
 	inline bool HasRenderProfileApi() noexcept
 	{
-		return OpenShimBridge::HasExport("OpenShimRequestRenderProfile") && ApiVersion() != 0u;
+		return Detail::requestRenderProfile.Get() != nullptr && ApiVersion() != 0u;
 	}
 
 	// Forwards a content render-profile request to OpenShim. Returns false
@@ -96,7 +110,7 @@ namespace ExtraUtilities::RenderProfileBridge
 	// back to the legacy local lighting-mode path in that case.
 	inline bool Forward(Request request) noexcept
 	{
-		const auto fn = OpenShimBridge::Resolve<RequestFn>("OpenShimRequestRenderProfile");
+		const auto fn = Detail::requestRenderProfile.Get();
 		if (!fn || ApiVersion() == 0u)
 		{
 			return false;
@@ -109,13 +123,13 @@ namespace ExtraUtilities::RenderProfileBridge
 
 	inline Profile GetUserPreference() noexcept
 	{
-		const auto fn = OpenShimBridge::Resolve<GetUserFn>("OpenShimGetUserRenderProfile");
+		const auto fn = Detail::getUserRenderProfile.Get();
 		return fn ? static_cast<Profile>(fn()) : Profile::Unknown;
 	}
 
 	inline Profile GetRequestedContentOverride() noexcept
 	{
-		const auto fn = OpenShimBridge::Resolve<GetRequestedFn>("OpenShimGetRequestedContentRenderProfile");
+		const auto fn = Detail::getRequestedContentRenderProfile.Get();
 		if (!fn)
 		{
 			return Profile::Unknown;
@@ -130,25 +144,25 @@ namespace ExtraUtilities::RenderProfileBridge
 
 	inline Profile GetEffective() noexcept
 	{
-		const auto fn = OpenShimBridge::Resolve<GetEffectiveFn>("OpenShimGetEffectiveRenderProfile");
+		const auto fn = Detail::getEffectiveRenderProfile.Get();
 		return fn ? static_cast<Profile>(fn()) : Profile::Unknown;
 	}
 
 	inline std::uint32_t GetActiveBackend() noexcept
 	{
-		const auto fn = OpenShimBridge::Resolve<GetBackendFn>("OpenShimGetActiveRendererBackend");
+		const auto fn = Detail::getActiveRendererBackend.Get();
 		return fn ? fn() : 0xFFFFFFFFu; // Unknown backend sentinel
 	}
 
 	inline std::uint32_t Capabilities() noexcept
 	{
-		const auto fn = OpenShimBridge::Resolve<GetCapabilitiesFn>("OpenShimGetRenderCapabilities");
+		const auto fn = Detail::getRenderCapabilities.Get();
 		return fn ? fn() : CapNone;
 	}
 
 	inline bool Supports(Profile profile) noexcept
 	{
-		const auto fn = OpenShimBridge::Resolve<SupportsFn>("OpenShimSupportsRenderProfile");
+		const auto fn = Detail::supportsRenderProfile.Get();
 		return fn ? fn(static_cast<DWORD>(profile)) != FALSE : false;
 	}
 }
