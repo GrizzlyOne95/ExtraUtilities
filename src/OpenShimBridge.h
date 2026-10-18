@@ -48,9 +48,17 @@ namespace ExtraUtilities::OpenShimBridge
 	}
 
 	// Null unless OpenShim is loaded AND its provider is live, so every Resolve
-	// caller fails closed on a bootstrap-only winmm.dll.
+	// caller fails closed on a bootstrap-only winmm.dll. A live module is kept:
+	// winmm.dll is one of the game's imports and the plugin's provider is never
+	// torn down, and per-frame callers otherwise paid a loader lookup each time.
 	inline HMODULE GetModule() noexcept
 	{
+		static HMODULE liveModule = nullptr;
+		if (liveModule != nullptr)
+		{
+			return liveModule;
+		}
+
 		static HMODULE cachedModule = nullptr;
 		static bool cachedLive = false;
 
@@ -59,6 +67,10 @@ namespace ExtraUtilities::OpenShimBridge
 		{
 			cachedModule = module;
 			cachedLive = IsProviderLive(module);
+		}
+		if (cachedLive)
+		{
+			liveModule = module;
 		}
 		return cachedLive ? module : nullptr;
 	}

@@ -20,6 +20,8 @@
 
 #include <Windows.h>
 
+#include <atomic>
+
 // The one place EXU resolves Ogre entry points by mangled export name.
 //
 // Only procedure (and exported data) addresses are cached, never Ogre object
@@ -40,11 +42,24 @@ namespace OgreDll
 		Overlay,
 	};
 
-	// Not cached: a handle looked up before the game loaded the module would
-	// otherwise stay null for the life of the DLL.
+	// Only a found handle is cached: one looked up before the game loaded the
+	// module must not stay null for the life of the DLL. Both are the game's
+	// own imports and never unload. Uncached, the loader lookup behind the
+	// per-call ResolveOgreProc paths was ~0.4% of a busy misn17 frame.
 	inline HMODULE GetOgreModule(OgreModule module) noexcept
 	{
-		return GetModuleHandleA(module == OgreModule::Overlay ? "OgreOverlay.dll" : "OgreMain.dll");
+		static std::atomic<HMODULE> s_main{ nullptr };
+		static std::atomic<HMODULE> s_overlay{ nullptr };
+		const bool overlay = module == OgreModule::Overlay;
+		std::atomic<HMODULE>& slot = overlay ? s_overlay : s_main;
+		HMODULE handle = slot.load(std::memory_order_acquire);
+		if (handle == nullptr)
+		{
+			handle = GetModuleHandleA(overlay ? "OgreOverlay.dll" : "OgreMain.dll");
+			if (handle != nullptr)
+				slot.store(handle, std::memory_order_release);
+		}
+		return handle;
 	}
 
 	inline HMODULE GetOgreMainModule() noexcept

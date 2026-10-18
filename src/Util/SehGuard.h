@@ -58,6 +58,7 @@
 #include <Windows.h>
 
 #include <cstdio>
+#include <cstring>
 #include <exception>
 #include <utility>
 
@@ -105,6 +106,22 @@ namespace ExtraUtilities
 		{
 			outFaultAddress = (info != nullptr && info->ExceptionRecord != nullptr) ? info->ExceptionRecord->ExceptionAddress : nullptr;
 			return Filter(exceptionCode, outExceptionCode);
+		}
+
+		// Copies size bytes from source, or returns false if reading it faults.
+		// For values read every frame this is far cheaper than asking
+		// VirtualQuery first: the guard costs nothing unless the read faults.
+		inline bool TryCopy(void* destination, const void* source, size_t size) noexcept
+		{
+			__try
+			{
+				std::memcpy(destination, source, size);
+				return true;
+			}
+			__except (Filter(GetExceptionCode()))
+			{
+				return false;
+			}
 		}
 
 		// Describes the exception currently being handled. Call only from inside
