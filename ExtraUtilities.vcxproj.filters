@@ -326,6 +326,9 @@
     <ClInclude Include="src\bzr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Util\Clock.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
     <ClInclude Include="src\Util\OS.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
