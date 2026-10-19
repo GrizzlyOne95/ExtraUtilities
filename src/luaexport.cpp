@@ -36,6 +36,7 @@
 #include "Game/PlayerTrigger.h"
 #include "Game/PlayerControls.h"
 #include "Game/RenderEffects.h"
+#include "Game/PointLights.h"
 #include "Game/StaticGeometry.h"
 #include "Exports.h"
 #include "Util/BuildValidation.h"
@@ -782,6 +783,21 @@ namespace ExtraUtilities::Lua
 			{ "DestroyAllStaticGeometry", &StaticGeometry::DestroyAll },
 			{ "GetStaticGeometryInfo", &StaticGeometry::GetInfo },
 			{ "SetStaticGeometryVisible", &StaticGeometry::SetVisible },
+
+			// Mission-scoped free-standing point lights (Docs/POINT_LIGHTS.md).
+			// Capped at 8; every light competes for per-renderable light slots.
+			{ "CreatePointLight", &PointLights::Create },
+			{ "SetPointLightPosition", &PointLights::SetPosition },
+			{ "SetPointLightColour", &PointLights::SetColour },
+			{ "SetPointLightRange", &PointLights::SetRange },
+			{ "SetPointLightAttenuation", &PointLights::SetAttenuation },
+			{ "SetPointLightPowerScale", &PointLights::SetPowerScale },
+			{ "SetPointLightVisible", &PointLights::SetVisible },
+			{ "DestroyPointLight", &PointLights::Destroy },
+			{ "DestroyAllPointLights", &PointLights::DestroyAll },
+			{ "HasPointLight", &PointLights::Has },
+			{ "GetPointLightInfo", &PointLights::GetInfo },
+			{ "GetPointLightStats", &PointLights::GetStats },
 
 			// Culling
 			{ "GetCullDistance", &Culling::GetCullDistance },

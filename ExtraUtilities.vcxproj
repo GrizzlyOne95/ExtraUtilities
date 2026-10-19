@@ -227,6 +227,7 @@
     <ClCompile Include="src\Gibs\GibPayloads.cpp" />
     <ClCompile Include="src\Gibs\SkinnedGibs.cpp" />
     <ClCompile Include="src\Ogre\OgreGibRuntime.cpp" />
+    <ClCompile Include="src\Game\PointLights.cpp" />
     <ClCompile Include="src\Game\StaticGeometry.cpp" />
     <ClCompile Include="src\Patches\ScreenFlash.cpp" />
     <ClCompile Include="src\Patches\StatusHud.cpp" />
@@ -334,6 +335,8 @@
     <ClInclude Include="src\Game\MuzzleFlashCore.h" />
     <ClInclude Include="src\Game\ShellCasingMath.h" />
     <ClInclude Include="src\Game\TextureWindowMath.h" />
+    <ClInclude Include="src\Game\PointLights.h" />
+    <ClInclude Include="src\Game\PointLightCore.h" />
     <ClInclude Include="src\Game\StaticGeometry.h" />
     <ClInclude Include="src\BasicScanner.h" />
     <ClInclude Include="src\Patches\ScreenFlash.h" />

@@ -40,6 +40,7 @@
 #include "Game/BettyVoice.h"
 #include "Game/Plant.h"
 #include "Game/PlayerControls.h"
+#include "Game/PointLights.h"
 #include "Game/PersonAnimBlend.h"
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotFsmIntercept.h"
@@ -207,6 +208,7 @@ namespace ExtraUtilities::Lua
 			ResetMissionScopedState();
 			Overlay::ShutdownOverlaySupport();
 			StaticGeometry::Shutdown();
+			PointLights::Shutdown();
 			// Before the DLL can unload: removes the Ogre frame listener.
 			ShellCasings::Shutdown();
 			// Removes the death detour and its frame listener as well.
