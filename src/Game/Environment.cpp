@@ -86,12 +86,14 @@ namespace ExtraUtilities::Lua::Environment
 			ForgetAllParticleCameraFollowers();
 			FirstPersonParticles::ResetMissionState();
 			g_desiredLightingMode = ViewportLightingMode::Default;
+			RestoreSkyClearColor();
 		}
 		catch (...)
 		{
 			g_managedParticleNames.clear();
 			g_managedParticleSceneManager = nullptr;
 			FirstPersonParticles::ResetMissionState();
+			RestoreSkyClearColor();
 		}
 	}
 }

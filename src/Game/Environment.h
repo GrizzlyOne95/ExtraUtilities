@@ -71,6 +71,14 @@ namespace ExtraUtilities::Lua::Environment
 	int GetSkyPlaneEnabled(lua_State* L);
 	int SetSkyPlaneEnabled(lua_State* L);
 	int SetSkyPlane(lua_State* L);
+
+	// The colour the engine clears the game viewports to every frame (the
+	// TRN fog colour); see EnvironmentSky.cpp.
+	int GetSkyClearColor(lua_State* L);
+	int SetSkyClearColor(lua_State* L);
+	int ResetSkyClearColor(lua_State* L);
+	// Puts back the TRN value if a script override is still in place.
+	void RestoreSkyClearColor() noexcept;
 	int HasParticleSystem(lua_State* L);
 	int ParseResourceScript(lua_State* L);
 	int HasParticleTemplate(lua_State* L);
