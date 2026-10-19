@@ -463,6 +463,22 @@
         "pattern_kind": "code",
         "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
       },
+      "TrnFogColor": {
+        "address": "0x02CD9120",
+        "type": "uint8_t[3]* (R, G, B)",
+        "description": "The terrain fog colour the TRN loader (0x00780160) stores from [Color] FogColor, else the palette/luma fallback; rewritten on every terrain load. The per-frame sky pass clears every game viewport to it, so it is the colour that shows wherever no sky geometry draws. exu.SetSkyClearColor writes it.",
+        "pattern": "0F B6 15 20 91 CD 02 F3 0F 2A C2 F3 0F 5E 05 00 2B 8A 00 51 F3 0F 11 04 24 E8 FF 64 06 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'movzx edx, byte ptr [0x2cd9120]' through 'call 0x0067CA70' at 0x00616553, verified unique in GOG 2.2.301 executable sections 2026-10-19."
+      },
+      "SkyPassClearColour": {
+        "address": "0x00616521",
+        "type": "code site (sky pass clear)",
+        "description": "Inside the per-frame sky pass (0x00616500): converts the three TrnFogColor bytes to floats and calls the clear-colour setter (0x0067CA70, Viewport::setBackgroundColour on the three game viewports). exu.SetSkyClearColor requires these bytes before it writes TrnFogColor.",
+        "pattern": "0F B6 05 22 91 CD 02 F3 0F 2A C0 F3 0F 5E 05 00 2B 8A 00 51 F3 0F 11 04 24 0F B6 0D 21 91 CD 02 F3 0F 2A C1 F3 0F 5E 05 00 2B 8A 00 51 F3 0F 11 04 24 0F B6 15 20 91 CD 02 F3 0F 2A C2 F3 0F 5E 05 00 2B 8A 00 51 F3 0F 11 04 24 E8 FF 64 06 00",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-10-19. The three movzx reads alone also occur in the fog setter at 0x0078096F; the trailing call makes it unique."
+      },
       "ViewportSetMaterialSchemeIat": {
         "address": "0x00869810",
         "type": "IAT slot (.rdata)",

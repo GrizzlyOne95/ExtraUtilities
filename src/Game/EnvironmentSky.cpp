@@ -17,7 +17,10 @@
 */
 
 #include "EnvironmentInternal.h"
+#include "Util/PatternMatch.h"
+#include "Util/RuntimeGate.h"
 #include "Util/SehGuard.h"
+#include "Util/SignatureResolver.h"
 
 // Sky box, dome and plane: parameter reads, enable toggles, setters and
 // their bindings.
@@ -644,5 +647,185 @@ namespace ExtraUtilities::Lua::Environment
 
 		lua_pushboolean(L, hasNode);
 		return 1;
+	}
+
+	// Sky clear colour.
+	//
+	// Wherever no sky geometry draws, the game viewports show their clear
+	// colour, and the per-frame sky pass (0x00616500) repaints it every frame
+	// from the three bytes the TRN loader stores as the terrain fog colour
+	// ([Color] FogColor, else a palette/luma fallback). exu.SetFog stubs the
+	// engine's own fog setter and moves only the Ogre fog, so after a script
+	// fog change the clear still shows the TRN colour: the pale band under a
+	// custom sky. Writing the stored bytes is exactly what a TRN FogColor key
+	// does, and the loader rewrites them on every terrain load, so an
+	// override never leaks into the next mission.
+	//
+	// The same bytes also tint the engine's cloud/sky-band fade and are what
+	// the engine hands Ogre's fog on its next view-mode change, unless
+	// exu.SetFog has taken fog over.
+	namespace
+	{
+		struct Rgb8
+		{
+			uint8_t r = 0;
+			uint8_t g = 0;
+			uint8_t b = 0;
+
+			bool operator==(const Rgb8& other) const noexcept
+			{
+				return r == other.r && g == other.g && b == other.b;
+			}
+		};
+
+		// Sky pass from the first fog-colour read through the call to the
+		// clear-colour setter (0x0067CA70). The three reads alone also occur
+		// in the fog setter; the call makes it unique.
+		constexpr int kSkyPassClearColourPattern[] = {
+			0x0F, 0xB6, 0x05, 0x22, 0x91, 0xCD, 0x02, 0xF3, 0x0F, 0x2A, 0xC0, 0xF3, 0x0F, 0x5E, 0x05, 0x00,
+			0x2B, 0x8A, 0x00, 0x51, 0xF3, 0x0F, 0x11, 0x04, 0x24, 0x0F, 0xB6, 0x0D, 0x21, 0x91, 0xCD, 0x02,
+			0xF3, 0x0F, 0x2A, 0xC1, 0xF3, 0x0F, 0x5E, 0x05, 0x00, 0x2B, 0x8A, 0x00, 0x51, 0xF3, 0x0F, 0x11,
+			0x04, 0x24, 0x0F, 0xB6, 0x15, 0x20, 0x91, 0xCD, 0x02, 0xF3, 0x0F, 0x2A, 0xC2, 0xF3, 0x0F, 0x5E,
+			0x05, 0x00, 0x2B, 0x8A, 0x00, 0x51, 0xF3, 0x0F, 0x11, 0x04, 0x24, 0xE8, 0xFF, 0x64, 0x06, 0x00
+		};
+
+		bool g_skyClearOverridden = false;
+		Rgb8 g_skyClearOriginal{};
+		Rgb8 g_skyClearWritten{};
+
+		// The stored colour, or nullptr unless the build and the sky pass that
+		// consumes it are the ones this was reverse engineered against.
+		Rgb8* ResolveTrnFogColor() noexcept
+		{
+			if (!RuntimeGate::IsSupported())
+			{
+				return nullptr;
+			}
+
+			const auto* site = reinterpret_cast<const uint8_t*>(EngineAddresses::Environment::SkyPassClearColour);
+			constexpr size_t patternSize = sizeof(kSkyPassClearColourPattern) / sizeof(kSkyPassClearColourPattern[0]);
+			if (!SignatureResolver::IsReadableRange(site, patternSize) ||
+				!PatternMatch::PatternMatches(site, patternSize, kSkyPassClearColourPattern, patternSize))
+			{
+				return nullptr;
+			}
+
+			auto* color = reinterpret_cast<Rgb8*>(EngineAddresses::Environment::TrnFogColor);
+			return SignatureResolver::IsReadableRange(color, sizeof(Rgb8)) ? color : nullptr;
+		}
+
+		bool TryReadSkyClearSeh(const Rgb8* color, Rgb8& out) noexcept
+		{
+			__try
+			{
+				out = *color;
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				LogEnvironmentFault("[EXU::SkyClearColor] read crashed code=0x%08X", GetExceptionCode());
+				return false;
+			}
+		}
+
+		bool TryWriteSkyClearSeh(Rgb8* color, const Rgb8& value) noexcept
+		{
+			__try
+			{
+				*color = value;
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				LogEnvironmentFault("[EXU::SkyClearColor] write crashed code=0x%08X", GetExceptionCode());
+				return false;
+			}
+		}
+
+		uint8_t ToByte(float channel) noexcept
+		{
+			return static_cast<uint8_t>(std::lround(channel * 255.0f));
+		}
+	}
+
+	void RestoreSkyClearColor() noexcept
+	{
+		if (!g_skyClearOverridden)
+		{
+			return;
+		}
+		g_skyClearOverridden = false;
+
+		// Only while our value is still there: if a terrain load has rewritten
+		// it since, the bytes belong to the new mission's TRN.
+		Rgb8* color = ResolveTrnFogColor();
+		Rgb8 current{};
+		if (color != nullptr && TryReadSkyClearSeh(color, current) && current == g_skyClearWritten)
+		{
+			TryWriteSkyClearSeh(color, g_skyClearOriginal);
+		}
+	}
+
+	int GetSkyClearColor(lua_State* L)
+	{
+		Rgb8* color = ResolveTrnFogColor();
+		Rgb8 current{};
+		if (color == nullptr || !TryReadSkyClearSeh(color, current))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		Ogre::Color result;
+		result.r = current.r / 255.0f;
+		result.g = current.g / 255.0f;
+		result.b = current.b / 255.0f;
+		result.a = 1.0f;
+		PushColor(L, result);
+		return 1;
+	}
+
+	int SetSkyClearColor(lua_State* L)
+	{
+		const Ogre::Color requested = CheckColorOrSingles(L, 1);
+		const auto inUnitRange = [](float channel) { return std::isfinite(channel) && channel >= 0.0f && channel <= 1.0f; };
+		if (!inUnitRange(requested.r) || !inUnitRange(requested.g) || !inUnitRange(requested.b))
+		{
+			return luaL_argerror(L, 1, "SetSkyClearColor requires r, g, b in 0..1");
+		}
+
+		Rgb8* color = ResolveTrnFogColor();
+		Rgb8 current{};
+		if (color == nullptr || !TryReadSkyClearSeh(color, current))
+		{
+			lua_pushboolean(L, false);
+			return 1;
+		}
+
+		// Keep the first original across repeated sets; a terrain load since
+		// the last set means the current bytes are the new original.
+		if (!g_skyClearOverridden || !(current == g_skyClearWritten))
+		{
+			g_skyClearOriginal = current;
+		}
+
+		const Rgb8 value{ ToByte(requested.r), ToByte(requested.g), ToByte(requested.b) };
+		if (!TryWriteSkyClearSeh(color, value))
+		{
+			lua_pushboolean(L, false);
+			return 1;
+		}
+
+		g_skyClearWritten = value;
+		g_skyClearOverridden = true;
+		lua_pushboolean(L, true);
+		return 1;
+	}
+
+	int ResetSkyClearColor(lua_State* L)
+	{
+		(void)L;
+		RestoreSkyClearColor();
+		return 0;
 	}
 }

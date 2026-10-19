@@ -187,6 +187,10 @@ namespace ExtraUtilities::EngineAddresses
 			RefreshTerrainMasterLight = 0x0067E0E0u,
 			// function (SetFog wrapper)
 			FogReset = 0x00683370u,
+			// uint8_t[3]* (R, G, B)
+			TrnFogColor = 0x02CD9120u,
+			// code site (sky pass clear)
+			SkyPassClearColour = 0x00616521u,
 			// IAT slot (.rdata)
 			ViewportSetMaterialSchemeIat = 0x00869810u,
 			// call site (call [IAT])
@@ -812,5 +816,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 265u;
+	inline constexpr unsigned kEntryCount = 267u;
 }

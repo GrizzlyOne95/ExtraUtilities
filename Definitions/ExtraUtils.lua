@@ -850,6 +850,38 @@ function exu.SetSkyPlaneEnabled(enabled) end
 --- @return boolean
 function exu.SetSkyPlane(materialName, plane, scale, tiling, drawFirst, bow, xsegments, ysegments, resourceGroup) end
 
+--- Returns the colour the game clears its viewports to every frame, which is what shows
+--- wherever no sky geometry draws (below a sky plane, past a sky dome's rim). This is the
+--- terrain's TRN fog colour (`[Color] FogColor`, else the palette default), as 0..1 floats.
+--- Returns nil on an unsupported game build.
+--- @nodiscard
+--- @return Color?
+function exu.GetSkyClearColor() end
+
+--- Sets the colour the game clears its viewports to every frame. Can take either three
+--- numbers (0..1) or a color table. Use it with a custom sky so the background matches the
+--- sky's horizon, typically the same colour as `exu.SetFog`: SetFog moves only the rendered
+--- fog, so without this the TRN fog colour keeps showing below the horizon.
+--- This writes the terrain's stored fog colour, exactly as a TRN `[Color] FogColor` key
+--- would, so it also tints the engine's own cloud fade and, unless `exu.SetFog` has taken
+--- fog over, the fog the engine applies on its next view change. The value is stored as
+--- bytes, so channels round to 1/255. Every terrain load restores the TRN value, and closing
+--- the Lua state puts it back too; re-apply it from Load() after a saved game is loaded.
+--- Returns false (and changes nothing) on an unsupported game build.
+--- @param r number
+--- @param g number
+--- @param b number
+--- @return boolean
+function exu.SetSkyClearColor(r, g, b) end
+
+--- Sets the colour the game clears its viewports to every frame from a color table.
+--- @param color Color
+--- @return boolean
+function exu.SetSkyClearColor(color) end
+
+--- Restores the terrain's own sky clear colour after exu.SetSkyClearColor.
+function exu.ResetSkyClearColor() end
+
 --- Returns whether a named Ogre particle system currently exists.
 --- @nodiscard
 --- @param name string
