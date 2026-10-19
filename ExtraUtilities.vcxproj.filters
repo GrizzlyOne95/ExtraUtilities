@@ -180,6 +180,9 @@
     <ClCompile Include="src\Ogre\OgreGibRuntime.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Game\PointLights.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Game\StaticGeometry.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
@@ -543,6 +546,12 @@
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\MuzzleFlashCore.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\PointLights.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\PointLightCore.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\StaticGeometry.h">

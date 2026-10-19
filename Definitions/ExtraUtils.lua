@@ -1722,6 +1722,107 @@ function exu.GetStaticGeometryInfo(name) end
 --- @return boolean changed
 function exu.SetStaticGeometryVisible(name, visible) end
 
+--- @class ExuLightColour
+--- @field r number
+--- @field g number
+--- @field b number
+
+--- Creates a free-standing, mission-scoped world point light: an Ogre point
+--- light on its own scene node, not attached to any game object. `position` is
+--- an ordinary simulation position (the same coordinates `GetPosition`
+--- returns); EXU converts it into Redux's render space. `colour` defaults to
+--- white and applies to both diffuse and specular; components may exceed 1.
+--- `range` (default 50, at most 2000) uses the engine's own falloff
+--- (constant 1, linear 0, quadratic 15/range^2, 1/16 brightness at the edge).
+--- At most 8 lights may exist at once. Every light competes with the sun,
+--- headlights and weapon/explosion lights for each renderable's light slots
+--- (8 under stock high-quality materials, sun only under low), so keep ranges
+--- modest and overlap low; see Docs/POINT_LIGHTS.md. Lights never cast
+--- shadows and are not saved: recreate them from your load path.
+--- Returns false when the name is taken, the cap is reached, or the scene
+--- manager or render origin is unavailable. Lua teardown destroys every light.
+--- @param name string 1-64 printable characters
+--- @param position Vector|{x:number,y:number,z:number}
+--- @param colour? ExuLightColour
+--- @param range? number
+--- @return boolean created
+function exu.CreatePointLight(name, position, colour, range) end
+
+--- Moves an EXU point light to a simulation position.
+--- @param name string
+--- @param position Vector|{x:number,y:number,z:number}|number vector, or x
+--- @param y? number
+--- @param z? number
+--- @return boolean changed
+function exu.SetPointLightPosition(name, position, y, z) end
+
+--- Sets an EXU point light's diffuse colour, and its specular colour
+--- (defaults to the diffuse colour). The power scale multiplies both.
+--- @param name string
+--- @param diffuse ExuLightColour
+--- @param specular? ExuLightColour
+--- @return boolean changed
+function exu.SetPointLightColour(name, diffuse, specular) end
+
+--- Sets an EXU point light's range and resets its falloff to the engine curve
+--- for that range (see `CreatePointLight`).
+--- @param name string
+--- @param range number
+--- @return boolean changed
+function exu.SetPointLightRange(name, range) end
+
+--- Sets an EXU point light's range and raw Ogre attenuation terms:
+--- brightness = 1 / (constant + linear*d + quadratic*d^2) inside `range`.
+--- Terms must be finite and non-negative, not all zero.
+--- @param name string
+--- @param range number
+--- @param constant number
+--- @param linear number
+--- @param quadratic number
+--- @return boolean changed
+function exu.SetPointLightAttenuation(name, range, constant, linear, quadratic) end
+
+--- Scales an EXU point light's brightness (0..100, default 1). Applied to the
+--- uploaded colours, because no Redux or Campaign Reimagined shader reads
+--- Ogre's light power; 0 makes the light dark but it still takes a slot.
+--- @param name string
+--- @param scale number
+--- @return boolean changed
+function exu.SetPointLightPowerScale(name, scale) end
+
+--- Shows or hides an EXU point light. A hidden light takes no light slot.
+--- @param name string
+--- @param visible boolean
+--- @return boolean changed
+function exu.SetPointLightVisible(name, visible) end
+
+--- Destroys one EXU point light.
+--- @param name string
+--- @return boolean destroyed
+function exu.DestroyPointLight(name) end
+
+--- Destroys every EXU point light owned by the current mission Lua state.
+--- @return integer destroyedCount
+function exu.DestroyAllPointLights() end
+
+--- Whether an EXU point light with this name currently exists in the scene.
+--- @param name string
+--- @return boolean exists
+function exu.HasPointLight(name) end
+
+--- Returns `{ name, position, diffuse, specular, powerScale, range, constant,
+--- linear, quadratic, customAttenuation, visible }` for an EXU point light, or nil.
+--- @param name string
+--- @return table|nil info
+function exu.GetPointLightInfo(name) end
+
+--- Light-slot measurement aid. Returns `{ count, max, sceneManager }` and, when
+--- readable, `frustumLights` (every light Ogre found touching the camera
+--- frustum on the last render: sun, headlights, weapon lights and EXU's) and
+--- `ownedInFrustum` (how many of those are EXU point lights).
+--- @return table stats
+function exu.GetPointLightStats() end
+
 --- Sets the material name used by a specific sub-entity.
 --- The resource group defaults to "General".
 --- @param h Handle|ExuAnimationTarget A handle (main entity) or exu.animation.Target/TargetCockpit(h)
