@@ -22,6 +22,7 @@
 
 #include "Game/MuzzleFlash.h"
 #include "Game/MuzzleFlashCore.h"
+#include "../../include/odf_flash_bridge.h"
 
 #include "LuaCppBarrier.h"
 #include "LuaHelpers.h"
@@ -202,6 +203,7 @@ namespace ExtraUtilities::Lua::MuzzleFlash
 		{
 			bool live = false;
 			uint32_t id = 0;
+			uint64_t nativeCookie = 0;
 			C::Definition def;
 			float age = 0.0f;
 			uint32_t owner = 0;     // 0: world-fixed
@@ -658,6 +660,124 @@ namespace ExtraUtilities::Lua::MuzzleFlash
 
 		// exu.flash.Spawn{ transform=, mesh=, material=, owner=, duration=, startScale=, finishScale=, roll= }
 		//   -> id | nil, err
+		uint32_t SpawnVisual(const BZR::MAT_3D& m, const char* meshArg, const char* materialArg,
+			C::Definition def, float roll, uint32_t owner, const char*& error, uint64_t cookie = 0)
+		{
+			// Nothing below raises a Lua error.
+			State& s = S();
+			if (!C::Sanitize(def))
+			{
+				error = "flash has no visible size"; return 0;
+			}
+			C::Pose world;
+			world.position = { static_cast<float>(m.posit_x), static_cast<float>(m.posit_y), static_cast<float>(m.posit_z) };
+			world.orientation = C::FromAxes({ m.right_x, m.right_y, m.right_z }, { m.up_x, m.up_y, m.up_z }, { m.front_x, m.front_y, m.front_z });
+			world = C::RollAboutFront(world, roll);
+			if (!C::IsFinite(world))
+			{
+				error = "transform is not finite"; return 0;
+			}
+			if (!Available())
+			{
+				error = "exu.flash is unavailable (unqualified build or missing Ogre exports)"; return 0;
+			}
+			if (s.faulted)
+			{
+				error = "exu.flash was disabled after a fault this mission (see exu.log)"; return 0;
+			}
+			const std::string mesh = meshArg;
+			const std::string material = materialArg != nullptr ? materialArg : "";
+			if (s.badMeshes.count(mesh) != 0)
+			{
+				++s.failed;
+				error = "mesh failed to load earlier this mission"; return 0;
+			}
+
+			void* sceneManager = ReadSceneManager();
+			if (sceneManager == nullptr)
+			{
+				++s.failed;
+				error = "Ogre SceneManager is unavailable"; return 0;
+			}
+			if (s.sceneManager != nullptr && s.sceneManager != sceneManager)
+			{
+				ForgetAll("scene changed");
+			}
+			void* parent = EnsureParentNode(sceneManager);
+			if (parent == nullptr)
+			{
+				++s.failed;
+				error = "could not create the flash parent node"; return 0;
+			}
+			if (!RegisterListener())
+			{
+				++s.failed;
+				error = "could not register the Ogre frame listener"; return 0;
+			}
+			BZR::VECTOR_3D origin{};
+			if (!OgreRenderSpace::TryReadWorldRenderOrigin(origin) || !std::isfinite(origin.x) || !std::isfinite(origin.y) ||
+				!std::isfinite(origin.z))
+			{
+				++s.failed;
+				error = "Redux render origin is unavailable"; return 0;
+			}
+
+			// Carry the flash with its owner: store the muzzle relative to it.
+			C::Pose local = world;
+			C::Pose ownerPose;
+			if (owner != 0 && ReadOwnerPose(owner, ownerPose))
+			{
+				local = C::Relative(ownerPose, world);
+			}
+			else
+			{
+				owner = 0;
+			}
+
+			Slot* slot = AcquireSlot();
+			if (slot == nullptr)
+			{
+				++s.failed;
+				error = "flash pool is full"; return 0;
+			}
+			void* entity = nullptr;
+			void* node = nullptr;
+			if (!CreateVisual(sceneManager, parent, mesh, material, ToRenderPosition(world.position, origin),
+				ToRenderOrientation(world.orientation), C::ScaleAt(def, 0.0f), entity, node))
+			{
+				s.badMeshes.insert(mesh);
+				++s.failed;
+				Logging::LogMessage("[EXU::Flash] could not create mesh=%s material=%s; further spawns of it are refused this mission",
+					mesh.c_str(), material.empty() ? "<mesh-default>" : material.c_str());
+				error = "Ogre could not create the flash entity (see exu.log)"; return 0;
+			}
+
+			*slot = Slot{};
+			slot->live = true;
+			slot->id = s.nextId++;
+			slot->nativeCookie = cookie;
+			if (s.nextId == 0)
+			{
+				s.nextId = 1;
+			}
+			slot->def = def;
+			slot->owner = owner;
+			slot->local = local;
+			slot->last = world;
+			slot->entity = entity;
+			slot->node = node;
+			++s.spawned;
+			if (s.spawned <= 3)
+			{
+				Logging::LogMessage(
+					"[EXU::Flash] spawned id=%u mesh=%s material=%s pos=(%.2f,%.2f,%.2f) owner=0x%08X duration=%.3f scale=%.2f->%.2f live=%u/%u",
+					slot->id, mesh.c_str(), material.empty() ? "<mesh-default>" : material.c_str(), world.position.x, world.position.y,
+					world.position.z, owner, def.duration, def.startScale, def.finishScale, static_cast<unsigned>(LiveCount()),
+					static_cast<unsigned>(s.max));
+			}
+			return slot->id;
+		}
+
 		int Spawn(lua_State* L)
 		{
 			luaL_checktype(L, 1, LUA_TTABLE);
@@ -691,118 +811,10 @@ namespace ExtraUtilities::Lua::MuzzleFlash
 				return luaL_argerror(L, 1, "mesh is required");
 			}
 
-			// Nothing below raises a Lua error.
-			State& s = S();
-			if (!C::Sanitize(def))
-			{
-				return PushFailure(L, "flash has no visible size");
-			}
-			C::Pose world;
-			world.position = { static_cast<float>(m.posit_x), static_cast<float>(m.posit_y), static_cast<float>(m.posit_z) };
-			world.orientation = C::FromAxes({ m.right_x, m.right_y, m.right_z }, { m.up_x, m.up_y, m.up_z }, { m.front_x, m.front_y, m.front_z });
-			world = C::RollAboutFront(world, roll);
-			if (!C::IsFinite(world))
-			{
-				return PushFailure(L, "transform is not finite");
-			}
-			if (!Available())
-			{
-				return PushFailure(L, "exu.flash is unavailable (unqualified build or missing Ogre exports)");
-			}
-			if (s.faulted)
-			{
-				return PushFailure(L, "exu.flash was disabled after a fault this mission (see exu.log)");
-			}
-			const std::string mesh = meshArg;
-			const std::string material = materialArg != nullptr ? materialArg : "";
-			if (s.badMeshes.count(mesh) != 0)
-			{
-				++s.failed;
-				return PushFailure(L, "mesh failed to load earlier this mission");
-			}
-
-			void* sceneManager = ReadSceneManager();
-			if (sceneManager == nullptr)
-			{
-				++s.failed;
-				return PushFailure(L, "Ogre SceneManager is unavailable");
-			}
-			if (s.sceneManager != nullptr && s.sceneManager != sceneManager)
-			{
-				ForgetAll("scene changed");
-			}
-			void* parent = EnsureParentNode(sceneManager);
-			if (parent == nullptr)
-			{
-				++s.failed;
-				return PushFailure(L, "could not create the flash parent node");
-			}
-			if (!RegisterListener())
-			{
-				++s.failed;
-				return PushFailure(L, "could not register the Ogre frame listener");
-			}
-			BZR::VECTOR_3D origin{};
-			if (!OgreRenderSpace::TryReadWorldRenderOrigin(origin) || !std::isfinite(origin.x) || !std::isfinite(origin.y) ||
-				!std::isfinite(origin.z))
-			{
-				++s.failed;
-				return PushFailure(L, "Redux render origin is unavailable");
-			}
-
-			// Carry the flash with its owner: store the muzzle relative to it.
-			C::Pose local = world;
-			C::Pose ownerPose;
-			if (owner != 0 && ReadOwnerPose(owner, ownerPose))
-			{
-				local = C::Relative(ownerPose, world);
-			}
-			else
-			{
-				owner = 0;
-			}
-
-			Slot* slot = AcquireSlot();
-			if (slot == nullptr)
-			{
-				++s.failed;
-				return PushFailure(L, "flash pool is full");
-			}
-			void* entity = nullptr;
-			void* node = nullptr;
-			if (!CreateVisual(sceneManager, parent, mesh, material, ToRenderPosition(world.position, origin),
-				ToRenderOrientation(world.orientation), C::ScaleAt(def, 0.0f), entity, node))
-			{
-				s.badMeshes.insert(mesh);
-				++s.failed;
-				Logging::LogMessage("[EXU::Flash] could not create mesh=%s material=%s; further spawns of it are refused this mission",
-					mesh.c_str(), material.empty() ? "<mesh-default>" : material.c_str());
-				return PushFailure(L, "Ogre could not create the flash entity (see exu.log)");
-			}
-
-			*slot = Slot{};
-			slot->live = true;
-			slot->id = s.nextId++;
-			if (s.nextId == 0)
-			{
-				s.nextId = 1;
-			}
-			slot->def = def;
-			slot->owner = owner;
-			slot->local = local;
-			slot->last = world;
-			slot->entity = entity;
-			slot->node = node;
-			++s.spawned;
-			if (s.spawned <= 3)
-			{
-				Logging::LogMessage(
-					"[EXU::Flash] spawned id=%u mesh=%s material=%s pos=(%.2f,%.2f,%.2f) owner=0x%08X duration=%.3f scale=%.2f->%.2f live=%u/%u",
-					slot->id, mesh.c_str(), material.empty() ? "<mesh-default>" : material.c_str(), world.position.x, world.position.y,
-					world.position.z, owner, def.duration, def.startScale, def.finishScale, static_cast<unsigned>(LiveCount()),
-					static_cast<unsigned>(s.max));
-			}
-			lua_pushinteger(L, static_cast<lua_Integer>(slot->id));
+			const char* error = nullptr;
+			const uint32_t id = SpawnVisual(m, meshArg, materialArg, def, roll, owner, error);
+			if (!id) return PushFailure(L, error ? error : "flash creation failed");
+			lua_pushinteger(L, static_cast<lua_Integer>(id));
 			return 1;
 		}
 
@@ -903,6 +915,43 @@ namespace ExtraUtilities::Lua::MuzzleFlash
 		}
 	}
 
+	uint32_t SpawnNative(const BzrOdfFlashBridge::Spec& spec)
+	{
+		if (spec.size != sizeof(spec) || spec.version != BzrOdfFlashBridge::kVersion || !spec.cookie || !spec.mesh ||
+			!strnlen(spec.mesh, 128) || strnlen(spec.mesh, 128) >= 128 ||
+			(spec.material && strnlen(spec.material, 128) >= 128) ||
+			!std::isfinite(spec.duration) || spec.duration < C::kMinDuration || spec.duration > C::kMaxDuration ||
+			!std::isfinite(spec.startScale) || spec.startScale < 0 || spec.startScale > C::kMaxScale ||
+			!std::isfinite(spec.finishScale) || spec.finishScale < 0 || spec.finishScale > C::kMaxScale ||
+			!std::isfinite(spec.rollRadians)) return 0;
+		for (float v : spec.pose) if (!std::isfinite(v)) return 0;
+		BZR::MAT_3D m{};
+		m.right_x = spec.pose[0]; m.right_y = spec.pose[1]; m.right_z = spec.pose[2];
+		m.up_x = spec.pose[3]; m.up_y = spec.pose[4]; m.up_z = spec.pose[5];
+		m.front_x = spec.pose[6]; m.front_y = spec.pose[7]; m.front_z = spec.pose[8];
+		m.posit_x = spec.pose[9]; m.posit_y = spec.pose[10]; m.posit_z = spec.pose[11];
+		C::Definition def{spec.duration, spec.startScale, spec.finishScale};
+		const char* error = nullptr;
+		return SpawnVisual(m, spec.mesh, spec.material, def, spec.rollRadians, spec.owner, error, spec.cookie);
+	}
+
+	bool CancelNative(uint32_t id, uint64_t cookie)
+	{
+		if (!id || !cookie) return true;
+		State& s = S();
+		if (!LiveCount()) return true;
+		if (!Available()) return false;
+		if (ReadSceneManager() != s.sceneManager || !s.parentNode ||
+			!ParentNodeAlive(s.sceneManager, s.parentNode, s.parentName))
+		{ ForgetAll("native cancel after scene change"); return true; }
+		for (Slot& slot : s.slots)
+		{
+			if (slot.live && BzrOdfFlashBridge::Matches(slot.id, slot.nativeCookie, id, cookie))
+			{ DestroyVisual(s.sceneManager, slot); slot = Slot{}; return true; }
+		}
+		return true; // already expired or recycled; never cancel another entry
+	}
+
 	void Install(lua_State* L)
 	{
 		lua_getglobal(L, "exu");
@@ -953,4 +1002,16 @@ namespace ExtraUtilities::Lua::MuzzleFlash
 			OutputDebugStringA("ExtraUtilities: exception during muzzle flash shutdown\n");
 		}
 	}
+}
+
+extern "C" __declspec(dllexport) uint32_t __cdecl EXU_SpawnOdfFlash(const BzrOdfFlashBridge::Spec* spec) noexcept
+{
+	try { return spec ? ExtraUtilities::Lua::MuzzleFlash::SpawnNative(*spec) : 0; }
+	catch (...) { return 0; }
+}
+
+extern "C" __declspec(dllexport) int __cdecl EXU_CancelOdfFlash(uint32_t id, uint64_t cookie) noexcept
+{
+	try { return ExtraUtilities::Lua::MuzzleFlash::CancelNative(id, cookie) ? 1 : 0; }
+	catch (...) { return 0; }
 }

@@ -53,6 +53,7 @@
 #pragma once
 
 #include <cstdint>
+#include "odf_flash_bridge.h"
 
 // Forward declaration — avoids pulling in lua headers from the consumer side.
 struct lua_State;
@@ -96,6 +97,16 @@ enum class EXU_MultiplayerNicknameResult : std::uint32_t
 // ---------------------------------------------------------------------------
 extern "C"
 {
+    // Optional mesh-flash pool bridge. Engine thread; strings/pose copied at
+    // spawn. Nonzero IDs belong to EXU until expiry/cancellation/mission reset.
+    EXU_API std::uint32_t __cdecl EXU_SpawnOdfFlash(const BzrOdfFlashBridge::Spec* spec) noexcept;
+    EXU_API int __cdecl EXU_CancelOdfFlash(std::uint32_t id, std::uint64_t cookie) noexcept;
+    // Experimental OpenShim recoil companion, present only in trial builds.
+    // Engine-thread only. mode: 0 query idle clip, 1 seek/enable, 2 restore.
+    // cockpit: 0 world, 1 cockpit; time/length are clip seconds. Returns 0 on
+    // unavailable target/build or refused ownership. Resolve dynamically.
+    EXU_API int __cdecl EXU_OdfRecoilAnimation(std::uint32_t handle, const char* clip,
+        int cockpit, int mode, float time, float* length) noexcept;
     // Standard Lua module entry point.
     // BZR's Lua runtime calls this automatically when a mission does:
     //   local exu = require("exu")

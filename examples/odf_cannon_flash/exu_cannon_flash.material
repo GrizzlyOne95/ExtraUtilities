@@ -1,0 +1,59 @@
+abstract material EXU/CannonFlash/Base
+{
+    technique DX11
+    {
+        pass Emission
+        {
+            lighting off
+            scene_blend one one
+            depth_write off
+            depth_check on
+            cull_hardware none
+            cull_software none
+            fog_override true
+            vertex_program_ref EXU_CannonFlash_v1_VS { }
+            fragment_program_ref EXU_CannonFlash_v1_PS { }
+        }
+    }
+    technique DX9
+    {
+        pass Emission
+        {
+            lighting off
+            scene_blend one one
+            depth_write off
+            depth_check on
+            cull_hardware none
+            cull_software none
+            fog_override true
+            vertex_program_ref EXU_CannonFlash_v1_VS9 { }
+            fragment_program_ref EXU_CannonFlash_v1_PS9 { }
+        }
+    }
+}
+material EXU/CannonFlash/Amber : EXU/CannonFlash/Base { }
+material EXU/CannonFlash/Blue : EXU/CannonFlash/Base
+{
+    technique DX11
+    {
+        pass Emission
+        {
+            fragment_program_ref EXU_CannonFlash_v1_PS
+            {
+                param_named flashCoolColour float3 0.08 0.38 1.0
+                param_named flashHotColour float3 0.85 0.96 1.0
+            }
+        }
+    }
+    technique DX9
+    {
+        pass Emission
+        {
+            fragment_program_ref EXU_CannonFlash_v1_PS9
+            {
+                param_named flashCoolColour float3 0.08 0.38 1.0
+                param_named flashHotColour float3 0.85 0.96 1.0
+            }
+        }
+    }
+}
