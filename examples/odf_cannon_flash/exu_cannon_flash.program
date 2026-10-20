@@ -1,11 +1,17 @@
-vertex_program EXU_CannonFlash_v1_VS hlsl
+vertex_program EXU_CannonFlash_v2_VS hlsl
 {
     source exu_cannon_flash.hlsl
     target vs_4_0
     entry_point flashVertex
-    default_params { param_named_auto worldViewProj worldviewproj_matrix }
+    default_params
+    {
+        param_named_auto worldViewProj worldviewproj_matrix
+        param_named flashAnimation float4 6.283185 0.12 0.22 1.4
+        param_named flashState float4 0.15 0.5 1.0 0.08
+        param_named_auto flashState custom 1344
+    }
 }
-fragment_program EXU_CannonFlash_v1_PS hlsl
+fragment_program EXU_CannonFlash_v2_PS hlsl
 {
     source exu_cannon_flash.hlsl
     target ps_4_0
@@ -16,17 +22,26 @@ fragment_program EXU_CannonFlash_v1_PS hlsl
         param_named flashCoolColour float3 1.0 0.16 0.012
         param_named flashHotColour float3 1.0 0.97 0.88
         param_named_auto cameraPosition camera_position_object_space
+        param_named flashAnimation float4 6.283185 0.12 0.22 1.4
+        param_named flashState float4 0.15 0.5 1.0 0.08
+        param_named_auto flashState custom 1344
     }
 }
-vertex_program EXU_CannonFlash_v1_VS9 hlsl
+vertex_program EXU_CannonFlash_v2_VS9 hlsl
 {
     source exu_cannon_flash.hlsl
     target vs_3_0
     entry_point flashVertex
     preprocessor_defines EXU_DX9=1
-    default_params { param_named_auto worldViewProj worldviewproj_matrix }
+    default_params
+    {
+        param_named_auto worldViewProj worldviewproj_matrix
+        param_named flashAnimation float4 6.283185 0.12 0.22 1.4
+        param_named flashState float4 0.15 0.5 1.0 0.08
+        param_named_auto flashState custom 1344
+    }
 }
-fragment_program EXU_CannonFlash_v1_PS9 hlsl
+fragment_program EXU_CannonFlash_v2_PS9 hlsl
 {
     source exu_cannon_flash.hlsl
     target ps_3_0
@@ -38,5 +53,8 @@ fragment_program EXU_CannonFlash_v1_PS9 hlsl
         param_named flashCoolColour float3 1.0 0.16 0.012
         param_named flashHotColour float3 1.0 0.97 0.88
         param_named_auto cameraPosition camera_position_object_space
+        param_named flashAnimation float4 6.283185 0.12 0.22 1.4
+        param_named flashState float4 0.15 0.5 1.0 0.08
+        param_named_auto flashState custom 1344
     }
 }

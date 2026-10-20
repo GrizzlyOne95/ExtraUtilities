@@ -29,6 +29,8 @@
 #include "Ogre/OgreProc.h"
 #include "Ogre/OgreRenderOrigin.h"
 #include "Ogre/OgreRenderSpace.h"
+#include "Ogre/OgreFlashParameters.h"
+#include "Game/MuzzleFlashVisualState.h"
 #include "Util/EngineAddresses.generated.h"
 #include "Util/Logging.h"
 #include "Util/RuntimeGate.h"
@@ -211,6 +213,7 @@ namespace ExtraUtilities::Lua::MuzzleFlash
 			C::Pose last;           // last world pose drawn
 			void* entity = nullptr;
 			void* node = nullptr;
+			bool visualParameters = false;
 		};
 
 		struct State
@@ -497,6 +500,14 @@ namespace ExtraUtilities::Lua::MuzzleFlash
 					++s.expired;
 					continue;
 				}
+				if (slot.visualParameters && !OgreFlashParameters::Set(slot.entity,
+					MuzzleFlashVisualState::At(slot.id, slot.age, slot.def.duration)))
+				{
+					DestroyVisual(s.sceneManager, slot);
+					slot = Slot{};
+					++s.failed;
+					continue;
+				}
 				const C::Pose pose = CurrentPose(slot);
 				slot.last = pose;
 				if (!PlaceNode(slot.node, ToRenderPosition(pose.position, origin), ToRenderOrientation(pose.orientation),
@@ -766,14 +777,27 @@ namespace ExtraUtilities::Lua::MuzzleFlash
 			slot->last = world;
 			slot->entity = entity;
 			slot->node = node;
+			if (OgreFlashParameters::Available())
+			{
+				slot->visualParameters = OgreFlashParameters::Set(entity,
+					MuzzleFlashVisualState::At(slot->id, 0.f, def.duration));
+				if (!slot->visualParameters)
+				{
+					DestroyVisual(sceneManager, *slot);
+					*slot = Slot{};
+					++s.failed;
+					error = "could not initialize flash renderable parameters";
+					return 0;
+				}
+			}
 			++s.spawned;
 			if (s.spawned <= 3)
 			{
 				Logging::LogMessage(
-					"[EXU::Flash] spawned id=%u mesh=%s material=%s pos=(%.2f,%.2f,%.2f) owner=0x%08X duration=%.3f scale=%.2f->%.2f live=%u/%u",
+					"[EXU::Flash] spawned id=%u mesh=%s material=%s pos=(%.2f,%.2f,%.2f) owner=0x%08X duration=%.3f scale=%.2f->%.2f live=%u/%u visualState=%u",
 					slot->id, mesh.c_str(), material.empty() ? "<mesh-default>" : material.c_str(), world.position.x, world.position.y,
 					world.position.z, owner, def.duration, def.startScale, def.finishScale, static_cast<unsigned>(LiveCount()),
-					static_cast<unsigned>(s.max));
+					static_cast<unsigned>(s.max), slot->visualParameters ? 1u : 0u);
 			}
 			return slot->id;
 		}
