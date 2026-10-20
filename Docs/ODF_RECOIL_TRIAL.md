@@ -25,11 +25,14 @@ pointers across mission unload. Loading EXU is still the mod's responsibility.
 
 The matched OpenShim branch documents ODF examples, priority and the avtank /
 gatstab node-slide fixture in `Docs/ODF_RECOIL_TRIAL.md`. Node slides do not
-require this bridge. The recoil path is explicitly requested with `OPENSHIM_TRIAL_ODF_RECOIL=1`.
-A separate `OPENSHIM_TRIAL_ODF_FLASH=1` enables the native mesh-flash pool bridge
-for weapon ODF customization (OpenShim `Docs/ODF_MUZZLE_FLASH.md`). Both remain
-GOG SP cannon trials; normal activation remains closed. The older native
-ParticleRender flash backend is not enabled.
+require this bridge. OpenShim Settings > Video > **Muzzle Recoil** (INI
+`[SinglePlayer] MeshRecoil`) is the master switch for this authored path.
+**Muzzle Flashes** (`MuzzleFlash`) gates ODF mesh flashes and companion native
+`muzzleRender` smoke/light (OpenShim `Docs/ODF_MUZZLE_FLASH.md`). Both default
+OFF, require restart and remain experimental exact-GOG/SP cannon paths. ODF
+configuration and matching assets are still required; no generic stock effects
+are synthesized. Old developer environment flags no longer bypass an OFF
+master setting. Legacy `flashName`/broader activation remains excluded.
 
 Release x86 EXU build, hardening validation and HardeningSmoke pass. No new
 native hook/signature or Lua binding is added here. Live world/cockpit firing,
@@ -54,4 +57,4 @@ test using weapon ODF mesh/material/duration/scale/offset fields and no Lua
 flash producer: 210 flashes, zero failures/orphans, zero live effects at shutdown.
 Screenshots show the flash while the OpenShim node slide runs. All temporary
 DLL/resource/mission/weapon overrides were restored. Authored clips and broader
-lifecycle/platform acceptance remain unqualified; normal activation stays closed.
+lifecycle/platform acceptance remain unqualified; broader activation stays closed.

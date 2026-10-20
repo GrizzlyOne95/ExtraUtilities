@@ -22,8 +22,11 @@ the flash itself; scene lighting and smoke are separate effects.
 
 Copy both `.mesh` files and the `.material`, `.program`, and `.hlsl` files into
 the active mod's Ogre resources. No textures are required. The mission must
-load the matching EXU companion. For the current exact-GOG single-player
-cannon trial, launch with `OPENSHIM_TRIAL_ODF_FLASH=1`.
+load the matching EXU companion. Enable OpenShim Settings > Video > Muzzle
+Flashes (INI `[SinglePlayer] MuzzleFlash = 1`) and restart. The setting defaults
+OFF and gates the exact-GOG single-player cannon ODF path; the old developer
+environment flags no longer bypass it. No generic effect is added to weapons
+without authored configuration/assets.
 
 ```ini
 [WeaponClass]
@@ -49,6 +52,12 @@ trial. Select it in the weapon ODF rather than overwriting a third-party mesh.
 For an existing ISDFC Lua profile, set its `exu.flash` mesh/material fields
 instead, or disable that Lua flash producer when using the OpenShim ODF path.
 Using both producers would draw two flashes for one shot.
+
+The same weapon ODF can add `muzzleRender = "oshmuzz.render"` and
+`muzzleRenderDuration = 0.09` for an independently timed smoke/light layer.
+OpenShim's `examples/odf_muzzle_render` supplies the optional original engine
+render definition and authoring guide. This native layer does not require EXU;
+the mesh still does. Both channels share the Muzzle Flashes master switch.
 
 Use `exu_heavy_flash.mesh` for large ordnance, or select the cooler
 `EXU/CannonFlash/Blue` material. All three mesh layers encode their role in UV0
@@ -107,7 +116,8 @@ custom resources produced no DX11 shader/uniform/material parse errors;
 the unused DX9 alternative reports unsupported targets on DX11 as expected.
 All 61 temporary deployment/resource/mission/weapon files and Ogre settings
 were restored after each run. Wider lifecycle/platform qualification remains
-pending; these checks do not change the native trial's activation gate.
+pending. These artwork checks predate the settings-based master switches and
+do not qualify broader native rendering or platform support.
 
 ## BZ2/BZCC reference findings
 
