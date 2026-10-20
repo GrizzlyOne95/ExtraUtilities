@@ -2,6 +2,7 @@
 // policy shared by exu.flash and BZR-OpenShim's weapon presentation).
 
 #include "Game/MuzzleFlashCore.h"
+#include "Game/MuzzleFlashVisualState.h"
 #include "HostTest.h"
 
 #include <cmath>
@@ -115,6 +116,18 @@ namespace
 
 int main()
 {
+    const auto born = MuzzleFlashVisualState::At(17, 0.f, .08f);
+    const auto middle = MuzzleFlashVisualState::At(17, .04f, .08f);
+    const auto end = MuzzleFlashVisualState::At(17, .12f, .08f);
+    HostTest::Expect(born.phase == 0 && middle.phase == .5f && end.phase == 1,
+        "visual phase follows normalized simulation age and clamps");
+    HostTest::Expect(born.seed == middle.seed && middle.seed == end.seed &&
+        born.seed >= 0 && born.seed <= 1 && born.seed != MuzzleFlashVisualState::At(18, 0, .08f).seed,
+        "shot seed is stable over its life and varies between shots");
+    HostTest::Expect(MuzzleFlashVisualState::At(1, -1, .08f).phase == 0 &&
+        MuzzleFlashVisualState::At(1, 0, 0).phase == 1 &&
+        MuzzleFlashVisualState::At(1, std::numeric_limits<float>::quiet_NaN(), .08f).phase == 1,
+        "invalid visual times fail to an expired phase");
 	FromAxesReproducesTheBasis();
 	RelativeComposeRoundTrip();
 	RollKeepsTheBarrelAxis();
