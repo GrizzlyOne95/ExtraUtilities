@@ -48,6 +48,10 @@ is documented in `include/odf_flash_bridge.h` (copied unchanged in OpenShim).
 
 The cookie prevents stale cleanup from cancelling a reused ID after EXU reload,
 and refuses cancellation of Lua-owned flashes (cookie zero). Windows builds,
-OpenShim 120/120 host checks and EXU hardening smoke pass; live game launch was
-refused by the shared harness while another GOG process was active. No live
-firing/visual qualification or game deployment is claimed for this addition.
+OpenShim 120/120 host checks and EXU hardening smoke pass. On 2026-10-20 the
+matched OpenShim/EXU builds passed a windowed GOG/DX11 avtank/gatstab smoke
+test using weapon ODF mesh/material/duration/scale/offset fields and no Lua
+flash producer: 210 flashes, zero failures/orphans, zero live effects at shutdown.
+Screenshots show the flash while the OpenShim node slide runs. All temporary
+DLL/resource/mission/weapon overrides were restored. Authored clips and broader
+lifecycle/platform acceptance remain unqualified; normal activation stays closed.
