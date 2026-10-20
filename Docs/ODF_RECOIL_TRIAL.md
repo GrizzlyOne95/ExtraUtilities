@@ -25,10 +25,29 @@ pointers across mission unload. Loading EXU is still the mod's responsibility.
 
 The matched OpenShim branch documents ODF examples, priority and the avtank /
 gatstab node-slide fixture in `Docs/ODF_RECOIL_TRIAL.md`. Node slides do not
-require this bridge. The first trial excludes native flashes and is GOG SP
-cannon only, explicitly requested at launch with
-`OPENSHIM_TRIAL_ODF_RECOIL=1`; normal activation remains closed.
+require this bridge. The recoil path is explicitly requested with `OPENSHIM_TRIAL_ODF_RECOIL=1`.
+A separate `OPENSHIM_TRIAL_ODF_FLASH=1` enables the native mesh-flash pool bridge
+for weapon ODF customization (OpenShim `Docs/ODF_MUZZLE_FLASH.md`). Both remain
+GOG SP cannon trials; normal activation remains closed. The older native
+ParticleRender flash backend is not enabled.
 
 Release x86 EXU build, hardening validation and HardeningSmoke pass. No new
 native hook/signature or Lua binding is added here. Live world/cockpit firing,
 controller coexistence, reload/teardown and platform acceptance remain open.
+
+## Mesh-flash companion
+
+`EXU_SpawnOdfFlash(const BzrOdfFlashBridge::Spec*)` copies a versioned Win32
+request containing owner handle, resource names, simulation-space pose, lifetime,
+start/end scale, roll and a nonzero caller lifetime cookie. It returns an EXU pool ID, or zero when unavailable.
+`EXU_CancelOdfFlash(uint32_t, uint64_t cookie)` cancels only the matching ID/caller cookie; already expired/recycled
+IDs are harmless. The bridge uses the same non-Lua spawn operation as the Lua
+API, with the existing render-space conversion, owner following, frame listener
+and scene/Lua shutdown handling. No new engine hook is added. The primitive ABI
+is documented in `include/odf_flash_bridge.h` (copied unchanged in OpenShim).
+
+The cookie prevents stale cleanup from cancelling a reused ID after EXU reload,
+and refuses cancellation of Lua-owned flashes (cookie zero). Windows builds,
+OpenShim 120/120 host checks and EXU hardening smoke pass; live game launch was
+refused by the shared harness while another GOG process was active. No live
+firing/visual qualification or game deployment is claimed for this addition.
