@@ -1,0 +1,42 @@
+vertex_program EXU_CannonFlash_v1_VS hlsl
+{
+    source exu_cannon_flash.hlsl
+    target vs_4_0
+    entry_point flashVertex
+    default_params { param_named_auto worldViewProj worldviewproj_matrix }
+}
+fragment_program EXU_CannonFlash_v1_PS hlsl
+{
+    source exu_cannon_flash.hlsl
+    target ps_4_0
+    entry_point flashFragment
+    default_params
+    {
+        param_named flashParams float4 1.25 0.85 8.0 1.35
+        param_named flashCoolColour float3 1.0 0.16 0.012
+        param_named flashHotColour float3 1.0 0.97 0.88
+        param_named_auto cameraPosition camera_position_object_space
+    }
+}
+vertex_program EXU_CannonFlash_v1_VS9 hlsl
+{
+    source exu_cannon_flash.hlsl
+    target vs_3_0
+    entry_point flashVertex
+    preprocessor_defines EXU_DX9=1
+    default_params { param_named_auto worldViewProj worldviewproj_matrix }
+}
+fragment_program EXU_CannonFlash_v1_PS9 hlsl
+{
+    source exu_cannon_flash.hlsl
+    target ps_3_0
+    entry_point flashFragment
+    preprocessor_defines EXU_DX9=1
+    default_params
+    {
+        param_named flashParams float4 1.25 0.85 8.0 1.35
+        param_named flashCoolColour float3 1.0 0.16 0.012
+        param_named flashHotColour float3 1.0 0.97 0.88
+        param_named_auto cameraPosition camera_position_object_space
+    }
+}
