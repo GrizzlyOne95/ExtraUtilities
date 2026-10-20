@@ -96,6 +96,12 @@ enum class EXU_MultiplayerNicknameResult : std::uint32_t
 // ---------------------------------------------------------------------------
 extern "C"
 {
+    // Experimental OpenShim recoil companion, present only in trial builds.
+    // Engine-thread only. mode: 0 query idle clip, 1 seek/enable, 2 restore.
+    // cockpit: 0 world, 1 cockpit; time/length are clip seconds. Returns 0 on
+    // unavailable target/build or refused ownership. Resolve dynamically.
+    EXU_API int __cdecl EXU_OdfRecoilAnimation(std::uint32_t handle, const char* clip,
+        int cockpit, int mode, float time, float* length) noexcept;
     // Standard Lua module entry point.
     // BZR's Lua runtime calls this automatically when a mission does:
     //   local exu = require("exu")

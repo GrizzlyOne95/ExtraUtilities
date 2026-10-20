@@ -220,6 +220,7 @@
     <ClCompile Include="src\Game\Satellite.cpp" />
     <ClCompile Include="src\Game\ShellCasings.cpp" />
     <ClCompile Include="src\Game\MuzzleFlash.cpp" />
+    <ClCompile Include="src\Game\OdfRecoilAnimation.cpp" />
     <ClCompile Include="src\Gibs\NativeChunks\native_chunk_mesh.cpp" />
     <ClCompile Include="src\Gibs\NativeChunks\native_chunk_prune.cpp" />
     <ClCompile Include="src\Gibs\NativeChunks\native_chunk_cache.cpp" />

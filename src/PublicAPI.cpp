@@ -45,6 +45,7 @@
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotFsmIntercept.h"
 #include "Game/MuzzleFlash.h"
+#include "Game/OdfRecoilAnimation.h"
 #include "Game/ShellCasings.h"
 #include "Gibs/SkinnedGibs.h"
 #include "Game/StaticGeometry.h"
@@ -161,6 +162,7 @@ namespace ExtraUtilities::Lua
 	// overrides and engine values into the next mission.
 	void ResetMissionScopedState() noexcept
 	{
+		OdfRecoilAnimation::Reset();
 		Soundtrack::ResetMissionState();
 		BasicPatch::ResetRequestedStatusesToDefaults();
 		BasicScanner::RestoreAllWritten();
