@@ -18,6 +18,7 @@
 
 #include "GameObject.h"
 #include "GameObjectInternal.h"
+#include "Util/BuildValidation.h"
 
 #include "Patches/GlobalTurbo.h"
 #include "Util/Logging.h"
@@ -229,6 +230,53 @@ namespace ExtraUtilities::Lua::GameObject
 		lua_pushboolean(L, on ? 1 : 0);
 		return 1;
 	}
+
+    namespace
+    {
+        bool TowerPowerLayoutSupported() noexcept
+        {
+            if (!RuntimeGate::IsSupported()) return false;
+            static int cached = -1;
+            if (cached < 0)
+            {
+                cached = 0;
+                for (const auto& anchor : BzrBuildProfile::kRuntimeAnchors)
+                    if (std::strcmp(anchor.name, "Gun tower power state") == 0)
+                        cached = BuildValidation::Detail::MatchAnchor(GetModuleHandleA(nullptr), anchor) ? 1 : 0;
+            }
+            return cached == 1;
+        }
+
+        bool ReadTowerPowerSeh(BZR::GameObject* object, bool& powered) noexcept
+        {
+            __try
+            {
+                // Qualified by the optional released power-refresh anchor.
+                powered = *reinterpret_cast<const uint32_t*>(reinterpret_cast<const unsigned char*>(object) + 0x2c0) != 0;
+                return true;
+            }
+            __except (Seh::Filter(GetExceptionCode())) { return false; }
+        }
+    }
+
+    int IsGunTowerPowered(lua_State* L)
+    {
+        const auto handle = CheckHandle(L, 1);
+        if (!TowerPowerLayoutSupported()) { lua_pushnil(L); return 1; }
+        if (!handle) { lua_pushnil(L); return 1; }
+        lua_getglobal(L, "GetClassLabel");
+        if (!lua_isfunction(L, -1)) { lua_pushnil(L); return 1; }
+        lua_pushvalue(L, 1); lua_call(L, 1, 1);
+        const char* label = lua_tostring(L, -1);
+        if (!label || std::strcmp(label, "turret") != 0) { lua_pushnil(L); return 1; }
+        // Re-resolve after calling Lua; never carry a native object across it.
+        auto* object = BZR::GameObject::GetObj(handle);
+        if (!object) { lua_pushnil(L); return 1; }
+        bool powered = false;
+        if (!ReadTowerPowerSeh(object, powered)) lua_pushnil(L);
+        else lua_pushboolean(L, powered);
+        return 1;
+    }
 
 	int IsCommTowerPowered(lua_State* L)
 	{

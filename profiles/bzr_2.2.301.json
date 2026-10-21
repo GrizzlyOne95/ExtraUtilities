@@ -277,6 +277,16 @@
       "required": false,
       "runtime_gate": true,
       "reason": "Opt-in controller qualification; support failure must not disable unrelated EXU features."
+    },
+    {
+      "name": "Gun tower power state",
+      "source": "catalog",
+      "catalog_path": "SurfaceEffects.TurretPowerProbe",
+      "match": "expected_va",
+      "expected_va": "0x005F0750",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional presentation-only layout identity; failure suppresses the gun-tower power query without disabling unrelated EXU features."
     }
   ]
 }

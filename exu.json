@@ -1582,21 +1582,21 @@
         "type": "void (__cdecl*)(int,int,int,int)",
         "description": "Redux soundtrack track/loop selector, void __cdecl (int track, int loopFirst, int loopSkip, int loopLast), on exact GOG Redux 2.2.301. The world loader FUN_00780160 reads [World] MusicTrack/MusicLoopFirst/MusicLoopSkip/MusicLoopLast from the .trn and passes them here in that order; the shell (FUN_007BEFD0, FUN_004341C0) calls it with one track in every slot to loop a single track. It calls Music::Stop (0x00437A70) only when the track differs from the current one, then stores the four values; the end-of-track advancer FUN_00437B00 consumes them. Selects only: playback starts in Music::Start. Unique on the GOG image with every absolute and rel32 operand wildcarded.",
         "pattern_kind": "code",
-      "pattern": "55 8B EC 8B 45 08 3B 05 ?? ?? ?? ?? 74 05 E8 ?? ?? ?? ?? 8B 4D 0C 89 0D ?? ?? ?? ?? 8B 55 10 89 15 ?? ?? ?? ?? 8B 45 14 A3 ?? ?? ?? ?? 8B 4D 08 89 0D ?? ?? ?? ?? 5D C3"
+        "pattern": "55 8B EC 8B 45 08 3B 05 ?? ?? ?? ?? 74 05 E8 ?? ?? ?? ?? 8B 4D 0C 89 0D ?? ?? ?? ?? 8B 55 10 89 15 ?? ?? ?? ?? 8B 45 14 A3 ?? ?? ?? ?? 8B 4D 08 89 0D ?? ?? ?? ?? 5D C3"
       },
       "Start": {
         "address": "0x004378F0",
         "type": "void (__cdecl*)()",
         "description": "Redux soundtrack start, void __cdecl (void), on exact GOG Redux 2.2.301 -- the real playback entry, not the legacy _StartMusic 0x00406670, which is a dead identity stub on this build (live_scan_findings_20260706.md #17). If nothing is playing it formats the selected track with \"%02d.ogg\", sizes and loads it through the resource layer (0x00481A60/0x00481AF0), opens it through the thunk 0x0043F9B0 to OggManager::Setup (0x0043F050, which logs \"Starting Music Playback Index %d\"), and when the options music volume byte is non-zero sets the playing flag and calls the thunk 0x0043F9E0 to OggManager::Play (0x0043F320) and the volume setter FUN_00437800. Called by the mission start FUN_00617110, the shell FUN_007BEFD0 and the advancer FUN_00437B00. A no-op while music is already playing. Unique on the GOG image with every absolute and rel32 operand wildcarded.",
         "pattern_kind": "code",
-      "pattern": "55 8B EC 83 EC 2C A1 ?? ?? ?? ?? 33 C5 89 45 FC 83 3D ?? ?? ?? ?? 00 74 05 E9 ?? ?? ?? ?? A1 ?? ?? ?? ?? 50 68 ?? ?? ?? ?? 8D 4D DC 51 FF 15 ?? ?? ?? ?? 83 C4 0C 8D 55 DC 52 E8 ?? ?? ?? ?? 83 C4 04"
+        "pattern": "55 8B EC 83 EC 2C A1 ?? ?? ?? ?? 33 C5 89 45 FC 83 3D ?? ?? ?? ?? 00 74 05 E9 ?? ?? ?? ?? A1 ?? ?? ?? ?? 50 68 ?? ?? ?? ?? 8D 4D DC 51 FF 15 ?? ?? ?? ?? 83 C4 0C 8D 55 DC 52 E8 ?? ?? ?? ?? 83 C4 04"
       },
       "Stop": {
         "address": "0x00437A70",
         "type": "void (__cdecl*)()",
         "description": "Redux soundtrack stop, void __cdecl (void), on exact GOG Redux 2.2.301 -- the real stop, not the legacy _StopMusic 0x004068E0 stub. If an Ogg slot is open it calls the thunk 0x0043FA20 to OggManager::Pause (0x0043F5C0) while playing, then the thunk 0x0043FA60 to OggManager::Release (0x0043F780), releases the \"%02d.ogg\" resource (0x00481990), and clears the slot, playing and paused flags. Called by Music::SelectTrack on a track change, by the mission teardown FUN_00618370 and FUN_00439FB0, and by the advancer before moving to the next track. Idempotent. Unique on the GOG image with every absolute and rel32 operand wildcarded.",
         "pattern_kind": "code",
-      "pattern": "55 8B EC 83 EC 24 A1 ?? ?? ?? ?? 33 C5 89 45 FC 83 3D ?? ?? ?? ?? FF 74 ?? 83 3D ?? ?? ?? ?? 00 74 ?? A1 ?? ?? ?? ?? 50 E8 ?? ?? ?? ?? 83 C4 04 8B 0D ?? ?? ?? ?? 51 E8 ?? ?? ?? ?? 83 C4 04 8B 15 ?? ?? ?? ?? 52 68 ?? ?? ?? ?? 8D 45 DC 50 FF 15"
+        "pattern": "55 8B EC 83 EC 24 A1 ?? ?? ?? ?? 33 C5 89 45 FC 83 3D ?? ?? ?? ?? FF 74 ?? 83 3D ?? ?? ?? ?? 00 74 ?? A1 ?? ?? ?? ?? 50 E8 ?? ?? ?? ?? 83 C4 04 8B 0D ?? ?? ?? ?? 51 E8 ?? ?? ?? ?? 83 C4 04 8B 15 ?? ?? ?? ?? 52 68 ?? ?? ?? ?? 8D 45 DC 50 FF 15"
       },
       "Pause": {
         "address": "0x004379D0",
@@ -2039,6 +2039,16 @@
         "pattern": "55 8B EC 51 56 89 4D FC 8B 45 FC 83 78 38 00 7D 02 EB 36 8B 4D FC BA 01 00 00 00 8B 49 38 D3 E2 8B 45 FC 23 50 34 74 21 8B 4D FC 8B 51 38 8B 45 FC 8B 4C 90 18 8B 55 FC 8B 42 38 8B 55 FC 8B 31",
         "pattern_kind": "code",
         "note": "GOG 2.2.301 image SHA256 8d71f56c...3377413, verified single match 2026-10-16. Exact build qualification; see Docs/Research/VEHICLE_CONTROL_20261016.md."
+      }
+    },
+    "SurfaceEffects": {
+      "TurretPowerProbe": {
+        "address": "0x005F0750",
+        "type": "function identity only: TurretCraft power-source refresh",
+        "description": "Released TurretCraft refresh stores the selected power source at this+0x2C0. Its Simulate consumer gates powered behavior on that field. Read-only gun-tower presentation query, never called as a hook.",
+        "pattern": "55 8B EC 83 EC 08 89 4D FC 8B 45 FC 8B 88 C0 02 00 00 89 4D F8 8B 55 FC 8B 82 C0 02 00 00 50 8B 4D FC 8B 91 74 01 00 00 52 8B 45 FC 05 08 01 00 00 50 E8 ?? ?? ?? ?? 83 C4 0C 8B 4D FC 89 81 C0",
+        "pattern_kind": "code",
+        "note": "Static released GOG 2.2.301 evidence: power refresh and Simulate consumer; feature-specific optional anchor, strict turret class guard."
       }
     }
   }

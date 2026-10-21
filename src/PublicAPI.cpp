@@ -31,6 +31,7 @@
 #include "About.h"
 #include "BasicPatch.h"
 #include "Game/AnimationApi.h"
+#include "Ogre/OgreSurfaceParameters.h"
 #include "Game/CommandReplacement.h"
 #include "Game/ContinuityApi.h"
 #include "Game/Environment.h"
@@ -170,6 +171,7 @@ namespace ExtraUtilities::Lua
 		ExtraUtilities::NativeHud::ResetMissionState();
 		ControlPanel::ResetMissionState();
 		Renderer::ResetMissionState();
+		OgreSurfaceParameters::Clear();
 		GameObject::ClearMaterialCache();
 		ExtraUtilities::Culling::ResetMissionState();
 		Patch::ResetTurboMissionState();
