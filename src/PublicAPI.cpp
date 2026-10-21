@@ -49,6 +49,7 @@
 #include "Game/ShellCasings.h"
 #include "Gibs/SkinnedGibs.h"
 #include "Game/StaticGeometry.h"
+#include "Game/ExplosionEvents.h"
 #include "LuaState.h"
 #include "LuaCppBarrier.h"
 #include "OpenShimBridge.h"
@@ -206,6 +207,7 @@ namespace ExtraUtilities::Lua
 			PilotFsmIntercept::Shutdown();
 			VehicleControl::Shutdown();
 			Plant::Shutdown();
+			ExplosionEvents::Shutdown();
 			BettyVoice::Shutdown();
 			ResetMissionScopedState();
 			Overlay::ShutdownOverlaySupport();

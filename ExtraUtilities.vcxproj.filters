@@ -87,6 +87,7 @@
     <ClCompile Include="src\Game\BettyVoice.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Game\ExplosionEvents.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Game\Plant.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>

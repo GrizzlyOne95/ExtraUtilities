@@ -1724,7 +1724,9 @@ function exu.SetEntityMaterial(h, materialName, resourceGroup) end
 --- `GetPosition` returns; EXU converts them into Redux's render space.
 --- Reusing an EXU-owned name replaces its previous geometry. On success the
 --- returned table includes `instanceCount`, estimated `regionCount`, and
---- `buildMilliseconds`. Mission Lua teardown destroys all tracked geometry.
+--- `buildMilliseconds`, and `totalMilliseconds` (high-resolution native time,
+--- including argument conversion, replacement, entity creation and logging;
+--- excludes caller Lua table preparation). Mission Lua teardown destroys all tracked geometry.
 --- @param name string
 --- @param mesh string
 --- @param material string|nil
@@ -1733,6 +1735,26 @@ function exu.SetEntityMaterial(h, materialName, resourceGroup) end
 --- @return table|nil info
 --- @return string? error
 function exu.CreateStaticGeometry(name, mesh, material, instances, options) end
+
+--- Enables/disables a bounded local ExplosionClass::Build event queue for this
+--- mission. Opt-in; does not change explosions or send network messages. False
+--- means this supported-build/entry-hook capability is unavailable. Disabling
+--- clears queued events. Lua is never called from the engine hook.
+--- @param enabled boolean
+--- @return boolean available
+function exu.SetExplosionEventsEnabled(enabled) end
+
+--- Drains up to 64 local explosion creations (default 64), returning plain copied
+--- data: {odf,x,y,z,radius,sequence}. Coordinates are simulation space; radius is
+--- the loaded ExplosionClass damageRadius, including inherited defaults. Zero
+--- radius includes cosmetic impacts; callers decide which effects to use.
+--- The queue holds 512 events and drops oldest on overflow. dropped is cumulative
+--- since enable; pending is the remaining queue size. No pointers escape.
+--- @param limit? integer
+--- @return table[] events
+--- @return number dropped
+--- @return integer pending
+function exu.DrainExplosionEvents(limit) end
 
 --- Destroys one EXU-owned StaticGeometry object.
 --- @param name string

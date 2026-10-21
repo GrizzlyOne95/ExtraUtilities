@@ -88,6 +88,7 @@ namespace ExtraUtilities::Lua::StaticGeometry
 			size_t instanceCount = 0;
 			size_t regionCount = 0;
 			uint64_t buildMilliseconds = 0;
+			double totalMilliseconds = 0;
 			float renderingDistance = 0.0f;
 			bool castShadows = false;
 			bool visible = true;
@@ -444,6 +445,8 @@ namespace ExtraUtilities::Lua::StaticGeometry
 			lua_setfield(L, -2, "regionCount");
 			lua_pushnumber(L, static_cast<lua_Number>(record.buildMilliseconds));
 			lua_setfield(L, -2, "buildMilliseconds");
+			lua_pushnumber(L, record.totalMilliseconds);
+			lua_setfield(L, -2, "totalMilliseconds");
 			lua_pushnumber(L, record.renderingDistance);
 			lua_setfield(L, -2, "renderingDistance");
 			lua_pushboolean(L, record.castShadows ? 1 : 0);
@@ -475,6 +478,9 @@ namespace ExtraUtilities::Lua::StaticGeometry
 
 	int Create(lua_State* L)
 	{
+		LARGE_INTEGER totalStarted{}, frequency{};
+		QueryPerformanceCounter(&totalStarted);
+		QueryPerformanceFrequency(&frequency);
 		// Arguments are read as views of the Lua strings and the instances
 		// into a Lua-owned scratch buffer: a Lua error raised while parsing
 		// longjmps over this frame, and nothing here may need a destructor
@@ -649,6 +655,10 @@ namespace ExtraUtilities::Lua::StaticGeometry
 				static_cast<double>(instances.front().position.x),
 				static_cast<double>(instances.front().position.y),
 				static_cast<double>(instances.front().position.z));
+			LARGE_INTEGER totalFinished{};
+			QueryPerformanceCounter(&totalFinished);
+			inserted.first->second.totalMilliseconds = frequency.QuadPart > 0 ?
+				1000.0 * static_cast<double>(totalFinished.QuadPart - totalStarted.QuadPart) / static_cast<double>(frequency.QuadPart) : 0.0;
 			PushInfo(L, name, inserted.first->second);
 			return 1;
 		}
