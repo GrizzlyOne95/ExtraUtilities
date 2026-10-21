@@ -598,6 +598,21 @@ namespace ExtraUtilities::Lua::GameObject
         return 1;
     }
 
+    int SetMaterialTextureAlias(lua_State* L)
+    {
+        const std::string_view name = luaL_checkstring(L, 1), alias = luaL_checkstring(L, 2), texture = luaL_checkstring(L, 3);
+        const std::string_view group = CheckOptionalResourceGroup(L, 4);
+        lua_pushinteger(L, OgreSurfaceParameters::SetTextureAlias(std::string(name), std::string(group), std::string(alias), std::string(texture)));
+        return 1;
+    }
+
+    int SetSurfaceFragmentProgram(lua_State* L)
+    {
+        const std::string_view name = luaL_checkstring(L, 1), scheme = luaL_checkstring(L, 2), program = luaL_checkstring(L, 3);
+        lua_pushinteger(L, OgreSurfaceParameters::SetFragmentProgram(std::string(name), std::string(scheme), std::string(program)));
+        return 1;
+    }
+
     int SetMaterialShaderVector(lua_State* L)
     {
         const std::string_view materialArg = luaL_checkstring(L, 1);

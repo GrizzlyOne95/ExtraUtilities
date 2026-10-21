@@ -883,6 +883,8 @@ namespace ExtraUtilities::Lua
             { "CloneSurfaceMaterial", &GameObject::CloneSurfaceMaterial },
             { "ReleaseSurfaceMaterial", &GameObject::ReleaseSurfaceMaterial },
             { "SetSurfaceTexture", &GameObject::SetSurfaceTexture },
+            { "SetMaterialTextureAlias", &GameObject::SetMaterialTextureAlias },
+            { "SetSurfaceFragmentProgram", &GameObject::SetSurfaceFragmentProgram },
             { "SetReactiveChunksEnabled", &GameObject::SetReactiveChunksEnabled },
             { "SetSurfaceMaterial", &GameObject::SetSurfaceMaterial },
             { "GetWeaponMuzzlePosition", &GameObject::GetWeaponMuzzlePosition },

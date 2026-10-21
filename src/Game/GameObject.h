@@ -108,6 +108,8 @@ namespace ExtraUtilities::Lua::GameObject
     int CloneSurfaceMaterial(lua_State* L);
     int ReleaseSurfaceMaterial(lua_State* L);
     int SetSurfaceTexture(lua_State* L);
+    int SetMaterialTextureAlias(lua_State* L);
+    int SetSurfaceFragmentProgram(lua_State* L);
     int SetReactiveChunksEnabled(lua_State* L);
     int SetSurfaceMaterial(lua_State* L);
     int GetWeaponMuzzlePosition(lua_State* L);

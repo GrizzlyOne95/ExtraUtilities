@@ -11,6 +11,10 @@ namespace ExtraUtilities { namespace OgreSurfaceParameters
     void NotifyVariant(void* entity, unsigned int index, const std::string& before, const std::string& after) noexcept;
     int SetOwnedVector(const std::string& material, const std::string& name, const float value[4]) noexcept;
     int SetTexture(const std::string& material, const std::string& alias, const std::string& texture) noexcept;
+    // Any named material (not only owned clones); same alias/unit-name matching.
+    int SetTextureAlias(const std::string& material, const std::string& group, const std::string& alias, const std::string& texture) noexcept;
+    // Owned exu_surface_* clones only; swaps the fragment program of every pass in techniques of that scheme.
+    int SetFragmentProgram(const std::string& material, const std::string& scheme, const std::string& program) noexcept;
     bool Release(const std::string& name) noexcept;
     void Clear() noexcept;
     void EnableChunks(bool enabled) noexcept;

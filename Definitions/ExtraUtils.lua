@@ -3494,6 +3494,23 @@ function exu.SetMaterialShaderVector(material, parameter, x, y, z, w, technique,
 --- @return integer changedUnits
 function exu.SetSurfaceTexture(material, alias, texture) end
 
+--- Sets the texture of every unit whose texture_alias or unit name matches alias (case-insensitive)
+--- across all techniques of any named material. Native exu_surface_chunk_* names are refused.
+--- @param material string
+--- @param alias string
+--- @param texture string
+--- @param group string? default General
+--- @return integer changedUnits
+function exu.SetMaterialTextureAlias(material, alias, texture, group) end
+
+--- Swaps the fragment program (resetParams) of every pass with one, in techniques whose scheme equals
+--- schemeName, on an owned exu_surface_* clone. Other materials and exu_surface_chunk_* are refused.
+--- @param material string
+--- @param schemeName string
+--- @param programName string
+--- @return integer changedPasses
+function exu.SetSurfaceFragmentProgram(material, schemeName, programName) end
+
 --- Converts simulation world coordinates through the actual derived parent-node transform.
 --- Rigid projection only; does not attach to an animated bone.
 --- @param target Handle|ExuAnimationTarget
