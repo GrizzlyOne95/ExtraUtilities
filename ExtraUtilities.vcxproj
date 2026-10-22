@@ -184,6 +184,9 @@
     <ClCompile Include="src\Ogre\OgreFlashParameters.cpp">
       <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
+    <ClCompile Include="src\Ogre\OgreSurfaceParameters.cpp">
+      <LanguageStandard>stdcpp14</LanguageStandard>
+    </ClCompile>
     <ClCompile Include="src\Ogre\OgreMaterialRuntime.cpp" />
     <ClCompile Include="src\Game\EntityRenderApi.cpp" />
     <ClCompile Include="src\Game\MaterialApi.cpp" />
