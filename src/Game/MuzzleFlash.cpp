@@ -231,6 +231,7 @@ namespace ExtraUtilities::Lua::MuzzleFlash
 			uint64_t spawned = 0;
 			uint64_t recycled = 0;
 			uint64_t expired = 0;
+			uint64_t cancelled = 0;  // ended early by the native presentation owner
 			uint64_t failed = 0;
 			uint64_t frames = 0;
 			uint64_t forgotten = 0;
@@ -902,7 +903,7 @@ namespace ExtraUtilities::Lua::MuzzleFlash
 		int GetStats(lua_State* L)
 		{
 			const State& s = S();
-			lua_createtable(L, 0, 11);
+			lua_createtable(L, 0, 12);
 			auto set = [L](const char* key, double value) {
 				lua_pushnumber(L, value);
 				lua_setfield(L, -2, key);
@@ -912,6 +913,7 @@ namespace ExtraUtilities::Lua::MuzzleFlash
 			set("spawned", static_cast<double>(s.spawned));
 			set("recycled", static_cast<double>(s.recycled));
 			set("expired", static_cast<double>(s.expired));
+			set("cancelled", static_cast<double>(s.cancelled));
 			set("failed", static_cast<double>(s.failed));
 			set("forgotten", static_cast<double>(s.forgotten));
 			set("orphaned", static_cast<double>(s.orphaned));
@@ -971,7 +973,7 @@ namespace ExtraUtilities::Lua::MuzzleFlash
 		for (Slot& slot : s.slots)
 		{
 			if (slot.live && BzrOdfFlashBridge::Matches(slot.id, slot.nativeCookie, id, cookie))
-			{ DestroyVisual(s.sceneManager, slot); slot = Slot{}; return true; }
+			{ DestroyVisual(s.sceneManager, slot); slot = Slot{}; ++s.cancelled; return true; }
 		}
 		return true; // already expired or recycled; never cancel another entry
 	}
@@ -1012,10 +1014,11 @@ namespace ExtraUtilities::Lua::MuzzleFlash
 				DestroyAll(true);
 				UnregisterListener();
 				Logging::LogMessage(
-					"[EXU::Flash] shutdown: destroyed %u live; totals spawned=%llu recycled=%llu expired=%llu failed=%llu orphaned=%llu "
+					"[EXU::Flash] shutdown: destroyed %u live; totals spawned=%llu recycled=%llu expired=%llu cancelled=%llu failed=%llu orphaned=%llu "
 					"frames=%llu avgFrame=%.1fus maxFrame=%.1fus",
 					static_cast<unsigned>(live), static_cast<unsigned long long>(s.spawned), static_cast<unsigned long long>(s.recycled),
-					static_cast<unsigned long long>(s.expired), static_cast<unsigned long long>(s.failed),
+					static_cast<unsigned long long>(s.expired), static_cast<unsigned long long>(s.cancelled),
+					static_cast<unsigned long long>(s.failed),
 					static_cast<unsigned long long>(s.orphaned), static_cast<unsigned long long>(s.frames),
 					s.frames > 0 ? s.frameMicrosTotal / static_cast<double>(s.frames) : 0.0, s.frameMicrosMax);
 			}
