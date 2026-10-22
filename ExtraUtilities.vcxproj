@@ -146,6 +146,7 @@
     <ClCompile Include="src\Game\PathBlock.cpp" />
     <ClCompile Include="src\Game\PathBlockApi.cpp" />
     <ClCompile Include="src\Game\BettyVoice.cpp" />
+    <ClCompile Include="src\Game\ExplosionEvents.cpp" />
     <ClCompile Include="src\Game\Plant.cpp" />
     <ClCompile Include="src\Game\PlantApi.cpp" />
     <ClCompile Include="src\Game\FirstPersonParticles.cpp" />
@@ -366,6 +367,8 @@
     <ClInclude Include="src\Game\PathBlock.h" />
     <ClInclude Include="src\Game\PathBlockMath.h" />
     <ClInclude Include="src\Game\BettyVoice.h" />
+    <ClInclude Include="src\Game\ExplosionEvents.h" />
+    <ClInclude Include="src\Game\ExplosionEventsCore.h" />
     <ClInclude Include="src\Game\Plant.h" />
     <ClInclude Include="src\Game\PlantCore.h" />
     <ClInclude Include="src\Game\FirstPersonParticles.h" />

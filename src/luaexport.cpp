@@ -38,6 +38,7 @@
 #include "Game/RenderEffects.h"
 #include "Game/PointLights.h"
 #include "Game/StaticGeometry.h"
+#include "Game/ExplosionEvents.h"
 #include "Exports.h"
 #include "Util/BuildValidation.h"
 #include "Util/Logging.h"
@@ -781,6 +782,8 @@ namespace ExtraUtilities::Lua
 
 			// Mission-scoped Ogre StaticGeometry. Create performs a bulk build so
 			// Lua never needs one native call per instance per frame.
+			{ "SetExplosionEventsEnabled", &ExplosionEvents::SetEnabled },
+			{ "DrainExplosionEvents", &ExplosionEvents::Drain },
 			{ "CreateStaticGeometry", &StaticGeometry::Create },
 			{ "DestroyStaticGeometry", &StaticGeometry::Destroy },
 			{ "DestroyAllStaticGeometry", &StaticGeometry::DestroyAll },
