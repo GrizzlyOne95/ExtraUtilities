@@ -33,6 +33,7 @@
 --- @field spawned integer
 --- @field recycled integer Flashes retired early because the pool was full.
 --- @field expired integer
+--- @field cancelled integer Flashes ended early by their native (ODF) owner.
 --- @field failed integer
 --- @field forgotten integer Flashes dropped because their scene went away.
 --- @field orphaned integer Flashes whose owner died first.
