@@ -816,5 +816,14 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 267u;
+	namespace SurfaceEffects
+	{
+		enum : uintptr_t
+		{
+			// function identity only: TurretCraft power-source refresh
+			TurretPowerProbe = 0x005F0750u,
+		};
+	}
+
+	inline constexpr unsigned kEntryCount = 268u;
 }

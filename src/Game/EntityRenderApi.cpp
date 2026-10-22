@@ -20,6 +20,11 @@
 #include "Ogre/OgreAnimationInventoryBridge.h"
 #include "Util/SehGuard.h"
 #include "Game/FirstPersonTarget.h"
+#include "Game/SurfacePointMath.h"
+#include "Ogre/OgreSurfaceParameters.h"
+#include "Ogre/OgreGibRuntime.h"
+#include "Ogre/OgreRenderOrigin.h"
+#include "Ogre/OgreRenderSpace.h"
 
 #include <cctype>
 #include <cstring>
@@ -322,6 +327,58 @@ namespace ExtraUtilities::Lua::GameObject
 		void* animationState = entity ? GetNamedAnimationState(entity, name) : nullptr;
 		return animationState && TrySetAnimationTimePosition(animationState, timePosition);
 	}
+
+    int GetWeaponMuzzlePosition(lua_State* L)
+    {
+        const auto handle = CheckHandle(L, 1);
+        const int slot = luaL_checkint(L, 2);
+        if (slot < 0 || slot >= 5) return luaL_argerror(L, 2, "weapon slot must be 0..4");
+        HMODULE module = nullptr;
+        if (!GetModuleHandleExA(0, "openshim.dll", &module) && !GetModuleHandleExA(0, "winmm.dll", &module))
+        { lua_pushnil(L); return 1; }
+        using Query = int (__cdecl*)(uint32_t, int, float*);
+        auto query = reinterpret_cast<Query>(GetProcAddress(module, "OpenShimGetWeaponMuzzle"));
+        if (!query) query = reinterpret_cast<Query>(GetProcAddress(module, "_OpenShimGetWeaponMuzzle"));
+        float point[3] = {};
+        int result = 0;
+        if (query) Seh::Guard("GetWeaponMuzzlePosition", [&] { result = query(static_cast<uint32_t>(handle), slot, point); });
+        FreeLibrary(module);
+        if (!result) { lua_pushnil(L); return 1; }
+        PushVector(L, BZR::VECTOR_3D{point[0], point[1], point[2]});
+        return 1;
+    }
+
+    int SetSurfaceMaterial(lua_State* L)
+    {
+        const EntityTarget target = CheckEntityTarget(L, 1);
+        luaL_checkinteger(L, 2);
+        const std::string_view name = luaL_checkstring(L, 3);
+        auto* entity = GetRenderableEntity(target);
+        if (!entity) { lua_pushboolean(L, 0); return 1; }
+        auto* sub = GetSubEntity(L, entity, 2);
+        std::string before;
+        TryGetMaterialName(sub,before);
+        const bool assigned=OgreSurfaceParameters::Assign(sub, std::string(name));
+        if (assigned) OgreSurfaceParameters::NotifyVariant(entity,static_cast<unsigned int>(lua_tointeger(L,2)),before,std::string(name));
+        lua_pushboolean(L, assigned);
+        return 1;
+    }
+
+    int EntityLocalPoint(lua_State* L)
+    {
+        const EntityTarget target = CheckEntityTarget(L, 1);
+        const auto point = CheckVectorOrSingles(L, 2);
+        auto* entity = GetRenderableEntity(target);
+        BZR::VECTOR_3D renderOrigin{};
+        float position[3] = {}, rotation[4] = {}, scale[3] = {1, 1, 1}, local[3] = {};
+        if (!entity || !OgreRenderSpace::TryReadWorldRenderOrigin(renderOrigin) || !OgreGibRuntime::ReadNodePose(OgreGibRuntime::GetParentSceneNode(entity), position, rotation, scale))
+        { lua_pushnil(L); return 1; }
+        const auto render = OgreRenderSpace::SimPositionToRender(point, renderOrigin);
+        const float input[3] = {render.x, render.y, render.z};
+        if (!SurfacePointMath::ToLocal(input, position, rotation, scale, local)) { lua_pushnil(L); return 1; }
+        PushVector(L, BZR::VECTOR_3D{local[0], local[1], local[2]});
+        return 1;
+    }
 
 	int GetEntityVisible(lua_State* L)
 	{

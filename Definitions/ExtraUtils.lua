@@ -3454,4 +3454,83 @@ function exu.pathing.DumpGrid(pos, radius) end
 --- @return table { pathBlock, available, hookedSites, hookSites, gridReady, cellSize, enabled }
 function exu.pathing.GetCapabilities() end
 
+--- Creates a real-reference-owned General-group clone; prefix exu_surface_, cap 1024.
+--- Restore only your own assignments before ReleaseSurfaceMaterial.
+--- @param source string
+--- @param name string
+--- @return boolean
+function exu.CloneSurfaceMaterial(source, name) end
+
+--- Removes an owned clone from the manager; scene references remain valid until detached.
+--- @param name string
+--- @return boolean
+function exu.ReleaseSurfaceMaterial(name) end
+
+--- Assigns an owned surface clone. Does not retain the entity pointer.
+--- @param target Handle|ExuAnimationTarget
+--- @param index integer zero-based
+--- @param name string
+--- @return boolean
+function exu.SetSurfaceMaterial(target, index, name) end
+
+--- Writes an ordinary finite float4 to matching fragment passes; skips absent/wrong types.
+--- Negative technique/pass selects all supported passes. See Docs/SURFACE_MATERIAL_API.md.
+--- @param material string
+--- @param parameter string
+--- @param x number
+--- @param y number
+--- @param z number
+--- @param w number
+--- @param technique integer? default -1
+--- @param pass integer? default -1
+--- @param group string? default General
+--- @return integer changedPasses
+function exu.SetMaterialShaderVector(material, parameter, x, y, z, w, technique, pass, group) end
+
+--- Replaces an alias/unit texture across an owned clone's techniques, including Glow.
+--- @param material string
+--- @param alias string
+--- @param texture string
+--- @return integer changedUnits
+function exu.SetSurfaceTexture(material, alias, texture) end
+
+--- Sets the texture of every unit whose texture_alias or unit name matches alias (case-insensitive)
+--- across all techniques of any named material. Native exu_surface_chunk_* names are refused.
+--- @param material string
+--- @param alias string
+--- @param texture string
+--- @param group string? default General
+--- @return integer changedUnits
+function exu.SetMaterialTextureAlias(material, alias, texture, group) end
+
+--- Swaps the fragment program (resetParams) of every pass with one, in techniques whose scheme equals
+--- schemeName, on an owned exu_surface_* clone. Other materials and exu_surface_chunk_* are refused.
+--- @param material string
+--- @param schemeName string
+--- @param programName string
+--- @return integer changedPasses
+function exu.SetSurfaceFragmentProgram(material, schemeName, programName) end
+
+--- Converts simulation world coordinates through the actual derived parent-node transform.
+--- Rigid projection only; does not attach to an animated bone.
+--- @param target Handle|ExuAnimationTarget
+--- @param point Vector
+--- @return Vector|nil
+function exu.EntityLocalPoint(target, point) end
+
+--- Current corrected native firing mount, or nil without a qualified/bound adapter.
+--- @param handle Handle
+--- @param slot integer 0..4
+--- @return Vector|nil
+function exu.GetWeaponMuzzlePosition(handle, slot) end
+
+--- Actual engine power-source state, class turret only; nil for unsupported layouts/classes.
+--- @param handle Handle
+--- @return boolean|nil
+function exu.IsGunTowerPowered(handle) end
+
+--- Optional shared scorched debris finish, creation-time only; disabled on Lua-state teardown.
+--- @param enabled boolean
+function exu.SetReactiveChunksEnabled(enabled) end
+
 return exu

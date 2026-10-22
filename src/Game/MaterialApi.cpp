@@ -18,6 +18,7 @@
 
 #include "GameObjectInternal.h"
 #include "Game/TextureWindowMath.h"
+#include "Ogre/OgreSurfaceParameters.h"
 
 #include <algorithm>
 #include <cmath>
@@ -196,7 +197,10 @@ namespace ExtraUtilities::Lua::GameObject
 
 		void* subEntity = GetSubEntity(L, entity, 2);
 		const char* const resourceGroup = CheckOptionalResourceGroup(L, 4);
-		TrySetMaterialNameSubEntity(subEntity, materialName, resourceGroup);
+		std::string before;
+		TryGetMaterialName(subEntity,before);
+		if (TrySetMaterialNameSubEntity(subEntity, materialName, resourceGroup))
+            OgreSurfaceParameters::NotifyVariant(entity,static_cast<unsigned int>(lua_tointeger(L,2)),before,materialName);
 		return 0;
 	}
 
@@ -566,6 +570,81 @@ namespace ExtraUtilities::Lua::GameObject
 		lua_pushboolean(L, success ? 1 : 0);
 		return 1;
 	}
+
+    int CloneSurfaceMaterial(lua_State* L)
+    {
+        const std::string_view source = luaL_checkstring(L, 1), name = luaL_checkstring(L, 2);
+        lua_pushboolean(L, OgreSurfaceParameters::Clone(std::string(source), std::string(name)));
+        return 1;
+    }
+
+    int ReleaseSurfaceMaterial(lua_State* L)
+    {
+        const std::string_view name = luaL_checkstring(L, 1);
+        lua_pushboolean(L, OgreSurfaceParameters::Release(std::string(name)));
+        return 1;
+    }
+
+    int SetReactiveChunksEnabled(lua_State* L)
+    {
+        OgreSurfaceParameters::EnableChunks(lua_toboolean(L, 1) != 0);
+        return 0;
+    }
+
+    int SetSurfaceTexture(lua_State* L)
+    {
+        const std::string_view name = luaL_checkstring(L, 1), alias = luaL_checkstring(L, 2), texture = luaL_checkstring(L, 3);
+        lua_pushinteger(L, OgreSurfaceParameters::SetTexture(std::string(name), std::string(alias), std::string(texture)));
+        return 1;
+    }
+
+    int SetMaterialTextureAlias(lua_State* L)
+    {
+        const std::string_view name = luaL_checkstring(L, 1), alias = luaL_checkstring(L, 2), texture = luaL_checkstring(L, 3);
+        const std::string_view group = CheckOptionalResourceGroup(L, 4);
+        lua_pushinteger(L, OgreSurfaceParameters::SetTextureAlias(std::string(name), std::string(group), std::string(alias), std::string(texture)));
+        return 1;
+    }
+
+    int SetSurfaceFragmentProgram(lua_State* L)
+    {
+        const std::string_view name = luaL_checkstring(L, 1), scheme = luaL_checkstring(L, 2), program = luaL_checkstring(L, 3);
+        lua_pushinteger(L, OgreSurfaceParameters::SetFragmentProgram(std::string(name), std::string(scheme), std::string(program)));
+        return 1;
+    }
+
+    int SetMaterialShaderVector(lua_State* L)
+    {
+        const std::string_view materialArg = luaL_checkstring(L, 1);
+        const std::string_view parameterArg = luaL_checkstring(L, 2);
+        float value[4];
+        for (int i = 0; i < 4; ++i)
+        {
+            value[i] = static_cast<float>(luaL_checknumber(L, 3 + i));
+            if (!std::isfinite(value[i])) return luaL_argerror(L, 3 + i, "uniform components must be finite");
+        }
+        const int technique = luaL_optint(L, 7, -1), passIndex = luaL_optint(L, 8, -1);
+        const std::string_view groupArg = CheckOptionalResourceGroup(L, 9);
+        if (parameterArg.empty() || parameterArg.size() > 64) return luaL_argerror(L, 2, "uniform name must have 1..64 bytes");
+        const std::string material(materialArg), parameter(parameterArg), group(groupArg);
+        if (material.find("exu_surface_") == 0)
+        {
+            lua_pushinteger(L, OgreSurfaceParameters::SetOwnedVector(material, parameter, value));
+            return 1;
+        }
+        std::vector<::Ogre::Pass*> passes;
+        if (technique < 0)
+            TryCollectMaterialTintPasses(material, group, passIndex, true, passes);
+        else
+        {
+            MaterialPassHandle handle;
+            if (TryResolveMaterialPass(material, group, technique, passIndex, handle)) passes.push_back(handle.pass);
+        }
+        int changed = 0;
+        for (auto* pass : passes) if (OgreSurfaceParameters::SetVector(pass, parameter, value)) ++changed;
+        lua_pushinteger(L, changed);
+        return 1;
+    }
 
 	int SetMaterialPassColors(lua_State* L)
 	{
