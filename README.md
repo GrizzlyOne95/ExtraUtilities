@@ -2,45 +2,42 @@
 
 Extra Utilities (EXU) is a native Lua extension for Battlezone 98 Redux. It adds engine, renderer, UI, object, multiplayer, and gameplay controls that are not exposed by the stock mission API.
 
-EXU currently targets the 32-bit Windows build of Battlezone 98 Redux 2.2.301, including that same Win32 `exu.dll` under Steam Proton. It does not support a native Linux or macOS game binary, or Battlezone 1.5. Native addresses and hooks are build-specific and must be revalidated when the game updates.
+EXU targets the 32-bit Windows build of Battlezone 98 Redux 2.2.301, including that same Win32 `exu.dll` under Proton/Wine. It does not support a native Linux or macOS game binary, or Battlezone 1.5. Native addresses and hooks are build-specific and must be revalidated when the game updates.
 
-Windows/GOG, Windows/Steam, Linux/Steam via Proton, and Linux/GOG through a compatible Wine/Proton prefix are maintained together. See the shared [`BZR platform and distribution compatibility policy`](Docs/BZR_PLATFORM_COMPATIBILITY.md).
+The compatibility policy covers Windows/GOG, Windows/Steam, Linux/Steam via Proton, and Linux/GOG through a compatible Wine/Proton prefix. Each affected runtime needs its own validation; see the shared [platform compatibility policy](Docs/BZR_PLATFORM_COMPATIBILITY.md).
+
+**Source vs. release:** The features below describe the current `main` branch, which can be ahead of the [latest published DLL](../../releases/latest) or Workshop upload. Check the runtime's `exu.VERSION` against [`src/About.h`](src/About.h) before relying on newly added APIs.
 
 ## Features
 
-- **Camera and display** — camera modes, matrices, origins, field of view, zoom limits, clip distances, aspect ratio, projection mode, polygon mode, game resolution, UI scaling, and fullscreen state.
-- **Environment and lighting** — fog, gravity, ambient and sun lighting, time of day, shadow distance, skybox/skydome/skyplane controls, visibility masks, retro-lighting schemes, and viewport shadow or overlay toggles.
-- **Particles and debug rendering** — create and control Ogre particle systems, attach them to the camera, a game object, or a skeleton bone, tune live emitter rate/direction/velocity/lifetime/spread/colour, toggle wireframe, and show bounding boxes. (`DrawLine`, `DrawBox` and `ClearVisuals` are placeholders that draw nothing yet.)
-- **Materials, terrain, and entities** — inspect and replace entity or sub-entity materials, clone materials, modify textures and pass colors, control visibility and render queues, manipulate lights and animations, and re-theme the live terrain material without reloading the map.
-- **Overlays and HUD layout** — create Ogre overlays and text elements, position and style them, move or recolor stock scrap and pilot readouts, manipulate HUD sprite rectangles, and inspect the command-menu bounds.
-- **Radar, reticle, and satellite** — radar mode and scale, edge-path layout, reticle position/range/object data, satellite positions, pan speed, zoom, and state.
-- **Game objects and AI** — object pointers and handles, mass, radar and jamming values, weapon selection masks, construction-rig selection, AI process/task inspection, selected task-state writes, and Lua replacement of the selected-unit Hunt command.
-- **Gameplay hooks** — global and per-unit turbo, shot convergence, ordnance velocity inheritance, engine-flame colors, silent scrap changes, infinite ammo/scrap controls, unit-VO behavior, AI targeting and tuning, turret pitch, attack reveal, and mission-scoped hook resets.
-- **Plants** — ODF-flagged foliage (`[PlantClass] isPlant = 1`, or `exu.SetPlant`) keeps its collision but loses the building bump sound, hit explosion, chips and death sequence, with plant explosions and optional scrap instead. See [`Docs/PLANTS.md`](Docs/PLANTS.md).
-- **Betty ammo warning** — `exu.SetUserAmmoWarning(false)` silences the player's "ammo depleted" voice (for scripts that park engine ammo at 0 as a dead trigger) and `exu.PlayUserAmmoWarning()` plays it on demand. See [`Docs/BETTY_AMMO_WARNING.md`](Docs/BETTY_AMMO_WARNING.md).
-- **Ordnance and physics** — build ordnance, inspect ordnance attributes, adjust the ballistic coefficient, and use matrix/vector helpers including screen-to-world conversion.
-- **Multiplayer** — synchronized or asynchronous object creation, lives, scoreboard visibility, network player ID, custom kill messages, and starting-recycler control. Gameplay and physics setters (turbo, infinite ammo/scrap, ordnance velocity inheritance, the ballistic coefficient) stay available in network games but apply only on the calling machine: every peer's mission script must make the same call.
-- **Input, preferences, and system utilities** — game-key state, pause-menu detection, play and sound settings, native save requests, screen resolution, a high-resolution monotonic clock for profiling (`exu.GetClock`/`exu.GetClockMs`, since the sandbox has no `os.clock`), Steam ID, and diagnostic message boxes.
-- **OpenShim integration** — optional runtime bridges for shared turbo, HUD, convergence, reticle-range, music, radar, and related ownership. EXU retains standalone fallbacks where supported and fails closed when an optional bridge is unavailable.
-- **Native consumers** — a small exported C API for version checks, access to the registered Lua state, and selected integration callbacks.
+- **Camera and rendering** — camera transforms, FOV, zoom and clipping, projection and screen/world conversion, display settings, fog, sky, lighting, shadows, culling, and render profiles.
+- **Particles, materials, and terrain** — Ogre particle systems and live emitter/affector control, entity/material/texture changes, terrain re-theming, point lights, and static geometry.
+- **Overlays and HUD** — custom text and overlays, stock HUD meter and sprite layout, radar, reticle, command-menu, and satellite controls.
+- **Animation and first-person systems** — high-level `exu.animation` and `exu.fps` APIs for entity/cockpit/pilot animations, first-person layers and particles, plus opt-in player and vehicle control APIs. Availability varies by target and runtime capabilities.
+- **Game objects, AI, and construction** — object properties and handles, weapon/rig selection, AI task inspection and tuning, selected command replacement, terrain placement checks, and buffered production events.
+- **Gameplay and effects** — turbo, shot convergence, ordnance and ballistics, unit VO, damage tuning, visual effects, plants, Betty ammo warnings, shell casings, destruction chunks, and explosion events.
+- **Multiplayer** — synchronous/asynchronous object creation, player identity, lives, scoreboard, kill messages, and recycler controls. Local gameplay/physics setters are not automatically synchronized; scripts must coordinate those settings on each peer.
+- **Storage and continuity** — `exu.storage` for sandboxed persistent mod state and `exu.continuity` for mission-to-mission object snapshots.
+- **Input and utilities** — game-key/menu state, play and sound options, save requests, Steam identities, diagnostic messages, and a monotonic profiling clock (`exu.GetClock`/`exu.GetClockMs`).
+- **OpenShim and native integration** — optional OpenShim bridges for shared engine-owned behavior, plus C exports for version checks, Lua-state access, and native callbacks. Unsupported bridges fail closed.
 
-Detailed Lua API descriptions and editor annotations are kept in [`Definitions/ExtraUtils.lua`](Definitions/ExtraUtils.lua). That file is for editor tooling only and must not be loaded at runtime; the runtime export table in `src/luaexport.cpp` remains the definitive list of registered functions.
+`DrawLine`, `DrawBox`, and `ClearVisuals` are currently no-op placeholders. Features that depend on native hooks or optional providers should be checked with their documented capability probes.
 
-Additional focused documentation lives in [`Docs/`](Docs/), including the [animation API](Docs/ANIMATION_API.md) and [persistent storage/continuity API](Docs/PERSISTENCE_AND_CONTINUITY.md).
+See [`Definitions/ExtraUtils.lua`](Definitions/ExtraUtils.lua) for editor annotations (never `require` this file). `src/luaexport.cpp` and the sub-API installers define what is actually registered at runtime. Further guides live in [`Docs/`](Docs/), including [animation](Docs/ANIMATION_API.md), [first-person APIs](Docs/FPS_API.md), [storage/continuity](Docs/PERSISTENCE_AND_CONTINUITY.md), [plants](Docs/PLANTS.md), and [Betty's ammo warning](Docs/BETTY_AMMO_WARNING.md).
 
 ## Using EXU
 
 ### Windows
 
-Install `exu.dll` through the EXU Steam Workshop item or download it from the [latest release](../../releases/latest), then load it from a mission script:
+Install EXU through the [Steam Workshop item](https://steamcommunity.com/sharedfiles/filedetails/?id=3144751838), or download `exu.dll` from the [latest release](../../releases/latest) and place it on the game's Lua DLL search path (`package.cpath`). Then load it from a mission script:
 
 ```lua
 local exu = require("exu")
 ```
 
-`exu.dll` needs the **Microsoft Visual C++ 2015-2022 Redistributable (x86)**, which the game itself does not install. Without it, `require("exu")` fails as if the module could not be found. Under Proton, Wine's built-in runtime is used and nothing extra is needed.
+On Windows, `exu.dll` needs the **Microsoft Visual C++ 2015-2022 Redistributable (x86)**, which the game itself does not install. A missing runtime or incorrect `package.cpath` can make `require("exu")` report that the module could not be found. Proton/Wine normally supplies the required runtime DLLs.
 
-Depending on the shared Workshop installation is preferred to bundling a private DLL copy with each mod. A shared installation receives fixes and avoids conflicts when multiple mods expect different EXU versions.
+Prefer the shared Workshop installation to bundling a private DLL with each mod, and confirm that the mod can actually resolve its location. A shared installation reduces conflicting versions, but does not guarantee a newly developed API is in the published DLL.
 
 See [`examples/`](examples) for focused demonstrations. C++ consumers can include [`include/ExtraUtils.h`](include/ExtraUtils.h) and link against the import library produced by the build.
 
@@ -76,7 +73,7 @@ Requirements:
 
 - Visual Studio 2022 with **Desktop development with C++** for the Win32 `exu.dll`
 - MSVC v143 14.43 or newer
-- Python 3 for validation tooling and Linux host checks
+- Python 3 for validation tooling; Linux host checks additionally need a C++17 compiler, Lua 5.1, Node.js, Pillow, and NumPy
 
 The Ogre headers required to compile EXU are committed under `third_party/ogre-1.10.0-bzr/include/`; a normal build does **not** require downloading or cloning Ogre first.
 
@@ -107,7 +104,7 @@ The optional `third_party/ogre-1.10.0-bzr/Build-Ogre-BZR.ps1` workflow is only f
 
 ## Diagnostics
 
-EXU writes `logs/exu.log` next to the game executable (falling back to the game folder). Failures and patch refusals always land there. Verbose per-call tracing (`exu_environment_debug.log`, `exu_material_debug.log`, and success lines for overlay setters) is off by default because several of those bindings run every frame; set `EXU_DEBUG_LOG=1` in the game's environment (Steam launch options: `EXU_DEBUG_LOG=1 %command%`) to enable it for a session.
+Once loaded, EXU writes runtime diagnostics to `logs/exu.log` beneath the game directory, falling back to the game directory if it cannot create `logs/`. Logging still requires a writable path; loader failures such as a missing VC++ runtime can occur before EXU starts. Verbose per-call tracing is off by default; set `EXU_DEBUG_LOG=1` in the game's environment (Steam launch options: `EXU_DEBUG_LOG=1 %command%`) when investigating an issue.
 
 ## Workshop publication
 
@@ -125,10 +122,4 @@ See [`COPYING`](COPYING) and [`COPYING.LESSER`](COPYING.LESSER) for license term
 
 ### AI-Assisted Development
 
-This project is developed with the assistance of AI coding tools for tasks such as code drafting, analysis, documentation, test construction, and navigating large reverse-engineering workloads. Examples include Claude Fable (Fable cracked the final destruction chunks blockers) / Opus 5.5, and Codex GPT 5.5/5.6/6.1 Sol.
-
-AI output is treated as an implementation aid, not as authoritative reverse-engineering evidence. Native behavior, addresses, ABI assumptions, patch sites, and compatibility claims are verified against the actual game binaries, runtime traces, tests, or other reproducible evidence before being treated as established.
-
-All changes remain maintainer-directed and are reviewed, tested, and integrated through the same validation process regardless of how the initial code or analysis was produced. Multiplayer testing is all performed by active community members and automated real client tests.
-
-The feature set and bug fixes would be far less complete without the assistance of these tools to speed up and improve development. 
+AI tools, including Claude and Codex, assist with analysis, code, tests, and documentation. The maintainer reviews and integrates their output; reverse-engineering and compatibility claims require evidence from game binaries, traces, or targeted tests. AI-generated analysis alone is not treated as proof.
