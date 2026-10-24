@@ -63,8 +63,10 @@ Passed on the task source:
 The full Linux script did not complete: this WSL environment has no native Node
 runtime, and using Windows Node against its UNC source path failed package
 resolution. Its C++ and native Lua lanes were then run separately and passed.
-No full Linux-suite result is claimed. Pure host checks do not qualify the
-Windows DLL under Proton or Wine.
+The complete Linux suite subsequently passed in
+[GitHub CI](https://github.com/GrizzlyOne95/ExtraUtilities/actions/runs/40048035786)
+for implementation checkpoint `52c720b`, with the required dependencies
+provisioned. Pure host checks do not qualify the Windows DLL under Proton or Wine.
 
 ## Isolated Windows/GOG DX11 mission
 

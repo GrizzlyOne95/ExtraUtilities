@@ -164,7 +164,8 @@ mission passed projection, native placement/power, console and production
 lifecycle checks, with settled live entry bytes verified before hook activation.
 See [the validation record](Research/EXU2_CAPABILITIES_VALIDATION_20261023.md)
 for evidence and limits. The full Linux script was blocked by a missing native
-Node runtime; its C++/Lua lanes were run separately. Positive Steam multiplayer
+Node runtime; its C++/Lua lanes were run separately, and the complete Linux
+suite subsequently passed in GitHub CI with provisioned dependencies. Positive Steam multiplayer
 identity, multiplayer authority/deduplication, DX9 and Steam/Proton/Wine runtime
 behavior require their own qualification. These changes are source development;
 no installed release or Workshop publication is implied.
