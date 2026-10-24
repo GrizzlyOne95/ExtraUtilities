@@ -36,6 +36,11 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Game\BuildEvents.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\Game\ConsoleRegistry.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\Game\ProjectionBindings.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\Game\TerrainPlacement.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\Ogre\OgreCameraRuntime.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\luaexport.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -324,6 +329,15 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Game\BuildEvents.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\Game\BuildEventsCore.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\Game\ConsoleRegistry.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\Game\ProjectionBindings.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\Game\SteamIdentity.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\Game\TerrainPlacement.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\Ogre\CameraProjection.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\Ogre\OgreCameraRuntime.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\Util\FeatureQualification.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\About.h">
       <Filter>Header Files</Filter>
     </ClInclude>

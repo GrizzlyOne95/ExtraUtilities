@@ -1,0 +1,8 @@
+local exu = require("console_test")
+dofile("tests/runtime/console_registry_smoke.lua")(exu)
+assert(exu.RegisterConsoleVariable("callback.failure", 1, { onChanged=function() error("changed failure") end }))
+local ok, err = exu.SetConsoleVariable("callback.failure", 2)
+assert(not ok and string.find(err,"changed failure",1,true) and exu.GetConsoleVariable("callback.failure") == 2)
+assert(exu.RegisterConsoleVariable("callback.remove", 1, { onChanged=function() assert(exu.UnregisterConsoleItem("callback.remove")) end }))
+assert(exu.SetConsoleVariable("callback.remove",2) and exu.GetConsoleVariable("callback.remove") == nil)
+print("console registry callback lifetime PASS")

@@ -157,6 +157,11 @@
     <ClCompile Include="src\Game\PilotState.cpp" />
     <ClCompile Include="src\Game\PilotFsmIntercept.cpp" />
     <ClCompile Include="src\Game\Camera.cpp" />
+    <ClCompile Include="src\Game\BuildEvents.cpp" />
+    <ClCompile Include="src\Game\TerrainPlacement.cpp" />
+    <ClCompile Include="src\Game\ConsoleRegistry.cpp" />
+    <ClCompile Include="src\Game\ProjectionBindings.cpp" />
+    <ClCompile Include="src\Ogre\OgreCameraRuntime.cpp" />
     <ClCompile Include="src\Patches\Cheats.cpp" />
     <ClCompile Include="src\Game\CommandReplacement.cpp" />
     <ClCompile Include="src\Game\ContinuityApi.cpp" />
@@ -312,6 +317,15 @@
     <ClInclude Include="src\Ogre\OgreOverlayShim.h" />
     <ClInclude Include="src\Ogre\OgreParameterValue.h" />
     <ClInclude Include="src\Ogre\OgreRenderSpace.h" />
+    <ClInclude Include="src\Game\BuildEvents.h" />
+    <ClInclude Include="src\Game\BuildEventsCore.h" />
+    <ClInclude Include="src\Game\ConsoleRegistry.h" />
+    <ClInclude Include="src\Game\ProjectionBindings.h" />
+    <ClInclude Include="src\Game\SteamIdentity.h" />
+    <ClInclude Include="src\Game\TerrainPlacement.h" />
+    <ClInclude Include="src\Ogre\CameraProjection.h" />
+    <ClInclude Include="src\Ogre\OgreCameraRuntime.h" />
+    <ClInclude Include="src\Util\FeatureQualification.h" />
     <ClInclude Include="src\Ogre\OgreRenderOrigin.h" />
     <ClInclude Include="src\Ogre\OgreProc.h" />
     <ClInclude Include="src\Ogre\OgreStringInterfaceShim.h" />

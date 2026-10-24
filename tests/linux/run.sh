@@ -146,6 +146,19 @@ test_host_cpp() {
     pass "host C++ checks"
 }
 
+test_console_registry() {
+    local build
+    command -v lua5.1 >/dev/null 2>&1 || fail "Lua 5.1 is required for native console registry checks"
+    build="$(mktemp -d)"
+    "${CXX:-g++}" -std=c++17 -Wall -Wextra -Werror -shared -fPIC -I "$ROOT/include" -I "$ROOT/src" \
+        "$ROOT/src/Game/ConsoleRegistry.cpp" "$ROOT/tests/lua/console_registry_module.cpp" -o "$build/console_test.so" \
+        || { rm -rf "$build"; fail "console registry module compile failed"; }
+    LUA_CPATH="$build/?.so;;" lua5.1 tests/lua/console_registry_test.lua \
+        || { rm -rf "$build"; fail "console registry Lua 5.1 checks failed"; }
+    rm -rf "$build"
+    pass "native console registry (Lua 5.1)"
+}
+
 # Both installers recognise an existing EXU by the string luaopen_exu prints
 # on load; if the string changes they would refuse to update a real EXU.
 test_installer_marker() {
@@ -253,6 +266,7 @@ test_native_hud_trace
 test_weather_textures
 test_hud_textures
 test_host_cpp
+test_console_registry
 test_native_hud_controller
 test_ring_gauge
 test_weather_controller
