@@ -21,6 +21,10 @@
 --------------------------------*/
 
 #include "About.h"
+#include "Game/ProjectionBindings.h"
+#include "Game/BuildEvents.h"
+#include "Game/TerrainPlacement.h"
+#include "Game/ConsoleRegistry.h"
 #include "Game/Culling.h"
 #include "Game/DamageResistance.h"
 #include "Game/VehicleControl.h"
@@ -1111,11 +1115,24 @@ namespace ExtraUtilities::Lua
 
 			// Steam
 			{ "GetSteam64", &Steam::GetSteam64 },
+            { "GetPlayerSteam64", &Steam::GetPlayerSteam64 },
 
 			// Stock Extensions
 			{ "DoString", &StockExtensions::DoString },
 			{ "MatrixInverse", &StockExtensions::MatrixInverse },
 			{ "ScreenToWorld", &StockExtensions::ScreenToWorld },
+            { "SetBuildEventsEnabled", &BuildEvents::SetEnabled },
+            { "DrainBuildEvents", &BuildEvents::Drain },
+            { "IsTerrainBuildable", &TerrainPlacementBindings::IsTerrainBuildable },
+            { "RegisterConsoleCommand", &ConsoleRegistry::RegisterCommand },
+            { "RegisterConsoleVariable", &ConsoleRegistry::RegisterVariable },
+            { "UnregisterConsoleItem", &ConsoleRegistry::Unregister },
+            { "ExecuteConsoleCommand", &ConsoleRegistry::Execute },
+            { "GetConsoleVariable", &ConsoleRegistry::GetVariable },
+            { "SetConsoleVariable", &ConsoleRegistry::SetVariable },
+            { "ListConsoleItems", &ConsoleRegistry::List },
+            { "WorldToScreen", &ProjectionBindings::WorldToScreen },
+            { "IsPointInView", &ProjectionBindings::IsPointInView },
 			{ "VectorUnrotate", &StockExtensions::VectorUnrotate },
 
 			// Function register table must end with a zero entry

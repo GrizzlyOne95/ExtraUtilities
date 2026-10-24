@@ -107,6 +107,19 @@ extern "C"
     // unavailable target/build or refused ownership. Resolve dynamically.
     EXU_API int __cdecl EXU_OdfRecoilAnimation(std::uint32_t handle, const char* clip,
         int cockpit, int mode, float time, float* length) noexcept;
+    // Engine-thread camera snapshot APIs. Return 1 on success, 0 if unavailable.
+    // Pixel coordinates include viewport offsets; depth is signed camera-forward
+    // distance. Frustum membership does not imply unobstructed line of sight.
+    EXU_API int __cdecl EXU_WorldToScreen(float x, float y, float z,
+        double* screenX, double* screenY, double* depth) noexcept;
+    EXU_API int __cdecl EXU_IsPointInView(float x, float y, float z, int* visible) noexcept;
+    // Engine-thread placement query, arrays contain X/Y/Z. May load ODF/model
+    // resources. Result: 0 buildable, 1 blocked, 2 outside map, 3 power required,
+    // 4 invalid ODF, 5 unsupported class, 6 unavailable. No objects are spawned.
+    EXU_API int __cdecl EXU_IsTerrainBuildable(int team, const char* odf,
+        const float* position, const float* facing, float* adjusted) noexcept;
+    // Network player ID (not team). Returns 0 and zero output when no Steam ID.
+    EXU_API int __cdecl EXU_GetPlayerSteam64(std::uint16_t id, std::uint64_t* value) noexcept;
     // Standard Lua module entry point.
     // BZR's Lua runtime calls this automatically when a mission does:
     //   local exu = require("exu")

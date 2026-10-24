@@ -1,0 +1,38 @@
+return function(exu)
+    local function fails(fn) local ok = pcall(fn); assert(not ok, "expected Lua argument error") end
+    local hits, changed = {}, 0
+    assert(exu.RegisterConsoleCommand("test.echo", function(args) hits[#hits+1] = args end))
+    assert(not exu.RegisterConsoleCommand("test.echo", function() end))
+    assert(exu.ExecuteConsoleCommand("test.echo", "two words"))
+    assert(hits[1] == "two words")
+    assert(exu.ExecuteConsoleCommand("test.echo") and hits[2] == "")
+    assert(exu.RegisterConsoleVariable("test.number", 3, { min=0, max=10, onChanged=function(v, old)
+        assert(v == 4 and old == 3); changed = changed + 1
+    end }))
+    assert(exu.GetConsoleVariable("test.number") == 3)
+    assert(exu.SetConsoleVariable("test.number", 4) and changed == 1)
+    assert(exu.SetConsoleVariable("test.number", 4) and changed == 1)
+    fails(function() exu.SetConsoleVariable("test.number", "4") end)
+    fails(function() exu.SetConsoleVariable("test.number", 11) end)
+    fails(function() exu.SetConsoleVariable("test.number", 0/0) end)
+    assert(exu.RegisterConsoleVariable("test.bool", false))
+    assert(exu.GetConsoleVariable("test.bool") == false)
+    assert(exu.SetConsoleVariable("test.bool", true) and exu.GetConsoleVariable("test.bool") == true)
+    assert(exu.RegisterConsoleVariable("test.string", "hello"))
+    assert(exu.SetConsoleVariable("test.string", "world") and exu.GetConsoleVariable("test.string") == "world")
+    assert(exu.RegisterConsoleCommand("test.failure", function() error("controlled error") end))
+    local ok, err = exu.ExecuteConsoleCommand("test.failure")
+    assert(ok == false and string.find(err, "controlled error", 1, true))
+    assert(exu.RegisterConsoleCommand("test.remove", function() assert(exu.UnregisterConsoleItem("test.remove")) end))
+    assert(exu.ExecuteConsoleCommand("test.remove") and not exu.ExecuteConsoleCommand("test.remove"))
+    local list = exu.ListConsoleItems()
+    assert(list["test.echo"] == "command" and list["test.number"] == "variable")
+    list["test.number"] = "corrupt"
+    assert(exu.GetConsoleVariable("test.number") == 4)
+    for name in pairs(exu.ListConsoleItems()) do if string.sub(name,1,5) == "test." then assert(exu.UnregisterConsoleItem(name)) end end
+    assert(exu.GetConsoleVariable("test.number") == nil)
+    assert(not exu.ExecuteConsoleCommand("missing"))
+    fails(function() exu.RegisterConsoleCommand("bad name", function() end) end)
+    fails(function() exu.RegisterConsoleVariable("bad", 0, {min=2,max=1}) end)
+    print("[CAPABILITIES] console PASS;")
+end

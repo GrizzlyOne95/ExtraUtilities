@@ -17,8 +17,12 @@
 */
 
 #include "Steam.h"
+#include "Game/SteamIdentity.h"
 
 #include <string>
+#include "LuaHelpers.h"
+#include "Util/FeatureQualification.h"
+#include "Util/SehGuard.h"
 
 namespace ExtraUtilities::Lua::Steam
 {
@@ -28,4 +32,47 @@ namespace ExtraUtilities::Lua::Steam
 		lua_pushstring(L, formattedSteam64.c_str());
 		return 1;
 	}
+}
+namespace ExtraUtilities::Lua::Steam
+{
+    namespace
+    {
+        bool ReadPlayerSteam64(unsigned short id, uint64_t& out) noexcept
+        {
+            using FindFn = void*(__cdecl*)(unsigned short);
+            __try
+            {
+                if (!*BZR::Multiplayer::isNetGame) return false;
+                const auto* player = static_cast<const unsigned char*>(reinterpret_cast<FindFn>(EngineAddresses::Multiplayer::FindNetPlayer)(id));
+                if (!player || *reinterpret_cast<const unsigned short*>(player + 0x28) != id) return false;
+                // The released NetPlayer constructor copies its UserId to +0x30.
+                // UserId's Steam constructor writes tag 1 and the 64-bit ID at +8;
+                // the Steam converter rejects all other tags (including GOG).
+                if (*reinterpret_cast<const uint32_t*>(player + 0x30) != 1) return false;
+                const uint64_t value = *reinterpret_cast<const uint64_t*>(player + 0x38);
+                return SteamIdentity::Decode(1, value, out);
+            }
+            __except (Seh::Filter(GetExceptionCode())) { return false; }
+        }
+    }
+
+    bool TryGetPlayerSteam64(unsigned short id, uint64_t& out) noexcept
+    {
+        out = 0;
+        if (!RuntimeGate::IsSupported()) return false;
+        static bool qualified = false;
+        if (!qualified) qualified = QualifyFeature("Player identity ", 4);
+        return qualified && ReadPlayerSteam64(id, out);
+    }
+
+    int GetPlayerSteam64(lua_State* L)
+    {
+        const int id = luaL_checkint(L, 1);
+        if (id < 0 || id > 65535) return luaL_argerror(L, 1, "network player id must be in 0..65535");
+        uint64_t value = 0;
+        if (!TryGetPlayerSteam64(static_cast<unsigned short>(id), value)) return PushUnsupportedBuild(L);
+        const auto text = std::to_string(value);
+        lua_pushlstring(L, text.data(), text.size());
+        return 1;
+    }
 }

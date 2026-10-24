@@ -287,6 +287,156 @@
       "required": false,
       "runtime_gate": true,
       "reason": "Optional presentation-only layout identity; failure suppresses the gun-tower power query without disabling unrelated EXU features."
+    },
+    {
+      "name": "Build events StartBuild",
+      "source": "catalog",
+      "catalog_path": "ProducerEvents.StartBuild",
+      "match": "expected_va",
+      "expected_va": "0x005AECB0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Accepted production start: charges team resources and writes buildClass +0x300/build time +0x304. Released callers include Armory launch 0x473210 and BuildGoto constructor 0x49dfa0."
+    },
+    {
+      "name": "Build events CancelBuild",
+      "source": "catalog",
+      "catalog_path": "ProducerEvents.CancelBuild",
+      "match": "expected_va",
+      "expected_va": "0x005AED80",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Refunds the active build and clears buildClass; returns false when no build. Called by Producer simulation and removal. Completion uses separate virtual FinishBuild, avoiding destructor-based false cancellation."
+    },
+    {
+      "name": "Build events FinishBuild",
+      "source": "catalog",
+      "catalog_path": "ProducerEvents.FinishBuild",
+      "match": "expected_va",
+      "expected_va": "0x005AF160",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Shared Producer completion slot +0xa8 in Recycler/Factory/ConstructionRig secondary vtables; creates object, makes it local, dispatches AddObject and clears active class. Final eax loads the created object local."
+    },
+    {
+      "name": "Build events ArmoryFinishBuild",
+      "source": "catalog",
+      "catalog_path": "ProducerEvents.ArmoryFinishBuild",
+      "match": "expected_va",
+      "expected_va": "0x004732C0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Armory override at vtable 0x875cb0+0xa8. Calls ObjectLobber to launch selected class and clears buildClass, returning null by design."
+    },
+    {
+      "name": "Player identity NetPlayerCreate",
+      "source": "catalog",
+      "catalog_path": "PlayerIdentity.NetPlayerCreate",
+      "match": "expected_va",
+      "expected_va": "0x00575920",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Released NetPlayer constructor copies all four UserId words into +0x30..0x3c; stores 16-bit network id at +0x28. FindNetPlayer(id) supplies live registry identity."
+    },
+    {
+      "name": "Player identity UserIdFromSteam",
+      "source": "catalog",
+      "catalog_path": "PlayerIdentity.UserIdFromSteam",
+      "match": "expected_va",
+      "expected_va": "0x0073A6E0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "UserId Steam constructor writes discriminator 1 at +0 and Steam uint64 at +8/+12; independently paired with UserIdToSteam discriminator check."
+    },
+    {
+      "name": "Player identity UserIdToSteam",
+      "source": "catalog",
+      "catalog_path": "PlayerIdentity.UserIdToSteam",
+      "match": "expected_va",
+      "expected_va": "0x0073A970",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Released converter checks discriminator 1 and copies +8/+12 to CSteamID; other providers convert to zero. No GOG ID is relabeled as Steam."
+    },
+    {
+      "name": "Terrain placement FindClass",
+      "source": "catalog",
+      "catalog_path": "Placement.FindClass",
+      "match": "expected_va",
+      "expected_va": "0x004FF060",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "String-to-project-id then GameObjectClass::Find, used by released native BuildObject helper 0x5c82b0. May load an ODF class but does not create a game object."
+    },
+    {
+      "name": "Terrain placement ClassBounds",
+      "source": "catalog",
+      "catalog_path": "Placement.ClassBounds",
+      "match": "expected_va",
+      "expected_va": "0x0049C560",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Returns class bounds +0x10c, lazily loads model bounds if necessary. Used by ConstructionRig placement 0x49d230, which expands X/Z by 10 before CanBuildHere."
+    },
+    {
+      "name": "Terrain placement CanBuildHere",
+      "source": "catalog",
+      "catalog_path": "Placement.CanBuildHere",
+      "match": "expected_va",
+      "expected_va": "0x00466E50",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Released rig placement 0x49d34d passes expanded bounds and placement matrix; checks blocked cells, terrain height variance and object obstruction. Return al consumed at 0x49d355."
+    },
+    {
+      "name": "Terrain placement FindFloor",
+      "source": "catalog",
+      "catalog_path": "Placement.FindFloor",
+      "match": "expected_va",
+      "expected_va": "0x0049C8F0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Released ConstructionRig::SetConstructionMatrix at 0x49cf90 pushes a 24-byte double position into this floor reader and uses its x87 result as placement height."
+    },
+    {
+      "name": "Terrain placement TeamGet",
+      "source": "catalog",
+      "catalog_path": "Placement.TeamGet",
+      "match": "expected_va",
+      "expected_va": "0x005E0BC0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Team lookup used by stock IsTeamAllied helper 0x5c9530 before calling Team::IsAllied."
+    },
+    {
+      "name": "Terrain placement TeamIsAllied",
+      "source": "catalog",
+      "catalog_path": "Placement.TeamIsAllied",
+      "match": "expected_va",
+      "expected_va": "0x005E1310",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Stock alliance check used by GameObject::FriendP and IsTeamAllied. Tests the team alliance bitmask and rejects neutral team 0."
+    },
+    {
+      "name": "Terrain placement PowerPlantListReference",
+      "source": "catalog",
+      "catalog_path": "Placement.PowerPlantListReference",
+      "match": "expected_va",
+      "expected_va": "0x0049D3C5",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Released rig placement power check loads powerplant vector 0x025cce7c, walks allied plants and compares transformed build sphere centre with class range at +0x160."
+    },
+    {
+      "name": "Player identity FindNetPlayer",
+      "source": "catalog",
+      "catalog_path": "Multiplayer.FindNetPlayer",
+      "match": "expected_va",
+      "expected_va": "0x005771B0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Live network-id lookup identity, shared with qualified stock scoreboard reader."
     }
   ]
 }

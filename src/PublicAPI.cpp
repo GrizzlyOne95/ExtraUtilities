@@ -29,6 +29,9 @@
 #include <limits>
 
 #include "About.h"
+#include "Ogre/OgreCameraRuntime.h"
+#include "Game/TerrainPlacement.h"
+#include "Game/Steam.h"
 #include "BasicPatch.h"
 #include "Game/AnimationApi.h"
 #include "Ogre/OgreSurfaceParameters.h"
@@ -51,6 +54,7 @@
 #include "Gibs/SkinnedGibs.h"
 #include "Game/StaticGeometry.h"
 #include "Game/ExplosionEvents.h"
+#include "Game/BuildEvents.h"
 #include "LuaState.h"
 #include "LuaCppBarrier.h"
 #include "OpenShimBridge.h"
@@ -210,6 +214,7 @@ namespace ExtraUtilities::Lua
 			VehicleControl::Shutdown();
 			Plant::Shutdown();
 			ExplosionEvents::Shutdown();
+			BuildEvents::Shutdown();
 			BettyVoice::Shutdown();
 			ResetMissionScopedState();
 			Overlay::ShutdownOverlaySupport();
@@ -241,6 +246,43 @@ namespace ExtraUtilities::Lua
 
 extern "C"
 {
+    __declspec(dllexport) int __cdecl EXU_WorldToScreen(float x, float y, float z,
+        double* screenX, double* screenY, double* depth) noexcept
+    {
+        if (!screenX || !screenY || !depth) return 0;
+        *screenX = *screenY = *depth = 0;
+        ExtraUtilities::CameraProjection::Result result;
+        if (!ExtraUtilities::OgreCameraRuntime::Project(BZR::VECTOR_3D{x,y,z}, result)) return 0;
+        *screenX = result.x; *screenY = result.y; *depth = result.depth; return 1;
+    }
+
+    __declspec(dllexport) int __cdecl EXU_IsPointInView(float x, float y, float z, int* visible) noexcept
+    {
+        if (!visible) return 0;
+        *visible = 0; bool result = false;
+        if (!ExtraUtilities::OgreCameraRuntime::IsPointInView(BZR::VECTOR_3D{x,y,z}, result)) return 0;
+        *visible = result ? 1 : 0; return 1;
+    }
+
+    __declspec(dllexport) int __cdecl EXU_IsTerrainBuildable(int team, const char* odf,
+        const float* position, const float* facing, float* adjusted) noexcept
+    {
+        if (!position || !facing || !adjusted) return 6;
+        // Copy before writing adjusted so an in-place input/output is valid.
+        const BZR::VECTOR_3D p{position[0],position[1],position[2]};
+        const BZR::VECTOR_3D f{facing[0],facing[1],facing[2]};
+        BZR::VECTOR_3D out;
+        const auto result = ExtraUtilities::TerrainPlacement::Query(team, odf, p, f, out);
+        adjusted[0] = out.x; adjusted[1] = out.y; adjusted[2] = out.z;
+        return static_cast<int>(result);
+    }
+
+    __declspec(dllexport) int __cdecl EXU_GetPlayerSteam64(std::uint16_t id, std::uint64_t* value) noexcept
+    {
+        if (!value) return 0;
+        return ExtraUtilities::Lua::Steam::TryGetPlayerSteam64(id, *value) ? 1 : 0;
+    }
+
     __declspec(dllexport) const char* EXU_GetVersion()
     {
         return ExtraUtilities::version.c_str();

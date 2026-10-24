@@ -28,4 +28,6 @@ namespace ExtraUtilities::Lua::Steam
 	inline const Scanner steam64(BZR::Steam::steam64);
 
 	int GetSteam64(lua_State* L);
+	int GetPlayerSteam64(lua_State* L);
+	bool TryGetPlayerSteam64(unsigned short id, uint64_t& out) noexcept;
 }

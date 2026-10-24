@@ -825,5 +825,56 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 268u;
+	namespace ProducerEvents
+	{
+		enum : uintptr_t
+		{
+			// bool __thiscall(void*, void*)
+			StartBuild = 0x005AECB0u,
+			// bool __thiscall(void*)
+			CancelBuild = 0x005AED80u,
+			// void* __thiscall(void*)
+			FinishBuild = 0x005AF160u,
+			// void* __thiscall(void*)
+			ArmoryFinishBuild = 0x004732C0u,
+		};
+	}
+
+	namespace PlayerIdentity
+	{
+		enum : uintptr_t
+		{
+			// void* __thiscall(void*, const void*, uint16, const char*, int)
+			NetPlayerCreate = 0x00575920u,
+			// void* __thiscall(void*, const void*)
+			UserIdFromSteam = 0x0073A6E0u,
+			// void* __thiscall(void*, void*)
+			UserIdToSteam = 0x0073A970u,
+		};
+	}
+
+	namespace Placement
+	{
+		enum : uintptr_t
+		{
+			// void* __cdecl(const char*)
+			FindClass = 0x004FF060u,
+			// const float* __thiscall(void*)
+			ClassBounds = 0x0049C560u,
+			// bool __cdecl(const float*, const MAT_3D*)
+			CanBuildHere = 0x00466E50u,
+			// double __cdecl(VECTOR_3D_LONG)
+			FindFloor = 0x0049C8F0u,
+			// void* __cdecl(int)
+			TeamGet = 0x005E0BC0u,
+			// bool __thiscall(void*, int)
+			TeamIsAllied = 0x005E1310u,
+			// code reference
+			PowerPlantListReference = 0x0049D3C5u,
+			// vector<void*> (begin,end,capacity)
+			PowerPlantList = 0x025CCE7Cu,
+		};
+	}
+
+	inline constexpr unsigned kEntryCount = 283u;
 }
