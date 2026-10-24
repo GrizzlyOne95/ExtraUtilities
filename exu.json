@@ -2050,6 +2050,130 @@
         "pattern_kind": "code",
         "note": "Static released GOG 2.2.301 evidence: power refresh and Simulate consumer; feature-specific optional anchor, strict turret class guard."
       }
+    },
+    "ProducerEvents": {
+      "StartBuild": {
+        "address": "0x005AECB0",
+        "type": "bool __thiscall(void*, void*)",
+        "description": "Accepted production start: charges team resources and writes buildClass +0x300/build time +0x304. Released callers include Armory launch 0x473210 and BuildGoto constructor 0x49dfa0.",
+        "pattern": "55 8B EC 83 EC 0C 89 4D FC 8B 45 FC 83 B8 00 03 00 00 00 74 07 32 C0 E9 A7 00 00 00 8B 4D 08 51",
+        "pattern_kind": "code",
+        "note": "Independently traced in the released GOG 2.2.301 executable, 2026-10-23. Exact sequence is unique in executable sections and matched settled GOG process bytes on 2026-10-23. See Docs/Research/EXU2_CAPABILITIES_VALIDATION_20261023.md for runtime scope and remaining platform/multiplayer checks."
+      },
+      "CancelBuild": {
+        "address": "0x005AED80",
+        "type": "bool __thiscall(void*)",
+        "description": "Refunds the active build and clears buildClass; returns false when no build. Called by Producer simulation and removal. Completion uses separate virtual FinishBuild, avoiding destructor-based false cancellation.",
+        "pattern": "55 8B EC 83 EC 0C 89 4D FC 8B 45 FC 83 B8 00 03 00 00 00 75 07 32 C0 E9 81 00 00 00 6A FF 8B 4D",
+        "pattern_kind": "code",
+        "note": "Independently traced in the released GOG 2.2.301 executable, 2026-10-23. Exact sequence is unique in executable sections and matched settled GOG process bytes on 2026-10-23. See Docs/Research/EXU2_CAPABILITIES_VALIDATION_20261023.md for runtime scope and remaining platform/multiplayer checks."
+      },
+      "FinishBuild": {
+        "address": "0x005AF160",
+        "type": "void* __thiscall(void*)",
+        "description": "Shared Producer completion slot +0xa8 in Recycler/Factory/ConstructionRig secondary vtables; creates object, makes it local, dispatches AddObject and clears active class. Final eax loads the created object local.",
+        "pattern": "55 8B EC 81 EC 34 02 00 00 A1 00 70 8E 00 33 C5 89 45 FC 56 57 89 8D A4 FE FF FF 6A FF 8B 8D A4",
+        "pattern_kind": "code",
+        "note": "Independently traced in the released GOG 2.2.301 executable, 2026-10-23. Exact sequence is unique in executable sections and matched settled GOG process bytes on 2026-10-23. See Docs/Research/EXU2_CAPABILITIES_VALIDATION_20261023.md for runtime scope and remaining platform/multiplayer checks."
+      },
+      "ArmoryFinishBuild": {
+        "address": "0x004732C0",
+        "type": "void* __thiscall(void*)",
+        "description": "Armory override at vtable 0x875cb0+0xa8. Calls ObjectLobber to launch selected class and clears buildClass, returning null by design.",
+        "pattern": "55 8B EC 83 EC 08 89 4D FC 6A 00 8B 45 FC 8B 88 A0 01 00 00 E8 87 4C FA FF 89 45 F8 8B 4D FC 81",
+        "pattern_kind": "code",
+        "note": "Independently traced in the released GOG 2.2.301 executable, 2026-10-23. Exact sequence is unique in executable sections and matched settled GOG process bytes on 2026-10-23. See Docs/Research/EXU2_CAPABILITIES_VALIDATION_20261023.md for runtime scope and remaining platform/multiplayer checks."
+      }
+    },
+    "PlayerIdentity": {
+      "NetPlayerCreate": {
+        "address": "0x00575920",
+        "type": "void* __thiscall(void*, const void*, uint16, const char*, int)",
+        "description": "Released NetPlayer constructor copies all four UserId words into +0x30..0x3c; stores 16-bit network id at +0x28. FindNetPlayer(id) supplies live registry identity.",
+        "pattern": "55 8B EC 6A FF 68 E6 B8 84 00 64 A1 00 00 00 00 50 83 EC 30 A1 00 70 8E 00 33 C5 50 8D 45 F4 64 A3 00 00 00 00 89 4D F0",
+        "pattern_kind": "code",
+        "note": "Independently traced in the released GOG 2.2.301 executable, 2026-10-23. Exact sequence is unique in executable sections and matched settled GOG process bytes on 2026-10-23. See Docs/Research/EXU2_CAPABILITIES_VALIDATION_20261023.md for runtime scope and remaining platform/multiplayer checks."
+      },
+      "UserIdFromSteam": {
+        "address": "0x0073A6E0",
+        "type": "void* __thiscall(void*, const void*)",
+        "description": "UserId Steam constructor writes discriminator 1 at +0 and Steam uint64 at +8/+12; independently paired with UserIdToSteam discriminator check.",
+        "pattern": "55 8B EC 51 89 4D FC 8B 45 FC C7 00 01 00 00 00 8B 4D 08 E8 E8 ED F8 FF 8B 4D FC 89 41 08 89 51 0C 8B 45 FC 8B E5 5D C2",
+        "pattern_kind": "code",
+        "note": "Independently traced in the released GOG 2.2.301 executable, 2026-10-23. Exact sequence is unique in executable sections and matched settled GOG process bytes on 2026-10-23. See Docs/Research/EXU2_CAPABILITIES_VALIDATION_20261023.md for runtime scope and remaining platform/multiplayer checks."
+      },
+      "UserIdToSteam": {
+        "address": "0x0073A970",
+        "type": "void* __thiscall(void*, void*)",
+        "description": "Released converter checks discriminator 1 and copies +8/+12 to CSteamID; other providers convert to zero. No GOG ID is relabeled as Steam.",
+        "pattern": "55 8B EC 51 89 4D FC 8B 45 FC 83 38 01 75 18 8B 4D FC 8B 51 0C 52 8B 41 08 50 8B 4D 08 E8 FE FB FF FF 8B 45 08 EB 0B 8B",
+        "pattern_kind": "code",
+        "note": "Independently traced in the released GOG 2.2.301 executable, 2026-10-23. Exact sequence is unique in executable sections and matched settled GOG process bytes on 2026-10-23. See Docs/Research/EXU2_CAPABILITIES_VALIDATION_20261023.md for runtime scope and remaining platform/multiplayer checks."
+      }
+    },
+    "Placement": {
+      "FindClass": {
+        "address": "0x004FF060",
+        "type": "void* __cdecl(const char*)",
+        "description": "String-to-project-id then GameObjectClass::Find, used by released native BuildObject helper 0x5c82b0. May load an ODF class but does not create a game object.",
+        "pattern": "55 8B EC 8B 45 08 50 E8 54 D0 F5 FF 83 C4 04 52 50 E8 FA 1E FE FF 83 C4 08 5D C3 CC CC CC CC CC",
+        "pattern_kind": "code",
+        "note": "Independently traced in the released GOG 2.2.301 executable, 2026-10-23. Exact sequence is unique in executable sections and matched settled GOG process bytes on 2026-10-23. See Docs/Research/EXU2_CAPABILITIES_VALIDATION_20261023.md for runtime scope and remaining platform/multiplayer checks."
+      },
+      "ClassBounds": {
+        "address": "0x0049C560",
+        "type": "const float* __thiscall(void*)",
+        "description": "Returns class bounds +0x10c, lazily loads model bounds if necessary. Used by ConstructionRig placement 0x49d230, which expands X/Z by 10 before CanBuildHere.",
+        "pattern": "55 8B EC 51 89 4D FC 8B 45 FC F3 0F 10 05 98 24 8A 00 0F 2F 80 30 01 00 00 76 08 8B 4D FC E8 1D 52 04 00 8B 45 FC 05 0C",
+        "pattern_kind": "code",
+        "note": "Independently traced in the released GOG 2.2.301 executable, 2026-10-23. Exact sequence is unique in executable sections and matched settled GOG process bytes on 2026-10-23. See Docs/Research/EXU2_CAPABILITIES_VALIDATION_20261023.md for runtime scope and remaining platform/multiplayer checks."
+      },
+      "CanBuildHere": {
+        "address": "0x00466E50",
+        "type": "bool __cdecl(const float*, const MAT_3D*)",
+        "description": "Released rig placement 0x49d34d passes expanded bounds and placement matrix; checks blocked cells, terrain height variance and object obstruction. Return al consumed at 0x49d355.",
+        "pattern": "55 8B EC 81 EC 88 01 00 00 A1 00 70 8E 00 33 C5 89 45 FC 56 57 8B 45 08 F3 0F 10 00 F3 0F 11 45 CC F3 0F 10 05 98 24 8A",
+        "pattern_kind": "code",
+        "note": "Independently traced in the released GOG 2.2.301 executable, 2026-10-23. Exact sequence is unique in executable sections and matched settled GOG process bytes on 2026-10-23. See Docs/Research/EXU2_CAPABILITIES_VALIDATION_20261023.md for runtime scope and remaining platform/multiplayer checks."
+      },
+      "FindFloor": {
+        "address": "0x0049C8F0",
+        "type": "double __cdecl(VECTOR_3D_LONG)",
+        "description": "Released ConstructionRig::SetConstructionMatrix at 0x49cf90 pushes a 24-byte double position into this floor reader and uses its x87 result as placement height.",
+        "pattern": "55 8B EC 51 6A 00 8D 45 FC 50 83 EC 18 8B CC 8B 55 08 89 11 8B 45 0C 89 41 04 8B 55 10 89 51 08",
+        "pattern_kind": "code",
+        "note": "Independently traced in the released GOG 2.2.301 executable, 2026-10-23. Exact sequence is unique in executable sections and matched settled GOG process bytes on 2026-10-23. See Docs/Research/EXU2_CAPABILITIES_VALIDATION_20261023.md for runtime scope and remaining platform/multiplayer checks."
+      },
+      "TeamGet": {
+        "address": "0x005E0BC0",
+        "type": "void* __cdecl(int)",
+        "description": "Team lookup used by stock IsTeamAllied helper 0x5c9530 before calling Team::IsAllied.",
+        "pattern": "55 8B EC 8B 45 08 8B 04 85 70 83 91 00 5D C3 CC 55 8B EC 83 EC 2C 0F B6 05 B7 73 91 00 85 C0 74",
+        "pattern_kind": "code",
+        "note": "Independently traced in the released GOG 2.2.301 executable, 2026-10-23. Exact sequence is unique in executable sections and matched settled GOG process bytes on 2026-10-23. See Docs/Research/EXU2_CAPABILITIES_VALIDATION_20261023.md for runtime scope and remaining platform/multiplayer checks."
+      },
+      "TeamIsAllied": {
+        "address": "0x005E1310",
+        "type": "bool __thiscall(void*, int)",
+        "description": "Stock alliance check used by GameObject::FriendP and IsTeamAllied. Tests the team alliance bitmask and rejects neutral team 0.",
+        "pattern": "55 8B EC 83 EC 08 89 4D F8 83 7D 08 00 7E 1E B8 01 00 00 00 8B 4D 08 D3 E0 8B 4D F8 23 81 7C 01 00 00 74 09 C7 45 FC 01",
+        "pattern_kind": "code",
+        "note": "Independently traced in the released GOG 2.2.301 executable, 2026-10-23. Exact sequence is unique in executable sections and matched settled GOG process bytes on 2026-10-23. See Docs/Research/EXU2_CAPABILITIES_VALIDATION_20261023.md for runtime scope and remaining platform/multiplayer checks."
+      },
+      "PowerPlantListReference": {
+        "address": "0x0049D3C5",
+        "type": "code reference",
+        "description": "Released rig placement power check loads powerplant vector 0x025cce7c, walks allied plants and compares transformed build sphere centre with class range at +0x160.",
+        "pattern": "C7 45 BC 7C CE 5C 02 8D 4D C8 E8 9C 4D F8 FF 8D 55 AC 52 8B 4D BC E8 F0 27 F8 FF 8B 00 89 45 C8",
+        "pattern_kind": "code",
+        "note": "Independently traced in the released GOG 2.2.301 executable, 2026-10-23. Exact sequence is unique in executable sections and matched settled GOG process bytes on 2026-10-23. See Docs/Research/EXU2_CAPABILITIES_VALIDATION_20261023.md for runtime scope and remaining platform/multiplayer checks."
+      },
+      "PowerPlantList": {
+        "address": "0x025CCE7C",
+        "type": "vector<void*> (begin,end,capacity)",
+        "description": "Released placement powerplant list; verified through PowerPlantListReference and vector begin/end accessors reading +0/+4.",
+        "pattern": null
+      }
     }
   }
 }

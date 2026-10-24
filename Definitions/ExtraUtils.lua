@@ -3555,4 +3555,121 @@ function exu.IsGunTowerPowered(handle) end
 --- @param enabled boolean
 function exu.SetReactiveChunksEnabled(enabled) end
 
+--- Projects a simulation/Lua position, object origin or matrix translation.
+--- Pixel coordinates use the current render viewport (including its left/top),
+--- top-left origin, X right and Y down. Off-screen/behind points are not clamped.
+--- Depth is signed camera-forward distance in world units; positive is forward.
+--- Returns three nils when no live camera, invalid handle, nonfinite input or eye-plane projection.
+--- Query after the camera has rendered a frame; this reads the current Ogre camera snapshot.
+--- @param target Handle|Vector|Matrix|table
+--- @return number? x
+--- @return number? y
+--- @return number? depth
+function exu.WorldToScreen(target) end
+
+--- True when the point (or handle origin/matrix translation) is in Ogre's camera frustum.
+--- Includes near/far planes; does not test occlusion, terrain or line of sight.
+--- Nil means an unavailable camera/build or invalid input/handle.
+--- @param target Handle|Vector|Matrix|table
+--- @return boolean? visible
+function exu.IsPointInView(target) end
+
+--- Enables local-authority production notifications. Returns false if targets fail qualification.
+--- No Lua callbacks execute inside engine hooks. Disabling clears pending events.
+--- Events are mission-local observations; remote replicas do not duplicate local builds.
+--- @param enabled boolean
+--- @return boolean available
+function exu.SetBuildEventsEnabled(enabled) end
+
+--- @class ExuBuildEvent
+--- @field type 'queued'|'cancelled'|'completed'
+--- @field producer Handle Producer handle, possibly dead by the time the queue is drained.
+--- @field built Handle? Completed object handle; nil for armory launches.
+--- @field team integer Team at event time.
+--- @field odf string ODF basename without extension (up to eight characters).
+--- @field producerType 'producer'|'constructor'|'armory'
+--- @field sequence number Monotonic within the current enabled session.
+
+--- Destructively drains at most 64 accepted-start/cancel/completion events (default 64).
+--- 'queued' means resources were committed by native StartBuild, not a menu hover.
+--- Capacity 512, oldest overwritten on overflow; counters reset on disable/mission close.
+--- @param limit integer? Clamped to 1..64.
+--- @return ExuBuildEvent[] events
+--- @return number dropped Cumulative overwritten events.
+--- @return integer pending
+function exu.DrainBuildEvents(limit) end
+
+--- Runs BZR's native rig placement validation, with its 10-unit X/Z clearance.
+--- Adjusts height to the engine floor, checks terrain/collisions and allied power range.
+--- Does not issue Build, spawn an object, check affordability/prerequisites, or reserve space.
+--- ODF/model resources may load lazily. Positions/footprints outside the map are rejected.
+--- Nil means unavailable, invalid ODF/input, or unsupported class. Only structures/turrets supported.
+--- @param team integer 0..15
+--- @param odf string ODF basename (up to 8 characters), optional .odf suffix.
+--- @param proposedPosition Vector|table
+--- @param facingDirection Vector|table Nonzero horizontal direction; Y ignored.
+--- @return boolean? valid
+--- @return Vector? adjustedPosition
+--- @return string reason 'buildable', 'blocked', 'outside-map', 'power-required', 'invalid-odf', 'unsupported-class', 'unavailable'.
+function exu.IsTerrainBuildable(team, odf, proposedPosition, facingDirection) end
+
+--- Reads the live network player's Steam identity as a decimal string, preserving all 64 bits.
+--- Uses a network ID from AddPlayer/Receive/GetMyNetID, not a team or object handle.
+--- Nil for absent players, GOG identities, singleplayer, or unavailable native qualification.
+--- @param networkId integer 0..65535
+--- @return string? steam64
+function exu.GetPlayerSteam64(networkId) end
+
+--- Registers an EXU command for explicit dispatch. BZR has no BZCC VarSys console.
+--- Names are case-sensitive ASCII letters/digits/dots/underscores/hyphens, 1..96 bytes.
+--- Names share a namespace with variables. Duplicate registration is refused.
+--- Registry/callbacks belong to the current Lua state and are released with it.
+--- @param name string
+--- @param callback fun(arguments:string)
+--- @return boolean ok
+--- @return string? error
+function exu.RegisterConsoleCommand(name, callback) end
+
+--- @class ExuConsoleVariableOptions
+--- @field min number? Inclusive bound for numeric variables.
+--- @field max number? Inclusive bound for numeric variables.
+--- @field onChanged fun(value:any, previous:any)? Called after committing an actual change.
+
+--- Registers a typed EXU variable. Default must satisfy its optional finite numeric bounds.
+--- @param name string
+--- @param default number|string|boolean
+--- @param options ExuConsoleVariableOptions?
+--- @return boolean ok
+--- @return string? error
+function exu.RegisterConsoleVariable(name, default, options) end
+
+--- Removes an EXU command or variable, returning whether it existed.
+--- @param name string
+--- @return boolean removed
+function exu.UnregisterConsoleItem(name) end
+
+--- Explicitly invokes a registered command with one uninterpreted argument string.
+--- Does not evaluate Lua, shell commands or stock game commands. Callback errors return false,error.
+--- @param name string
+--- @param arguments string? Defaults to the empty string.
+--- @return boolean ok
+--- @return string? error
+function exu.ExecuteConsoleCommand(name, arguments) end
+
+--- @param name string
+--- @return number|string|boolean|nil value Nil when no such variable exists.
+function exu.GetConsoleVariable(name) end
+
+--- Requires the registered type and bounds; bad values raise Lua argument errors.
+--- Value is committed before notification; callback failure returns false,error and preserves the new value.
+--- @param name string
+--- @param value number|string|boolean
+--- @return boolean ok
+--- @return string? error
+function exu.SetConsoleVariable(name, value) end
+
+--- Returns an independent name-to-kind snapshot of the current state's EXU registry.
+--- @return table<string, 'command'|'variable'> items
+function exu.ListConsoleItems() end
+
 return exu
