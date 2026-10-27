@@ -43,6 +43,10 @@ namespace ExtraUtilities { namespace OgreSurfaceParameters
         using Set = void (__thiscall*)(::Ogre::GpuProgramParameters*, const std::string&, const ::Ogre::Vector4&);
         OgreDll::OgreProc<Has> has{"?hasFragmentProgram@Pass@Ogre@@QBE_NXZ"};
         OgreDll::OgreProc<Get> get{"?getFragmentProgramParameters@Pass@Ogre@@QBE?AV?$SharedPtr@VGpuProgramParameters@Ogre@@@2@XZ"};
+        // Vertex-stage twins: a surface vector the vertex program also declares
+        // (snow thickness push) gets the same value.
+        OgreDll::OgreProc<Has> hasVertex{"?hasVertexProgram@Pass@Ogre@@QBE_NXZ"};
+        OgreDll::OgreProc<Get> getVertex{"?getVertexProgramParameters@Pass@Ogre@@QBE?AV?$SharedPtr@VGpuProgramParameters@Ogre@@@2@XZ"};
         OgreDll::OgreProc<Find> find{"?_findNamedConstantDefinition@GpuProgramParameters@Ogre@@QBEPBUGpuConstantDefinition@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N@Z"};
         OgreDll::OgreProc<Set> set{"?setNamedConstant@GpuProgramParameters@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@ABVVector4@2@@Z"};
         using Manager = ::Ogre::MaterialManager* (__cdecl*)();
@@ -119,12 +123,26 @@ namespace ExtraUtilities { namespace OgreSurfaceParameters
             return parameters;
         }
 
+        Parameters FindVertexParameters(void* opaque, const std::string& name)
+        {
+            auto* pass = static_cast<::Ogre::Pass*>(opaque);
+            if (!pass || !hasVertex || !getVertex || !find || !set || !hasVertex.Get()(pass)) return {};
+            OgreDll::RuntimeReference<::Ogre::GpuProgramParameters> parameters;
+            getVertex.Get()(pass, &parameters);
+            if (parameters.isNull()) return {};
+            const auto* definition = find.Get()(parameters.get(), name, false);
+            if (!definition || definition->constType != ::Ogre::GCT_FLOAT4 || definition->arraySize != 1) return {};
+            return parameters;
+        }
+
         bool SetCpp(void* opaque, const std::string& name, const float value[4])
         {
+            const ::Ogre::Vector4 vector(value[0], value[1], value[2], value[3]);
             const auto parameters=FindParameters(opaque,name);
-            if (parameters.isNull()) return false;
-            set.Get()(parameters.get(), name, ::Ogre::Vector4(value[0], value[1], value[2], value[3]));
-            return true;
+            if (!parameters.isNull()) set.Get()(parameters.get(), name, vector);
+            const auto vertexParameters=FindVertexParameters(opaque,name);
+            if (!vertexParameters.isNull()) set.Get()(vertexParameters.get(), name, vector);
+            return !parameters.isNull() || !vertexParameters.isNull();
         }
     }
 
