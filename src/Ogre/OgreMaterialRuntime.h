@@ -47,11 +47,11 @@ namespace ExtraUtilities::Lua::GameObject
 			::Ogre::TextureUnitState* textureUnit = nullptr;
 		};
 
-		using MaterialHandle = ::Ogre::SharedPtr<::Ogre::Material>;
+		using MaterialHandle = ::Ogre::MaterialReference;
 		void LogMaterialDebug(const char* fmt, ...);
 		void LogMaterialFault(const char* fmt, ...);
-		void CacheMaterialHandle(const std::string& materialName, const MaterialHandle& material);
-		bool TryGetCachedMaterial(const std::string& materialName, MaterialHandle& outMaterial);
+		void CacheMaterialHandle(const std::string& materialName, const std::string& resourceGroup, const MaterialHandle& material);
+		bool TryGetCachedMaterial(const std::string& materialName, const std::string& resourceGroup, MaterialHandle& outMaterial);
 		bool TryResolveMaterialCpp(
 			const std::string& materialName,
 			const std::string& resourceGroup,

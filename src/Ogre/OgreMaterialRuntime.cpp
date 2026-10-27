@@ -17,6 +17,7 @@
 */
 
 #include "OgreMaterialRuntime.h"
+#include "OgreMaterialCache.h"
 
 #include "Util/Logging.h"
 #include "Util/SehGuard.h"
@@ -26,13 +27,12 @@
 #include <cstdarg>
 #include <cstdio>
 #include <exception>
-#include <unordered_map>
 
 namespace ExtraUtilities::Lua::GameObject
 {
 	namespace
 	{
-		inline std::unordered_map<std::string, MaterialHandle> g_cachedMaterials;
+		inline ExtraUtilities::Ogre::MaterialCache<MaterialHandle> g_cachedMaterials;
 
 		bool TryCloneMaterialCpp(
 			const MaterialHandle& sourceMaterial,
@@ -54,7 +54,7 @@ namespace ExtraUtilities::Lua::GameObject
 				}
 
 				auto clone = ::Ogre::CloneMaterial(sourceMaterial.getPointer(), cloneName, false, resourceGroup);
-				CacheMaterialHandle(cloneName, clone);
+				CacheMaterialHandle(cloneName, resourceGroup, clone);
 				outMaterial = clone.getPointer();
 				if (outShared != nullptr)
 				{
@@ -535,27 +535,14 @@ namespace ExtraUtilities::Lua::GameObject
 			va_end(args);
 		}
 
-		void CacheMaterialHandle(const std::string& materialName, const MaterialHandle& material)
+		void CacheMaterialHandle(const std::string& materialName, const std::string& resourceGroup, const MaterialHandle& material)
 		{
-			if (materialName.empty() || material.isNull())
-			{
-				return;
-			}
-
-			g_cachedMaterials[materialName] = material;
+			g_cachedMaterials.Store(materialName, resourceGroup, material);
 		}
 
-		bool TryGetCachedMaterial(const std::string& materialName, MaterialHandle& outMaterial)
+		bool TryGetCachedMaterial(const std::string& materialName, const std::string& resourceGroup, MaterialHandle& outMaterial)
 		{
-			const auto it = g_cachedMaterials.find(materialName);
-			if (it == g_cachedMaterials.end() || it->second.isNull())
-			{
-				outMaterial = {};
-				return false;
-			}
-
-			outMaterial = it->second;
-			return true;
+			return g_cachedMaterials.Find(materialName, resourceGroup, outMaterial);
 		}
 
 		bool TryResolveMaterialCpp(
@@ -567,7 +554,7 @@ namespace ExtraUtilities::Lua::GameObject
 			try
 			{
 				MaterialHandle cachedMaterial{};
-				if (TryGetCachedMaterial(materialName, cachedMaterial))
+				if (TryGetCachedMaterial(materialName, resourceGroup, cachedMaterial))
 				{
 					outMaterial = cachedMaterial.getPointer();
 					if (outShared != nullptr)
@@ -590,7 +577,7 @@ namespace ExtraUtilities::Lua::GameObject
 				}
 
 				auto material = ::Ogre::GetMaterialByName(manager, materialName, resourceGroup);
-				CacheMaterialHandle(materialName, material);
+				CacheMaterialHandle(materialName, resourceGroup, material);
 				outMaterial = material.getPointer();
 				if (outShared != nullptr)
 				{
@@ -1140,6 +1127,6 @@ namespace ExtraUtilities::Lua::GameObject
 
 	void ClearMaterialCache() noexcept
 	{
-		g_cachedMaterials.clear();
+		g_cachedMaterials.Clear();
 	}
 }

@@ -156,7 +156,8 @@ namespace ExtraUtilities::Lua::GameObject
 			__try
 			{
 				outName = Ogre::GetMaterialNameSubEntity(subEntity);
-				CacheMaterialHandle(outName, ::Ogre::GetSubEntityMaterial(subEntity));
+				// A name alone cannot seed a group-aware cache. Resolve future
+				// name/group requests through the material manager instead.
 				return true;
 			}
 			__except (Seh::Filter(GetExceptionCode()))
@@ -175,7 +176,7 @@ namespace ExtraUtilities::Lua::GameObject
 		bool TrySetMaterialNameEntity(void* entity, const std::string& materialName, const std::string& resourceGroup)
 		{
 			MaterialHandle cachedMaterial{};
-			if (TryGetCachedMaterial(materialName, cachedMaterial))
+			if (TryGetCachedMaterial(materialName, resourceGroup, cachedMaterial))
 			{
 				bool applied = false;
 				Seh::Guard(
@@ -210,7 +211,7 @@ namespace ExtraUtilities::Lua::GameObject
 		bool TrySetMaterialNameSubEntity(void* subEntity, const std::string& materialName, const std::string& resourceGroup)
 		{
 			MaterialHandle cachedMaterial{};
-			if (TryGetCachedMaterial(materialName, cachedMaterial))
+			if (TryGetCachedMaterial(materialName, resourceGroup, cachedMaterial))
 			{
 				bool applied = false;
 				Seh::Guard(
