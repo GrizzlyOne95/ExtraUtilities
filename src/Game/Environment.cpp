@@ -57,9 +57,20 @@ namespace ExtraUtilities::Lua::Environment
 		return activeViewports.count > 0 ? activeViewports.viewports[0] : nullptr;
 	}
 
+	// Null unless the engine's sun global names a live Ogre::Light; every sun
+	// getter and setter goes through here (see Ogre::IsLiveLight).
 	void* GetTerrainMasterLight()
 	{
-		return Ogre::terrain_masterlight.Read();
+		static void* s_lastRejected = nullptr;
+		void* light = Ogre::terrain_masterlight.Read();
+		if (light == nullptr || Ogre::IsLiveLight(light))
+			return light;
+		if (light != s_lastRejected)
+		{
+			s_lastRejected = light;
+			LogEnvironmentDebug("[EXU::GetTerrainMasterLight] sun global %p is not a live Ogre::Light; ignored", light);
+		}
+		return nullptr;
 	}
 
 	Ogre::Color DefaultSunColor()

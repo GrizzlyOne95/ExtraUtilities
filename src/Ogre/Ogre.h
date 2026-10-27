@@ -22,6 +22,7 @@
 #include "OgreProc.h"
 #include "OgreSceneManagerShim.h"
 #include "Scanner.h"
+#include "Util/SehGuard.h"
 
 #include <cstdint>
 #include <memory>
@@ -173,6 +174,43 @@ namespace ExtraUtilities::Ogre
 
 	using _SetShadowFarDistance = void(__thiscall*)(void*, float);
 	inline constinit OgreExport<_SetShadowFarDistance> SetShadowFarDistance{ "?setShadowFarDistance@Light@Ogre@@QAEXM@Z" };
+
+	// Whether `candidate` is a live Ogre::Light: both of its exported vtables
+	// (ShadowCaster at +0, AnimableObject at +4) must be in place. The engine's
+	// sun global can keep naming a destroyed light whose memory has been
+	// reused, by another object or by a D3D11 view; SEH does not catch writes
+	// into readable memory of the wrong type, so the Light setters above must
+	// never run on a pointer that fails this check. A half-destroyed light
+	// keeps its base-class vtables and fails it too.
+	inline bool IsLiveLight(const void* candidate) noexcept
+	{
+		static std::atomic<const void*> s_shadowCaster{ nullptr };
+		static std::atomic<const void*> s_animable{ nullptr };
+		if (candidate == nullptr)
+			return false;
+
+		const void* shadowCaster = s_shadowCaster.load(std::memory_order_acquire);
+		const void* animable = s_animable.load(std::memory_order_acquire);
+		if (shadowCaster == nullptr || animable == nullptr)
+		{
+			shadowCaster = OgreDll::ResolveOgreProc<const void*>("??_7Light@Ogre@@6BShadowCaster@1@@");
+			animable = OgreDll::ResolveOgreProc<const void*>("??_7Light@Ogre@@6BAnimableObject@1@@");
+			if (shadowCaster == nullptr || animable == nullptr)
+				return false;
+			s_shadowCaster.store(shadowCaster, std::memory_order_release);
+			s_animable.store(animable, std::memory_order_release);
+		}
+
+		__try
+		{
+			const void* const* vptrs = static_cast<const void* const*>(candidate);
+			return vptrs[0] == shadowCaster && vptrs[1] == animable;
+		}
+		__except (Seh::Filter(GetExceptionCode()))
+		{
+			return false;
+		}
+	}
 
 	using _SetSpotlightRange = void(__thiscall*)(void*, float*, float*, float);
 	inline constinit OgreExport<_SetSpotlightRange> SetSpotlightRange{ "?setSpotlightRange@Light@Ogre@@QAEXABVRadian@2@0M@Z" };
