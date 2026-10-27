@@ -22,6 +22,7 @@
 #include "OgreProc.h"
 #include "OgreSceneManagerShim.h"
 #include "Scanner.h"
+#include "Util/SehGuard.h"
 
 #include <cstdint>
 #include <memory>
@@ -205,7 +206,7 @@ namespace ExtraUtilities::Ogre
 			const void* const* vptrs = static_cast<const void* const*>(candidate);
 			return vptrs[0] == shadowCaster && vptrs[1] == animable;
 		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
+		__except (Seh::Filter(GetExceptionCode()))
 		{
 			return false;
 		}
