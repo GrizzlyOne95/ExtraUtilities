@@ -638,6 +638,9 @@
     <ClInclude Include="src\Ogre\OgreMaterialRuntime.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
+    <ClInclude Include="src\Ogre\OgreMaterialCache.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
     <ClInclude Include="src\Game\GameObjectInternal.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>

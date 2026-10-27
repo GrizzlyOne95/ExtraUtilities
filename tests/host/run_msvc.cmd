@@ -27,6 +27,10 @@ set "ROOT=%~dp0..\.."
 set "OUT=%TEMP%\exu-host-tests"
 if not exist "%OUT%" mkdir "%OUT%" || exit /b 1
 
+rem The material ownership test uses only this synthetic retail-ABI DLL.
+cl /nologo /std:c++17 /EHsc /W4 /WX /permissive- /MD /LD "%ROOT%\tests\fixtures\material_reference_fixture.cpp" /Fo"%OUT%\material_reference_fixture.obj" /Fe"%OUT%\OgreMain.dll" /link /DEF:"%ROOT%\tests\fixtures\material_reference_fixture.def" /IMPLIB:"%OUT%\material_reference_fixture.lib"
+if errorlevel 1 exit /b 1
+
 set FAILED=0
 for %%f in ("%ROOT%\tests\host\*.cpp") do call :runtest "%%f"
 

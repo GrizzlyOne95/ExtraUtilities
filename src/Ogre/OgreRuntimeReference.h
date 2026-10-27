@@ -23,6 +23,7 @@ namespace ExtraUtilities { namespace OgreDll
         { std::swap(rep,other.rep);std::swap(info,other.info);return *this; }
         ~RuntimeReference() { Reset(); }
         T* get() const noexcept { return rep; }
+        T* getPointer() const noexcept { return rep; }
         bool isNull() const noexcept { return !rep; }
         volatile LONG* Count() const noexcept
         { return reinterpret_cast<volatile LONG*>(static_cast<unsigned char*>(info)+0x14); }

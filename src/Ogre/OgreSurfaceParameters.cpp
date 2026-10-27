@@ -73,7 +73,7 @@ namespace ExtraUtilities { namespace OgreSurfaceParameters
         OgreDll::OgreProc<UnitAlias> unitName{"?getName@TextureUnitState@Ogre@@QBEABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@XZ"};
         OgreDll::OgreProc<UnitTexture> textureName{"?setTextureName@TextureUnitState@Ogre@@QAEXABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@W4TextureType@2@@Z"};
         // Released-ABI references, released at the Lua-state lifecycle boundary. These
-        // materials never enter the older POD material-handle cache.
+        // materials have a separate ownership scope from the general cache.
         std::map<std::string, OgreDll::RuntimeReference<::Ogre::Material>> owned;
         using Parameters = OgreDll::RuntimeReference<::Ogre::GpuProgramParameters>;
         // Each binding remembers its pass so a write can notice that Ogre

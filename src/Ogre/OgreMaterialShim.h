@@ -19,6 +19,7 @@
 #pragma once
 
 #include "Ogre/OgreProc.h"
+#include "Ogre/OgreRuntimeReference.h"
 
 #include <Windows.h>
 
@@ -71,6 +72,10 @@ namespace Ogre
 	class MaterialManager;
 	class TextureUnitState;
 
+	// SharedPtr above is a borrowed ABI view. Owning native returns must use
+	// the retail-aware holder; the SDK reference-count layout is different.
+	using MaterialReference = ExtraUtilities::OgreDll::RuntimeReference<Material>;
+
 	enum TextureType
 	{
 		TEX_TYPE_2D = 2
@@ -85,37 +90,37 @@ namespace Ogre
 		return fn == nullptr ? nullptr : fn();
 	}
 
-	inline SharedPtr<Material> GetMaterialByName(
+	inline MaterialReference GetMaterialByName(
 		MaterialManager* manager,
 		const String& name,
 		const String& groupName)
 	{
-		using Fn = void(__thiscall*)(MaterialManager*, SharedPtr<Material>*, const String&, const String&);
+		using Fn = void(__thiscall*)(MaterialManager*, MaterialReference*, const String&, const String&);
 		static Fn fn = ResolveOgreProc<Fn>("?getByName@MaterialManager@Ogre@@QAE?AV?$SharedPtr@VMaterial@Ogre@@@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0@Z");
 		if (fn == nullptr || manager == nullptr)
 		{
 			return {};
 		}
 
-		SharedPtr<Material> result{};
+		MaterialReference result{};
 		fn(manager, &result, name, groupName);
 		return result;
 	}
 
-	inline SharedPtr<Material> CloneMaterial(
+	inline MaterialReference CloneMaterial(
 		const Material* material,
 		const String& newName,
 		bool changeGroup,
 		const String& newGroup)
 	{
-		using Fn = void(__thiscall*)(const Material*, SharedPtr<Material>*, const String&, bool, const String&);
+		using Fn = void(__thiscall*)(const Material*, MaterialReference*, const String&, bool, const String&);
 		static Fn fn = ResolveOgreProc<Fn>("?clone@Material@Ogre@@QBE?AV?$SharedPtr@VMaterial@Ogre@@@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N0@Z");
 		if (fn == nullptr || material == nullptr)
 		{
 			return {};
 		}
 
-		SharedPtr<Material> result{};
+		MaterialReference result{};
 		fn(material, &result, newName, changeGroup, newGroup);
 		return result;
 	}
@@ -127,7 +132,7 @@ namespace Ogre
 		return fn == nullptr || subEntity == nullptr ? SharedPtr<Material>{} : fn(subEntity);
 	}
 
-	inline bool SetEntityMaterial(void* entity, const SharedPtr<Material>& material)
+	inline bool SetEntityMaterial(void* entity, const MaterialReference& material)
 	{
 		using Fn = void(__thiscall*)(void*, const SharedPtr<Material>&);
 		static Fn fn = ResolveOgreProc<Fn>("?setMaterial@Entity@Ogre@@QAEXABV?$SharedPtr@VMaterial@Ogre@@@2@@Z");
@@ -136,11 +141,12 @@ namespace Ogre
 			return false;
 		}
 
-		fn(entity, material);
+		const SharedPtr<Material> borrowed{material.rep, material.info};
+		fn(entity, borrowed);
 		return true;
 	}
 
-	inline bool SetSubEntityMaterial(void* subEntity, const SharedPtr<Material>& material)
+	inline bool SetSubEntityMaterial(void* subEntity, const MaterialReference& material)
 	{
 		using Fn = void(__thiscall*)(void*, const SharedPtr<Material>&);
 		static Fn fn = ResolveOgreProc<Fn>("?setMaterial@SubEntity@Ogre@@QAEXABV?$SharedPtr@VMaterial@Ogre@@@2@@Z");
@@ -149,7 +155,8 @@ namespace Ogre
 			return false;
 		}
 
-		fn(subEntity, material);
+		const SharedPtr<Material> borrowed{material.rep, material.info};
+		fn(subEntity, borrowed);
 		return true;
 	}
 

@@ -293,6 +293,7 @@
     <ClInclude Include="src\EntryDetour32.h" />
     <ClInclude Include="src\Ogre\OgreEntityRuntime.h" />
     <ClInclude Include="src\Ogre\OgreMaterialRuntime.h" />
+    <ClInclude Include="src\Ogre\OgreMaterialCache.h" />
     <ClInclude Include="src\Game\GameObjectInternal.h" />
     <ClInclude Include="src\Game\GameObjectHandle.h" />
     <ClInclude Include="src\Game\game_state.h" />
