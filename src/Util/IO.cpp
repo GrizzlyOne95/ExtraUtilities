@@ -138,6 +138,13 @@ namespace ExtraUtilities::Lua::IO
 		return 1;
 	}
 
+	int SetChatOnEnter(lua_State* L)
+	{
+		const bool enabled = lua_toboolean(L, 1) != 0;
+		lua_pushboolean(L, ExtraUtilities::GameState::SetChatOnEnter(enabled));
+		return 1;
+	}
+
 	int GetTextEntryDebugState(lua_State* L)
 	{
 		ExtraUtilities::GameState::TextEntryDebugState state{};

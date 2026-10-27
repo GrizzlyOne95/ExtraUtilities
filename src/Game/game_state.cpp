@@ -81,6 +81,35 @@ namespace ExtraUtilities
 				return anchorsMatched;
 			}
 
+			constexpr uintptr_t kEnterKeyCode = 0x0D;
+			constexpr uint8_t kChatSendToAllAction = 0x11;
+
+			bool IsKeyBindingAccessAvailable() noexcept
+			{
+				if (!RuntimeGate::IsSupported())
+					return false;
+				// Code-byte anchors hold for the life of the process; the caller
+				// runs every frame, so match them once.
+				static bool anchorsMatched = false;
+				if (anchorsMatched)
+					return true;
+				const HMODULE module = GetModuleHandleA(nullptr);
+				if (reinterpret_cast<uintptr_t>(module) != BzrBuildProfile::kImageBase)
+					return false;
+
+				size_t matched = 0;
+				for (const auto& anchor : BzrBuildProfile::kRuntimeAnchors)
+				{
+					if (std::strncmp(anchor.name, "Key binding ", 12) != 0)
+						continue;
+					if (!BuildValidation::Detail::MatchAnchor(module, anchor))
+						return false;
+					++matched;
+				}
+				anchorsMatched = matched == 2;
+				return anchorsMatched;
+			}
+
 			bool IsCursorVisible() noexcept
 			{
 				CURSORINFO info{};
@@ -226,6 +255,28 @@ namespace ExtraUtilities
 				}
 				outState = state;
 				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return false;
+			}
+		}
+
+		bool SetChatOnEnter(bool enabled) noexcept
+		{
+			__try
+			{
+				if (!IsKeyBindingAccessAvailable())
+					return false;
+				volatile uint8_t* entry = reinterpret_cast<volatile uint8_t*>(
+					EngineAddresses::GameUI::KeyBindingTable + kEnterKeyCode);
+				const uint8_t wanted = enabled ? kChatSendToAllAction : 0;
+				const uint8_t current = *entry;
+				// Only toggle between "unbound" and the stock chat action; a user
+				// rebinding of Enter to anything else is left untouched.
+				if (current == (enabled ? 0 : kChatSendToAllAction))
+					*entry = wanted;
+				return *entry == wanted;
 			}
 			__except (Seh::Filter(GetExceptionCode()))
 			{
