@@ -174,6 +174,30 @@
         "pattern": "C7 45 F4 D0 CE 46 00 C7 45 F8 00 00 00 00 8D 55 B4 52 E8 ?? ?? ?? ?? 83 C4 04 A3 84 D1 60 02",
         "pattern_kind": "reference",
         "note": "Reference pattern starts at 0x0046CCC4 (AllyPromptInitSite) and embeds this global operand. Verified from GOG 2.2.301 instructions and decompilation, 2026-10-07. Runtime reads require the three optional Text entry profile anchors plus RuntimeGate and SEH; no addresses inferred from a leaked PDB."
+      },
+      "KeyBindingLookup": {
+        "address": "0x006217F0",
+        "type": "function: uint8 __cdecl(int16 keyCode)",
+        "description": "Key binding lookup: returns the gamekey.map action id byte for keyCode (< 0x1000), else 0. Reader of KeyBindingTable; called by the input dispatcher 0x0061DBA0 and 0x008210B0. Optional feature-specific identity anchor for exu.SetChatOnEnter.",
+        "pattern": "55 8B EC 0F BF 45 08 85 C0 7D 04 33 C0 EB 1C 0F BF 4D 08 81 F9 00 10 00 00 72 04 33 C0 EB 0C 0F BF 55 08 66 0F B6 82 50 88 91 00 5D C3",
+        "pattern_kind": "code",
+        "note": "Measured in the shipped GOG 2.2.301 executable (SHA-256 8d71f56c1314e69a8ad38f4eeaf20a8ff825965a84cf196e5f77ea4cc3377413), 2026-10-27, from raw bytes. See ARCHITECTURE.md / Lua API exu.SetChatOnEnter. Static evidence; live validation pending."
+      },
+      "KeyBindingParserWriteSite": {
+        "address": "0x00620CC1",
+        "type": "code: table-write identity site (not callable)",
+        "description": "Instruction site inside the gamekey.map parser 0x00620980 that stores the action id byte into KeyBindingTable[keyCode]. The parser does not clear the table first and re-runs after the ESC menu closes. Optional feature-specific identity anchor for exu.SetChatOnEnter.",
+        "pattern": "0F BF 85 A8 EE FF FF 8B 8D A4 EE FF FF 8A 14 CD 8C B0 8E 00 88 90 50 88 91 00",
+        "pattern_kind": "code",
+        "note": "Measured in the shipped GOG 2.2.301 executable (SHA-256 8d71f56c1314e69a8ad38f4eeaf20a8ff825965a84cf196e5f77ea4cc3377413), 2026-10-27, from raw bytes. See ARCHITECTURE.md / Lua API exu.SetChatOnEnter. Static evidence; live validation pending."
+      },
+      "KeyBindingTable": {
+        "address": "0x00918850",
+        "type": "uint8[0x1000] (action id indexed by key code | 0x100 Ctrl | 0x200 Shift | 0x400 Alt | 0x800 Caps)",
+        "description": "Parsed gamekey.map binding table; flat byte array. Enter (and numpad Enter) is index 0x0D. CHAT_SENDTOALL is action 0x11 (action-name table 0x008EB088, 8-byte records, id at +4). Only reader is KeyBindingLookup; nothing caches it.",
+        "pattern": "55 8B EC 0F BF 45 08 85 C0 7D 04 33 C0 EB 1C 0F BF 4D 08 81 F9 00 10 00 00 72 04 33 C0 EB 0C 0F BF 55 08 66 0F B6 82 50 88 91 00 5D C3",
+        "pattern_kind": "reference",
+        "note": "Reference pattern starts at 0x006217F0 (KeyBindingLookup) and embeds this table base as the movzx operand. Verified from GOG 2.2.301 bytes, 2026-10-27. Runtime access requires the two Key binding profile anchors plus RuntimeGate and SEH; no addresses inferred from a leaked PDB."
       }
     },
     "Camera": {

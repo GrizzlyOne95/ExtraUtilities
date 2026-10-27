@@ -437,6 +437,26 @@
       "required": false,
       "runtime_gate": true,
       "reason": "Live network-id lookup identity, shared with qualified stock scoreboard reader."
+    },
+    {
+      "name": "Key binding lookup",
+      "source": "catalog",
+      "catalog_path": "GameUI.KeyBindingLookup",
+      "match": "expected_va",
+      "expected_va": "0x006217F0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional, feature-specific identity. GameState checks both Key binding anchors before touching the gamekey.map binding table for exu.SetChatOnEnter; its absence must not disable unrelated EXU features."
+    },
+    {
+      "name": "Key binding parser write",
+      "source": "catalog",
+      "catalog_path": "GameUI.KeyBindingParserWriteSite",
+      "match": "expected_va",
+      "expected_va": "0x00620CC1",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional, feature-specific identity. GameState checks both Key binding anchors before touching the gamekey.map binding table for exu.SetChatOnEnter; its absence must not disable unrelated EXU features."
     }
   ]
 }

@@ -76,5 +76,6 @@ namespace ExtraUtilities::Lua::IO
 	int GetPauseMenuDebugState(lua_State* L);
 	int IsTextEntryActive(lua_State* L);
 	int IsAllyPromptOpen(lua_State* L);
+	int SetChatOnEnter(lua_State* L);
 	int GetTextEntryDebugState(lua_State* L);
 }

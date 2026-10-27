@@ -57,6 +57,9 @@ namespace ExtraUtilities
 		bool IsGameUiOpen() noexcept;
 		bool IsTextEntryActive() noexcept;
 		bool IsAllyPromptOpen() noexcept;
+		// Unbinds/rebinds Enter from CHAT_SENDTOALL in the parsed gamekey.map table.
+		// Returns true when Enter's entry matches the request afterwards.
+		bool SetChatOnEnter(bool enabled) noexcept;
 		bool TryGetTextEntryDebugState(TextEntryDebugState& outState) noexcept;
 		bool IsPauseMenuOpen() noexcept;
 		bool TryGetPauseMenuDebugState(PauseMenuDebugState& outState) noexcept;

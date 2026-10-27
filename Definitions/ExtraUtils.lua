@@ -2476,6 +2476,16 @@ function exu.IsTextEntryActive() end
 --- @return boolean
 function exu.IsAllyPromptOpen() end
 
+--- Controls whether the Enter key opens multiplayer chat (stock binding CHAT_SENDTOALL).
+--- `false` clears Enter's entry in the parsed gamekey.map table, but only if it is still the stock chat action;
+--- `true` restores it, but only if Enter is currently unbound. If the player rebound Enter to another action it is left alone.
+--- Backtick and Ctrl+C still open chat. The engine re-parses gamekey.map when the ESC menu closes and re-binds Enter,
+--- so call this every frame while Enter must stay free.
+--- Returns true when Enter's entry matches the request afterwards; false if the build is unsupported or Enter holds another action.
+--- @param enabled boolean
+--- @return boolean
+function exu.SetChatOnEnter(enabled) end
+
 --- Returns a snapshot of the stock in-mission text editor focus state.
 --- Fields: `ok`, `textEntryActive`, `chatOpen`, `allyPromptOpen`, `focusedNode`,
 --- `focusedEntry`, `chatNode`, `allyNode`, `entryFlags`. Pointers are diagnostic integers.

@@ -953,6 +953,7 @@ namespace ExtraUtilities::Lua
 			{ "GetPauseMenuDebugState", &IO::GetPauseMenuDebugState },
 			{ "IsTextEntryActive", &IO::IsTextEntryActive },
 			{ "IsAllyPromptOpen", &IO::IsAllyPromptOpen },
+			{ "SetChatOnEnter", &IO::SetChatOnEnter },
 			{ "GetTextEntryDebugState", &IO::GetTextEntryDebugState },
 
 			// Multiplayer
