@@ -1,5 +1,5 @@
 --- @meta exu
---- This file provides the lua definitions for Extra Utilities version 1.3.1
+--- This file provides the lua definitions for Extra Utilities version 1.3.2
 --- These definitions also require the stock definitions found in `scriptutils.lua`
 --- for basic types like Handle and Vector
 
