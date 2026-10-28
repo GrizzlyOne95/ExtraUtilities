@@ -18,6 +18,7 @@
 
 #include "OgreNativeFontBridge.h"
 #include "Ogre/OgreProc.h"
+#include "Ogre/OgreRuntimeReference.h"
 
 #include "Util/Logging.h"
 #include "Util/SehGuard.h"
@@ -164,6 +165,27 @@ namespace
 	Ogre::FontManager* GetFontManager()
 	{
 		return Ogre::FontManager::getSingletonPtr();
+	}
+
+	// SDK FontPtr/MaterialPtr must not own DLL returns: their release
+	// decrements info+4, the released Ogre keeps the count at +14h. That
+	// corrupted the control block and freed live fonts/materials, then
+	// the next TextAreas (ISDFC status ring) were overwritten.
+	using FontReference = ExtraUtilities::OgreDll::RuntimeReference<Ogre::Font>;
+	using MaterialReference = ExtraUtilities::OgreDll::RuntimeReference<Ogre::Material>;
+	using FontManagerGetByNameFn = void(__thiscall*)(Ogre::FontManager*, FontReference*, const Ogre::String&, const Ogre::String&);
+
+	FontReference GetFontByName(Ogre::FontManager* manager, const Ogre::String& name, const Ogre::String& group)
+	{
+		static const FontManagerGetByNameFn fn = ResolveOgreProc<FontManagerGetByNameFn>(
+			OgreModule::Overlay,
+			"?getByName@FontManager@Ogre@@QAE?AV?$SharedPtr@VFont@Ogre@@@2@ABV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@0@Z");
+		FontReference result{};
+		if (fn != nullptr && manager != nullptr)
+		{
+			fn(manager, &result, name, group);
+		}
+		return result;
 	}
 
 	CreateFontFn ResolveCreateFontProc()
@@ -322,8 +344,7 @@ namespace
 		const Ogre::String lookupGroup = (groupName != nullptr && groupName[0] != '\0')
 			? Ogre::String(groupName)
 			: Ogre::String(kAutodetectResourceGroupName);
-		Ogre::FontPtr fontPtr = manager->getByName(fontName, lookupGroup);
-		return fontPtr.getPointer() != nullptr;
+		return !GetFontByName(manager, fontName, lookupGroup).isNull();
 	}
 
 	bool TryHasFontResourceSeh(const char* fontName, const char* groupName, bool& outHasFont, unsigned int& outExceptionCode)
@@ -352,8 +373,7 @@ namespace
 		const Ogre::String lookupGroup = (groupName != nullptr && groupName[0] != '\0')
 			? Ogre::String(groupName)
 			: Ogre::String(kAutodetectResourceGroupName);
-		Ogre::FontPtr fontPtr = manager->getByName(fontName, lookupGroup);
-		Ogre::Font* font = fontPtr.getPointer();
+		Ogre::Font* font = GetFontByName(manager, fontName, lookupGroup).get();
 		if (font != nullptr)
 		{
 			return font;
@@ -646,8 +666,8 @@ namespace
 	void* g_dx11TextFaultAddress = nullptr;
 
 	using MaterialManagerSingletonFn = Ogre::MaterialManager* (__cdecl*)();
-	using MaterialManagerGetByNameFn = void(__thiscall*)(Ogre::MaterialManager*, Ogre::MaterialPtr*, const Ogre::String&, const Ogre::String&);
-	using MaterialCloneFn = void(__thiscall*)(const Ogre::Material*, Ogre::MaterialPtr*, const Ogre::String&, bool, const Ogre::String&);
+	using MaterialManagerGetByNameFn = void(__thiscall*)(Ogre::MaterialManager*, MaterialReference*, const Ogre::String&, const Ogre::String&);
+	using MaterialCloneFn = void(__thiscall*)(const Ogre::Material*, MaterialReference*, const Ogre::String&, bool, const Ogre::String&);
 	using MaterialNumTechniquesFn = unsigned short(__thiscall*)(const Ogre::Material*);
 	using MaterialGetTechniqueFn = Ogre::Technique* (__thiscall*)(Ogre::Material*, unsigned short);
 	using TechniqueGetPassFn = Ogre::Pass* (__thiscall*)(Ogre::Technique*, unsigned short);
@@ -745,7 +765,7 @@ namespace
 		{
 			return "no-font-manager";
 		}
-		Ogre::FontPtr font = fonts->getByName(fontName, Ogre::String(kAutodetectResourceGroupName));
+		const FontReference font = GetFontByName(fonts, fontName, Ogre::String(kAutodetectResourceGroupName));
 		if (font.isNull())
 		{
 			return "no-font";
@@ -754,9 +774,9 @@ namespace
 		// material, loads on the TextArea's first getMaterial. Load it as that
 		// would (Resource is Font's primary base, and Font does not override load).
 		g_dx11TextStage = "font-load";
-		procs.resourceLoad(font.getPointer(), false);
+		procs.resourceLoad(font.get(), false);
 		g_dx11TextStage = "font-get-material";
-		Ogre::Material* current = procs.fontGetMaterial(font.getPointer()).getPointer();
+		Ogre::Material* current = procs.fontGetMaterial(font.get()).getPointer();
 		if (current == nullptr)
 		{
 			return "no-material";
@@ -790,12 +810,12 @@ namespace
 		outMaterial = Ogre::String(kDx11TextMaterialName) + "/" + fontName;
 		const Ogre::String autodetect(kAutodetectResourceGroupName);
 
-		Ogre::MaterialPtr textMaterial;
+		MaterialReference textMaterial;
 		g_dx11TextStage = "get-clone-by-name";
 		procs.getByName(materials, &textMaterial, outMaterial, autodetect);
 		if (textMaterial.isNull())
 		{
-			Ogre::MaterialPtr source;
+			MaterialReference source;
 			g_dx11TextStage = "get-source-by-name";
 			procs.getByName(materials, &source, Ogre::String(kDx11TextMaterialName), autodetect);
 			if (source.isNull())
@@ -803,16 +823,16 @@ namespace
 				return "missing-EXU_HUD/Text";
 			}
 			g_dx11TextStage = "clone";
-			procs.clone(source.getPointer(), &textMaterial, outMaterial, false, Ogre::String());
+			procs.clone(source.get(), &textMaterial, outMaterial, false, Ogre::String());
 			if (textMaterial.isNull())
 			{
 				return "clone-failed";
 			}
 			g_dx11TextStage = "clone-set-texture";
-			const unsigned short techniques = procs.numTechniques(textMaterial.getPointer());
+			const unsigned short techniques = procs.numTechniques(textMaterial.get());
 			for (unsigned short t = 0; t < techniques; ++t)
 			{
-				Ogre::Pass* clonedPass = FirstPass(procs, textMaterial.getPointer(), t);
+				Ogre::Pass* clonedPass = FirstPass(procs, textMaterial.get(), t);
 				Ogre::TextureUnitState* clonedUnit = clonedPass == nullptr ? nullptr : procs.getTextureUnit(clonedPass, 0);
 				if (clonedUnit != nullptr)
 				{
