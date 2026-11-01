@@ -27,6 +27,7 @@
 #include "Ogre/OgreRenderSpace.h"
 
 #include <cctype>
+#include <cmath>
 #include <cstring>
 #include <string>
 #include <utility>
@@ -377,6 +378,50 @@ namespace ExtraUtilities::Lua::GameObject
         const float input[3] = {render.x, render.y, render.z};
         if (!SurfacePointMath::ToLocal(input, position, rotation, scale, local)) { lua_pushnil(L); return 1; }
         PushVector(L, BZR::VECTOR_3D{local[0], local[1], local[2]});
+        return 1;
+    }
+
+    // exu.animation.GetTargetTransform(target) -> Matrix | nil
+    // World transform of the target entity's parent SceneNode (derived pose),
+    // converted from Ogre render space back to sim space and returned through
+    // the same PushMatrix path as GetCameraTransformMatrix, so right/up/front
+    // are the object's axes in world coordinates and posit is world position.
+    // Render space is origin-shifted and Z-mirrored (see OgreRenderSpace.h):
+    // position is the inverse of SimPositionToRender, and the orientation is
+    // the inverse of SimOrientationToRender (q' = (w,-x,-y,z), an involution).
+    int GetTargetTransform(lua_State* L)
+    {
+        const EntityTarget target = CheckEntityTarget(L, 1);
+        auto* entity = GetRenderableEntity(target);
+        BZR::VECTOR_3D renderOrigin{};
+        float position[3] = {}, rotation[4] = {}, scale[3] = {1, 1, 1};
+        if (!entity || !OgreRenderSpace::TryReadWorldRenderOrigin(renderOrigin) ||
+            !OgreGibRuntime::ReadNodePose(OgreGibRuntime::GetParentSceneNode(entity), position, rotation, scale))
+        { lua_pushnil(L); return 1; }
+
+        struct Quat { double w, x, y, z; };
+        const Quat renderQ{ rotation[0], rotation[1], rotation[2], rotation[3] };
+        Quat q = OgreRenderSpace::SimOrientationToRender(renderQ);
+        const double len = std::sqrt(q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z);
+        if (!(len > 1e-6)) { lua_pushnil(L); return 1; }
+        q.w /= len; q.x /= len; q.y /= len; q.z /= len;
+
+        // Columns of the rotation matrix = images of the local x/y/z axes.
+        BZR::MAT_3D m{};
+        m.right_x = static_cast<float>(1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+        m.right_y = static_cast<float>(2.0 * (q.x * q.y + q.w * q.z));
+        m.right_z = static_cast<float>(2.0 * (q.x * q.z - q.w * q.y));
+        m.up_x = static_cast<float>(2.0 * (q.x * q.y - q.w * q.z));
+        m.up_y = static_cast<float>(1.0 - 2.0 * (q.x * q.x + q.z * q.z));
+        m.up_z = static_cast<float>(2.0 * (q.y * q.z + q.w * q.x));
+        m.front_x = static_cast<float>(2.0 * (q.x * q.z + q.w * q.y));
+        m.front_y = static_cast<float>(2.0 * (q.y * q.z - q.w * q.x));
+        m.front_z = static_cast<float>(1.0 - 2.0 * (q.x * q.x + q.y * q.y));
+        // Inverse of SimPositionToRender: x/y add the origin, z un-mirrors.
+        m.posit_x = static_cast<double>(position[0]) + renderOrigin.x;
+        m.posit_y = static_cast<double>(position[1]) + renderOrigin.y;
+        m.posit_z = -(static_cast<double>(position[2]) + renderOrigin.z);
+        PushMatrix(L, m);
         return 1;
     }
 

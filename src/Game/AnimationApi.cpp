@@ -2098,6 +2098,7 @@ namespace ExtraUtilities::Lua::AnimationApi
 			{ "Target", &Target },
 			{ "TargetLocalFirstPerson", &TargetLocalFirstPerson },
 			{ "TargetCockpit", &TargetCockpit },
+			{ "GetTargetTransform", &GameObject::GetTargetTransform },
 			{ "SetSubEntityRenderQueue", &GameObject::SetSubEntityRenderQueueGroup },
 			{ "GetSubEntityRenderQueue", &GameObject::GetSubEntityRenderQueueGroup },
 			{ "GetCapabilities", &GetCapabilities },
