@@ -60,6 +60,8 @@ namespace ExtraUtilities::Lua::Overlay
 		{
 			bool requestedVisible = false;
 			bool effectiveVisible = false;
+			// ShowOverlay is often called every frame; it logs only when this changes.
+			void* loggedViewport = nullptr;
 		};
 		extern std::unordered_map<std::string, OverlayVisibilityState> overlayVisibilityStates;
 		extern bool overlayRuntimeResourcesReady;

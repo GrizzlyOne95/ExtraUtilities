@@ -509,43 +509,54 @@ namespace ExtraUtilities::Lua::Overlay
 		}
 
 		OverlayVisibilityState& visibilityState = overlayVisibilityStates[name];
+		const bool wasRequested = visibilityState.requestedVisible;
+		const bool wasEffective = visibilityState.effectiveVisible;
 		visibilityState.requestedVisible = true;
 		RefreshOverlaySuppressionState("show-overlay");
 
 		void* viewport = GetCurrentViewportForOverlay();
-		void* root = nullptr;
-		TryGetRootSingleton(root);
-		void* renderSystem = nullptr;
-		TryGetRootRenderSystem(root, renderSystem);
-		void* sharedListener = nullptr;
-		const bool sharedListenerAvailable = TryGetRenderSystemSharedListener(sharedListener);
-		void* renderSystemViewport = nullptr;
-		const bool renderSystemViewportAvailable = TryGetRenderSystemViewport(renderSystem, renderSystemViewport);
-		bool overlaysEnabledBefore = false;
-		const bool overlaysEnabledBeforeAvailable = TryGetViewportOverlaysEnabled(viewport, overlaysEnabledBefore);
+		// Repeat calls for an overlay already shown on this viewport stay quiet.
+		const bool logCall = !wasRequested || viewport != visibilityState.loggedViewport;
+		visibilityState.loggedViewport = viewport;
+		if (logCall)
+		{
+			void* root = nullptr;
+			TryGetRootSingleton(root);
+			void* renderSystem = nullptr;
+			TryGetRootRenderSystem(root, renderSystem);
+			void* sharedListener = nullptr;
+			const bool sharedListenerAvailable = TryGetRenderSystemSharedListener(sharedListener);
+			void* renderSystemViewport = nullptr;
+			const bool renderSystemViewportAvailable = TryGetRenderSystemViewport(renderSystem, renderSystemViewport);
+			bool overlaysEnabledBefore = false;
+			const bool overlaysEnabledBeforeAvailable = TryGetViewportOverlaysEnabled(viewport, overlaysEnabledBefore);
 
-		Logging::LogMessage(
-			"[EXU::Overlay] ShowOverlay pre name=%s overlay=%p viewport=%p root=%p renderSystem=%p sharedListener=%p sharedListenerAvailable=%d renderSystemViewport=%p renderSystemViewportAvailable=%d overlaysBefore=%s",
-			name.c_str(),
-			overlay,
-			viewport,
-			root,
-			renderSystem,
-			sharedListener,
-			sharedListenerAvailable ? 1 : 0,
-			renderSystemViewport,
-			renderSystemViewportAvailable ? 1 : 0,
-			DescribeOptionalBool(overlaysEnabledBeforeAvailable, overlaysEnabledBefore));
+			Logging::LogMessage(
+				"[EXU::Overlay] ShowOverlay pre name=%s overlay=%p viewport=%p root=%p renderSystem=%p sharedListener=%p sharedListenerAvailable=%d renderSystemViewport=%p renderSystemViewportAvailable=%d overlaysBefore=%s",
+				name.c_str(),
+				overlay,
+				viewport,
+				root,
+				renderSystem,
+				sharedListener,
+				sharedListenerAvailable ? 1 : 0,
+				renderSystemViewport,
+				renderSystemViewportAvailable ? 1 : 0,
+				DescribeOptionalBool(overlaysEnabledBeforeAvailable, overlaysEnabledBefore));
+		}
 
 		SyncOverlayVisibilityState(name, visibilityState, "show-overlay");
-		Logging::LogMessage(
-			"[EXU::Overlay] ShowOverlay done name=%s overlay=%p viewport=%p requested=%d effective=%d suppressed=%d",
-			name.c_str(),
-			overlay,
-			viewport,
-			visibilityState.requestedVisible ? 1 : 0,
-			visibilityState.effectiveVisible ? 1 : 0,
-			overlaySuppressionActive ? 1 : 0);
+		if (logCall || visibilityState.effectiveVisible != wasEffective)
+		{
+			Logging::LogMessage(
+				"[EXU::Overlay] ShowOverlay done name=%s overlay=%p viewport=%p requested=%d effective=%d suppressed=%d",
+				name.c_str(),
+				overlay,
+				viewport,
+				visibilityState.requestedVisible ? 1 : 0,
+				visibilityState.effectiveVisible ? 1 : 0,
+				overlaySuppressionActive ? 1 : 0);
+		}
 		return 0;
 	}
 
