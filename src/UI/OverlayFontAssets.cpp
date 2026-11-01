@@ -21,6 +21,8 @@
 #include "Util/AsciiString.h"
 #include "Util/ModulePath.h"
 
+#include <fstream>
+
 // Runtime overlay resources: EXU's resource groups and the runtime font (font
 // script, then TrueType, then the sprite-table image fallback), and the
 // filesystem search that finds their assets.
@@ -446,6 +448,80 @@ namespace ExtraUtilities::Lua::Overlay
 		bool overlayRuntimeFontAttempted = false;
 		std::string overlayRuntimeFontScriptPath;
 
+		// initialiseResourceGroup parses EVERY script in the group's locations.
+		// The font script usually sits in an addon root that also holds mission
+		// programs/materials Ogre already defined, so parsing the group fails with
+		// "Resource ... already exists". Stage the fontdef and the file it names
+		// into a private directory so the font group contains nothing else.
+		std::string StageOverlayFontScript(
+			const std::filesystem::path& fontScriptPath,
+			const std::string& textureDirectory)
+		{
+			std::error_code error;
+			const std::filesystem::path stageDirectory =
+				std::filesystem::temp_directory_path(error) / "EXUOverlayFontRuntime";
+			if (error)
+			{
+				return std::string();
+			}
+			std::filesystem::create_directories(stageDirectory, error);
+			if (error)
+			{
+				return std::string();
+			}
+
+			// Drop leftovers from an older font so only the current one is staged.
+			for (std::filesystem::directory_iterator it(stageDirectory, error), end; !error && it != end; it.increment(error))
+			{
+				std::error_code removeError;
+				std::filesystem::remove(it->path(), removeError);
+			}
+			error.clear();
+
+			std::filesystem::copy_file(
+				fontScriptPath,
+				stageDirectory / fontScriptPath.filename(),
+				std::filesystem::copy_options::overwrite_existing,
+				error);
+			if (error)
+			{
+				return std::string();
+			}
+
+			// Every "source <file>" line names an asset the font loads.
+			std::ifstream script(fontScriptPath);
+			std::string line;
+			while (std::getline(script, line))
+			{
+				const size_t begin = line.find_first_not_of(" \t");
+				if (begin == std::string::npos || line.compare(begin, 6, "source") != 0
+					|| line.size() <= begin + 6 || (line[begin + 6] != ' ' && line[begin + 6] != '\t'))
+				{
+					continue;
+				}
+				const size_t nameBegin = line.find_first_not_of(" \t", begin + 6);
+				const size_t nameEnd = line.find_last_not_of(" \t\r\n");
+				if (nameBegin == std::string::npos || nameEnd < nameBegin)
+				{
+					continue;
+				}
+				const std::string sourceName = line.substr(nameBegin, nameEnd - nameBegin + 1);
+				const std::filesystem::path sourceFile = std::filesystem::path(sourceName).filename();
+				for (const std::filesystem::path& directory :
+					{ fontScriptPath.parent_path(), std::filesystem::path(textureDirectory) })
+				{
+					std::error_code copyError;
+					if (!directory.empty()
+						&& std::filesystem::copy_file(directory / sourceFile, stageDirectory / sourceFile,
+							std::filesystem::copy_options::overwrite_existing, copyError))
+					{
+						break;
+					}
+				}
+			}
+			return stageDirectory.string();
+		}
+
 		void EnsureOverlayRuntimeFont()
 		{
 			if (overlayRuntimeFontReady || overlayRuntimeFontAttempted)
@@ -489,11 +565,10 @@ namespace ExtraUtilities::Lua::Overlay
 			if (!overlayRuntimeFontScriptPath.empty())
 			{
 				const std::filesystem::path fontScriptPath(overlayRuntimeFontScriptPath);
-				const std::string fontScriptDirectory = fontScriptPath.parent_path().string();
 				const std::string stockTextureDirectory = ResolveFontTextureDirectory(GetCurrentModuleDirectory(), gameRootDirectory);
+				const std::string fontScriptDirectory = StageOverlayFontScript(fontScriptPath, stockTextureDirectory);
 				if (!fontScriptDirectory.empty()
 					&& Native::TryAddResourceLocation(fontScriptDirectory.c_str(), kOverlayRuntimeFontResourceGroup)
-					&& Native::TryAddResourceLocation(stockTextureDirectory.c_str(), kOverlayRuntimeFontResourceGroup)
 					&& Native::TryParseFontScript(kOverlayRuntimeFontScript, kOverlayRuntimeFontResourceGroup)
 					&& Native::TryHasFontResource(kOverlayRuntimeFontName, kOverlayRuntimeFontResourceGroup))
 				{

@@ -44,7 +44,17 @@ namespace ExtraUtilities::OpenShimBridge
 		}
 
 		const auto getApi = reinterpret_cast<GetApiFn>(GetProcAddress(module, "OpenShimGetApi"));
-		return getApi == nullptr || getApi(0) != nullptr;
+		if (getApi != nullptr)
+		{
+			return getApi(0) != nullptr;
+		}
+
+		// No OpenShimGetApi: either a build that predates it (live whenever
+		// loaded) or the SYSTEM winmm.dll, which the game imports and which
+		// GetModuleHandle returns when OpenShim is not installed. Only OpenShim's
+		// loader exports OpenShim* names, and OpenShimSetGlobalTurbo has been
+		// there since the first bridge release.
+		return GetProcAddress(module, "OpenShimSetGlobalTurbo") != nullptr;
 	}
 
 	// Null unless OpenShim is loaded AND its provider is live, so every Resolve
