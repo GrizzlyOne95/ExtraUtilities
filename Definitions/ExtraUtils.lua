@@ -3217,7 +3217,7 @@ function exu.SetAiTargetSelectEnabled(...) end
 --- @param ... any
 function exu.SetAiUnitTuning(...) end
 
---- True when OpenShim qualifies and installs the native Craft damage hook.
+--- True when EXU qualifies and installs its native Craft damage hook (no OpenShim needed).
 --- Currently qualified on Windows/GOG Redux 2.2.301; unsupported builds return false.
 --- @return boolean available
 function exu.HasNativeDamageResistance() end

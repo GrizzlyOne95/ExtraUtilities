@@ -2023,6 +2023,16 @@
         "pattern": null
       }
     },
+    "Craft": {
+      "EffectiveDamageResistanceSite": {
+        "address": "0x004AA6A0",
+        "type": "hook site (8 bytes, mid-function)",
+        "description": "Craft distributedObject DamageAlloc (vtable 0x00889478 -> 0x004AA630, thiscall, ret 8), after AdjustDamageValues/GetDamageValue stored the effective amount to [ebp-0xFC] and before the zero comparison. [ebp-0xF8] holds the receiver at GameObject+0x18. The same local becomes AddHealth's negative argument and precedes death flagging; the source DAMAGE record is never touched. UnitDamage replays the stolen MOVSS xmm0,[0x008A2498] (absolute operand, relocatable) and scales the local per receiver.",
+        "pattern": "F3 0F 10 05 98 24 8A 00 0F 2F 85 04 FF FF FF 72 07 32 C0 E9 D1 07 00 00",
+        "pattern_kind": "code",
+        "note": "Ported from OpenShim scripts/patches.json Craft::EffectiveDamageResistanceSite (pattern there starts 6 bytes earlier, unique at 0x004AA69A). Frame offsets proven live on GOG 2.2.301 by OpenShim 2026-10-07."
+      }
+    },
     "VehicleControl": {
       "UnitProcessExecute": {
         "address": "0x005FA6E0",

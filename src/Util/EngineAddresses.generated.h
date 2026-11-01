@@ -805,6 +805,15 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
+	namespace Craft
+	{
+		enum : uintptr_t
+		{
+			// hook site (8 bytes, mid-function)
+			EffectiveDamageResistanceSite = 0x004AA6A0u,
+		};
+	}
+
 	namespace VehicleControl
 	{
 		enum : uintptr_t
@@ -882,5 +891,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 286u;
+	inline constexpr unsigned kEntryCount = 287u;
 }
