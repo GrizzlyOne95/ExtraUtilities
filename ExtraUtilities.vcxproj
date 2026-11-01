@@ -245,6 +245,7 @@
     <ClCompile Include="src\Patches\ScreenFlash.cpp" />
     <ClCompile Include="src\Patches\StatusHud.cpp" />
     <ClCompile Include="src\Patches\ShotConvergence.cpp" />
+    <ClCompile Include="src\Patches\UnitDamage.cpp" />
     <ClCompile Include="src\Util\SoundOptions.cpp" />
     <ClCompile Include="src\Util\Soundtrack.cpp" />
     <ClCompile Include="src\Util\StorageApi.cpp" />
@@ -365,6 +366,8 @@
     <ClInclude Include="src\Patches\ScreenFlash.h" />
     <ClInclude Include="src\Patches\StatusHud.h" />
     <ClInclude Include="src\Patches\ShotConvergence.h" />
+    <ClInclude Include="src\Patches\UnitDamage.h" />
+    <ClInclude Include="src\Game\UnitDamagePolicy.h" />
     <ClInclude Include="src\Util\SoundOptions.h" />
     <ClInclude Include="src\Util\Soundtrack.h" />
     <ClInclude Include="src\Util\MusicFade.h" />

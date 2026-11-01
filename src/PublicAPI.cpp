@@ -68,6 +68,7 @@
 #include "Patches/EngineFlameColor.h"
 #include "Patches/GlobalTurbo.h"
 #include "Patches/KillMessages.h"
+#include "Patches/UnitDamage.h"
 #include "Patches/UnitVo.h"
 #include "Scanner.h"
 #include "UI/ControlPanel.h"
@@ -216,6 +217,7 @@ namespace ExtraUtilities::Lua
 			ExplosionEvents::Shutdown();
 			BuildEvents::Shutdown();
 			BettyVoice::Shutdown();
+			Patch::UnitDamage::Shutdown();
 			ResetMissionScopedState();
 			Overlay::ShutdownOverlaySupport();
 			StaticGeometry::Shutdown();

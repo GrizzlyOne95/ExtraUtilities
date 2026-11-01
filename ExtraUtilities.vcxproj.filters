@@ -261,6 +261,9 @@
     <ClCompile Include="src\Patches\StatusHud.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
+    <ClCompile Include="src\Patches\UnitDamage.cpp">
+      <Filter>Source Files\Patches</Filter>
+    </ClCompile>
     <ClCompile Include="src\Patches\ShotConvergence.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
@@ -678,6 +681,12 @@
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="src\Patches\StatusHud.h">
+      <Filter>Header Files\Patches</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Patches\UnitDamage.h">
+      <Filter>Header Files\Patches</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\UnitDamagePolicy.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="src\Patches\ShotConvergence.h">
