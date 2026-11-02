@@ -105,6 +105,7 @@ namespace ExtraUtilities::Lua::GameObject
 	int SetMaterialPassColors(lua_State* L);
 	int SetMaterialShaderVector(lua_State* L);
 	int EntityLocalPoint(lua_State* L);
+	int GetTargetTransform(lua_State* L);
     int CloneSurfaceMaterial(lua_State* L);
     int ReleaseSurfaceMaterial(lua_State* L);
     int SetSurfaceTexture(lua_State* L);

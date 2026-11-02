@@ -86,6 +86,13 @@ function animation.SetSubEntityRenderQueue(target, selector, group, priority) en
 --- @return boolean? isOwnGroup
 function animation.GetSubEntityRenderQueue(target, subEntityIndex) end
 
+--- World transform of the target entity's scene node, in sim space (right/up/front are the
+--- object's axes, posit is world position). Returns nil when the target has no renderable entity.
+--- @nodiscard
+--- @param target Handle|ExuAnimationTarget
+--- @return Matrix?
+function animation.GetTargetTransform(target) end
+
 --- Returns the currently implemented target/clock capabilities.
 --- @nodiscard
 --- @return ExuAnimationCapabilities
