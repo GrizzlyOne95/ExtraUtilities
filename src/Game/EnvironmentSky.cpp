@@ -152,6 +152,13 @@ namespace ExtraUtilities::Lua::Environment
 			return Seh::CatchCpp("TrySetSkyEnabled", [&] { return TrySetSkyEnabledSeh(sceneManager, fn, enabled, label); }, false);
 		}
 
+		// Skies a script turned on. The mission teardown destroys every entity
+		// (the sky meshes too) but leaves Ogre's sky flags set, so the next
+		// frame renders freed entities unless we switch them off first.
+		bool g_skyBoxEnabledByScript = false;
+		bool g_skyDomeEnabledByScript = false;
+		bool g_skyPlaneEnabledByScript = false;
+
 		bool TrySetSkyBoxSeh(void* sceneManager, const std::string& materialName, float distance, bool drawFirst, const std::string& resourceGroup)
 		{
 			const auto fn = ResolveSetSkyBox();
@@ -446,7 +453,10 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		const bool enabled = CheckBool(L, 1);
-		TrySetSkyEnabled(sceneManager, ResolveSetSkyBoxEnabled(), enabled, "skybox");
+		if (TrySetSkyEnabled(sceneManager, ResolveSetSkyBoxEnabled(), enabled, "skybox") && enabled)
+		{
+			g_skyBoxEnabledByScript = true;
+		}
 		return 0;
 	}
 
@@ -467,7 +477,9 @@ namespace ExtraUtilities::Lua::Environment
 		const std::string resourceGroup = CheckOptionalSkyResourceGroup(L, 4);
 		const std::string materialName(materialNameArg);
 
-		lua_pushboolean(L, TrySetSkyBox(sceneManager, materialName, distance, drawFirst, resourceGroup) ? 1 : 0);
+		const bool set = TrySetSkyBox(sceneManager, materialName, distance, drawFirst, resourceGroup);
+		g_skyBoxEnabledByScript = g_skyBoxEnabledByScript || set;
+		lua_pushboolean(L, set ? 1 : 0);
 		return 1;
 	}
 
@@ -497,7 +509,10 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		const bool enabled = CheckBool(L, 1);
-		TrySetSkyEnabled(sceneManager, ResolveSetSkyDomeEnabled(), enabled, "skydome");
+		if (TrySetSkyEnabled(sceneManager, ResolveSetSkyDomeEnabled(), enabled, "skydome") && enabled)
+		{
+			g_skyDomeEnabledByScript = true;
+		}
 		return 0;
 	}
 
@@ -523,7 +538,7 @@ namespace ExtraUtilities::Lua::Environment
 		const std::string resourceGroup = CheckOptionalSkyResourceGroup(L, 9);
 		const std::string materialName(materialNameArg);
 
-		lua_pushboolean(L, TrySetSkyDome(
+		const bool set = TrySetSkyDome(
 			sceneManager,
 			materialName,
 			curvature,
@@ -533,7 +548,9 @@ namespace ExtraUtilities::Lua::Environment
 			xsegments,
 			ysegments,
 			ysegmentsKeep,
-			resourceGroup) ? 1 : 0);
+			resourceGroup);
+		g_skyDomeEnabledByScript = g_skyDomeEnabledByScript || set;
+		lua_pushboolean(L, set ? 1 : 0);
 		return 1;
 	}
 
@@ -563,7 +580,10 @@ namespace ExtraUtilities::Lua::Environment
 		}
 
 		const bool enabled = CheckBool(L, 1);
-		TrySetSkyEnabled(sceneManager, ResolveSetSkyPlaneEnabled(), enabled, "skyplane");
+		if (TrySetSkyEnabled(sceneManager, ResolveSetSkyPlaneEnabled(), enabled, "skyplane") && enabled)
+		{
+			g_skyPlaneEnabledByScript = true;
+		}
 		return 0;
 	}
 
@@ -590,7 +610,7 @@ namespace ExtraUtilities::Lua::Environment
 		const std::string resourceGroup = CheckOptionalSkyResourceGroup(L, 9);
 		const std::string materialName(materialNameArg);
 
-		lua_pushboolean(L, TrySetSkyPlane(
+		const bool set = TrySetSkyPlane(
 			sceneManager,
 			plane,
 			materialName,
@@ -600,7 +620,9 @@ namespace ExtraUtilities::Lua::Environment
 			bow,
 			xsegments,
 			ysegments,
-			resourceGroup) ? 1 : 0);
+			resourceGroup);
+		g_skyPlaneEnabledByScript = g_skyPlaneEnabledByScript || set;
+		lua_pushboolean(L, set ? 1 : 0);
 		return 1;
 	}
 
@@ -746,6 +768,30 @@ namespace ExtraUtilities::Lua::Environment
 		{
 			return static_cast<uint8_t>(std::lround(channel * 255.0f));
 		}
+	}
+
+	void DisableScriptSkies() noexcept
+	{
+		// Only a flag write in Ogre, so safe even after the sky entities are freed.
+		void* sceneManager = GetSceneManager();
+		if (sceneManager != nullptr)
+		{
+			if (g_skyBoxEnabledByScript)
+			{
+				TrySetSkyEnabled(sceneManager, ResolveSetSkyBoxEnabled(), false, "skybox");
+			}
+			if (g_skyDomeEnabledByScript)
+			{
+				TrySetSkyEnabled(sceneManager, ResolveSetSkyDomeEnabled(), false, "skydome");
+			}
+			if (g_skyPlaneEnabledByScript)
+			{
+				TrySetSkyEnabled(sceneManager, ResolveSetSkyPlaneEnabled(), false, "skyplane");
+			}
+		}
+		g_skyBoxEnabledByScript = false;
+		g_skyDomeEnabledByScript = false;
+		g_skyPlaneEnabledByScript = false;
 	}
 
 	void RestoreSkyClearColor() noexcept
