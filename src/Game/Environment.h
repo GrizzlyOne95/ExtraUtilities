@@ -79,6 +79,9 @@ namespace ExtraUtilities::Lua::Environment
 	int ResetSkyClearColor(lua_State* L);
 	// Puts back the TRN value if a script override is still in place.
 	void RestoreSkyClearColor() noexcept;
+	// Switches off the Ogre skies a script turned on, before the mission
+	// teardown frees their entities.
+	void DisableScriptSkies() noexcept;
 	int HasParticleSystem(lua_State* L);
 	int ParseResourceScript(lua_State* L);
 	int HasParticleTemplate(lua_State* L);

@@ -97,6 +97,7 @@ namespace ExtraUtilities::Lua::Environment
 			ForgetAllParticleCameraFollowers();
 			FirstPersonParticles::ResetMissionState();
 			g_desiredLightingMode = ViewportLightingMode::Default;
+			DisableScriptSkies();
 			RestoreSkyClearColor();
 		}
 		catch (...)
@@ -104,6 +105,7 @@ namespace ExtraUtilities::Lua::Environment
 			g_managedParticleNames.clear();
 			g_managedParticleSceneManager = nullptr;
 			FirstPersonParticles::ResetMissionState();
+			DisableScriptSkies();
 			RestoreSkyClearColor();
 		}
 	}
