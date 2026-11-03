@@ -1035,6 +1035,7 @@ namespace ExtraUtilities::Lua
 			{ "SetUnderAttackAlertMode", &Patches::SetUnderAttackAlertMode },
 			{ "SetTargetReticlePopupMode", &Patches::SetTargetReticlePopupMode },
 			{ "SetBomberAiRangeEnabled", &Patches::SetBomberAiRangeEnabled },
+			{ "SetLegacyTankAiEnabled", &Patches::SetLegacyTankAiEnabled },
 			{ "SetHowitzerVolleyEnabled", &Patches::SetHowitzerVolleyEnabled },
 			{ "SetWeaponMaskCarrierBiasEnabled", &Patches::SetWeaponMaskCarrierBiasEnabled },
 			{ "SetAiOdfGameplayTuningEnabled", &Patches::SetAiOdfGameplayTuningEnabled },

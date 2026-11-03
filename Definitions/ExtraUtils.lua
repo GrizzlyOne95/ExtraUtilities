@@ -3243,8 +3243,16 @@ function exu.ResetUnitDamageMultipliers() end
 --- @param ... any
 function exu.SetAttackRevealEnabled(...) end
 
+--- Deprecated: does nothing. Bomber range is now part of OpenShim's
+--- AiOdfGameplayTuning; use exu.SetAiOdfGameplayTuningEnabled.
+--- @deprecated
 --- @param ... any
 function exu.SetBomberAiRangeEnabled(...) end
+
+--- Turns the OpenShim Legacy Tank AI (1.4/TRO strafe-and-retreat attack AI) on or off for this mission. Single player only; reverts at mission end. Returns false if OpenShim is missing.
+--- @param enabled boolean
+--- @return boolean accepted
+function exu.SetLegacyTankAiEnabled(enabled) end
 
 --- Sets the camera distance beyond which units are hidden while culling is enabled.
 --- @param distance number finite, non-negative

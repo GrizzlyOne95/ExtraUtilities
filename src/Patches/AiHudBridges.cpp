@@ -32,6 +32,7 @@ namespace ExtraUtilities::Lua::Patches
 		using OpenShimSetUnderAttackAlertModeFn = BOOL(WINAPI*)(int);
 		using OpenShimSetTargetReticlePopupModeFn = BOOL(WINAPI*)(int);
 		using OpenShimSetBomberAiRangeEnabledFn = BOOL(WINAPI*)(BOOL);
+		using OpenShimSetLegacyTankAiEnabledFn = BOOL(WINAPI*)(BOOL);
 		using OpenShimSetHowitzerVolleyEnabledFn = BOOL(WINAPI*)(BOOL);
 		using OpenShimSetWeaponMaskCarrierBiasEnabledFn = BOOL(WINAPI*)(BOOL);
         using OpenShimSetAiOdfGameplayTuningEnabledFn = BOOL(WINAPI*)(BOOL);
@@ -69,6 +70,14 @@ namespace ExtraUtilities::Lua::Patches
 			static constinit OpenShimBridge::CachedExport<OpenShimSetBomberAiRangeEnabledFn> bridge{
 				"OpenShimSetBomberAiRangeEnabled",
 				"[EXU::UnitVo] OpenShim bomber AI range bridge unavailable" };
+			return bridge.Get();
+		}
+
+		OpenShimSetLegacyTankAiEnabledFn ResolveLegacyTankAiBridge()
+		{
+			static constinit OpenShimBridge::CachedExport<OpenShimSetLegacyTankAiEnabledFn> bridge{
+				"OpenShimSetLegacyTankAiEnabled",
+				"[EXU::UnitVo] OpenShim legacy tank AI bridge unavailable" };
 			return bridge.Get();
 		}
 
@@ -207,6 +216,19 @@ namespace ExtraUtilities::Lua::Patches
 	{
 		const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
 		if (OpenShimSetBomberAiRangeEnabledFn fn = ResolveBomberAiRangeBridge())
+		{
+			lua_pushboolean(L, fn(requested) ? 1 : 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	int SetLegacyTankAiEnabled(lua_State* L)
+	{
+		const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
+		if (OpenShimSetLegacyTankAiEnabledFn fn = ResolveLegacyTankAiBridge())
 		{
 			lua_pushboolean(L, fn(requested) ? 1 : 0);
 			return 1;
