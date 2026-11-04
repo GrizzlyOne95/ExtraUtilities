@@ -34,6 +34,9 @@ namespace ExtraUtilities::Lua::Patches
 		using OpenShimSetBomberAiRangeEnabledFn = BOOL(WINAPI*)(BOOL);
 		using OpenShimSetLegacyTankAiEnabledFn = BOOL(WINAPI*)(BOOL);
 		using OpenShimSetLegacyTankAiModeFn = BOOL(WINAPI*)(int);
+		using OpenShimSetAiFollowEngageEnabledFn = BOOL(WINAPI*)(BOOL);
+		using OpenShimSetAiDefendRefreshEnabledFn = BOOL(WINAPI*)(BOOL);
+		using OpenShimSetAiHoldFn = BOOL(WINAPI*)(int, BOOL);
 		using OpenShimSetHowitzerVolleyEnabledFn = BOOL(WINAPI*)(BOOL);
 		using OpenShimSetWeaponMaskCarrierBiasEnabledFn = BOOL(WINAPI*)(BOOL);
         using OpenShimSetAiOdfGameplayTuningEnabledFn = BOOL(WINAPI*)(BOOL);
@@ -87,6 +90,30 @@ namespace ExtraUtilities::Lua::Patches
 			static constinit OpenShimBridge::CachedExport<OpenShimSetLegacyTankAiModeFn> bridge{
 				"OpenShimSetLegacyTankAiMode",
 				"[EXU::UnitVo] OpenShim legacy tank AI mode bridge unavailable" };
+			return bridge.Get();
+		}
+
+		OpenShimSetAiFollowEngageEnabledFn ResolveAiFollowEngageBridge()
+		{
+			static constinit OpenShimBridge::CachedExport<OpenShimSetAiFollowEngageEnabledFn> bridge{
+				"OpenShimSetAiFollowEngageEnabled",
+				"[EXU::UnitVo] OpenShim AI follow engage bridge unavailable" };
+			return bridge.Get();
+		}
+
+		OpenShimSetAiDefendRefreshEnabledFn ResolveAiDefendRefreshBridge()
+		{
+			static constinit OpenShimBridge::CachedExport<OpenShimSetAiDefendRefreshEnabledFn> bridge{
+				"OpenShimSetAiDefendRefreshEnabled",
+				"[EXU::UnitVo] OpenShim AI defend refresh bridge unavailable" };
+			return bridge.Get();
+		}
+
+		OpenShimSetAiHoldFn ResolveAiHoldBridge()
+		{
+			static constinit OpenShimBridge::CachedExport<OpenShimSetAiHoldFn> bridge{
+				"OpenShimSetAiHold",
+				"[EXU::UnitVo] OpenShim AI hold bridge unavailable" };
 			return bridge.Get();
 		}
 
@@ -258,6 +285,46 @@ namespace ExtraUtilities::Lua::Patches
 		if (OpenShimSetLegacyTankAiModeFn fn = ResolveLegacyTankAiModeBridge())
 		{
 			lua_pushboolean(L, fn(static_cast<int>(requested)) ? 1 : 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	int SetFollowEngageEnabled(lua_State* L)
+	{
+		const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
+		if (OpenShimSetAiFollowEngageEnabledFn fn = ResolveAiFollowEngageBridge())
+		{
+			lua_pushboolean(L, fn(requested) ? 1 : 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	int SetDefendRefreshEnabled(lua_State* L)
+	{
+		const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
+		if (OpenShimSetAiDefendRefreshEnabledFn fn = ResolveAiDefendRefreshBridge())
+		{
+			lua_pushboolean(L, fn(requested) ? 1 : 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	int SetAiHold(lua_State* L)
+	{
+		const BZR::handle h = CheckHandle(L, 1);
+		const BOOL requested = lua_toboolean(L, 2) ? TRUE : FALSE;
+		if (OpenShimSetAiHoldFn fn = ResolveAiHoldBridge())
+		{
+			lua_pushboolean(L, fn(static_cast<int>(h), requested) ? 1 : 0);
 			return 1;
 		}
 
