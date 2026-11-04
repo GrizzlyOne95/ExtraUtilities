@@ -55,6 +55,7 @@ namespace ExtraUtilities::Lua::Patches
 	int SetTargetReticlePopupMode(lua_State* L);
 	int SetBomberAiRangeEnabled(lua_State* L);
 	int SetLegacyTankAiEnabled(lua_State* L);
+	int SetLegacyTankAiMode(lua_State* L);
 	int SetHowitzerVolleyEnabled(lua_State* L);
 	int SetWeaponMaskCarrierBiasEnabled(lua_State* L);
 	int SetAiOdfGameplayTuningEnabled(lua_State* L);
