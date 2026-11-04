@@ -3254,6 +3254,12 @@ function exu.SetBomberAiRangeEnabled(...) end
 --- @return boolean accepted
 function exu.SetLegacyTankAiEnabled(enabled) end
 
+--- Selects which teams use the OpenShim Legacy Tank AI (1.4/TRO strafe-and-retreat attack AI). Single player only; reverts at mission end. Returns false if OpenShim is missing or too old.
+--- Modes: 0 = off, 1 = all teams, 2 = AI teams only (not the player's team).
+--- @param mode integer 0, 1 or 2
+--- @return boolean accepted
+function exu.SetLegacyTankAiMode(mode) end
+
 --- Sets the camera distance beyond which units are hidden while culling is enabled.
 --- @param distance number finite, non-negative
 function exu.SetCullDistance(distance) end

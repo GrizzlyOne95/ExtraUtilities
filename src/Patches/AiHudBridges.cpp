@@ -33,6 +33,7 @@ namespace ExtraUtilities::Lua::Patches
 		using OpenShimSetTargetReticlePopupModeFn = BOOL(WINAPI*)(int);
 		using OpenShimSetBomberAiRangeEnabledFn = BOOL(WINAPI*)(BOOL);
 		using OpenShimSetLegacyTankAiEnabledFn = BOOL(WINAPI*)(BOOL);
+		using OpenShimSetLegacyTankAiModeFn = BOOL(WINAPI*)(int);
 		using OpenShimSetHowitzerVolleyEnabledFn = BOOL(WINAPI*)(BOOL);
 		using OpenShimSetWeaponMaskCarrierBiasEnabledFn = BOOL(WINAPI*)(BOOL);
         using OpenShimSetAiOdfGameplayTuningEnabledFn = BOOL(WINAPI*)(BOOL);
@@ -78,6 +79,14 @@ namespace ExtraUtilities::Lua::Patches
 			static constinit OpenShimBridge::CachedExport<OpenShimSetLegacyTankAiEnabledFn> bridge{
 				"OpenShimSetLegacyTankAiEnabled",
 				"[EXU::UnitVo] OpenShim legacy tank AI bridge unavailable" };
+			return bridge.Get();
+		}
+
+		OpenShimSetLegacyTankAiModeFn ResolveLegacyTankAiModeBridge()
+		{
+			static constinit OpenShimBridge::CachedExport<OpenShimSetLegacyTankAiModeFn> bridge{
+				"OpenShimSetLegacyTankAiMode",
+				"[EXU::UnitVo] OpenShim legacy tank AI mode bridge unavailable" };
 			return bridge.Get();
 		}
 
@@ -231,6 +240,24 @@ namespace ExtraUtilities::Lua::Patches
 		if (OpenShimSetLegacyTankAiEnabledFn fn = ResolveLegacyTankAiBridge())
 		{
 			lua_pushboolean(L, fn(requested) ? 1 : 0);
+			return 1;
+		}
+
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+
+	int SetLegacyTankAiMode(lua_State* L)
+	{
+		lua_Integer requested = luaL_checkinteger(L, 1);
+		if (requested < 0 || requested > 2)
+		{
+			return luaL_argerror(L, 1, "Extra Utilities Error: legacy tank AI mode must be 0-2");
+		}
+
+		if (OpenShimSetLegacyTankAiModeFn fn = ResolveLegacyTankAiModeBridge())
+		{
+			lua_pushboolean(L, fn(static_cast<int>(requested)) ? 1 : 0);
 			return 1;
 		}
 

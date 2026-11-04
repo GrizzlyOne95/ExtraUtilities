@@ -1036,6 +1036,7 @@ namespace ExtraUtilities::Lua
 			{ "SetTargetReticlePopupMode", &Patches::SetTargetReticlePopupMode },
 			{ "SetBomberAiRangeEnabled", &Patches::SetBomberAiRangeEnabled },
 			{ "SetLegacyTankAiEnabled", &Patches::SetLegacyTankAiEnabled },
+			{ "SetLegacyTankAiMode", &Patches::SetLegacyTankAiMode },
 			{ "SetHowitzerVolleyEnabled", &Patches::SetHowitzerVolleyEnabled },
 			{ "SetWeaponMaskCarrierBiasEnabled", &Patches::SetWeaponMaskCarrierBiasEnabled },
 			{ "SetAiOdfGameplayTuningEnabled", &Patches::SetAiOdfGameplayTuningEnabled },
