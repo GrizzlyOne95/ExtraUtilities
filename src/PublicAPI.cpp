@@ -246,8 +246,11 @@ namespace ExtraUtilities::Lua
 		{
 			// The frame listener must never outlive the DLL.
             InterfacePresentation::Reset();
+			Radar::ResetTerrainState();
             HudOwnership::Reset();
             ConstructionHologram::Shutdown();
+			try { BasicPatch::UnloadAllPatches(); } catch (...) {}
+			ResetMissionScopedState();
 			VehicleControl::Shutdown();
 			PlayerControls::Shutdown();
 			DamageResistance::ResetMissionState();

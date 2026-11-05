@@ -137,13 +137,13 @@ namespace ExtraUtilities::Lua::Radar
                 }
                 return true;
             }
-            catch(...) { return false; }
+            catch(...) { faulted=true;return false; }
         }
 
         bool DrawDetail(void* self) noexcept
         {
             __try{return DrawDetailCpp(self);}
-            __except(Seh::Filter(GetExceptionCode())){return false;}
+            __except(Seh::Filter(GetExceptionCode())){faulted=true;return false;}
         }
 
         void __fastcall DrawTerrain(void* self,void*)
@@ -157,8 +157,9 @@ namespace ExtraUtilities::Lua::Radar
                 __try { *depth=saved+.03f;drawn=DrawDetail(self); }
                 __finally { *depth=saved; }
                 if(drawn)return;
-                faulted=true;
-                Logging::LogMessage("[EXU::Radar] BZ2 terrain failed; native terrain retained");
+                // A frame with nothing to draw (small scanner range) keeps native
+                // terrain for that frame; only a fault ends the overlay.
+                if(faulted)Logging::LogMessage("[EXU::Radar] BZ2 terrain failed; native terrain retained");
             }
             reinterpret_cast<OriginalTerrain>(A::DrawTerrain)(self);
         }

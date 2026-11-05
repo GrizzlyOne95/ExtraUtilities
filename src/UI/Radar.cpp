@@ -588,14 +588,14 @@ namespace ExtraUtilities::Lua::Radar
         for (auto& patch : presentationPatches)
         {
             patch->SetStatus(true);
-            if (!patch->IsActive()) { RestorePresentation(); lua_pushboolean(L, 0); return 1; }
+            if (!patch->IsActive()) { DisableTerrain(); RestorePresentation(); lua_pushboolean(L, 0); return 1; }
         }
         constexpr double radians = 3.14159265358979323846 / 180.0;
         presentationSine = static_cast<float>(std::sin(degrees * radians));
         presentationCosine = static_cast<float>(std::cos(degrees * radians));
         presentationDistance = static_cast<float>(distance);
         if (HudOwnership::HasProtocol() && !HudOwnership::Update(HudOwnership::Radar,true))
-        {RestorePresentation();lua_pushboolean(L,0);return 1;}
+        {DisableTerrain();RestorePresentation();lua_pushboolean(L,0);return 1;}
         lua_pushboolean(L, 1);
         return 1;
     }

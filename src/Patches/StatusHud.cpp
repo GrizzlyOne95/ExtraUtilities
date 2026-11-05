@@ -157,7 +157,10 @@ namespace ExtraUtilities::Lua::Patches
 			patch->SetStatus(status);
 		}
 
-		lua_pushboolean(L, IsVisible(group) == visible);
+		const bool matches = IsVisible(group) == visible;
+		// A refused scrap skip leaves the stock sprite: hand its text back too.
+		if (!matches && !visible && HudOwnership::HasProtocol()) HudOwnership::Update(group.area,false);
+		lua_pushboolean(L, matches);
 		return 1;
 	}
 }
