@@ -77,6 +77,13 @@ namespace ExtraUtilities::BzrBuildProfile
 	inline constexpr int kAnchor42_Construction_hologram_GetCommand[] = { 0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x54, 0xA1, 0x00, 0x70, 0x8E, 0x00, 0x33, 0xC5, 0x89, 0x45, 0xFC, 0x89, 0x4D, 0xD4, 0x8B, 0x4D, 0xD4 };
 	inline constexpr int kAnchor43_Construction_hologram_DisplayReference[] = { 0xB9, 0xD8, 0x86, 0x97, 0x00, 0xE8, 0xA1, 0xF2, 0xFF, 0xFF };
 	inline constexpr int kAnchor44_Construction_hologram_MatrixReference[] = { 0xE8, 0xEE, 0x51, 0xFC, 0xFF, 0x50, 0x8B, 0x4D, 0x08, 0x51, 0x8B, 0x4D, 0xD4, 0xE8, 0xE1, 0xFC, 0xFF, 0xFF, 0x8B, 0x55, 0xD4, 0x8B, 0x8A, 0x70, 0x03, 0x00, 0x00, 0xE8, 0xA3, 0xF2, 0xFF, 0xFF, 0x8B, 0x08, 0x89 };
+	inline constexpr int kAnchor45_Interface_presentation_Sprite[] = { 0x55, 0x8B, 0xEC, 0x81, 0xEC, 0x98, 0x00, 0x00, 0x00, 0xA1, 0x00, 0x70, 0x8E, 0x00 };
+	inline constexpr int kAnchor46_Interface_presentation_Font[] = { 0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x1C, 0xC7, 0x45, 0xF8, 0x00, 0x00, 0x00, 0x00, 0x8B, 0x45, 0x10 };
+	inline constexpr int kAnchor47_Interface_presentation_Fill[] = { 0x55, 0x8B, 0xEC, 0x8B, 0x45, 0x20, 0x50, 0x8B, 0x4D, 0x1C, 0x51, 0xE8, 0xD0, 0xFC, 0xFF, 0xFF, 0x83, 0xC4, 0x08, 0x50 };
+	inline constexpr int kAnchor48_Interface_presentation_Time[] = { 0x55, 0x8B, 0xEC, 0xD9, 0x05, 0x3C, 0x1B, 0xCC, 0x02, 0x5D, 0xC3, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0x55, 0x8B, 0xEC, 0x8B, 0x45, 0x0C };
+	inline constexpr int kAnchor49_Interface_presentation_Command[] = { 0x55, 0x8B, 0xEC, 0x81, 0xEC, 0x38, 0x06, 0x00, 0x00, 0xA1, 0x00, 0x70, 0x8E, 0x00, 0x33, 0xC5, 0x89, 0x45, 0xFC, 0x56, 0x57, 0x89, 0x8D, 0xBC, 0xFD, 0xFF, 0xFF };
+	inline constexpr int kAnchor50_Interface_presentation_Small[] = { 0x55, 0x8B, 0xEC, 0x81, 0xEC, 0xA8, 0x00, 0x00, 0x00, 0xA1, 0x00, 0x70, 0x8E, 0x00 };
+	inline constexpr int kAnchor51_Interface_presentation_Scale[] = { 0x55, 0x8B, 0xEC, 0xA1, 0x1C, 0x04, 0xBF, 0x02, 0x8B, 0x15, 0x20, 0x04, 0xBF, 0x02, 0x5D, 0xC3 };
 
 	inline constexpr AnchorSpec kRuntimeAnchors[] =
 	{
@@ -124,7 +131,14 @@ namespace ExtraUtilities::BzrBuildProfile
 		{ "Key binding parser write", kAnchor41_Key_binding_parser_write, sizeof(kAnchor41_Key_binding_parser_write) / sizeof(kAnchor41_Key_binding_parser_write[0]), AnchorMatchMode::ExpectedVa, 0x00620cc1u, false },
 		{ "Construction hologram GetCommand", kAnchor42_Construction_hologram_GetCommand, sizeof(kAnchor42_Construction_hologram_GetCommand) / sizeof(kAnchor42_Construction_hologram_GetCommand[0]), AnchorMatchMode::ExpectedVa, 0x0049d230u, false },
 		{ "Construction hologram DisplayReference", kAnchor43_Construction_hologram_DisplayReference, sizeof(kAnchor43_Construction_hologram_DisplayReference) / sizeof(kAnchor43_Construction_hologram_DisplayReference[0]), AnchorMatchMode::ExpectedVa, 0x0049d335u, false },
-		{ "Construction hologram MatrixReference", kAnchor44_Construction_hologram_MatrixReference, sizeof(kAnchor44_Construction_hologram_MatrixReference) / sizeof(kAnchor44_Construction_hologram_MatrixReference[0]), AnchorMatchMode::ExpectedVa, 0x0049d29du, false }
+		{ "Construction hologram MatrixReference", kAnchor44_Construction_hologram_MatrixReference, sizeof(kAnchor44_Construction_hologram_MatrixReference) / sizeof(kAnchor44_Construction_hologram_MatrixReference[0]), AnchorMatchMode::ExpectedVa, 0x0049d29du, false },
+		{ "Interface presentation Sprite", kAnchor45_Interface_presentation_Sprite, sizeof(kAnchor45_Interface_presentation_Sprite) / sizeof(kAnchor45_Interface_presentation_Sprite[0]), AnchorMatchMode::ExpectedVa, 0x0068ca30u, false },
+		{ "Interface presentation Font", kAnchor46_Interface_presentation_Font, sizeof(kAnchor46_Interface_presentation_Font) / sizeof(kAnchor46_Interface_presentation_Font[0]), AnchorMatchMode::ExpectedVa, 0x00689d10u, false },
+		{ "Interface presentation Fill", kAnchor47_Interface_presentation_Fill, sizeof(kAnchor47_Interface_presentation_Fill) / sizeof(kAnchor47_Interface_presentation_Fill[0]), AnchorMatchMode::ExpectedVa, 0x0068af70u, false },
+		{ "Interface presentation Time", kAnchor48_Interface_presentation_Time, sizeof(kAnchor48_Interface_presentation_Time) / sizeof(kAnchor48_Interface_presentation_Time[0]), AnchorMatchMode::ExpectedVa, 0x00822da0u, false },
+		{ "Interface presentation Command", kAnchor49_Interface_presentation_Command, sizeof(kAnchor49_Interface_presentation_Command) / sizeof(kAnchor49_Interface_presentation_Command[0]), AnchorMatchMode::ExpectedVa, 0x004a08e0u, false },
+		{ "Interface presentation Small", kAnchor50_Interface_presentation_Small, sizeof(kAnchor50_Interface_presentation_Small) / sizeof(kAnchor50_Interface_presentation_Small[0]), AnchorMatchMode::ExpectedVa, 0x0068c560u, false },
+		{ "Interface presentation Scale", kAnchor51_Interface_presentation_Scale, sizeof(kAnchor51_Interface_presentation_Scale) / sizeof(kAnchor51_Interface_presentation_Scale[0]), AnchorMatchMode::ExpectedVa, 0x00689eb0u, false }
 	};
 
 	inline constexpr size_t kRuntimeAnchorCount =

@@ -230,6 +230,7 @@
     <ClCompile Include="src\Util\OS.cpp" />
     <ClCompile Include="src\Util\PlayOption.cpp" />
     <ClCompile Include="src\UI\Radar.cpp" />
+    <ClCompile Include="src\UI\InterfacePresentation.cpp" />
     <ClCompile Include="src\UI\RadarTerrain.cpp" />
     <ClCompile Include="src\UI\Renderer.cpp" />
     <ClCompile Include="src\UI\Reticle.cpp" />

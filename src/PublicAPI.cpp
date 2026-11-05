@@ -75,6 +75,7 @@
 #include "UI/ControlPanel.h"
 #include "UI/NativeHud.h"
 #include "UI/HudOwnership.h"
+#include "UI/InterfacePresentation.h"
 #include "UI/Renderer.h"
 #include "UI/Radar.h"
 #include "Util/Logging.h"
@@ -172,6 +173,7 @@ namespace ExtraUtilities::Lua
 	// overrides and engine values into the next mission.
 	void ResetMissionScopedState() noexcept
 	{
+        InterfacePresentation::Reset();
         HudOwnership::Reset();
 		OdfRecoilAnimation::Reset();
 		Soundtrack::ResetMissionState();
@@ -216,6 +218,7 @@ namespace ExtraUtilities::Lua
 			CommandReplacement::ReleaseState(L);
 			PlayerControls::Shutdown();
 			Radar::ResetTerrainState();
+            InterfacePresentation::Reset();
             HudOwnership::Reset();
             ConstructionHologram::Shutdown();
             BasicPatch::UnloadAllPatches();
@@ -242,6 +245,7 @@ namespace ExtraUtilities::Lua
 		catch (...)
 		{
 			// The frame listener must never outlive the DLL.
+            InterfacePresentation::Reset();
 			Radar::ResetTerrainState();
             HudOwnership::Reset();
             ConstructionHologram::Shutdown();

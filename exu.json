@@ -2438,6 +2438,96 @@
         "type": "void*",
         "description": "Stock ConstructionDisplay instance; address qualified by DisplayReference, never written by this feature."
       }
+    },
+    "InterfacePresentation": {
+      "Sprite": {
+        "address": "0x0068CA30",
+        "type": "function",
+        "description": "HUD sprite submit, cdecl (buffer, material, spriteId, x, y, w, h, 1, 0).",
+        "pattern": "55 8B EC 81 EC 98 00 00 00 A1 00 70 8E 00",
+        "pattern_kind": "code",
+        "note": "Released GOG 2.2.301; shared verified native HUD semantics. Optional feature only; entry preimages fail closed."
+      },
+      "Font": {
+        "address": "0x00689D10",
+        "type": "function",
+        "description": "Exact released GOG 2.2.301 SHA256 8D71F56C...3377413. Five-stack-argument cdecl native glyph-string draw; weapon-name CALL has caller cleanup 0x14. Semantics inspected in released Ghidra/disassembly; complete expected bytes matched native ReadProcessMemory PID 21984 on 2026-10-19.",
+        "pattern": "55 8B EC 83 EC 1C C7 45 F8 00 00 00 00 8B 45 10",
+        "pattern_kind": "code",
+        "note": "Released GOG 2.2.301; shared verified native HUD semantics. Optional feature only; entry preimages fail closed."
+      },
+      "Fill": {
+        "address": "0x0068AF70",
+        "type": "function",
+        "description": "Filled rectangle (distinct from HudFillRect outline helper), cdecl(viewport,x1,y1,x2,y2,color,mode), used by all three native shot-cost marker CALLs; caller cleanup 0x1C. Released GOG 2.2.301 Ghidra semantics and native ReadProcessMemory PID 48744 on 2026-10-19 matched this complete window.",
+        "pattern": "55 8B EC 8B 45 20 50 8B 4D 1C 51 E8 D0 FC FF FF 83 C4 08 50",
+        "pattern_kind": "code",
+        "note": "Released GOG 2.2.301; shared verified native HUD semantics. Optional feature only; entry preimages fail closed."
+      },
+      "Time": {
+        "address": "0x00822DA0",
+        "type": "function",
+        "description": "Native game-local time getter, float ST0 from 0x02CC1B3C; same clock used by released radar last-hit/alert comparison. Released GOG 2.2.301 SHA256 8D71F56C...3377413, Ghidra/xrefs/Capstone semantics and native ReadProcessMemory PID 5780 on 2026-10-19 matched the complete expected window.",
+        "pattern": "55 8B EC D9 05 3C 1B CC 02 5D C3 CC CC CC CC CC 55 8B EC 8B 45 0C",
+        "pattern_kind": "code",
+        "note": "Released GOG 2.2.301; shared verified native HUD semantics. Optional feature only; entry preimages fail closed."
+      },
+      "Names": {
+        "address": "0x00920F08",
+        "type": "data",
+        "description": "HUD sprite name table, 0x20-byte names indexed by sprite id",
+        "pattern": null,
+        "note": "Released GOG 2.2.301; shared verified native HUD semantics. Optional feature only; entry preimages fail closed."
+      },
+      "Count": {
+        "address": "0x00920F00",
+        "type": "data",
+        "description": "uint32 count of registered HUD sprite names; sanity-checked (1..4096) before every read",
+        "pattern": null,
+        "note": "Released GOG 2.2.301; shared verified native HUD semantics. Optional feature only; entry preimages fail closed."
+      },
+      "Rows": {
+        "address": "0x009173E8",
+        "type": "data",
+        "description": "Command menu row rects, 13 x {left, top, right, bottom}, rebuilt by 0x0049F9E0 on every viewport or UI-scale change.",
+        "pattern": null,
+        "note": "Released GOG 2.2.301; shared verified native HUD semantics. Optional feature only; entry preimages fail closed."
+      },
+      "Mouse": {
+        "address": "0x009175A0",
+        "type": "data",
+        "description": "Two native command pointer coordinates (x,y) supplied by CommandUI rendering to the row hit-test; use only with the pointer-action byte and CommandMenuRowRects. Guarded native renderer xrefs qualify these reads; faults fail fully visible.",
+        "pattern": null,
+        "note": "Released GOG 2.2.301; shared verified native HUD semantics. Optional feature only; entry preimages fail closed."
+      },
+      "Command": {
+        "address": "0x004A08E0",
+        "type": "function",
+        "description": "Native command-interface renderer: thiscall self, no stack arguments. ECX is saved at EBP-0x244; full function includes artwork/text/bar draws plus native command input and menu sounds. The wrapper always executes the original function. Released GOG 2.2.301 SHA256 8D71F56C...3377413, static Ghidra/Capstone semantics and native ReadProcessMemory PID 34640 on 2026-10-19; full expected bytes matched.",
+        "pattern": "55 8B EC 81 EC 38 06 00 00 A1 00 70 8E 00 33 C5 89 45 FC 56 57 89 8D BC FD FF FF",
+        "pattern_kind": "code",
+        "note": "Released GOG 2.2.301; shared verified native HUD semantics. Optional feature only; entry preimages fail closed."
+      },
+      "Small": {
+        "address": "0x0068C560",
+        "type": "function",
+        "description": "Six-argument cdecl sprite draw. Unlike sized draw it resolves its own material from the sprite record. Released GOG static identity and native wrapper evidence shared with HudFeedbackSprite.",
+        "pattern": "55 8B EC 81 EC A8 00 00 00 A1 00 70 8E 00",
+        "pattern_kind": "code"
+      },
+      "Scale": {
+        "address": "0x00689EB0",
+        "type": "function",
+        "description": "cdecl packed float UI scale pair, EAX=x bits and EDX=y bits. Called twice by released six-argument sprite renderer. Native released disassembly loads 0x02BF041C/420 then returns without stack args.",
+        "pattern": "55 8B EC A1 1C 04 BF 02 8B 15 20 04 BF 02 5D C3",
+        "pattern_kind": "code"
+      },
+      "Rects": {
+        "address": "0x025F8F40",
+        "type": "data",
+        "description": "Native sprite records, stride 36 bytes. Width and height at short indices 2/3, verified in released sprite-draw body.",
+        "pattern": null
+      }
     }
   }
 }

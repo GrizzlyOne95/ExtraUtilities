@@ -555,6 +555,16 @@ function exu.SetPilotHudColor(color) end
 --- @return integer | nil bottom
 function exu.GetCommandMenuRect() end
 
+--- Opts into BZ2-style native command/target panels, command icons and rotating
+--- target/objective markers. Native input, visibility, labels, sounds and gameplay
+--- remain active. Rendering is self-contained in EXU. Optional OpenShim yields
+--- command palette/fading through the ownership protocol. False means an
+--- unsupported build or conflicting native hook; no external renderer is needed.
+--- Closing the mission Lua state releases presentation, including a pinned DLL.
+--- @param enabled boolean
+--- @return boolean accepted
+function exu.SetBz2HudPresentationEnabled(enabled) end
+
 --- Adds the given unit to the local player's selection.
 --- @param h Handle
 function exu.SelectAdd(h) end

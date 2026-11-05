@@ -487,6 +487,76 @@
       "required": false,
       "runtime_gate": true,
       "reason": "Optional construction preview only; independently checked released GOG bytes and ABI. Does not gate unrelated features."
+    },
+    {
+      "name": "Interface presentation Sprite",
+      "source": "catalog",
+      "catalog_path": "InterfacePresentation.Sprite",
+      "match": "expected_va",
+      "expected_va": "0x0068CA30",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional native UI presentation only; released GOG identity and ABI shared with verified native HUD evidence."
+    },
+    {
+      "name": "Interface presentation Font",
+      "source": "catalog",
+      "catalog_path": "InterfacePresentation.Font",
+      "match": "expected_va",
+      "expected_va": "0x00689D10",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional native UI presentation only; released GOG identity and ABI shared with verified native HUD evidence."
+    },
+    {
+      "name": "Interface presentation Fill",
+      "source": "catalog",
+      "catalog_path": "InterfacePresentation.Fill",
+      "match": "expected_va",
+      "expected_va": "0x0068AF70",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional native UI presentation only; released GOG identity and ABI shared with verified native HUD evidence."
+    },
+    {
+      "name": "Interface presentation Time",
+      "source": "catalog",
+      "catalog_path": "InterfacePresentation.Time",
+      "match": "expected_va",
+      "expected_va": "0x00822DA0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional native UI presentation only; released GOG identity and ABI shared with verified native HUD evidence."
+    },
+    {
+      "name": "Interface presentation Command",
+      "source": "catalog",
+      "catalog_path": "InterfacePresentation.Command",
+      "match": "expected_va",
+      "expected_va": "0x004A08E0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional native UI presentation only; released GOG identity and ABI shared with verified native HUD evidence."
+    },
+    {
+      "name": "Interface presentation Small",
+      "source": "catalog",
+      "catalog_path": "InterfacePresentation.Small",
+      "match": "expected_va",
+      "expected_va": "0x0068C560",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional native UI only; released sprite caller and packed return ABI verified."
+    },
+    {
+      "name": "Interface presentation Scale",
+      "source": "catalog",
+      "catalog_path": "InterfacePresentation.Scale",
+      "match": "expected_va",
+      "expected_va": "0x00689EB0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional native UI only; released sprite caller and packed return ABI verified."
     }
   ]
 }
