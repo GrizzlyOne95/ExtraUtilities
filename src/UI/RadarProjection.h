@@ -27,4 +27,19 @@ namespace ExtraUtilities::RadarPresentation
             y < (std::numeric_limits<int>::min)() || y > (std::numeric_limits<int>::max)()) return center;
         return Pack(static_cast<int>(x), static_cast<int>(y));
     }
+
+    // Same projection without pixel snapping: textured triangles rotate every
+    // frame, and whole-pixel vertices would make the texture shimmer.
+    inline bool ProjectExact(const float* point, float range, int radius,
+        float distance, int centerX, int centerY, float& x, float& y)
+    {
+        if (!point || !std::isfinite(range) || range <= 0 || radius <= 0 ||
+            !std::isfinite(distance) || distance < 3) return false;
+        const float divisor = range * distance + point[2];
+        if (!std::isfinite(divisor) || divisor <= 0) return false;
+        const float factor = static_cast<float>(radius) * distance / divisor;
+        x = centerX + point[0] * factor;
+        y = centerY - point[1] * factor;
+        return std::isfinite(x) && std::isfinite(y);
+    }
 }

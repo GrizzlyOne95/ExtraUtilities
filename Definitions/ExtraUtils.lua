@@ -3780,4 +3780,14 @@ function exu.GetRadarLayout() end
 ---@return boolean enabled Whether the complete requested hook group activated.
 function exu.SetRadarTerrain(enabled, gridSpacing, color) end
 
+--- Draws a world-aligned textured radar mesh under the terrain wireframe, through
+--- the native HUD batch, and hides the stock heading compass while it draws.
+--- Requires SetRadarTerrain first; disabling or re-enabling terrain clears the mesh.
+--- If the mesh cannot draw, the native compass comes back.
+---@param enabled boolean
+---@param material? string Ogre material; required when enabled. Must not depend on scene lighting.
+---@param vertices? number[] Triangle list as flat x,y,z,u,v per vertex. Positions are in radar ranges (1 = the scanner edge), each within -1.7..1.7; +X east, +Y up, +Z north. At most 4096 triangles.
+---@return boolean enabled Whether the mesh and the compass hook activated.
+function exu.SetRadarMesh(enabled, material, vertices) end
+
 return exu

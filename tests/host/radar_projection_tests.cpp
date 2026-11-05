@@ -20,6 +20,13 @@ int main()
     assert(Project(nullptr,100,100,8,200,300)==Pack(200,300));
     assert(Project(right,0,100,8,200,300)==Pack(200,300));
     assert(Project(right,100,100,0,200,300)==Pack(200,300));
+    // The unsnapped projection agrees with the packed one and fails closed.
+    float exactX=0,exactY=0;
+    assert(ProjectExact(right,100,100,8,200,300,exactX,exactY)&&exactX==300&&exactY==300);
+    assert(ProjectExact(up,100,100,8,200,300,exactX,exactY)&&exactX==200);
+    assert(exactY>254.5f&&exactY<255.5f);
+    assert(!ProjectExact(behind,100,100,8,200,300,exactX,exactY));
+    assert(!ProjectExact(right,100,100,0,200,300,exactX,exactY));
     // Sweep the entire ground ring: relative screen angle keeps its quadrant,
     // all points stay bounded, and opposite sides have perspective asymmetry.
     for(int i=0;i<360;++i)

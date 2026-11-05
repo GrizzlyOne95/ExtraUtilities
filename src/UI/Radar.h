@@ -37,10 +37,12 @@ namespace ExtraUtilities::Lua::Radar
 	// 0 = minimap
 	int SetPresentation(lua_State* L);
     int SetTerrain(lua_State* L);
+    int SetMesh(lua_State* L);
     void DisableTerrain() noexcept;
     void ResetTerrainState() noexcept;
     bool IsPresentationActive() noexcept;
     uint64_t ProjectPoint(const float* point, float range);
+    bool ProjectPointExact(const float* point, float range, float& x, float& y);
 	int GetLayout(lua_State* L);
 	int GetState(lua_State* L);
 	int SetState(lua_State* L);

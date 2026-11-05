@@ -431,6 +431,18 @@ namespace ExtraUtilities::EngineAddresses
 			HeightDrawCall = 0x00495C03u,
 			// float*
 			drawDepth = 0x00920EF4u,
+			// function: void __cdecl(const void* materialReference, float depth)
+			TexturedBegin = 0x00686590u,
+			// function: void __cdecl(void* viewport, const float* verts, int count, uint32_t argb)
+			TexturedFan = 0x00686600u,
+			// function: void __cdecl()
+			TexturedEnd = 0x006856E0u,
+			// function: int __cdecl(int)
+			RenderLive = 0x00684CE0u,
+			// function: int __cdecl(void* viewport, int sprite, int x, int y, int flags, int extra)
+			CompassSprite = 0x0068C560u,
+			// call site
+			CompassSpriteCall = 0x004944D0u,
 		};
 	}
 
@@ -999,5 +1011,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 334u;
+	inline constexpr unsigned kEntryCount = 340u;
 }

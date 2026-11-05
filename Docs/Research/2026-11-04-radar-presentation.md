@@ -35,6 +35,8 @@ the native center, radius, HUD flag and radar mode. It writes no camera or HUD
 toggle state. Other patches, including OpenShim's internal radar color/fade
 adapters, are not replaced.
 
+ISDFC now draws the mesh itself, see `2026-11-05-radar-mesh.md`. The notes below
+describe the first version, which remains the fallback when the mesh is declined:
 ISDFC draws an EXU overlay rim from its existing d01m029 BZ2 demo radar mesh.
 The filled center and baked compass letters are omitted so native terrain,
 contact symbols and heading-dependent compass remain visible. This is a BZ2
