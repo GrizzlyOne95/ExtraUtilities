@@ -29,6 +29,6 @@ Keys are read through the engine's ParameterDB and are case-insensitive. Explosi
 
 ## Hooks
 
-Four entry detours (`Plant.*` in `exu.json`; design and addresses in `Docs/Research/PLANT_COLLISION_RE_20261013.md`): `ClsnSounds`, `Ordnance::Hit`, `ChunkEffect::CreateChunklet` and `Building::Explode`. They install together or not at all, fail closed on an unqualified build, and are removed with the Lua state. While a plant is hit, `Ordnance::Hit` swaps the ordnance class's building hit explosion for the plant's and restores it before returning, because ordnance classes are shared. EXU's `BulletHit` callback sits inside `Ordnance::Hit` after the stolen bytes and still fires.
+Four hooks (`Plant.*` in `exu.json`; design and addresses in `Docs/Research/PLANT_COLLISION_RE_20261013.md`): entry detours on `ClsnSounds`, `Ordnance::Hit` and `Building::Explode`, and the pool-full compare inside `ChunkEffect::CreateChunklet` (OpenShim's chunk trace detours that function's entry). They install together or not at all, fail closed on an unqualified build, and are removed with the Lua state. While a plant is hit, `Ordnance::Hit` swaps the ordnance class's building hit explosion for the plant's and restores it before returning, because ordnance classes are shared. EXU's `BulletHit` callback sits inside `Ordnance::Hit` after the stolen bytes and still fires.
 
 The ODF file and key plumbing is shared with `exu.pathing` (same ParameterDB entries in `exu.json`).

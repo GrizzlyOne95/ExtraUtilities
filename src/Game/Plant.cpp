@@ -19,6 +19,7 @@
 #include "Game/Plant.h"
 
 #include "EntryDetour32.h"
+#include "Hook.h"
 #include "Util/EngineAddresses.generated.h"
 #include "Util/Logging.h"
 #include "Util/RuntimeGate.h"
@@ -62,7 +63,6 @@ namespace ExtraUtilities::Plant
 
 		using ClsnSoundsFn = void(__cdecl*)(void* a, void* b);
 		using OrdnanceHitFn = void(__thiscall*)(void* self, void* hit, float* normal);
-		using CreateChunkletFn = void(__thiscall*)(void* self, void* a, void* b, bool c);
 		using ExplodeFn = void(__thiscall*)(void* self);
 
 		// Layouts (Docs/Research/PLANT_COLLISION_RE_20261013.md, GOG 2.2.301).
@@ -111,17 +111,18 @@ namespace ExtraUtilities::Plant
 		{
 			EntryDetour32* detour = nullptr;
 		};
-		Hook g_clsnSounds, g_ordnanceHit, g_createChunklet, g_explode;
+		Hook g_clsnSounds, g_ordnanceHit, g_explode;
+		::ExtraUtilities::Hook* g_chunkletGate = nullptr;
 		ClsnSoundsFn g_originalClsnSounds = nullptr;
 		OrdnanceHitFn g_originalOrdnanceHit = nullptr;
-		CreateChunkletFn g_originalCreateChunklet = nullptr;
 		ExplodeFn g_originalExplode = nullptr;
 
 		// Stolen bytes: push ebp; mov ebp,esp; sub esp,imm. Whole, reloc-free
 		// instructions; identity is catalogued as Plant.* in exu.json.
 		constexpr std::array<std::uint8_t, 6> kClsnSoundsEntry = { 0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x2C };
 		constexpr std::array<std::uint8_t, 9> kOrdnanceHitEntry = { 0x55, 0x8B, 0xEC, 0x81, 0xEC, 0xD0, 0x00, 0x00, 0x00 };
-		constexpr std::array<std::uint8_t, 9> kCreateChunkletEntry = { 0x55, 0x8B, 0xEC, 0x81, 0xEC, 0xB8, 0x00, 0x00, 0x00 };
+		// cmp dword ptr [eax+0x8028], 0x400
+		constexpr std::array<std::uint8_t, 10> kChunkletPoolCheck = { 0x81, 0xB8, 0x28, 0x80, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00 };
 		constexpr std::array<std::uint8_t, 9> kExplodeEntry = { 0x55, 0x8B, 0xEC, 0x81, 0xEC, 0x24, 0x01, 0x00, 0x00 };
 
 		// ----- Raw engine reads (POD-only SEH shells) -------------------------
@@ -437,13 +438,22 @@ namespace ExtraUtilities::Plant
 			original(self, hit, normal);
 		}
 
-		// CreateChunklet is __thiscall with three stack arguments (ret 0x0C).
-		void __fastcall CreateChunkletHook(void* self, void* /*edx*/, void* a, void* b, bool c)
+		// Replaces CreateChunklet's "pool full" compare, past the entry that
+		// OpenShim's chunk trace detours, so either order of the two hooks works.
+		// The next instruction is jge to the function's own exit, and equal
+		// operands take it. EAX holds this; ret leaves the flags alone.
+		__declspec(naked) void ChunkletPoolCheckStub()
 		{
-			const CreateChunkletFn original = g_originalCreateChunklet;
-			if (original == nullptr || g_suppressChunklets)
-				return;
-			original(self, a, b, c);
+			__asm
+			{
+				cmp byte ptr [g_suppressChunklets], 0
+				jne suppress
+				cmp dword ptr [eax + 0x8028], 0x400
+				ret
+			suppress:
+				cmp eax, eax
+				ret
+			}
 		}
 
 		// The reduced death of a plant. false: nothing was changed, run the
@@ -544,8 +554,6 @@ namespace ExtraUtilities::Plant
 					reinterpret_cast<const void*>(&ClsnSoundsHook), kClsnSoundsEntry, "ClsnSounds") ||
 				!PrepareHook(g_ordnanceHit, g_originalOrdnanceHit, Addr::OrdnanceHit,
 					reinterpret_cast<const void*>(&OrdnanceHitHook), kOrdnanceHitEntry, "Ordnance::Hit") ||
-				!PrepareHook(g_createChunklet, g_originalCreateChunklet, Addr::CreateChunklet,
-					reinterpret_cast<const void*>(&CreateChunkletHook), kCreateChunkletEntry, "ChunkEffect::CreateChunklet") ||
 				!PrepareHook(g_explode, g_originalExplode, Addr::BuildingExplode,
 					reinterpret_cast<const void*>(&ExplodeHook), kExplodeEntry, "Building::Explode"))
 			{
@@ -553,7 +561,18 @@ namespace ExtraUtilities::Plant
 				return false;
 			}
 
-			for (Hook* hook : { &g_clsnSounds, &g_ordnanceHit, &g_createChunklet, &g_explode })
+			g_chunkletGate = new (std::nothrow) ::ExtraUtilities::Hook(
+				Addr::CreateChunkletPoolCheck, reinterpret_cast<const void*>(&ChunkletPoolCheckStub),
+				kChunkletPoolCheck.size(), BasicPatch::Status::INACTIVE,
+				std::vector<std::uint8_t>(kChunkletPoolCheck.begin(), kChunkletPoolCheck.end()));
+			if (g_chunkletGate == nullptr || (g_chunkletGate->SetStatus(true), !g_chunkletGate->IsActive()))
+			{
+				Logging::LogMessage("exu: plant unavailable; ChunkEffect::CreateChunklet pool check did not qualify");
+				Shutdown();
+				return false;
+			}
+
+			for (Hook* hook : { &g_clsnSounds, &g_ordnanceHit, &g_explode })
 			{
 				hook->detour->SetStatus(true);
 				if (!hook->detour->IsActive())
@@ -578,11 +597,11 @@ namespace ExtraUtilities::Plant
 	{
 		DestroyHook(g_clsnSounds);
 		DestroyHook(g_ordnanceHit);
-		DestroyHook(g_createChunklet);
+		delete g_chunkletGate;
+		g_chunkletGate = nullptr;
 		DestroyHook(g_explode);
 		g_originalClsnSounds = nullptr;
 		g_originalOrdnanceHit = nullptr;
-		g_originalCreateChunklet = nullptr;
 		g_originalExplode = nullptr;
 		g_suppressChunklets = false;
 		ResetMissionState();
@@ -591,9 +610,9 @@ namespace ExtraUtilities::Plant
 	bool IsActive() noexcept
 	{
 		return g_clsnSounds.detour != nullptr && g_ordnanceHit.detour != nullptr &&
-			g_createChunklet.detour != nullptr && g_explode.detour != nullptr &&
+			g_chunkletGate != nullptr && g_explode.detour != nullptr &&
 			g_clsnSounds.detour->IsActive() && g_ordnanceHit.detour->IsActive() &&
-			g_createChunklet.detour->IsActive() && g_explode.detour->IsActive();
+			g_chunkletGate->IsActive() && g_explode.detour->IsActive();
 	}
 
 	void ResetMissionState() noexcept
