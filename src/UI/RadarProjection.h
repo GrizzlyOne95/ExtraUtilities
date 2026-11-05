@@ -1,5 +1,6 @@
 // Copyright (C) 2026 GrizzlyOne95; LGPL-3.0-or-later
 #pragma once
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -26,5 +27,34 @@ namespace ExtraUtilities::RadarPresentation
             x < (std::numeric_limits<int>::min)() || x > (std::numeric_limits<int>::max)() ||
             y < (std::numeric_limits<int>::min)() || y > (std::numeric_limits<int>::max)()) return center;
         return Pack(static_cast<int>(x), static_cast<int>(y));
+    }
+
+    // Same projection without pixel snapping: textured triangles rotate every
+    // frame, and whole-pixel vertices would make the texture shimmer.
+    inline bool ProjectExact(const float* point, float range, int radius,
+        float distance, int centerX, int centerY, float& x, float& y)
+    {
+        if (!point || !std::isfinite(range) || range <= 0 || radius <= 0 ||
+            !std::isfinite(distance) || distance < 3) return false;
+        const float divisor = range * distance + point[2];
+        if (!std::isfinite(divisor) || divisor <= 0) return false;
+        const float factor = static_cast<float>(radius) * distance / divisor;
+        x = centerX + point[0] * factor;
+        y = centerY - point[1] * factor;
+        return std::isfinite(x) && std::isfinite(y);
+    }
+
+    // Largest projection radius, up to the current one, that keeps a dish of
+    // `extent` radar ranges on screen. The side of the dish projects at its
+    // full extent; its near edge is tilted down and magnified by perspective.
+    inline int FitRadius(int radius, float extent, float sine, float cosine,
+        float distance, int leftOfCenter, int belowCenter)
+    {
+        const float depth = distance - extent * cosine;
+        if (radius <= 0 || !(extent > 0) || !(depth > 0)) return radius;
+        const float margin = radius / 32.f;
+        const float side = extent * radius, below = extent * sine * distance / depth * radius;
+        const float scale = (std::min)({ 1.f, (leftOfCenter - margin) / side, (belowCenter - margin) / below });
+        return (std::max)(1, static_cast<int>(radius * scale));
     }
 }

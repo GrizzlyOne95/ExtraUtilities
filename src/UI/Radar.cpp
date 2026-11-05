@@ -535,6 +535,24 @@ namespace ExtraUtilities::Lua::Radar
         return ProjectPresentation(point,range);
     }
 
+    bool ProjectPointExact(const float* point,float range,float& x,float& y)
+    {
+        return RadarPresentation::ProjectExact(point,range,
+            *reinterpret_cast<const int*>(EngineAddresses::Radar::cockpitWireframeProjectionRadius),
+            presentationDistance,*BZR::Radar::cockpitWireframeCenterX,
+            *BZR::Radar::cockpitWireframeCenterY,x,y);
+    }
+
+    void FitProjection(float extent)
+    {
+        const BZR::BZR_Camera* cam=BZR::Camera::View_Record_MainCam;
+        if(!cam||!(cam->Orig_y>0.f))return;
+        auto* radius=reinterpret_cast<int*>(EngineAddresses::Radar::cockpitWireframeProjectionRadius);
+        *radius=RadarPresentation::FitRadius(*radius,extent,presentationSine,presentationCosine,presentationDistance,
+            *BZR::Radar::cockpitWireframeCenterX,
+            static_cast<int>(std::floor(cam->Orig_y))*2-*BZR::Radar::cockpitWireframeCenterY);
+    }
+
     bool IsPresentationActive() noexcept
     {
         if(presentationPatches.empty())return false;

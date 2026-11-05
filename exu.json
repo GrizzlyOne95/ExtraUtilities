@@ -1131,6 +1131,41 @@
         "type": "float*",
         "description": "Native 2D submit depth; radar terrain temporarily adds .03 and restores it.",
         "pattern": null
+      },
+      "TexturedBegin": {
+        "address": "0x00686590",
+        "type": "function: void __cdecl(const void* materialReference, float depth)",
+        "description": "HUD batch begin; the sprite path passes its record, whose first 8 bytes are a SharedPtr<Material>.",
+        "pattern": "55 8B EC 6A 01 8B 0D 34 9B B7 02 E8 E0 E6 FF FF",
+        "pattern_kind": "code"
+      },
+      "TexturedFan": {
+        "address": "0x00686600",
+        "type": "function: void __cdecl(void* viewport, const float* verts, int count, uint32_t argb)",
+        "description": "HUD batch triangle fan; 6 floats per vertex: x, y, 1/depth, u, v, 1. A null viewport selects the default.",
+        "pattern": "55 8B EC 83 EC 40 A1 00 70 8E 00 33 C5 89 45 FC",
+        "pattern_kind": "code"
+      },
+      "TexturedEnd": {
+        "address": "0x006856E0",
+        "type": "function: void __cdecl()",
+        "description": "HUD batch end, paired with TexturedBegin.",
+        "pattern": "55 8B EC 8B 0D 34 9B B7 02 E8 22 48 FF FF 5D C3",
+        "pattern_kind": "code"
+      },
+      "RenderLive": {
+        "address": "0x00684CE0",
+        "type": "function: int __cdecl(int)",
+        "description": "Nonzero when HUD drawing can submit; the sprite path checks it with 0 before TexturedBegin.",
+        "pattern": "55 8B EC 6A FF 68 00 F9 84 00 64 A1 00 00 00 00",
+        "pattern_kind": "code"
+      },
+      "CompassLoopExit": {
+        "address": "0x0049444C",
+        "type": "code reference",
+        "description": "JAE leaving the four-letter radar compass loop; made unconditional while a radar mesh draws, leaving OpenShim's redirect of the loop's sprite call untouched.",
+        "pattern": "0F 83 8B 00 00 00",
+        "pattern_kind": "code"
       }
     },
     "Reticle": {
