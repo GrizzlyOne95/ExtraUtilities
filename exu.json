@@ -2549,6 +2549,56 @@
         "pattern": null,
         "note": "Released GOG 2.2.301; shared verified native HUD semantics. Optional feature only; entry preimages fail closed."
       },
+      "LabelPoints": {
+        "address": "0x009174E8",
+        "type": "data",
+        "description": "Command row label anchors, 13 x {int x, int midY}, rebuilt by 0x0049F9E0.",
+        "pattern": null,
+        "note": "Released GOG 2.2.301; FUN_0049f9e0 and FUN_004a08e0 decompile. Optional feature only; entry preimages fail closed."
+      },
+      "KeyWidth": {
+        "address": "0x008E7A00",
+        "type": "data",
+        "description": "Int command key column width in pixels; zero in the alternate layout (0x0049F9E0).",
+        "pattern": null,
+        "note": "Released GOG 2.2.301; FUN_0049f9e0 and FUN_004a08e0 decompile. Optional feature only; entry preimages fail closed."
+      },
+      "RowSideWidth": {
+        "address": "0x009173E0",
+        "type": "data",
+        "description": "Int width native removes from a row's right edge for the selection fill; zero in the normal layout.",
+        "pattern": null,
+        "note": "Released GOG 2.2.301; FUN_0049f9e0 and FUN_004a08e0 decompile. Optional feature only; entry preimages fail closed."
+      },
+      "Current": {
+        "address": "0x00917560",
+        "type": "data",
+        "description": "Native command text color for the current row; 0x004A08E0 stores it per row at self+0x1030+i*0x18.",
+        "pattern": null,
+        "note": "Released GOG 2.2.301; FUN_0049f9e0 and FUN_004a08e0 decompile. Optional feature only; entry preimages fail closed."
+      },
+      "Disabled": {
+        "address": "0x00917588",
+        "type": "data",
+        "description": "Native command text color for a disabled row; stored per row as Current is.",
+        "pattern": null,
+        "note": "Released GOG 2.2.301; FUN_0049f9e0 and FUN_004a08e0 decompile. Optional feature only; entry preimages fail closed."
+      },
+      "Depth": {
+        "address": "0x00920EF4",
+        "type": "data",
+        "description": "Float depth used by native HUD fills; 0x004A08E0 sets base+0.03 for the selection fill.",
+        "pattern": null,
+        "note": "Released GOG 2.2.301; FUN_0049f9e0 and FUN_004a08e0 decompile. Optional feature only; entry preimages fail closed."
+      },
+      "SelectionFillCall": {
+        "address": "0x004A0D91",
+        "type": "call site",
+        "description": "Call to fill 0x0068AF70 drawing the white selected command row in 0x004A08E0.",
+        "pattern": "E8 DA A1 1E 00",
+        "pattern_kind": "code",
+        "note": "Released GOG 2.2.301; FUN_0049f9e0 and FUN_004a08e0 decompile. Optional feature only; entry preimages fail closed."
+      },
       "Command": {
         "address": "0x004A08E0",
         "type": "function",

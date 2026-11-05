@@ -1,7 +1,6 @@
 #include "UI/Bz2HudGeometry.h"
 #include "HostTest.h"
 #include <cmath>
-#include <cstring>
 #define TEST_CHECK(x) HostTest::Expect((x),#x)
 int main()
 {
@@ -19,10 +18,19 @@ int main()
     TEST_CHECK(std::fabs(spin[0][0].x-objective[0][0].x)>1);
     const auto repeated=Marker(100,200,16,1,1,true);
     TEST_CHECK(repeated[0][0].x==spin[0][0].x); // Paused native time keeps pose.
-    TEST_CHECK(std::strcmp(CommandIcon("Recycler"),"iu_recy")==0);
-    TEST_CHECK(std::strcmp(CommandIcon("Recycle"),"iu_recycle")==0);
-    TEST_CHECK(std::strcmp(CommandIcon("Attack Tank"),"iu_attack")==0);
-    TEST_CHECK(std::strcmp(CommandIcon("Undeploy"),"iu_undeploy")==0);
-    TEST_CHECK(CommandIcon("Unknown label")==nullptr);
-    return HostTest::Finish("BZ2 HUD geometry and command icons");
+    TEST_CHECK(RowColors(false,false,false).background==0x007fffu);
+    TEST_CHECK(RowColors(true,false,false).gradient==0x7f003fu);
+    TEST_CHECK(RowColors(false,true,false).background==0x7fbfffu);
+    TEST_CHECK(RowColors(true,true,false).gradient==0x7f3f5fu);
+    TEST_CHECK(RowColors(false,false,true).background==0x3f3f3fu);
+    TEST_CHECK(RowColors(true,true,true).background==0xffffffu);
+    TEST_CHECK(LerpColor(0x007fffu,0x003f7fu,0)==0x007fffu);
+    TEST_CHECK(LerpColor(0x007fffu,0x003f7fu,1)==0x003f7fu);
+    TEST_CHECK(LerpColor(0x000000u,0xffffffu,.5f)==0x808080u);
+    // Matches colorize.dds: tip on the middle lines, symmetric, deepest at the edge.
+    TEST_CHECK(RoundedInset(0,16)==5);
+    TEST_CHECK(RoundedInset(0,16)==RoundedInset(15,16));
+    TEST_CHECK(RoundedInset(7,16)==0);
+    TEST_CHECK(RoundedInset(8,16)==0);
+    return HostTest::Finish("BZ2 HUD geometry and command rows");
 }

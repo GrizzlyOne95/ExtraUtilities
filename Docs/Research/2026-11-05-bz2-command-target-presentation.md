@@ -6,19 +6,44 @@ presentation lease (bit 32) by yielding its palette and idle fading. No second
 renderer DLL or OpenShim implementation of the BZ2 renderer is required.
 
 The API wraps the released command renderer while always executing its native
-input, menu and sound processing. It replaces command/target backplates, draws
-registered BZ2 command icons beside existing labels, and replaces native-visible
-objective/target sprite submissions with rotating triangle indicators. Objective
-rotation is 0.5 radians/second; target rotation is 2 radians/second. Both use native
-game time so their pose does not advance while game time is paused. Hover feedback
-pulses at the existing native command row hit rectangles. Gameplay, selection,
-visibility eligibility, labels, targeting rules and objectives remain native.
+input, menu and sound processing. It removes the command backplate, draws BZ2-style
+row bars behind Redux's own key sprites, labels and gauges, keeps a target panel, and
+replaces native-visible objective/target sprite submissions with rotating triangle
+indicators. Objective rotation is 0.5 radians/second; target rotation is 2
+radians/second. Both use native game time so their pose does not advance while game
+time is paused. Gameplay, selection, visibility eligibility, labels, targeting rules
+and objectives remain native. The renderer does not depend on campaign Lua for its
+per-frame drawing or animation.
 
-Icon resources are supplied by the content pack as `iu_attack`, `iu_follow`,
-`iu_gotonav`, `iu_recycle`, `iu_pickup`, `iu_dropoff`, `iu_deploy`, `iu_undeploy`,
-`iu_service`, `iu_cancel`, `iu_recy`, `iu_fact`, `iu_armo`, and `iu_cons`. Missing
-icons leave the native label available. The renderer itself does not depend on
-campaign Lua for its per-frame drawing or animation.
+## Command rows
+
+A row's bars are drawn when its native label draws, so only populated rows get one.
+No label text is inspected, so this works in any language and needs no icon assets.
+
+Redux side (`FUN_0049f9e0-0049f9e0.c`, `FUN_004a08e0-004a08e0.c`,
+`FUN_0068af70`):
+
+- Rects and layout: `FUN_0049f9e0` lines 41-52 (key width, gap) and 64-68 (row rects
+  at 0x9173E8, label anchors at 0x9174E8, label X = left + key width + gap, plus `_DAT_009174b8`, line 65, in the alternate layout).
+- A row is found by exact label X and Y inside its rect, once per frame. Row state is
+  the text color stored at self+0x1030+i*0x18: `FUN_004a08e0` lines 983-992 store
+  current (0x917560), inert (0x91755C) or disabled (0x917588).
+- Highlight is the mouse over the row (`FUN_004a08e0` line 427) or the cursor row at
+  self+0x1198 (lines 374-398).
+- The white selection fill (lines 412-422, call at 0x4A0D91) is redirected to a no-op
+  while active. Bars use its depth, base+.03, which is behind the gauges at +.01
+  (lines 954-973). `FUN_0068af70` lines 8-9 add one to x2,y2, so Fill is inclusive.
+
+BZ2 side (`bz2r_res\config\game`):
+
+- `bzgame_init.cfg` COMMANDTEXT gives the eight background and gradient colors, alpha 127.
+- `bzgame_command.cfg` gives the key column, a gap, then the item, all `colorize.tga`.
+- `baked\HUD\colorize.dds` is a 127x16 bar: opaque edge, alpha 100 interior, ends in a
+  half circle. The key column uses its rounded left end, the item its rounded right end.
+
+UNVERIFIED: how the gradient color is applied. These controls set no gradient style in
+the configs, and neither `bzone.exe` b131p nor the BZCC decompile holds a gradient
+string to trace. Top-to-bottom is a choice made here, not decompile evidence.
 
 ## Evidence
 
@@ -58,11 +83,11 @@ BZ2 reference corpus `bz2-bzone-a130-best-effort` (presentation reference only):
 
 Release x86 build, 48 MSVC host programs, hardening/API parity and generated
 catalog/profile checks passed. A first native test caught an invalid material
-context in icon drawing; icons now use the six-argument native helper, which
-resolves its own context. The corrected normal `isdfms06` run produced verified
-2560x1440 PNGs with command icons and panels visible, right-side pilot text, and
-the capacity-scaled scrap bar clear of the radar. No new crash or Ogre exception
-occurred in that smoke. No camera scripts or replacement mission controllers.
+context in icon drawing, since removed with the icons. The corrected normal
+`isdfms06` run produced verified 2560x1440 PNGs with the earlier panel style,
+right-side pilot text, and the capacity-scaled scrap bar clear of the radar. No new
+crash or Ogre exception occurred in that smoke. No camera scripts or replacement
+mission controllers.
 
 Normal `isdfms01` also produced native 2560x1440 captures showing the Scrap Outpost
 objective's four triangle indicators at different rotation phases. The native
