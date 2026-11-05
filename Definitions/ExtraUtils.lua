@@ -3265,8 +3265,38 @@ function exu.ResetUnitDamageMultipliers() end
 --- @param ... any
 function exu.SetAttackRevealEnabled(...) end
 
+--- Deprecated: does nothing. Bomber range is now part of OpenShim's
+--- AiOdfGameplayTuning; use exu.SetAiOdfGameplayTuningEnabled.
+--- @deprecated
 --- @param ... any
 function exu.SetBomberAiRangeEnabled(...) end
+
+--- Turns the OpenShim Legacy Tank AI (1.4/TRO strafe-and-retreat attack AI) on or off for this mission. Single player only; reverts at mission end. Returns false if OpenShim is missing.
+--- @param enabled boolean
+--- @return boolean accepted
+function exu.SetLegacyTankAiEnabled(enabled) end
+
+--- Selects which teams use the OpenShim Legacy Tank AI (1.4/TRO strafe-and-retreat attack AI). Single player only; reverts at mission end. Returns false if OpenShim is missing or too old.
+--- Modes: 0 = off, 1 = all teams, 2 = AI teams only (not the player's team).
+--- @param mode integer 0, 1 or 2
+--- @return boolean accepted
+function exu.SetLegacyTankAiMode(mode) end
+
+--- Makes Follow orders use Formation rules (fire at the closest enemy, no chasing). Returns false if OpenShim or the export is missing, or OpenShim refuses (e.g. multiplayer).
+--- @param enabled boolean
+--- @return boolean accepted
+function exu.SetFollowEngageEnabled(enabled) end
+
+--- Makes Defend keep up with a moving target. Returns false if OpenShim or the export is missing, or OpenShim refuses (e.g. multiplayer).
+--- @param enabled boolean
+--- @return boolean accepted
+function exu.SetDefendRefreshEnabled(enabled) end
+
+--- Marks a unit as held. Issue stock Defend(h, 0) (Defend with no target) first. A held unit stands still, fires at the closest enemy and never chases. Returns false if OpenShim or the export is missing, or OpenShim refuses (e.g. multiplayer).
+--- @param h Handle
+--- @param hold boolean
+--- @return boolean accepted
+function exu.SetAiHold(h, hold) end
 
 --- Sets the camera distance beyond which units are hidden while culling is enabled.
 --- @param distance number finite, non-negative
