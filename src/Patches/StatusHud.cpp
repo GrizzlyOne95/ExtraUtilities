@@ -55,6 +55,19 @@ namespace ExtraUtilities::Patch
     InlinePatch scrapReadout(Sites::ScrapDrawBegin, SkipScrap(), BasicPatch::Status::INACTIVE,
         {0x81,0x3D,0xE0,0xCE,0xCE,0x02,0x90,0x01,0x00,0x00});
 
+    // The pilot block starts after scrap restored the shared draw depth. Skip
+    // its sprite/title/value and balanced cleanup to the common cookie epilogue.
+    static std::vector<uint8_t> SkipPilots()
+    {
+        std::vector<uint8_t> bytes(11, BasicPatch::NOP);
+        bytes[0]=0xE9;
+        const uint32_t displacement=static_cast<uint32_t>(Sites::PilotDrawResume-(Sites::PilotDrawBegin+5));
+        std::memcpy(bytes.data()+1,&displacement,sizeof(displacement));
+        return bytes;
+    }
+    InlinePatch pilotReadout(Sites::PilotDrawBegin,SkipPilots(),BasicPatch::Status::INACTIVE,
+        {0xE8,0xDB,0x2C,0x0C,0x00,0x89,0x45,0x94,0x89,0x55,0x98});
+
 	InlinePatch weaponRowPlate(Sites::WeaponRowPlateSite, DropCall(), BasicPatch::Status::INACTIVE, { 0xE8, 0xE8, 0x01, 0x0B, 0x00 });
 	InlinePatch weaponIcon(Sites::WeaponIconSite, DropCall(), BasicPatch::Status::INACTIVE, { 0xE8, 0xA6, 0xFA, 0x0A, 0x00 });
 	InlinePatch weaponName(Sites::WeaponNameSite, DropCall(), BasicPatch::Status::INACTIVE, { 0xE8, 0xD4, 0xD1, 0x0A, 0x00 });
@@ -81,10 +94,11 @@ namespace ExtraUtilities::Lua::Patches
 			std::vector<InlinePatch*> patches;
 		};
 
-		const std::array<Group, 4>& Groups()
+		const std::array<Group, 5>& Groups()
 		{
-			static const std::array<Group, 4> groups{ {
+			static const std::array<Group, 5> groups{ {
 				{ "scrap", HudOwnership::Scrap, { &Patch::scrapReadout } },
+                { "pilots", 0, { &Patch::pilotReadout } },
 				{ "hull", HudOwnership::Hull, { &Patch::hullLabel, &Patch::hullBar } },
 				{ "ammo", HudOwnership::Ammo, { &Patch::ammoLabel, &Patch::ammoBar, &Patch::ammoShotsText,
 					&Patch::ammoCostMark1, &Patch::ammoCostMark2, &Patch::ammoCostMark3 } },
@@ -103,7 +117,7 @@ namespace ExtraUtilities::Lua::Patches
 					return group;
 				}
 			}
-			luaL_argerror(L, idx, "expected \"hull\", \"ammo\", \"weapons\" or \"scrap\"");
+			luaL_argerror(L, idx, "expected \"hull\", \"ammo\", \"weapons\", \"scrap\" or \"pilots\"");
 			return Groups()[0]; // unreachable: luaL_argerror raises
 		}
 
@@ -140,7 +154,7 @@ namespace ExtraUtilities::Lua::Patches
         // When OpenShim already owns these native CALLs, request a scoped draw
         // handoff instead of competing with its tint/fade wrappers for bytes.
         // Scrap still needs EXU's full-block skip, including the sprite plate.
-        if (HudOwnership::HasProtocol())
+        if (group.area && HudOwnership::HasProtocol())
         {
             const bool coordinated=HudOwnership::Update(group.area,!visible);
             if (group.area!=HudOwnership::Scrap)

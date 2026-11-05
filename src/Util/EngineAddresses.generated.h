@@ -648,6 +648,10 @@ namespace ExtraUtilities::EngineAddresses
 			ScrapDrawBegin = 0x005C7057u,
 			// code: resume at pilot layout computation
 			ScrapDrawResume = 0x005C71D0u,
+			// pilot display block boundary (11 bytes)
+			PilotDrawBegin = 0x005C71D0u,
+			// common draw-function cookie epilogue
+			PilotDrawResume = 0x005C7397u,
 		};
 	}
 
@@ -995,5 +999,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 332u;
+	inline constexpr unsigned kEntryCount = 334u;
 }
