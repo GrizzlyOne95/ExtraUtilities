@@ -64,7 +64,11 @@ resolves its own context. The corrected normal `isdfms06` run produced verified
 the capacity-scaled scrap bar clear of the radar. No new crash or Ogre exception
 occurred in that smoke. No camera scripts or replacement mission controllers.
 
-Native visible-marker animation, target info states, command selection/cancel,
+Normal `isdfms01` also produced native 2560x1440 captures showing the Scrap Outpost
+objective's four triangle indicators at different rotation phases. The native
+marker draw path was logged, with no fresh crash or Ogre exception.
+
+Target-indicator/info states, command selection/cancel,
 mission transitions, no-OpenShim runtime, other renderers and Steam/Proton/Wine
 still require acceptance checks. Runtime artifacts are local to the game's
 `output/isdfc-native-review-20261105/command-ui` folder, not committed here.
