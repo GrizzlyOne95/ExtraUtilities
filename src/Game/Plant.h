@@ -30,8 +30,8 @@ struct lua_State;
 
 namespace ExtraUtilities::Plant
 {
-	// Installs the four entry detours (ClsnSounds, Ordnance::Hit,
-	// ChunkEffect::CreateChunklet, Building::Explode). All or nothing: fails
+	// Installs the four hooks (ClsnSounds, Ordnance::Hit,
+	// ChunkEffect::CreateChunklet's pool check, Building::Explode). All or nothing: fails
 	// closed (returns false and leaves the engine untouched) on any build or
 	// preimage mismatch. Call once the build gate passed and deferred patches
 	// are enabled.

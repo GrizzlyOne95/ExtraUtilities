@@ -1585,27 +1585,27 @@
     "ScreenFlash": {
       "CraftDamageFlashSite": {
         "address": "0x004AA6F6",
-        "type": "hook site (10 bytes: mov ecx, colorFade; call ColorFade::SetFade)",
+        "type": "hook site (6 bytes: mov ecx, colorFade; the call opcode; the rel32 after it is left alone)",
         "description": "Red flash in Craft::DamageAlloc (fn 0x004AA630) when the user's craft takes damage: SetFade(damage * 0.002, 5.0, 255, 0, 0).",
-        "pattern": "B9 8C 83 97 00 E8 30 0D FF FF",
+        "pattern": "B9 8C 83 97 00 E8",
         "pattern_kind": "code",
-        "note": "Code pattern at the address, verified unique in GOG 2.2.301 .text 2026-10-03; the call rel32 makes it site-specific."
+        "note": "Code pattern at the address. Shared by every ColorFade::SetFade call, so the fixed address picks the site. The call rel32 is left out because OpenShim retargets it to its own flash thunk; stock rel32s were verified unique per site in GOG 2.2.301 .text 2026-10-03."
       },
       "CraftHeatFlashSite": {
         "address": "0x004AB273",
-        "type": "hook site (10 bytes: mov ecx, colorFade; call ColorFade::SetFade)",
+        "type": "hook site (6 bytes: mov ecx, colorFade; the call opcode; the rel32 after it is left alone)",
         "description": "Orange flash in Craft::UpdateTemperature (fn 0x004AAEA0) while the user's craft overheats: SetFade(heat * 0.01, 5.0, 255, 64, 0).",
-        "pattern": "B9 8C 83 97 00 E8 B3 01 FF FF",
+        "pattern": "B9 8C 83 97 00 E8",
         "pattern_kind": "code",
-        "note": "Code pattern at the address, verified unique in GOG 2.2.301 .text 2026-10-03; the call rel32 makes it site-specific."
+        "note": "Code pattern at the address. Shared by every ColorFade::SetFade call, so the fixed address picks the site. The call rel32 is left out because OpenShim retargets it to its own flash thunk; stock rel32s were verified unique per site in GOG 2.2.301 .text 2026-10-03."
       },
       "PersonDamageFlashSite": {
         "address": "0x005A0D52",
-        "type": "hook site (10 bytes: mov ecx, colorFade; call ColorFade::SetFade)",
+        "type": "hook site (6 bytes: mov ecx, colorFade; the call opcode; the rel32 after it is left alone)",
         "description": "Red flash in Person::DamageAlloc (fn 0x005A0C90) when the user's pilot takes damage: SetFade(damage * 0.03, 5.0, 255, 0, 0).",
-        "pattern": "B9 8C 83 97 00 E8 D4 A6 EF FF",
+        "pattern": "B9 8C 83 97 00 E8",
         "pattern_kind": "code",
-        "note": "Code pattern at the address, verified unique in GOG 2.2.301 .text 2026-10-03; the call rel32 makes it site-specific."
+        "note": "Code pattern at the address. Shared by every ColorFade::SetFade call, so the fixed address picks the site. The call rel32 is left out because OpenShim retargets it to its own flash thunk; stock rel32s were verified unique per site in GOG 2.2.301 .text 2026-10-03."
       }
     },
     "StatusHud": {
@@ -2192,13 +2192,13 @@
         "pattern_kind": "code",
         "note": "Code pattern at the address, unique in GOG 2.2.301 .text (checked 2026-10-13: the shorter prefixes match more than one site, so the pattern runs on until unique). Verified against GOG 2.2.301 by disassembly 2026-10-13 (Docs/Research/PLANT_COLLISION_RE_20261013.md). Only the stolen whole instructions (push ebp; mov ebp,esp; sub esp,imm) are copied; none has a relative operand."
       },
-      "CreateChunklet": {
-        "address": "0x004927D0",
-        "type": "hook site (9 bytes: push ebp; mov ebp,esp; sub esp,0xB8)",
-        "description": "ChunkEffect::CreateChunklet(ChunkEffect* this, a, b, bool), void __thiscall, ret 0x0C: throws one geometry chip; Building::DamageAlloc calls it per ordnance hit. EXU's plant feature detours the entry and drops the chip while a plant is being hit.",
-        "pattern": "55 8B EC 81 EC B8 00 00 00 A1 00 70 8E 00 33 C5 89 45 FC 56 57 89",
+      "CreateChunkletPoolCheck": {
+        "address": "0x004927EB",
+        "type": "hook site (10 bytes: cmp dword ptr [eax+0x8028], 0x400)",
+        "description": "Pool-full compare in ChunkEffect::CreateChunklet (entry 0x004927D0, __thiscall, ret 0x0C; throws one geometry chip, Building::DamageAlloc calls it per ordnance hit). The following jge 0x00492A84 is the function's own exit. EXU's plant feature replaces the compare so the jge is taken while a plant is being hit; the entry stays free for OpenShim's chunk create trace.",
+        "pattern": "81 B8 28 80 00 00 00 04 00 00 0F 8D 89 02 00 00",
         "pattern_kind": "code",
-        "note": "Code pattern at the address, unique in GOG 2.2.301 .text (checked 2026-10-13: the shorter prefixes match more than one site, so the pattern runs on until unique). Verified against GOG 2.2.301 by disassembly 2026-10-13 (Docs/Research/PLANT_COLLISION_RE_20261013.md). Only the stolen whole instructions (push ebp; mov ebp,esp; sub esp,imm) are copied; none has a relative operand."
+        "note": "Code pattern at the address, unique in the GOG 2.2.301 exe (checked 2026-11-05 by byte count and read from the shipping exe: mov eax,[ebp-0x4C] at +0x18, this compare at +0x1B, jge rel32 0x289 at +0x25)."
       },
       "BuildingExplode": {
         "address": "0x0047F330",

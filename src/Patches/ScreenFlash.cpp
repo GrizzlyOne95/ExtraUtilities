@@ -30,12 +30,13 @@ namespace ExtraUtilities::Patch
 	// arguments are already pushed:
 	//     mov ecx, colorFade      B9 8C 83 97 00
 	//     call ColorFade::SetFade E8 <rel32>      ; thiscall, callee pops 0x14
-	// Suppressing replaces it with "add esp, 0x14" so the caller's stack stays
-	// balanced and the fade never accumulates. The rel32 in the preimage keeps
-	// each patch tied to its own call site.
+	// Suppressing replaces the mov with "add esp, 0x14; jmp past the call" so the
+	// caller's stack stays balanced and the fade never accumulates. The rel32 is
+	// neither read nor written: OpenShim retargets it to its own flash thunk, and
+	// a script's choice has to hold with or without that, in either load order.
 	static std::vector<uint8_t> DropSetFadeCall()
 	{
-		return { 0x83, 0xC4, 0x14, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 };
+		return { 0x83, 0xC4, 0x14, 0xEB, 0x05, 0xE8 };
 	}
 
 	// Craft::DamageAlloc: SetFade(damage * 0.002, 5.0, 255, 0, 0) for the user's craft.
@@ -43,21 +44,21 @@ namespace ExtraUtilities::Patch
 		EngineAddresses::ScreenFlash::CraftDamageFlashSite,
 		DropSetFadeCall(),
 		BasicPatch::Status::INACTIVE,
-		{ 0xB9, 0x8C, 0x83, 0x97, 0x00, 0xE8, 0x30, 0x0D, 0xFF, 0xFF });
+		{ 0xB9, 0x8C, 0x83, 0x97, 0x00, 0xE8 });
 
 	// Person::DamageAlloc: SetFade(damage * 0.03, 5.0, 255, 0, 0) for the user's pilot.
 	InlinePatch personDamageFlash(
 		EngineAddresses::ScreenFlash::PersonDamageFlashSite,
 		DropSetFadeCall(),
 		BasicPatch::Status::INACTIVE,
-		{ 0xB9, 0x8C, 0x83, 0x97, 0x00, 0xE8, 0xD4, 0xA6, 0xEF, 0xFF });
+		{ 0xB9, 0x8C, 0x83, 0x97, 0x00, 0xE8 });
 
 	// Craft::UpdateTemperature: SetFade(heat * 0.01, 5.0, 255, 64, 0) while the user's craft overheats.
 	InlinePatch craftHeatFlash(
 		EngineAddresses::ScreenFlash::CraftHeatFlashSite,
 		DropSetFadeCall(),
 		BasicPatch::Status::INACTIVE,
-		{ 0xB9, 0x8C, 0x83, 0x97, 0x00, 0xE8, 0xB3, 0x01, 0xFF, 0xFF });
+		{ 0xB9, 0x8C, 0x83, 0x97, 0x00, 0xE8 });
 }
 
 namespace ExtraUtilities::Lua::Patches

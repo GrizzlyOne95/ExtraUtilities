@@ -70,7 +70,7 @@ Plants keep normal collision; what changes is the building feedback.
 
 Each is skipped when the pointer is null. The hit sound is the chosen explosion's own sound; there is no separate building hit sound. `OrdnanceClass` is `Ordnance+0x0C`. Entry `55 8B EC 81 EC D0 00 00 00` (9 bytes).
 
-`Building::DamageAlloc` (`0x0047EF10`) throws `min((damage - 16) / 32, 10)` geometry chips when the damage source `_OBJ76` has class id `0x33` (ordnance), via `ChunkEffect::CreateChunklet` (`0x004927D0`, `__thiscall(ChunkEffect* /*0x00950190*/, a, b, bool)`, `ret 0x0C`) at `0x0047F228`. Entry `55 8B EC 81 EC B8 00 00 00` (9 bytes). The same function is the only per-hit chip source in this path; at health < 0 it sets `_OBJ76` flags `0x01000200`, and the building explodes later.
+`Building::DamageAlloc` (`0x0047EF10`) throws `min((damage - 16) / 32, 10)` geometry chips when the damage source `_OBJ76` has class id `0x33` (ordnance), via `ChunkEffect::CreateChunklet` (`0x004927D0`, `__thiscall(ChunkEffect* /*0x00950190*/, a, b, bool)`, `ret 0x0C`) at `0x0047F228`. Entry `55 8B EC 81 EC B8 00 00 00` (9 bytes). EXU hooks the pool-full compare at `0x004927EB` (`81 B8 28 80 00 00 00 04 00 00`, 10 bytes, followed by `jge 0x00492A84`, the function's own exit) rather than this entry, because OpenShim's chunk create trace detours the entry. The same function is the only per-hit chip source in this path; at health < 0 it sets `_OBJ76` flags `0x01000200`, and the building explodes later.
 
 ### Building death
 

@@ -619,11 +619,11 @@ namespace ExtraUtilities::EngineAddresses
 	{
 		enum : uintptr_t
 		{
-			// hook site (10 bytes: mov ecx, colorFade; call ColorFade::SetFade)
+			// hook site (6 bytes: mov ecx, colorFade; the call opcode; the rel32 after it is left alone)
 			CraftDamageFlashSite = 0x004AA6F6u,
-			// hook site (10 bytes: mov ecx, colorFade; call ColorFade::SetFade)
+			// hook site (6 bytes: mov ecx, colorFade; the call opcode; the rel32 after it is left alone)
 			CraftHeatFlashSite = 0x004AB273u,
-			// hook site (10 bytes: mov ecx, colorFade; call ColorFade::SetFade)
+			// hook site (6 bytes: mov ecx, colorFade; the call opcode; the rel32 after it is left alone)
 			PersonDamageFlashSite = 0x005A0D52u,
 		};
 	}
@@ -847,8 +847,8 @@ namespace ExtraUtilities::EngineAddresses
 			ClsnSounds = 0x004436C0u,
 			// hook site (9 bytes: push ebp; mov ebp,esp; sub esp,0xD0)
 			OrdnanceHit = 0x00480750u,
-			// hook site (9 bytes: push ebp; mov ebp,esp; sub esp,0xB8)
-			CreateChunklet = 0x004927D0u,
+			// hook site (10 bytes: cmp dword ptr [eax+0x8028], 0x400)
+			CreateChunkletPoolCheck = 0x004927EBu,
 			// hook site (9 bytes: push ebp; mov ebp,esp; sub esp,0x124)
 			BuildingExplode = 0x0047F330u,
 			// function: void __cdecl(OBJ76* obj, uint32 flags)
