@@ -24,7 +24,9 @@ adapters execute with mask 31. Native terrain wireframe and scan-ring submission
 were observed. Constructor hologram enabling succeeded, but selection, placement,
 cancel and build confirmation have not yet been exercised in native gameplay.
 
-Requested larger headless Ogre modes produced portrait captures only 604 pixels
-wide on the disconnected desktop. Those PNGs are actual game readbacks but do
-not establish full-resolution layout acceptance. No camera scripts or replacement
-mission controllers were used. Steam, Proton and Wine remain untested.
+Requested larger headless Ogre modes initially produced portrait captures only
+604 pixels wide. OpenShim's test-only `OPENSHIM_FRAME_CAPTURE_SIZE=2560x1440`
+option corrected that desktop clamp. Verified native 2560x1440 PNGs show the
+source rim border following the blue perimeter, with stock status draws absent
+behind the EXU status ring. No camera scripts or replacement mission controllers
+were used. Steam, Proton and Wine remain untested.
