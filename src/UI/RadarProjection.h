@@ -1,5 +1,6 @@
 // Copyright (C) 2026 GrizzlyOne95; LGPL-3.0-or-later
 #pragma once
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -41,5 +42,19 @@ namespace ExtraUtilities::RadarPresentation
         x = centerX + point[0] * factor;
         y = centerY - point[1] * factor;
         return std::isfinite(x) && std::isfinite(y);
+    }
+
+    // Largest projection radius, up to the current one, that keeps a dish of
+    // `extent` radar ranges on screen. The side of the dish projects at its
+    // full extent; its near edge is tilted down and magnified by perspective.
+    inline int FitRadius(int radius, float extent, float sine, float cosine,
+        float distance, int leftOfCenter, int belowCenter)
+    {
+        const float depth = distance - extent * cosine;
+        if (radius <= 0 || !(extent > 0) || !(depth > 0)) return radius;
+        const float margin = radius / 32.f;
+        const float side = extent * radius, below = extent * sine * distance / depth * radius;
+        const float scale = (std::min)({ 1.f, (leftOfCenter - margin) / side, (belowCenter - margin) / below });
+        return (std::max)(1, static_cast<int>(radius * scale));
     }
 }

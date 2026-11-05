@@ -43,6 +43,9 @@ namespace ExtraUtilities::Lua::Radar
     bool IsPresentationActive() noexcept;
     uint64_t ProjectPoint(const float* point, float range);
     bool ProjectPointExact(const float* point, float range, float& x, float& y);
+    // Shrinks this frame's projection so a dish of `extent` ranges stays on
+    // screen. The layout builder rewrites the radius before every radar draw.
+    void FitProjection(float extent);
 	int GetLayout(lua_State* L);
 	int GetState(lua_State* L);
 	int SetState(lua_State* L);

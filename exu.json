@@ -1160,18 +1160,11 @@
         "pattern": "55 8B EC 6A FF 68 00 F9 84 00 64 A1 00 00 00 00",
         "pattern_kind": "code"
       },
-      "CompassSprite": {
-        "address": "0x0068C560",
-        "type": "function: int __cdecl(void* viewport, int sprite, int x, int y, int flags, int extra)",
-        "description": "Sprite draw that the radar compass loop calls for its four heading letters.",
-        "pattern": "55 8B EC 81 EC A8 00 00 00 A1 00 70 8E 00 33 C5",
-        "pattern_kind": "code"
-      },
-      "CompassSpriteCall": {
-        "address": "0x004944D0",
-        "type": "call site",
-        "description": "Heading-letter sprite call inside the radar compass loop; redirected while a radar mesh draws.",
-        "pattern": "E8 8B 80 1F 00",
+      "CompassLoopExit": {
+        "address": "0x0049444C",
+        "type": "code reference",
+        "description": "JAE leaving the four-letter radar compass loop; made unconditional while a radar mesh draws, leaving OpenShim's redirect of the loop's sprite call untouched.",
+        "pattern": "0F 83 8B 00 00 00",
         "pattern_kind": "code"
       }
     },

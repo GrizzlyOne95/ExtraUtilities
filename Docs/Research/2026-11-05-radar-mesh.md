@@ -32,8 +32,15 @@ as its distance, and ISDFC passes tilt 30, distance 10.667 when the mesh is on.
 | A record's first 8 bytes are its `SharedPtr<Material>` | `FUN_0068ba00` decomp, ~100-110 |
 | Native projection is `f = (radius*5) / (range*5 + p[2])` | `FUN_00493330` decomp |
 
-The compass call at 0x4944D0 (`E8 8B 80 1F 00 83 C4 18`) is patched while the mesh
-is on and restored when it is off.
+While the mesh draws, the loop's exit test at 0x49444C (`0F 83 8B 00 00 00`, JAE to
+0x4944DD) becomes an unconditional jump, so all four letters skip. It is restored on
+any frame without the mesh. Nothing after the loop reads its results: the loop's
+counter and screen points are only used inside it (`FUN_00493ec0-00493ec0.c:275-279`,
+and `FUN_00493330` only returns values). The sprite call at 0x4944D0 cannot be patched
+instead, because OpenShim's HUD fade already redirects it
+(`BZR-OpenShim/src/patches/contextual_hud.cpp:173-179,205,223`) and EXU's expected-bytes
+check then refused it in a live run. With the loop skipped, the shim's fade and its
+`RadarCompassAlwaysVisible` setting have no effect on the letters.
 
 ## Mesh data
 
@@ -45,6 +52,22 @@ the winding, which is why the material culls nothing.
 
 ## Not verified
 
-- UNVERIFIED: that EXU's `EXU_HudTint` programs draw correctly under the native
-  batch instead of a native sprite material. Check in a capture.
-- UNVERIFIED: whether Redux's compass draws anything the mesh does not replace.
+- UNVERIFIED: that the baked letters turn correctly with the player. The test
+  captures hold still. N-E-S-W read clockwise and unmirrored, and the mesh uses the
+  matrix the terrain does (`DrawMeshTriangles`).
+- UNVERIFIED: why black, below. Only the before and after captures show it.
+
+## Capture findings
+
+- `EXU_HudTint` draws correctly under the native batch (captures `ms06c`, `ms06d`).
+- `d01_ihrad00.dds` has no mip levels. With the default mip request the lip drew pure
+  black while the disc drew correctly, and `texture d01_ihrad00.dds 2d 0` in
+  `ISDFC/RadarMesh` fixed it. The likely cause is an empty mip chain sampled where
+  the lip's UVs are minified. The disc's fan has one constant UV.
+- Stock radius and centre put the 1.48-range lip off the left and bottom of the
+  screen. `FitProjection` shrinks the radius global before the mesh draws, so terrain
+  and blips follow it. The layout builder rewrites that global each frame before the
+  terrain draw (`FUN_00493ec0-00493ec0.c:246,248`, `FUN_00492ec0-00492ec0.c:14-16`), so
+  nothing accumulates and turning the mesh off restores stock on the next frame.
+  OpenShim's layout detour derives its radius from the stock base and UI scale, not
+  from this global (`src/patches/radar_layout.cpp:144,164`), so EXU's value wins.

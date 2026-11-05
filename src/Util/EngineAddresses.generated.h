@@ -439,10 +439,8 @@ namespace ExtraUtilities::EngineAddresses
 			TexturedEnd = 0x006856E0u,
 			// function: int __cdecl(int)
 			RenderLive = 0x00684CE0u,
-			// function: int __cdecl(void* viewport, int sprite, int x, int y, int flags, int extra)
-			CompassSprite = 0x0068C560u,
-			// call site
-			CompassSpriteCall = 0x004944D0u,
+			// code reference
+			CompassLoopExit = 0x0049444Cu,
 		};
 	}
 
@@ -1011,5 +1009,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 340u;
+	inline constexpr unsigned kEntryCount = 339u;
 }

@@ -26,7 +26,6 @@ namespace ExtraUtilities::Lua::Radar
         using TexturedFan=void(__cdecl*)(void*,const float*,int,uint32_t);
         using TexturedEnd=void(__cdecl*)();
         using RenderLive=int(__cdecl*)(int);
-        using CompassDraw=int(__cdecl*)(void*,int,int,int,int,int);
         using ResourceLoad=void(__thiscall*)(::Ogre::Material*,bool);
         using namespace RadarPresentation;
         struct Snapshot
@@ -49,10 +48,11 @@ namespace ExtraUtilities::Lua::Radar
         // minimum perspective distance, so no vertex can reach the divide by zero.
         constexpr float kMeshMaxCoordinate=1.7f;
         std::vector<float> meshVertices;
+        float meshExtent=0;
         // Heap-held and never destroyed: its release calls into Ogre, which may
         // already be gone when this DLL's static destructors run.
         ::Ogre::MaterialReference* const meshMaterial=new ::Ogre::MaterialReference{};
-        bool meshDrawn=false,meshFaulted=false,loggedMesh=false;
+        bool meshFaulted=false,loggedMesh=false;
 
         bool ReadSnapshot(void* self,Snapshot& f) noexcept
         {
@@ -196,13 +196,6 @@ namespace ExtraUtilities::Lua::Radar
             __except(Seh::Filter(GetExceptionCode())){meshFaulted=true;return false;}
         }
 
-        int __cdecl CompassSprite(void* viewport,int sprite,int x,int y,int flags,int extra)
-        {
-            // The baked letters on the mesh replace the rotating compass sprites.
-            if(meshDrawn)return 1;
-            return reinterpret_cast<CompassDraw>(A::CompassSprite)(viewport,sprite,x,y,flags,extra);
-        }
-
         bool DrawDetail(void* self) noexcept
         {
             __try{return DrawDetailCpp(self);}
@@ -211,15 +204,21 @@ namespace ExtraUtilities::Lua::Radar
 
         void __fastcall DrawTerrain(void* self,void*)
         {
-            meshDrawn=false;
+            // SetStatus only writes code when the state changes.
+            if(compassPatch&&(!active||faulted))compassPatch->SetStatus(false);
             if(active&&!faulted)
             {
                 // Match the stock terrain draw's temporary depth layer.
                 auto* depth=reinterpret_cast<float*>(A::drawDepth);
                 const float saved=*depth;
-                bool drawn=false;
+                bool drawn=false,meshDrawn=false;
+                // Before the mesh, so blips and terrain scale with the dish.
+                if(!meshVertices.empty()&&!meshFaulted)FitProjection(meshExtent);
                 __try { *depth=saved+.03f;meshDrawn=DrawMesh(self);drawn=DrawDetail(self); }
                 __finally { *depth=saved; }
+                // The baked letters on the mesh replace the compass sprites, which
+                // draw after terrain, so a frame without the mesh keeps them.
+                if(compassPatch)compassPatch->SetStatus(meshDrawn);
                 if(meshDrawn&&!loggedMesh)
                 {
                     Logging::LogMessage("[EXU::Radar] BZ2 radar mesh drawn: triangles=%zu",meshVertices.size()/(kMeshFloats*3));
@@ -263,7 +262,6 @@ namespace ExtraUtilities::Lua::Radar
         if(terrainPatch)terrainPatch->SetStatus(false);
         if(heightPatch)heightPatch->SetStatus(false);
         if(compassPatch)compassPatch->SetStatus(false);
-        meshDrawn=false;
     }
 
     void ResetTerrainState() noexcept
@@ -302,7 +300,7 @@ namespace ExtraUtilities::Lua::Radar
         const auto clear=[]
         {
             if(compassPatch)compassPatch->SetStatus(false);
-            meshDrawn=false;meshVertices.clear();meshMaterial->Reset();meshFaulted=loggedMesh=false;
+            meshVertices.clear();meshMaterial->Reset();meshFaulted=loggedMesh=false;
         };
         luaL_checktype(L,1,LUA_TBOOLEAN);
         if(!lua_toboolean(L,1)){clear();lua_pushboolean(L,1);return 1;}
@@ -332,7 +330,10 @@ namespace ExtraUtilities::Lua::Radar
             !SignatureResolver::MatchBytes(A::TexturedFan,{0x55,0x8b,0xec,0x83,0xec,0x40,0xa1,0x00,0x70,0x8e,0x00})||
             !SignatureResolver::MatchBytes(A::TexturedEnd,{0x55,0x8b,0xec,0x8b,0x0d,0x34,0x9b,0xb7,0x02})||
             !SignatureResolver::MatchBytes(A::RenderLive,{0x55,0x8b,0xec,0x6a,0xff,0x68,0x00,0xf9,0x84,0x00}))
-        {lua_pushboolean(L,0);return 1;}
+        {
+            Logging::LogMessage("[EXU::Radar] BZ2 radar mesh declined: inactive presentation or unexpected textured-draw bytes");
+            lua_pushboolean(L,0);return 1;
+        }
         static OgreDll::OgreProc<ResourceLoad> resourceLoad{"?load@Resource@Ogre@@UAEX_N@Z"};
         bool loaded=false;
         Seh::Guard("Radar::SetMesh",[&]
@@ -344,11 +345,22 @@ namespace ExtraUtilities::Lua::Radar
             resourceLoad.Get()(meshMaterial->get(),false);
             loaded=true;
         });
-        if(!loaded){clear();lua_pushboolean(L,0);return 1;}
-        if(!compassPatch)compassPatch=Redirect(A::CompassSpriteCall,reinterpret_cast<uintptr_t>(&CompassSprite),{0xe8,0x8b,0x80,0x1f,0x00});
+        if(!loaded)
+        {
+            Logging::LogMessage("[EXU::Radar] BZ2 radar mesh declined: material %s did not load",materialName);
+            clear();lua_pushboolean(L,0);return 1;
+        }
+        // Skip the loop rather than its sprite call, which OpenShim's HUD fade redirects.
+        if(!compassPatch)compassPatch=std::make_unique<InlinePatch>(A::CompassLoopExit,std::vector<uint8_t>{0xe9,0x8c,0x00,0x00,0x00,0x90},BasicPatch::Status::INACTIVE,std::vector<uint8_t>{0x0f,0x83,0x8b,0x00,0x00,0x00});
         compassPatch->SetStatus(true);
-        if(!compassPatch->IsActive()){clear();lua_pushboolean(L,0);return 1;}
+        if(!compassPatch->IsActive())
+        {
+            Logging::LogMessage("[EXU::Radar] BZ2 radar mesh declined: compass loop did not patch");
+            clear();lua_pushboolean(L,0);return 1;
+        }
         meshVertices.assign(parsed,parsed+count);
+        meshExtent=0;
+        for(size_t i=0;i<count;i+=kMeshFloats)meshExtent=(std::max)(meshExtent,std::hypot(parsed[i],parsed[i+2]));
         Logging::LogMessage("[EXU::Radar] BZ2 radar mesh enabled: material=%s triangles=%zu",materialName,count/(kMeshFloats*3));
         lua_pushboolean(L,1);return 1;
     }

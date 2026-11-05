@@ -27,6 +27,11 @@ int main()
     assert(exactY>254.5f&&exactY<255.5f);
     assert(!ProjectExact(behind,100,100,8,200,300,exactX,exactY));
     assert(!ProjectExact(right,100,100,0,200,300,exactX,exactY));
+    // Stock proportions at 1440p: the lip's left edge decides, and lands on screen.
+    const int fitted=FitRadius(303,1.48f,.5f,.8660254f,10.667f,341,211);
+    assert(fitted<303&&fitted*1.48f<341&&fitted*1.48f>320);
+    assert(FitRadius(100,1.48f,.5f,.8660254f,10.667f,341,211)==100); // already fits
+    assert(FitRadius(303,1.48f,.5f,.8660254f,10.667f,1000,100)<120); // bottom decides
     // Sweep the entire ground ring: relative screen angle keeps its quadrant,
     // all points stay bounded, and opposite sides have perspective asymmetry.
     for(int i=0;i<360;++i)
