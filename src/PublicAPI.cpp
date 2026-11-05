@@ -55,6 +55,7 @@
 #include "Game/StaticGeometry.h"
 #include "Game/ExplosionEvents.h"
 #include "Game/BuildEvents.h"
+#include "Game/ConstructionHologram.h"
 #include "LuaState.h"
 #include "LuaCppBarrier.h"
 #include "OpenShimBridge.h"
@@ -73,7 +74,9 @@
 #include "Scanner.h"
 #include "UI/ControlPanel.h"
 #include "UI/NativeHud.h"
+#include "UI/HudOwnership.h"
 #include "UI/Renderer.h"
+#include "UI/Radar.h"
 #include "Util/Logging.h"
 #include "Util/StorageApi.h"
 #include "Util/Soundtrack.h"
@@ -169,6 +172,7 @@ namespace ExtraUtilities::Lua
 	// overrides and engine values into the next mission.
 	void ResetMissionScopedState() noexcept
 	{
+        HudOwnership::Reset();
 		OdfRecoilAnimation::Reset();
 		Soundtrack::ResetMissionState();
 		BasicPatch::ResetRequestedStatusesToDefaults();
@@ -179,6 +183,7 @@ namespace ExtraUtilities::Lua
 		Renderer::ResetMissionState();
 		OgreSurfaceParameters::Clear();
 		GameObject::ClearMaterialCache();
+		GameObject::ResetObjectSurfaceRaycast();
 		ExtraUtilities::Culling::ResetMissionState();
 		Patch::ResetTurboMissionState();
 		DamageResistance::ResetMissionState();
@@ -210,7 +215,10 @@ namespace ExtraUtilities::Lua
 			ReleaseLuaStateBindings(L);
 			CommandReplacement::ReleaseState(L);
 			PlayerControls::Shutdown();
-			BasicPatch::UnloadAllPatches();
+			Radar::ResetTerrainState();
+            HudOwnership::Reset();
+            ConstructionHologram::Shutdown();
+            BasicPatch::UnloadAllPatches();
 			PilotFsmIntercept::Shutdown();
 			VehicleControl::Shutdown();
 			Plant::Shutdown();
@@ -234,6 +242,11 @@ namespace ExtraUtilities::Lua
 		catch (...)
 		{
 			// The frame listener must never outlive the DLL.
+			Radar::ResetTerrainState();
+            HudOwnership::Reset();
+            ConstructionHologram::Shutdown();
+			try { BasicPatch::UnloadAllPatches(); } catch (...) {}
+			ResetMissionScopedState();
 			VehicleControl::Shutdown();
 			PlayerControls::Shutdown();
 			DamageResistance::ResetMissionState();

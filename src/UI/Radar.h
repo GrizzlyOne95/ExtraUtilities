@@ -35,6 +35,13 @@ namespace ExtraUtilities::Lua::Radar
 
 	// 1 = radar
 	// 0 = minimap
+	int SetPresentation(lua_State* L);
+    int SetTerrain(lua_State* L);
+    void DisableTerrain() noexcept;
+    void ResetTerrainState() noexcept;
+    bool IsPresentationActive() noexcept;
+    uint64_t ProjectPoint(const float* point, float range);
+	int GetLayout(lua_State* L);
 	int GetState(lua_State* L);
 	int SetState(lua_State* L);
 	int GetSizeScale(lua_State* L);

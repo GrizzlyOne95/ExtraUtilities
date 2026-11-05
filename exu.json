@@ -944,6 +944,193 @@
         "pattern": "E8 ?? ?? ?? ?? 83 C4 04 8B 8D D8",
         "pattern_kind": "code",
         "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "PresentationSine0": {
+        "address": "0x004935CD",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "F3 0F 10 05 9C 82 97 00",
+        "pattern_kind": "code"
+      },
+      "PresentationCosine1": {
+        "address": "0x004935EE",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "F3 0F 10 05 EC 81 95 00",
+        "pattern_kind": "code"
+      },
+      "PresentationSine2": {
+        "address": "0x004935FB",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "F3 0F 10 05 9C 82 97 00",
+        "pattern_kind": "code"
+      },
+      "PresentationCosine3": {
+        "address": "0x00493616",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "F3 0F 10 05 EC 81 95 00",
+        "pattern_kind": "code"
+      },
+      "PresentationSine4": {
+        "address": "0x00493631",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "F3 0F 10 05 9C 82 97 00",
+        "pattern_kind": "code"
+      },
+      "PresentationCosine5": {
+        "address": "0x0049364B",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "F3 0F 10 05 EC 81 95 00",
+        "pattern_kind": "code"
+      },
+      "PresentationProject6": {
+        "address": "0x00493B8F",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "E8 9C F7 FF FF",
+        "pattern_kind": "code"
+      },
+      "PresentationBackdrop7": {
+        "address": "0x00494069",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "E8 D2 FC FF FF",
+        "pattern_kind": "code"
+      },
+      "PresentationSine8": {
+        "address": "0x004940C4",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "F3 0F 59 05 9C 82 97 00",
+        "pattern_kind": "code"
+      },
+      "PresentationCosine9": {
+        "address": "0x004940F6",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "F3 0F 59 05 EC 81 95 00",
+        "pattern_kind": "code"
+      },
+      "PresentationProject10": {
+        "address": "0x0049411E",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "E8 0D F2 FF FF",
+        "pattern_kind": "code"
+      },
+      "PresentationSine11": {
+        "address": "0x004941A4",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "F3 0F 59 05 9C 82 97 00",
+        "pattern_kind": "code"
+      },
+      "PresentationCosine12": {
+        "address": "0x004941DD",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "F3 0F 59 05 EC 81 95 00",
+        "pattern_kind": "code"
+      },
+      "PresentationProject13": {
+        "address": "0x00494205",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "E8 26 F1 FF FF",
+        "pattern_kind": "code"
+      },
+      "PresentationProject14": {
+        "address": "0x0049446F",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "E8 BC EE FF FF",
+        "pattern_kind": "code"
+      },
+      "PresentationProject15": {
+        "address": "0x0049579B",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "E8 90 DB FF FF",
+        "pattern_kind": "code"
+      },
+      "PresentationProject16": {
+        "address": "0x00495902",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "E8 29 DA FF FF",
+        "pattern_kind": "code"
+      },
+      "PresentationProject17": {
+        "address": "0x00495AE8",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "E8 43 D8 FF FF",
+        "pattern_kind": "code"
+      },
+      "PresentationProject18": {
+        "address": "0x00495E29",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "E8 02 D5 FF FF",
+        "pattern_kind": "code"
+      },
+      "PresentationProject19": {
+        "address": "0x00495F0F",
+        "type": "radar-only presentation instruction",
+        "description": "Mission-owned radar presentation; exact GOG 2.2.301 bytes verified 2026-11-04. Restored on Lua state close.",
+        "pattern": "E8 1C D4 FF FF",
+        "pattern_kind": "code"
+      },
+      "showRadar": {
+        "address": "0x008EAAB0",
+        "type": "int*",
+        "description": "Read-only native radar HUD visibility flag; presentation does not change it.",
+        "pattern": null
+      },
+      "DrawLineStrip": {
+        "address": "0x00687340",
+        "type": "function: void __cdecl(const int* xy, int count, uint32_t argb)",
+        "description": "Native integer XY line strip; used by released radar grid. Three stack args.",
+        "pattern": "55 8B EC 83 EC 38 A1 00 70 8E 00 33 C5 89 45 FC 83 3D 34 9B B7 02 00 74",
+        "pattern_kind": "code"
+      },
+      "DrawLine": {
+        "address": "0x0068AF40",
+        "type": "function: void __cdecl(void* viewport, int x1,int y1,int x2,int y2,uint32_t color,int mode)",
+        "description": "Native seven-argument line; mode 4 is the radar packed-color path.",
+        "pattern": "55 8B EC 8B 45 20 50 8B 4D 1C 51 E8 00 FD FF FF 83 C4 08 50 8B 55",
+        "pattern_kind": "code"
+      },
+      "DrawTerrain": {
+        "address": "0x00493E60",
+        "type": "function: void __thiscall(void*)",
+        "description": "Original native radar terrain rendering; retained on adaptation failure.",
+        "pattern": "55 8B EC 83 EC 08 89 4D FC F3 0F 10 05 F4 0E 92",
+        "pattern_kind": "code"
+      },
+      "TerrainDrawCall": {
+        "address": "0x00494074",
+        "type": "call site",
+        "description": "Radar-only terrain call after native scanner and matrix update.",
+        "pattern": "E8 E7 FD FF FF",
+        "pattern_kind": "code"
+      },
+      "HeightDrawCall": {
+        "address": "0x00495C03",
+        "type": "call site",
+        "description": "Radar-only height stem after native contact visibility and range checks.",
+        "pattern": "E8 38 53 1F 00",
+        "pattern_kind": "code"
+      },
+      "drawDepth": {
+        "address": "0x00920EF4",
+        "type": "float*",
+        "description": "Native 2D submit depth; radar terrain temporarily adds .03 and restores it.",
+        "pattern": null
       }
     },
     "Reticle": {
@@ -1474,6 +1661,20 @@
         "pattern": "E8 1D DB 0A 00 83 C4 1C",
         "pattern_kind": "code",
         "note": "Code pattern at the address (the call plus the caller's add esp), verified unique in GOG 2.2.301 executable sections 2026-10-03; the call rel32 makes it site-specific."
+      },
+      "ScrapDrawBegin": {
+        "address": "0x005C7057",
+        "type": "radar-independent scrap display branch site",
+        "description": "Start of the scrap-only sprite/title/value draw block after native depth was saved. Mission hide skips to ScrapDrawResume; pilots continue.",
+        "pattern": "81 3D E0 CE CE 02 90 01 00 00",
+        "pattern_kind": "code"
+      },
+      "ScrapDrawResume": {
+        "address": "0x005C71D0",
+        "type": "code: resume at pilot layout computation",
+        "description": "First instruction after the scrap count draw and balanced caller cleanup; shared depth remains unchanged when the scrap block is skipped.",
+        "pattern": "E8 DB 2C 0C 00 89 45 94 89 55 98",
+        "pattern_kind": "code"
       }
     },
     "Turbo": {
@@ -2207,6 +2408,35 @@
         "type": "vector<void*> (begin,end,capacity)",
         "description": "Released placement powerplant list; verified through PowerPlantListReference and vector begin/end accessors reading +0/+4.",
         "pattern": null
+      }
+    },
+    "ConstructionPreview": {
+      "GetCommand": {
+        "address": "0x0049D230",
+        "type": "int __thiscall(void*, const Vector*)",
+        "description": "Native construction-rig placement command; original result and all gameplay writes remain unchanged. ECX is the rig, stack argument is the proposed position; RET 4. Selected class +0x370, MAT_3D +0x378.",
+        "pattern": "55 8B EC 83 EC 54 A1 00 70 8E 00 33 C5 89 45 FC 89 4D D4 8B 4D D4",
+        "pattern_kind": "code",
+        "note": "GOG 2.2.301 SHA256 8d71f56c1314e69a8ad38f4eeaf20a8ff825965a84cf196e5f77ea4cc3377413; offline assembly and call/return verified 2026-11-04. Native acceptance pending."
+      },
+      "DisplayReference": {
+        "address": "0x0049D335",
+        "type": "code reference",
+        "description": "Loads the native ConstructionDisplay at 0x009786D8 before SetRectangle. +0x68 active sprite, +0x6c green, +0x70 yellow, +0x74 red, proven by initializer and status setters.",
+        "pattern": "B9 D8 86 97 00 E8 A1 F2 FF FF",
+        "pattern_kind": "code"
+      },
+      "MatrixReference": {
+        "address": "0x0049D29D",
+        "type": "code reference",
+        "description": "Native player-facing accessor, SetConstructionMatrix and selected class +0x370 bounds call. Matrix offset +0x378 corroborated by following footprint/test arguments.",
+        "pattern": "E8 EE 51 FC FF 50 8B 4D 08 51 8B 4D D4 E8 E1 FC FF FF 8B 55 D4 8B 8A 70 03 00 00 E8 A3 F2 FF FF 8B 08 89",
+        "pattern_kind": "code"
+      },
+      "Display": {
+        "address": "0x009786D8",
+        "type": "void*",
+        "description": "Stock ConstructionDisplay instance; address qualified by DisplayReference, never written by this feature."
       }
     }
   }

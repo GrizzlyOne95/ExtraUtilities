@@ -74,6 +74,9 @@ namespace ExtraUtilities::BzrBuildProfile
 	inline constexpr int kAnchor39_Player_identity_FindNetPlayer[] = { 0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x08, 0x8D, 0x45, 0x08, 0x50, 0x8D, 0x4D, 0xFC, 0x51, 0xB9, 0xB8, 0x8F, 0x9C, 0x00, 0xE8, 0xE8, 0x17, 0x00, 0x00 };
 	inline constexpr int kAnchor40_Key_binding_lookup[] = { 0x55, 0x8B, 0xEC, 0x0F, 0xBF, 0x45, 0x08, 0x85, 0xC0, 0x7D, 0x04, 0x33, 0xC0, 0xEB, 0x1C, 0x0F, 0xBF, 0x4D, 0x08, 0x81, 0xF9, 0x00, 0x10, 0x00, 0x00, 0x72, 0x04, 0x33, 0xC0, 0xEB, 0x0C, 0x0F, 0xBF, 0x55, 0x08, 0x66, 0x0F, 0xB6, 0x82, 0x50, 0x88, 0x91, 0x00, 0x5D, 0xC3 };
 	inline constexpr int kAnchor41_Key_binding_parser_write[] = { 0x0F, 0xBF, 0x85, 0xA8, 0xEE, 0xFF, 0xFF, 0x8B, 0x8D, 0xA4, 0xEE, 0xFF, 0xFF, 0x8A, 0x14, 0xCD, 0x8C, 0xB0, 0x8E, 0x00, 0x88, 0x90, 0x50, 0x88, 0x91, 0x00 };
+	inline constexpr int kAnchor42_Construction_hologram_GetCommand[] = { 0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x54, 0xA1, 0x00, 0x70, 0x8E, 0x00, 0x33, 0xC5, 0x89, 0x45, 0xFC, 0x89, 0x4D, 0xD4, 0x8B, 0x4D, 0xD4 };
+	inline constexpr int kAnchor43_Construction_hologram_DisplayReference[] = { 0xB9, 0xD8, 0x86, 0x97, 0x00, 0xE8, 0xA1, 0xF2, 0xFF, 0xFF };
+	inline constexpr int kAnchor44_Construction_hologram_MatrixReference[] = { 0xE8, 0xEE, 0x51, 0xFC, 0xFF, 0x50, 0x8B, 0x4D, 0x08, 0x51, 0x8B, 0x4D, 0xD4, 0xE8, 0xE1, 0xFC, 0xFF, 0xFF, 0x8B, 0x55, 0xD4, 0x8B, 0x8A, 0x70, 0x03, 0x00, 0x00, 0xE8, 0xA3, 0xF2, 0xFF, 0xFF, 0x8B, 0x08, 0x89 };
 
 	inline constexpr AnchorSpec kRuntimeAnchors[] =
 	{
@@ -118,7 +121,10 @@ namespace ExtraUtilities::BzrBuildProfile
 		{ "Terrain placement PowerPlantListReference", kAnchor38_Terrain_placement_PowerPlantListReference, sizeof(kAnchor38_Terrain_placement_PowerPlantListReference) / sizeof(kAnchor38_Terrain_placement_PowerPlantListReference[0]), AnchorMatchMode::ExpectedVa, 0x0049d3c5u, false },
 		{ "Player identity FindNetPlayer", kAnchor39_Player_identity_FindNetPlayer, sizeof(kAnchor39_Player_identity_FindNetPlayer) / sizeof(kAnchor39_Player_identity_FindNetPlayer[0]), AnchorMatchMode::ExpectedVa, 0x005771b0u, false },
 		{ "Key binding lookup", kAnchor40_Key_binding_lookup, sizeof(kAnchor40_Key_binding_lookup) / sizeof(kAnchor40_Key_binding_lookup[0]), AnchorMatchMode::ExpectedVa, 0x006217f0u, false },
-		{ "Key binding parser write", kAnchor41_Key_binding_parser_write, sizeof(kAnchor41_Key_binding_parser_write) / sizeof(kAnchor41_Key_binding_parser_write[0]), AnchorMatchMode::ExpectedVa, 0x00620cc1u, false }
+		{ "Key binding parser write", kAnchor41_Key_binding_parser_write, sizeof(kAnchor41_Key_binding_parser_write) / sizeof(kAnchor41_Key_binding_parser_write[0]), AnchorMatchMode::ExpectedVa, 0x00620cc1u, false },
+		{ "Construction hologram GetCommand", kAnchor42_Construction_hologram_GetCommand, sizeof(kAnchor42_Construction_hologram_GetCommand) / sizeof(kAnchor42_Construction_hologram_GetCommand[0]), AnchorMatchMode::ExpectedVa, 0x0049d230u, false },
+		{ "Construction hologram DisplayReference", kAnchor43_Construction_hologram_DisplayReference, sizeof(kAnchor43_Construction_hologram_DisplayReference) / sizeof(kAnchor43_Construction_hologram_DisplayReference[0]), AnchorMatchMode::ExpectedVa, 0x0049d335u, false },
+		{ "Construction hologram MatrixReference", kAnchor44_Construction_hologram_MatrixReference, sizeof(kAnchor44_Construction_hologram_MatrixReference) / sizeof(kAnchor44_Construction_hologram_MatrixReference[0]), AnchorMatchMode::ExpectedVa, 0x0049d29du, false }
 	};
 
 	inline constexpr size_t kRuntimeAnchorCount =

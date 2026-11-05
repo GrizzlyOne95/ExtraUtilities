@@ -2200,6 +2200,24 @@ function exu.GetObj(h) end
 --- @return table | nil
 function exu.GetConstructionRigSelectionInfo(h) end
 
+--- Opts into a BZ2-style, renderer-only construction-rig placement hologram.
+--- Follows the stock GetCommand placement matrix/status without issuing Build,
+--- changing selection, consuming resources, spawning a GameObject or changing cameras.
+--- `meshes` maps lowercase build ODF names (max 8 chars) to actual Ogre .mesh resources.
+--- `materialPrefix` names six existing materials: GreenSolid, GreenWire, YellowSolid,
+--- YellowWire, RedSolid, RedWire appended to the prefix. Solid/wire alternates every
+--- 512 ms. First enable requires configuration; later calls can omit it.
+--- A fresh native placement is required each frame; cancel/confirm/death hides it.
+--- False hides immediately. Closing the mission restores the optional native hook,
+--- removes the frame listener and destroys only the EXU-owned display entity/node.
+--- Returns false on unsupported builds, hook conflicts, missing renderer exports
+--- or incomplete configuration. Stock placement feedback stays active throughout.
+--- @param enabled boolean
+--- @param meshes table<string,string>?
+--- @param materialPrefix string?
+--- @return boolean available
+function exu.SetConstructionHologramEnabled(enabled, meshes, materialPrefix) end
+
 --- Gets the live selected weapon mask from the object's carrier, filtered to mounted weapons.
 --- This is different from stock `GetWeaponMask`, which reflects the object's stored weapon-mask field.
 --- @nodiscard
@@ -2743,7 +2761,7 @@ function exu.GetHeatFlashEnabled() end
 --- @param enabled boolean
 function exu.SetHeatFlashEnabled(enabled) end
 
---- @alias StockStatusHudPart "hull" | "ammo" | "weapons"
+--- @alias StockStatusHudPart "hull" | "ammo" | "weapons" | "scrap"
 
 --- Gets whether a part of the stock player status display is drawn (default true).
 --- Reports what the engine will actually do: false only while every draw of the part is suppressed.
@@ -2754,10 +2772,14 @@ function exu.GetStockStatusHudVisible(part) end
 
 --- Shows or hides a part of the stock player status display (bottom-right hull/ammo bars and weapon list):
 --- `"hull"` is the hull label and bar; `"ammo"` the ammo label, bar, shots-remaining count and ammo-cost marker;
---- `"weapons"` the weapon rows (plates, hardpoint icons and names). Only the draws are removed: the low-hull and
---- out-of-ammo voice warnings still play. Use it to replace the stock readout with your own HUD, for example
+--- `"weapons"` the weapon rows (plates, hardpoint icons and names).
+--- `"scrap"` is the stock scrap sprite, title and current/capacity text; the pilot readout continues normally.
+--- Only drawing is suppressed; low-hull and out-of-ammo warnings still play. Use your own HUD, for example
 --- `Workshop/exu_ring_gauge.lua`. Needs no OpenShim. Returns false when hiding failed (unsupported build, or a
 --- draw call another module already patched), in which case the part stays visible.
+--- With a compatible OpenShim provider, suppression uses an explicit external-HUD
+--- lease: OpenShim yields its draw/tint/fade handling for the claimed part instead
+--- of both DLLs replacing the same CALL bytes. Saved OpenShim settings are unchanged.
 --- Mission scoped: resets to visible when the Lua state closes, so set it again after loading a save.
 --- @param part StockStatusHudPart
 --- @param visible boolean
@@ -3580,6 +3602,18 @@ function exu.SetSurfaceFragmentProgram(material, schemeName, programName) end
 --- @return Vector|nil
 function exu.EntityLocalPoint(target, point) end
 
+--- Intersects a simulation-space segment with current native exterior collision polygons.
+--- Uses current per-part transforms and a bounded triangle BVH cache; no shots or damage.
+--- Does not infer Ogre-only visual deformation or transparent texture holes.
+--- Returns nil for a miss, dead/invalid handle, unavailable geometry, or unsupported build.
+--- @param handle Handle
+--- @param from Vector
+--- @param to Vector
+--- @return Vector? point
+--- @return Vector? normal
+--- @return number? distance
+function exu.RaycastObjectSurface(handle, from, to) end
+
 --- Current corrected native firing mount, or nil without a qualified/bound adapter.
 --- @param handle Handle
 --- @param slot integer 0..4
@@ -3711,5 +3745,27 @@ function exu.SetConsoleVariable(name, value) end
 --- Returns an independent name-to-kind snapshot of the current state's EXU registry.
 --- @return table<string, 'command'|'variable'> items
 function exu.ListConsoleItems() end
+
+--- Mission-scoped radar presentation: tilted projection, original backdrop hidden.
+--- Native contacts, grid, visibility, scan and controls are retained.
+--- Returns false on unsupported builds or a conflicting patch; restores on Lua close.
+---@param enabled boolean
+---@param tiltDegrees? number 15..75; default 30
+---@param perspectiveDistance? number 3..20; default 8
+---@return boolean
+function exu.SetRadarPresentation(enabled, tiltDegrees, perspectiveDistance) end
+
+--- Current native cockpit radar layout in screen pixels; nil on unsupported builds.
+---@return table|nil layout {x,y,radius,visible}
+function exu.GetRadarLayout() end
+
+--- Adapts BZ2 terrain-cluster wireframe, pulse brightness, scan ring and white
+--- height stems to the active native radar. Requires SetRadarPresentation first.
+--- Disabling presentation also disables this drawing. Native contacts stay native.
+---@param enabled boolean
+---@param gridSpacing? number World metres, 8..256; BZ2 default 32.
+---@param color? number 24-bit RGB; BZ2 default 0x0078FF.
+---@return boolean enabled Whether the complete requested hook group activated.
+function exu.SetRadarTerrain(enabled, gridSpacing, color) end
 
 return exu
