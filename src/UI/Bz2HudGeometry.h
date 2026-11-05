@@ -1,7 +1,8 @@
 #pragma once
+#include <algorithm>
 #include <array>
 #include <cmath>
-#include <string_view>
+#include <cstdint>
 namespace ExtraUtilities::Bz2Hud
 {
     struct Point {float x,y;};
@@ -24,23 +25,34 @@ namespace ExtraUtilities::Bz2Hud
         }
         return result;
     }
-    inline const char* CommandIcon(std::string_view text)
+    // BZ2's COMMANDTEXT color group (bzgame_init.cfg), opaque RGB, indexed by
+    // selected|highlit<<1|disabled<<2.
+    struct CommandRowColors {uint32_t background,gradient;};
+    constexpr uint32_t Rgb(uint32_t r,uint32_t g,uint32_t b) {return r<<16|g<<8|b;}
+    inline CommandRowColors RowColors(bool selected,bool highlit,bool disabled)
     {
-        if (text=="Recycler") return "iu_recy";
-        if (text.find("Attack")!=text.npos) return "iu_attack";
-        if (text.find("Follow")!=text.npos) return "iu_follow";
-        if (text.find("Go To")!=text.npos || text.find("Goto")!=text.npos) return "iu_gotonav";
-        if (text.find("Recycle")!=text.npos) return "iu_recycle";
-        if (text.find("Pick")!=text.npos) return "iu_pickup";
-        if (text.find("Drop")!=text.npos) return "iu_dropoff";
-        if (text.find("Undeploy")!=text.npos) return "iu_undeploy";
-        if (text.find("Deploy")!=text.npos || text.find("Build")!=text.npos) return "iu_deploy";
-        if (text.find("Repair")!=text.npos || text.find("Ammo")!=text.npos) return "iu_service";
-        if (text.find("Cancel")!=text.npos) return "iu_cancel";
-        if (text.find("Recycler")!=text.npos) return "iu_recy";
-        if (text.find("Factory")!=text.npos) return "iu_fact";
-        if (text.find("Armory")!=text.npos) return "iu_armo";
-        if (text.find("Constructor")!=text.npos) return "iu_cons";
-        return nullptr;
+        static constexpr std::array<CommandRowColors,8> table{{
+            {Rgb(0,127,255),Rgb(0,63,127)},{Rgb(255,0,127),Rgb(127,0,63)},
+            {Rgb(127,191,255),Rgb(63,95,127)},{Rgb(255,127,191),Rgb(127,63,95)},
+            {Rgb(63,63,63),Rgb(31,31,31)},{Rgb(127,127,127),Rgb(63,63,63)},
+            {Rgb(127,127,127),Rgb(63,63,63)},{Rgb(255,255,255),Rgb(127,127,127)}}};
+        return table[(selected?1:0)|(highlit?2:0)|(disabled?4:0)];
+    }
+    inline uint32_t LerpColor(uint32_t a,uint32_t b,float t)
+    {
+        uint32_t result=0;
+        for(int shift=0;shift<24;shift+=8)
+        {
+            const float from=static_cast<float>((a>>shift)&255),to=static_cast<float>((b>>shift)&255);
+            result|=static_cast<uint32_t>(from+(to-from)*t+.5f)<<shift;
+        }
+        return result;
+    }
+    // Horizontal inset of a rounded end on one scanline. colorize.dds ends its
+    // bars in a half circle of the bar's height.
+    inline int RoundedInset(int line,int height)
+    {
+        const float radius=height*.5f,offset=radius-(line+.5f);
+        return static_cast<int>(radius-std::sqrt(std::max(0.f,radius*radius-offset*offset))+.5f);
     }
 }

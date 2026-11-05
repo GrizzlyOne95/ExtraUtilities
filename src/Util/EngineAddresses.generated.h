@@ -998,6 +998,20 @@ namespace ExtraUtilities::EngineAddresses
 			Rows = 0x009173E8u,
 			// data
 			Mouse = 0x009175A0u,
+			// data
+			LabelPoints = 0x009174E8u,
+			// data
+			KeyWidth = 0x008E7A00u,
+			// data
+			RowSideWidth = 0x009173E0u,
+			// data
+			Current = 0x00917560u,
+			// data
+			Disabled = 0x00917588u,
+			// data
+			Depth = 0x00920EF4u,
+			// call site
+			SelectionFillCall = 0x004A0D91u,
 			// function
 			Command = 0x004A08E0u,
 			// function
@@ -1009,5 +1023,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 339u;
+	inline constexpr unsigned kEntryCount = 346u;
 }
