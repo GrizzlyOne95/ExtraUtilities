@@ -2771,7 +2771,7 @@ function exu.GetHeatFlashEnabled() end
 --- @param enabled boolean
 function exu.SetHeatFlashEnabled(enabled) end
 
---- @alias StockStatusHudPart "hull" | "ammo" | "weapons" | "scrap"
+--- @alias StockStatusHudPart "hull" | "ammo" | "weapons" | "scrap" | "pilots"
 
 --- Gets whether a part of the stock player status display is drawn (default true).
 --- Reports what the engine will actually do: false only while every draw of the part is suppressed.
@@ -2784,6 +2784,8 @@ function exu.GetStockStatusHudVisible(part) end
 --- `"hull"` is the hull label and bar; `"ammo"` the ammo label, bar, shots-remaining count and ammo-cost marker;
 --- `"weapons"` the weapon rows (plates, hardpoint icons and names).
 --- `"scrap"` is the stock scrap sprite, title and current/capacity text; the pilot readout continues normally.
+--- `"pilots"` is the stock pilot sprite, title and current/capacity text; scrap continues normally.
+--- Pilot suppression skips its checked complete draw block and needs no OpenShim.
 --- Only drawing is suppressed; low-hull and out-of-ammo warnings still play. Use your own HUD, for example
 --- `Workshop/exu_ring_gauge.lua`. Needs no OpenShim. Returns false when hiding failed (unsupported build, or a
 --- draw call another module already patched), in which case the part stays visible.

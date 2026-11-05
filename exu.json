@@ -1675,6 +1675,20 @@
         "description": "First instruction after the scrap count draw and balanced caller cleanup; shared depth remains unchanged when the scrap block is skipped.",
         "pattern": "E8 DB 2C 0C 00 89 45 94 89 55 98",
         "pattern_kind": "code"
+      },
+      "PilotDrawBegin": {
+        "address": "0x005C71D0",
+        "type": "pilot display block boundary (11 bytes)",
+        "description": "Pilot-only layout/sprite/title/value block after scrap draw and shared-depth restoration. Three complete instructions; skip to PilotDrawResume. Released GOG 2.2.301 disassembly verified 2026-11-05.",
+        "pattern": "E8 DB 2C 0C 00 89 45 94 89 55 98",
+        "pattern_kind": "code"
+      },
+      "PilotDrawResume": {
+        "address": "0x005C7397",
+        "type": "common draw-function cookie epilogue",
+        "description": "Balanced-stack common exit also reached by the native no-team branch. Pilot sprite depth is restored within the skipped branch; skipping its entirety leaves incoming depth unchanged. Released GOG 2.2.301 disassembly verified 2026-11-05.",
+        "pattern": "8B 4D FC 33 CD E8 E4 74 27 00 8B E5 5D C3",
+        "pattern_kind": "code"
       }
     },
     "Turbo": {
