@@ -38,6 +38,7 @@ namespace ExtraUtilities::Lua::Radar
 	int SetPresentation(lua_State* L);
     int SetTerrain(lua_State* L);
     int SetMesh(lua_State* L);
+    int IsMeshDrawing(lua_State* L);
     void DisableTerrain() noexcept;
     void ResetTerrainState() noexcept;
     bool IsPresentationActive() noexcept;

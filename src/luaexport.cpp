@@ -996,6 +996,7 @@ namespace ExtraUtilities::Lua
             { "SetBz2HudPresentationEnabled", &InterfacePresentation::SetEnabled },
             { "SetRadarTerrain", &Radar::SetTerrain },
             { "SetRadarMesh", &Radar::SetMesh },
+            { "IsRadarMeshDrawing", &Radar::IsMeshDrawing },
             { "GetRadarLayout", &Radar::GetLayout },
 			{ "GetRadarState", &Radar::GetState },
 			{ "SetRadarState", &Radar::SetState },
