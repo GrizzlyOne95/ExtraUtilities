@@ -3790,4 +3790,10 @@ function exu.SetRadarTerrain(enabled, gridSpacing, color) end
 ---@return boolean enabled Whether the mesh and the compass hook activated.
 function exu.SetRadarMesh(enabled, material, vertices) end
 
+--- Whether the last radar frame drew the SetRadarMesh mesh, with the native compass
+--- hidden. False before the first drawn frame, on a frame the mesh could not draw,
+--- and after a fault clears the mesh, which SetRadarMesh cannot report.
+---@return boolean drawing
+function exu.IsRadarMeshDrawing() end
+
 return exu

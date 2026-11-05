@@ -295,6 +295,14 @@ namespace ExtraUtilities::Lua::Radar
         lua_pushboolean(L,1);return 1;
     }
 
+    int IsMeshDrawing(lua_State* L)
+    {
+        // The compass hook is on only while the last frame drew the mesh, and
+        // loggedMesh waits for the first draw, as SetMesh turns the hook on early.
+        lua_pushboolean(L,loggedMesh&&compassPatch&&compassPatch->IsActive());
+        return 1;
+    }
+
     int SetMesh(lua_State* L)
     {
         const auto clear=[]
