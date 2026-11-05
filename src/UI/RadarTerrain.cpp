@@ -28,6 +28,9 @@ namespace ExtraUtilities::Lua::Radar
             uintptr_t player=0;
         };
         TerrainGrid terrain;
+        // Render-thread scratch, cleared per frame so capacity is reused.
+        std::vector<std::array<int,2>> projected,run;
+        std::vector<bool> visible;
         PulseClock pulse;
         float terrainAt=-10000,spacing=32;
         uint32_t gridRgb=0x0078ff;
@@ -79,7 +82,7 @@ namespace ExtraUtilities::Lua::Radar
                 pulse.Update(f.player,f.ping,f.time);
                 // Height samples are world-anchored and cached for 100 ms;
                 // transform, circular mask and scan alpha use the current frame.
-                if(newOwner||terrain.nodes.empty()||f.time<terrainAt||f.time-terrainAt>=.1f||
+                if(newOwner||f.time<terrainAt||f.time-terrainAt>=.1f||
                     terrain.range!=f.range||std::fabs(terrain.centerX-f.origin[0])>=spacing||
                     std::fabs(terrain.centerZ-f.origin[2])>=spacing)
                 {
@@ -87,8 +90,8 @@ namespace ExtraUtilities::Lua::Radar
                     terrainAt=f.time;
                 }
                 if(terrain.nodes.empty())return false;
-                std::vector<std::array<int,2>> projected(terrain.nodes.size());
-                std::vector<bool> visible(terrain.nodes.size());
+                projected.assign(terrain.nodes.size(),{});
+                visible.assign(terrain.nodes.size(),false);
                 size_t valid=0;
                 for(size_t i=0;i<terrain.nodes.size();++i)
                 {
@@ -102,7 +105,7 @@ namespace ExtraUtilities::Lua::Radar
                 }
                 if(valid<2)return false;
                 const uint32_t color=pulse.GridColor(f.time,gridRgb);
-                std::vector<std::array<int,2>> run;run.reserve(65);
+                run.clear();run.reserve(65);
                 const size_t strips=ForEachTerrainStrip(terrain.columns,terrain.rows,visible,
                     [&](const std::vector<size_t>& indices)
                     {
