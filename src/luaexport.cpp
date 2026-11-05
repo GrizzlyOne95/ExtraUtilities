@@ -23,6 +23,7 @@
 #include "About.h"
 #include "Game/ProjectionBindings.h"
 #include "Game/BuildEvents.h"
+#include "Game/ConstructionHologram.h"
 #include "Game/TerrainPlacement.h"
 #include "Game/ConsoleRegistry.h"
 #include "Game/Culling.h"
@@ -533,6 +534,8 @@ namespace ExtraUtilities::Lua
 		RuntimeGate::SetSupported(supportedBuild);
 		Soundtrack::ResetMissionState();
 		PlayerControls::ResetMissionState();
+		GameObject::ResetObjectSurfaceRaycast();
+        Radar::ResetTerrainState();
 
 		state = L; // save the state pointer to use in callbacks
 		CommandReplacement::ResetState(L);
@@ -887,6 +890,7 @@ namespace ExtraUtilities::Lua
 			{ "SetMaterialPassColors", &GameObject::SetMaterialPassColors },
             { "SetMaterialShaderVector", &GameObject::SetMaterialShaderVector },
             { "EntityLocalPoint", &GameObject::EntityLocalPoint },
+            { "RaycastObjectSurface", &GameObject::RaycastObjectSurface },
             { "CloneSurfaceMaterial", &GameObject::CloneSurfaceMaterial },
             { "ReleaseSurfaceMaterial", &GameObject::ReleaseSurfaceMaterial },
             { "SetSurfaceTexture", &GameObject::SetSurfaceTexture },
@@ -987,6 +991,9 @@ namespace ExtraUtilities::Lua
 			{ "SaveGame",			 &OS::SaveGame },
 
 			// Radar
+			{ "SetRadarPresentation", &Radar::SetPresentation },
+            { "SetRadarTerrain", &Radar::SetTerrain },
+            { "GetRadarLayout", &Radar::GetLayout },
 			{ "GetRadarState", &Radar::GetState },
 			{ "SetRadarState", &Radar::SetState },
 			{ "GetRadarSizeScale", &Radar::GetSizeScale },
@@ -1122,6 +1129,7 @@ namespace ExtraUtilities::Lua
 			{ "DoString", &StockExtensions::DoString },
 			{ "MatrixInverse", &StockExtensions::MatrixInverse },
 			{ "ScreenToWorld", &StockExtensions::ScreenToWorld },
+            { "SetConstructionHologramEnabled", &ConstructionHologram::SetEnabled },
             { "SetBuildEventsEnabled", &BuildEvents::SetEnabled },
             { "DrainBuildEvents", &BuildEvents::Drain },
             { "IsTerrainBuildable", &TerrainPlacementBindings::IsTerrainBuildable },

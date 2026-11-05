@@ -377,6 +377,60 @@ namespace ExtraUtilities::EngineAddresses
 			RefreshLayoutCallSite0 = 0x0049325Fu,
 			// call site (call RefreshLayout)
 			RefreshLayoutCallSite1 = 0x0049405Bu,
+			// radar-only presentation instruction
+			PresentationSine0 = 0x004935CDu,
+			// radar-only presentation instruction
+			PresentationCosine1 = 0x004935EEu,
+			// radar-only presentation instruction
+			PresentationSine2 = 0x004935FBu,
+			// radar-only presentation instruction
+			PresentationCosine3 = 0x00493616u,
+			// radar-only presentation instruction
+			PresentationSine4 = 0x00493631u,
+			// radar-only presentation instruction
+			PresentationCosine5 = 0x0049364Bu,
+			// radar-only presentation instruction
+			PresentationProject6 = 0x00493B8Fu,
+			// radar-only presentation instruction
+			PresentationBackdrop7 = 0x00494069u,
+			// radar-only presentation instruction
+			PresentationSine8 = 0x004940C4u,
+			// radar-only presentation instruction
+			PresentationCosine9 = 0x004940F6u,
+			// radar-only presentation instruction
+			PresentationProject10 = 0x0049411Eu,
+			// radar-only presentation instruction
+			PresentationSine11 = 0x004941A4u,
+			// radar-only presentation instruction
+			PresentationCosine12 = 0x004941DDu,
+			// radar-only presentation instruction
+			PresentationProject13 = 0x00494205u,
+			// radar-only presentation instruction
+			PresentationProject14 = 0x0049446Fu,
+			// radar-only presentation instruction
+			PresentationProject15 = 0x0049579Bu,
+			// radar-only presentation instruction
+			PresentationProject16 = 0x00495902u,
+			// radar-only presentation instruction
+			PresentationProject17 = 0x00495AE8u,
+			// radar-only presentation instruction
+			PresentationProject18 = 0x00495E29u,
+			// radar-only presentation instruction
+			PresentationProject19 = 0x00495F0Fu,
+			// int*
+			showRadar = 0x008EAAB0u,
+			// function: void __cdecl(const int* xy, int count, uint32_t argb)
+			DrawLineStrip = 0x00687340u,
+			// function: void __cdecl(void* viewport, int x1,int y1,int x2,int y2,uint32_t color,int mode)
+			DrawLine = 0x0068AF40u,
+			// function: void __thiscall(void*)
+			DrawTerrain = 0x00493E60u,
+			// call site
+			TerrainDrawCall = 0x00494074u,
+			// call site
+			HeightDrawCall = 0x00495C03u,
+			// float*
+			drawDepth = 0x00920EF4u,
 		};
 	}
 
@@ -590,6 +644,10 @@ namespace ExtraUtilities::EngineAddresses
 			AmmoCostMarkSite2 = 0x005DD41Eu,
 			// hook site (5 bytes: call rel32; cdecl, caller pops)
 			AmmoCostMarkSite3 = 0x005DD44Eu,
+			// radar-independent scrap display branch site
+			ScrapDrawBegin = 0x005C7057u,
+			// code: resume at pilot layout computation
+			ScrapDrawResume = 0x005C71D0u,
 		};
 	}
 
@@ -891,5 +949,20 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 287u;
+	namespace ConstructionPreview
+	{
+		enum : uintptr_t
+		{
+			// int __thiscall(void*, const Vector*)
+			GetCommand = 0x0049D230u,
+			// code reference
+			DisplayReference = 0x0049D335u,
+			// code reference
+			MatrixReference = 0x0049D29Du,
+			// void*
+			Display = 0x009786D8u,
+		};
+	}
+
+	inline constexpr unsigned kEntryCount = 320u;
 }

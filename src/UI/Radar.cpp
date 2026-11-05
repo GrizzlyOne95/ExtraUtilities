@@ -17,6 +17,8 @@
 */
 
 #include "Radar.h"
+#include "UI/HudOwnership.h"
+#include "RadarProjection.h"
 #include "ControlPanel.h"
 #include "InlinePatch.h"
 #include "LuaHelpers.h"
@@ -28,6 +30,9 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <memory>
+#include <vector>
+#include <algorithm>
 
 namespace ExtraUtilities::Lua::Radar
 {
@@ -475,4 +480,136 @@ namespace ExtraUtilities::Lua::Radar
 		InvokeEdgePathRefresh();
 		return 0;
 	}
+
+    // Mission-scoped visual adaptation. Native scanner, filtering, contacts,
+    // ping, sounds, menus and camera state continue through the original radar.
+    namespace
+    {
+        enum class Kind { Project, Backdrop, Sine, Cosine };
+        struct PresentationSite { uintptr_t address; Kind kind; std::vector<uint8_t> expected; };
+        const PresentationSite presentationSites[] = {
+            { EngineAddresses::Radar::PresentationSine0, Kind::Sine, { 0xF3, 0x0F, 0x10, 0x05, 0x9C, 0x82, 0x97, 0x00 } },
+            { EngineAddresses::Radar::PresentationCosine1, Kind::Cosine, { 0xF3, 0x0F, 0x10, 0x05, 0xEC, 0x81, 0x95, 0x00 } },
+            { EngineAddresses::Radar::PresentationSine2, Kind::Sine, { 0xF3, 0x0F, 0x10, 0x05, 0x9C, 0x82, 0x97, 0x00 } },
+            { EngineAddresses::Radar::PresentationCosine3, Kind::Cosine, { 0xF3, 0x0F, 0x10, 0x05, 0xEC, 0x81, 0x95, 0x00 } },
+            { EngineAddresses::Radar::PresentationSine4, Kind::Sine, { 0xF3, 0x0F, 0x10, 0x05, 0x9C, 0x82, 0x97, 0x00 } },
+            { EngineAddresses::Radar::PresentationCosine5, Kind::Cosine, { 0xF3, 0x0F, 0x10, 0x05, 0xEC, 0x81, 0x95, 0x00 } },
+            { EngineAddresses::Radar::PresentationProject6, Kind::Project, { 0xE8, 0x9C, 0xF7, 0xFF, 0xFF } },
+            { EngineAddresses::Radar::PresentationBackdrop7, Kind::Backdrop, { 0xE8, 0xD2, 0xFC, 0xFF, 0xFF } },
+            { EngineAddresses::Radar::PresentationSine8, Kind::Sine, { 0xF3, 0x0F, 0x59, 0x05, 0x9C, 0x82, 0x97, 0x00 } },
+            { EngineAddresses::Radar::PresentationCosine9, Kind::Cosine, { 0xF3, 0x0F, 0x59, 0x05, 0xEC, 0x81, 0x95, 0x00 } },
+            { EngineAddresses::Radar::PresentationProject10, Kind::Project, { 0xE8, 0x0D, 0xF2, 0xFF, 0xFF } },
+            { EngineAddresses::Radar::PresentationSine11, Kind::Sine, { 0xF3, 0x0F, 0x59, 0x05, 0x9C, 0x82, 0x97, 0x00 } },
+            { EngineAddresses::Radar::PresentationCosine12, Kind::Cosine, { 0xF3, 0x0F, 0x59, 0x05, 0xEC, 0x81, 0x95, 0x00 } },
+            { EngineAddresses::Radar::PresentationProject13, Kind::Project, { 0xE8, 0x26, 0xF1, 0xFF, 0xFF } },
+            { EngineAddresses::Radar::PresentationProject14, Kind::Project, { 0xE8, 0xBC, 0xEE, 0xFF, 0xFF } },
+            { EngineAddresses::Radar::PresentationProject15, Kind::Project, { 0xE8, 0x90, 0xDB, 0xFF, 0xFF } },
+            { EngineAddresses::Radar::PresentationProject16, Kind::Project, { 0xE8, 0x29, 0xDA, 0xFF, 0xFF } },
+            { EngineAddresses::Radar::PresentationProject17, Kind::Project, { 0xE8, 0x43, 0xD8, 0xFF, 0xFF } },
+            { EngineAddresses::Radar::PresentationProject18, Kind::Project, { 0xE8, 0x02, 0xD5, 0xFF, 0xFF } },
+            { EngineAddresses::Radar::PresentationProject19, Kind::Project, { 0xE8, 0x1C, 0xD4, 0xFF, 0xFF } },
+        };
+        std::vector<std::unique_ptr<InlinePatch>> presentationPatches;
+        float presentationSine = 0.5f, presentationCosine = 0.8660254f;
+        float presentationDistance = 8.0f;
+
+        uint64_t __cdecl ProjectPresentation(const float* point, float range)
+        {
+            // Same EDX:EAX packed pixel result and cdecl arguments as the native
+            // projector. Every redirected caller belongs to CockpitRadar.
+            return RadarPresentation::Project(point, range,
+                *reinterpret_cast<const int*>(EngineAddresses::Radar::cockpitWireframeProjectionRadius),
+                presentationDistance, *BZR::Radar::cockpitWireframeCenterX,
+                *BZR::Radar::cockpitWireframeCenterY);
+        }
+
+        void RestorePresentation()
+        {
+            HudOwnership::Update(HudOwnership::Radar,false);
+            for (auto& patch : presentationPatches) patch->SetStatus(false);
+        }
+    }
+
+    uint64_t ProjectPoint(const float* point,float range)
+    {
+        return ProjectPresentation(point,range);
+    }
+
+    bool IsPresentationActive() noexcept
+    {
+        if(presentationPatches.empty())return false;
+        for(const auto& patch:presentationPatches)if(!patch->IsActive())return false;
+        return true;
+    }
+
+    int SetPresentation(lua_State* L)
+    {
+        luaL_checktype(L, 1, LUA_TBOOLEAN);
+        if (!lua_toboolean(L, 1))
+        {
+            DisableTerrain();
+            RestorePresentation();
+            lua_pushboolean(L, 1);
+            return 1;
+        }
+        const double degrees = luaL_optnumber(L, 2, 30.0);
+        const double distance = luaL_optnumber(L, 3, 8.0);
+        if (!std::isfinite(degrees) || degrees < 15 || degrees > 75 ||
+            !std::isfinite(distance) || distance < 3 || distance > 20)
+            return luaL_error(L, "radar tilt must be 15..75 degrees and distance 3..20");
+        if (!RuntimeGate::IsSupported()) { lua_pushboolean(L, 0); return 1; }
+        if (presentationPatches.empty())
+        {
+            for (const auto& site : presentationSites)
+            {
+                auto payload = site.expected;
+                uintptr_t target = 0;
+                switch (site.kind)
+                {
+                case Kind::Backdrop:
+                    std::fill(payload.begin(), payload.end(), BasicPatch::NOP);
+                    break;
+                case Kind::Project:
+                    target = reinterpret_cast<uintptr_t>(&ProjectPresentation) - (site.address + 5);
+                    std::memcpy(payload.data() + 1, &target, 4);
+                    break;
+                case Kind::Sine:
+                case Kind::Cosine:
+                    target = reinterpret_cast<uintptr_t>(site.kind == Kind::Sine ? &presentationSine : &presentationCosine);
+                    std::memcpy(payload.data() + payload.size() - 4, &target, 4);
+                    break;
+                }
+                presentationPatches.emplace_back(std::make_unique<InlinePatch>(
+                    site.address, std::move(payload), BasicPatch::Status::INACTIVE, site.expected));
+            }
+        }
+        // Atomic group: a foreign patch or failed preimage returns the entire
+        // native radar, instead of mixing two projections or losing its frame.
+        for (auto& patch : presentationPatches)
+        {
+            patch->SetStatus(true);
+            if (!patch->IsActive()) { RestorePresentation(); lua_pushboolean(L, 0); return 1; }
+        }
+        constexpr double radians = 3.14159265358979323846 / 180.0;
+        presentationSine = static_cast<float>(std::sin(degrees * radians));
+        presentationCosine = static_cast<float>(std::cos(degrees * radians));
+        presentationDistance = static_cast<float>(distance);
+        if (HudOwnership::HasProtocol() && !HudOwnership::Update(HudOwnership::Radar,true))
+        {RestorePresentation();lua_pushboolean(L,0);return 1;}
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+
+    int GetLayout(lua_State* L)
+    {
+        if (!RuntimeGate::IsSupported()) { lua_pushnil(L); return 1; }
+        lua_createtable(L, 0, 5);
+        lua_pushinteger(L, *BZR::Radar::cockpitWireframeCenterX); lua_setfield(L, -2, "x");
+        lua_pushinteger(L, *BZR::Radar::cockpitWireframeCenterY); lua_setfield(L, -2, "y");
+        lua_pushinteger(L, *reinterpret_cast<const int*>(EngineAddresses::Radar::cockpitWireframeProjectionRadius)); lua_setfield(L, -2, "radius");
+        lua_pushboolean(L, *reinterpret_cast<const int*>(EngineAddresses::Radar::showRadar) != 0 && state.Read() == 1);
+        lua_setfield(L, -2, "visible");
+        return 1;
+    }
+
 }

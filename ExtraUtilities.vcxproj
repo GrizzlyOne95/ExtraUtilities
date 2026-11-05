@@ -158,6 +158,8 @@
     <ClCompile Include="src\Game\PilotFsmIntercept.cpp" />
     <ClCompile Include="src\Game\Camera.cpp" />
     <ClCompile Include="src\Game\BuildEvents.cpp" />
+    <ClCompile Include="src\Game\ConstructionHologram.cpp" />
+    <ClCompile Include="src\Ogre\OgrePreviewModel.cpp" />
     <ClCompile Include="src\Game\TerrainPlacement.cpp" />
     <ClCompile Include="src\Game\ConsoleRegistry.cpp" />
     <ClCompile Include="src\Game\ProjectionBindings.cpp" />
@@ -194,6 +196,7 @@
     </ClCompile>
     <ClCompile Include="src\Ogre\OgreMaterialRuntime.cpp" />
     <ClCompile Include="src\Game\EntityRenderApi.cpp" />
+    <ClCompile Include="src\Game\ObjectSurfaceRaycast.cpp" />
     <ClCompile Include="src\Game\MaterialApi.cpp" />
     <ClCompile Include="src\Game\TerrainTrn.cpp" />
     <ClCompile Include="src\Game\AiInspection.cpp" />
@@ -227,6 +230,7 @@
     <ClCompile Include="src\Util\OS.cpp" />
     <ClCompile Include="src\Util\PlayOption.cpp" />
     <ClCompile Include="src\UI\Radar.cpp" />
+    <ClCompile Include="src\UI\RadarTerrain.cpp" />
     <ClCompile Include="src\UI\Renderer.cpp" />
     <ClCompile Include="src\UI\Reticle.cpp" />
     <ClCompile Include="src\Game\Satellite.cpp" />
@@ -342,6 +346,7 @@
     <ClInclude Include="src\Patches.h" />
     <ClInclude Include="src\Util\PlayOption.h" />
     <ClInclude Include="src\UI\Radar.h" />
+    <ClInclude Include="src\UI\RadarTerrainGeometry.h" />
     <ClInclude Include="src\UI\Renderer.h" />
     <ClInclude Include="src\UI\Reticle.h" />
     <ClInclude Include="src\Game\Satellite.h" />

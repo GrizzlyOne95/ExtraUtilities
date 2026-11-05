@@ -457,6 +457,36 @@
       "required": false,
       "runtime_gate": true,
       "reason": "Optional, feature-specific identity. GameState checks both Key binding anchors before touching the gamekey.map binding table for exu.SetChatOnEnter; its absence must not disable unrelated EXU features."
+    },
+    {
+      "name": "Construction hologram GetCommand",
+      "source": "catalog",
+      "catalog_path": "ConstructionPreview.GetCommand",
+      "match": "expected_va",
+      "expected_va": "0x0049D230",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional construction preview only; independently checked released GOG bytes and ABI. Does not gate unrelated features."
+    },
+    {
+      "name": "Construction hologram DisplayReference",
+      "source": "catalog",
+      "catalog_path": "ConstructionPreview.DisplayReference",
+      "match": "expected_va",
+      "expected_va": "0x0049D335",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional construction preview only; independently checked released GOG bytes and ABI. Does not gate unrelated features."
+    },
+    {
+      "name": "Construction hologram MatrixReference",
+      "source": "catalog",
+      "catalog_path": "ConstructionPreview.MatrixReference",
+      "match": "expected_va",
+      "expected_va": "0x0049D29D",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Optional construction preview only; independently checked released GOG bytes and ABI. Does not gate unrelated features."
     }
   ]
 }

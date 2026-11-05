@@ -30,6 +30,8 @@ namespace ExtraUtilities::Lua::GameObject
 	// Drops the material handles cached during the mission; Ogre may remove or
 	// reload those materials before the next one.
 	void ClearMaterialCache() noexcept;
+	void ResetObjectSurfaceRaycast() noexcept;
+	int RaycastObjectSurface(lua_State* L);
 
 	struct EntityAnimationInfo
 	{
