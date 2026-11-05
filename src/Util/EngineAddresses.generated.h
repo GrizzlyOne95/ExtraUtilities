@@ -964,5 +964,36 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 320u;
+	namespace InterfacePresentation
+	{
+		enum : uintptr_t
+		{
+			// function
+			Sprite = 0x0068CA30u,
+			// function
+			Font = 0x00689D10u,
+			// function
+			Fill = 0x0068AF70u,
+			// function
+			Time = 0x00822DA0u,
+			// data
+			Names = 0x00920F08u,
+			// data
+			Count = 0x00920F00u,
+			// data
+			Rows = 0x009173E8u,
+			// data
+			Mouse = 0x009175A0u,
+			// function
+			Command = 0x004A08E0u,
+			// function
+			Small = 0x0068C560u,
+			// function
+			Scale = 0x00689EB0u,
+			// data
+			Rects = 0x025F8F40u,
+		};
+	}
+
+	inline constexpr unsigned kEntryCount = 332u;
 }

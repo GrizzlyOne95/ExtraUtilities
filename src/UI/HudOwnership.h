@@ -5,7 +5,7 @@
 
 namespace ExtraUtilities::HudOwnership
 {
-    constexpr uint32_t Hull=1, Ammo=2, Weapons=4, Scrap=8, Radar=16;
+    constexpr uint32_t Hull=1, Ammo=2, Weapons=4, Scrap=8, Radar=16, Commands=32;
     inline std::atomic<uint32_t> claimed{0};
     using SetFn=uint32_t(__cdecl*)(uint32_t);
     using GetFn=uint32_t(__cdecl*)();

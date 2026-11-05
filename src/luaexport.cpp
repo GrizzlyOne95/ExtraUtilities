@@ -21,6 +21,7 @@
 --------------------------------*/
 
 #include "About.h"
+#include "UI/InterfacePresentation.h"
 #include "Game/ProjectionBindings.h"
 #include "Game/BuildEvents.h"
 #include "Game/ConstructionHologram.h"
@@ -992,6 +993,7 @@ namespace ExtraUtilities::Lua
 
 			// Radar
 			{ "SetRadarPresentation", &Radar::SetPresentation },
+            { "SetBz2HudPresentationEnabled", &InterfacePresentation::SetEnabled },
             { "SetRadarTerrain", &Radar::SetTerrain },
             { "GetRadarLayout", &Radar::GetLayout },
 			{ "GetRadarState", &Radar::GetState },
