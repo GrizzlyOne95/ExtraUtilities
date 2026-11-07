@@ -463,6 +463,11 @@ namespace BZR
 
 		inline auto sceneManagerStructure = (void**)EngineAddresses::Ogre::sceneManagerStructure; // base of some ogre structure that leads to scene manager
 		constexpr uintptr_t sceneManagerOffset = 0x08;
+		// The same structure's main view (FUN_006658b0 adds it to the window at
+		// z-order 0, full size): its Ogre::Camera and Ogre::Viewport. Insets
+		// (the target camera) are separate viewports at +0x20/+0x24.
+		constexpr uintptr_t mainCameraOffset = 0x10;
+		constexpr uintptr_t mainViewportOffset = 0x1C;
 	}
 
 	using DAMAGE = uint8_t[0x10];

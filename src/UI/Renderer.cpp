@@ -38,7 +38,7 @@ namespace ExtraUtilities::Lua::Renderer
 				return nullptr;
 			}
 
-			void* viewport = ExtraUtilities::Ogre::GetCurrentViewport(sceneManager);
+			void* viewport = ExtraUtilities::Ogre::GetMainViewport(sceneManager);
 			return viewport == nullptr ? nullptr : ExtraUtilities::Ogre::GetViewportCamera(viewport);
 		}
 	}
