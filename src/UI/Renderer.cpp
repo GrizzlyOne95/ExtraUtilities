@@ -20,6 +20,7 @@
 
 #include "LuaHelpers.h"
 #include "Ogre/Ogre.h"
+#include "Util/SehGuard.h"
 
 namespace ExtraUtilities::Lua::Renderer
 {
@@ -38,8 +39,17 @@ namespace ExtraUtilities::Lua::Renderer
 				return nullptr;
 			}
 
-			void* viewport = ExtraUtilities::Ogre::GetCurrentViewport(sceneManager);
-			return viewport == nullptr ? nullptr : ExtraUtilities::Ogre::GetViewportCamera(viewport);
+			// The main viewport comes from an engine structure that can hold a stale
+			// pointer between missions, so guard the dereference.
+			__try
+			{
+				void* viewport = ExtraUtilities::Ogre::GetMainViewport(sceneManager);
+				return viewport == nullptr ? nullptr : ExtraUtilities::Ogre::GetViewportCamera(viewport);
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return nullptr;
+			}
 		}
 	}
 

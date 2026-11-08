@@ -34,7 +34,7 @@ namespace ExtraUtilities::OgreCameraRuntime
                 if (!*BZR::GameObject::user_entity_ptr) return false;
                 void* manager = Ogre::sceneManager.Read();
                 if (!manager) return false;
-                void* viewport = Ogre::GetCurrentViewport(manager);
+                void* viewport = Ogre::GetMainViewport(manager);
                 if (!viewport) return false;
                 void* camera = Ogre::GetViewportCamera(viewport);
                 BZR::VECTOR_3D origin{};

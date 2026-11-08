@@ -197,7 +197,7 @@ namespace ExtraUtilities::Lua::Environment
 
 			__try
 			{
-				return Ogre::GetCurrentViewport(sceneManager);
+				return Ogre::GetMainViewport(sceneManager);
 			}
 			__except (Seh::Filter(GetExceptionCode()))
 			{
@@ -296,8 +296,10 @@ namespace ExtraUtilities::Lua::Environment
 		ActiveViewportSet GetActiveViewports()
 		{
 			ActiveViewportSet result{};
-			AppendViewportIfUnique(result, GetRenderSystemCurrentViewport());
+			// The main view first: callers that take one viewport mean the
+			// player's view, not the target-camera inset drawn last.
 			AppendViewportIfUnique(result, GetSceneManagerCurrentViewport());
+			AppendViewportIfUnique(result, GetRenderSystemCurrentViewport());
 			return result;
 		}
 	}

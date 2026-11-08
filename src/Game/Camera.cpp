@@ -38,7 +38,7 @@ namespace ExtraUtilities::Lua::Camera
 
 			__try
 			{
-				void* viewport = Ogre::GetCurrentViewport(sceneManager);
+				void* viewport = Ogre::GetMainViewport(sceneManager);
 				if (viewport == nullptr)
 				{
 					return nullptr;

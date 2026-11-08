@@ -81,6 +81,8 @@ namespace ExtraUtilities::Ogre
 
 	inline Scanner terrain_masterlight(BZR::Ogre::terrain_masterlight, BasicScanner::Restore::DISABLED);
 	inline Scanner sceneManager(BZR::Ogre::sceneManagerStructure, { BZR::Ogre::sceneManagerOffset }, BasicScanner::Restore::DISABLED);
+	inline Scanner mainOgreCamera(BZR::Ogre::sceneManagerStructure, { BZR::Ogre::mainCameraOffset }, BasicScanner::Restore::DISABLED);
+	inline Scanner mainViewport(BZR::Ogre::sceneManagerStructure, { BZR::Ogre::mainViewportOffset }, BasicScanner::Restore::DISABLED);
 
 	// OgreMain entry points, resolved by mangled export name on first use
 	// (OgreProc.h).
@@ -424,6 +426,22 @@ namespace ExtraUtilities::Ogre
 	inline void* GetViewportCamera(void* viewportPtr)
 	{
 		return AsViewport(viewportPtr)->::Ogre::Viewport::getCamera();
+	}
+
+	// The game's main view. getCurrentViewport() is the viewport drawn LAST,
+	// which is the target-camera inset while one is open (T), so anything
+	// that means "the player's view" asks for this instead. Falls back to the
+	// current viewport when the engine structure holds no matching pair.
+	// Callers guard it with SEH like any viewport call.
+	inline void* GetMainViewport(void* sceneManagerPtr)
+	{
+		void* viewport = mainViewport.Read();
+		void* camera = mainOgreCamera.Read();
+		if (viewport != nullptr && camera != nullptr && GetViewportCamera(viewport) == camera)
+		{
+			return viewport;
+		}
+		return sceneManagerPtr == nullptr ? nullptr : GetCurrentViewport(sceneManagerPtr);
 	}
 
 	inline bool GetSkyBoxGenParameters(void* sceneManagerPtr, SkyBoxGenParameters& outParams)

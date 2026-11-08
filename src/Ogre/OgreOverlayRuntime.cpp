@@ -500,7 +500,7 @@ namespace ExtraUtilities::Lua::Overlay
 
 			__try
 			{
-				return ExtraUtilities::Ogre::GetCurrentViewport(sceneManager);
+				return ExtraUtilities::Ogre::GetMainViewport(sceneManager);
 			}
 			__except (Seh::Filter(GetExceptionCode()))
 			{
