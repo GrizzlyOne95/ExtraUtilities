@@ -1,7 +1,9 @@
 // Copyright (C) 2026 GrizzlyOne95. LGPL-3.0-or-later.
 #pragma once
 
+#include "Game/VehicleControlPolicy.h"
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <string_view>
@@ -41,6 +43,38 @@ namespace ExtraUtilities::PlayerControlPolicy
         if (mask & Jetpack) { input[54] = 0; gas[10] = 0; }
         // Preserve the key/UI prefix, unknown padding and unrelated gas slot 9.
     }
+
+    // GAS_CTRL slots 0..5 share the AI layout VehicleControl writes at sim+0xC4:
+    // steer, pitch, strafe, throttle (float), turbo, jump (int32).
+    using InjectedInputs = ExtraUtilities::VehicleControl::Inputs;
+    using InjectedCommand = ExtraUtilities::VehicleControl::Command;
+    static_assert(sizeof(InjectedInputs) <= sizeof(Gas));
+    inline void Inject(Gas& gas, const InjectedInputs& inputs) noexcept
+    {
+        std::memcpy(gas.data(), &inputs, sizeof(inputs));
+    }
+
+    // One scripted lease for the local player; Lua must renew it before timeout.
+    struct Injection
+    {
+        InjectedCommand command{};
+        float issued = 0, deadline = 0;
+        bool active = false;
+        bool Set(const InjectedCommand& c, float now) noexcept
+        {
+            if (!ExtraUtilities::VehicleControl::Valid(c) || !std::isfinite(now)) return false;
+            command = c; issued = now; deadline = now + c.timeout; active = true;
+            return true;
+        }
+        // False once expired (or the clock went backwards, e.g. a load); expiry clears the lease.
+        bool Live(float now) noexcept
+        {
+            if (!active) return false;
+            if (!std::isfinite(now) || now < issued || now >= deadline) { *this = {}; return false; }
+            return true;
+        }
+        void Clear() noexcept { *this = {}; }
+    };
 
     class Owners
     {

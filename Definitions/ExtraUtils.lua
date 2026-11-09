@@ -2454,10 +2454,38 @@ function exu.ClearPlayerControlMask(owner) end
 
 --- Inspect support and actual simulation applications separately from requests.
 --- Fields: available, hookActive, requestedMask, lastAppliedMask, ownerCount,
---- applications, reason. lastAppliedMask records the last successful application,
---- not proof that the current frame's UI/focus permits gameplay.
+--- applications, injecting, injections, injectedFires, injectRemaining, reason.
+--- lastAppliedMask
+--- records the last successful application, not proof that the current frame's
+--- UI/focus permits gameplay.
 ---@return table
 function exu.GetPlayerControlState() end
+
+---@class PlayerInputs
+---@field steer? number  -1..1
+---@field pitch? number  -1..1
+---@field strafe? number -1..1
+---@field throttle? number -1..1
+---@field turbo? boolean
+---@field jump? boolean
+---@field fire? boolean  selected weapon; hovercraft and subclasses (e.g. wingman)
+---@field timeout? number seconds 0.01..5, default 0.5
+
+--- Drive the LOCAL player's current vehicle as if by input, for a short lease.
+--- Renew it every Update (or within timeout); omitted fields are neutral. The
+--- lease overrides player input and any control mask, and its end zeroes the
+--- driven controls once. Single player only. Returns false plus a reason
+--- (unsupported-build, multiplayer-unsupported, qualification-failed,
+--- fire-qualification-failed, clock-unavailable, invalid-command). Bad fields
+--- raise a Lua error. Verified on a wingman-class tank; pilot-on-foot is untested.
+---@param inputs PlayerInputs
+---@return boolean accepted
+---@return string? reason
+function exu.SetPlayerInputs(inputs) end
+
+--- End the scripted input lease on the next simulation update. Idempotent.
+---@return boolean
+function exu.ClearPlayerInputs() end
 
 --- Native player input suppression flags. Zero permits all controls.
 exu.CONTROL = {

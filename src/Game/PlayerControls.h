@@ -8,5 +8,7 @@ namespace ExtraUtilities::Lua::PlayerControls
     int SetMask(lua_State* L);
     int ClearMask(lua_State* L);
     int GetState(lua_State* L);
+    int SetInputs(lua_State* L);
+    int ClearInputs(lua_State* L);
     void RegisterConstants(lua_State* L, int exuIndex);
 }
