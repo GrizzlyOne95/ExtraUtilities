@@ -2,6 +2,8 @@
 #include "Game/PlayerControls.h"
 #include "Game/PlayerControlPolicy.h"
 #include "EntryDetour32.h"
+#include "Util/BuildValidation.h"
+#include "Util/MsvcRtti.h"
 #include "Util/Logging.h"
 #include "Util/RuntimeGate.h"
 #include "Util/SehGuard.h"
@@ -22,6 +24,11 @@ namespace ExtraUtilities::Lua::PlayerControls
         std::atomic<std::uint32_t> requested{0}, lastApplied{0};
         std::atomic<unsigned> applications{0};
         std::atomic<bool> faulted{false};
+        // Lua and UserProcess::Execute both run on the simulation thread.
+        Injection injection;
+        unsigned injections = 0;
+        bool needZero = false;
+        unsigned fires = 0;
         EntryDetour32* detour = nullptr;
         ExecuteFn original = nullptr;
         constexpr std::array<std::uint8_t, 9> entryBytes = {0x55,0x8B,0xEC,0x81,0xEC,0x1C,0x02,0x00,0x00};
@@ -68,6 +75,81 @@ namespace ExtraUtilities::Lua::PlayerControls
             __except(Seh::Filter(GetExceptionCode())) { return false; }
         }
 
+        float Now() noexcept
+        {
+            __try { return *reinterpret_cast<const float*>(EngineAddresses::Time::SimTimeSeconds); }
+            __except(Seh::Filter(GetExceptionCode())) { return NAN; }
+        }
+
+        // Scripted fire reuses the AI path (Carrier::FireSelected) on ordinary hovercraft only.
+        bool FireQualified() noexcept
+        {
+            static const bool cached = [] {
+            unsigned matched = 0;
+            for (const auto& anchor : BzrBuildProfile::kRuntimeAnchors)
+                if (std::strcmp(anchor.name,"VehicleControl.FireSelected") == 0 ||
+                    std::strcmp(anchor.name,"VehicleControl.HoverCraftVtable") == 0)
+                {
+                    if (!BuildValidation::Detail::MatchAnchor(GetModuleHandleA(nullptr),anchor)) return false;
+                    ++matched;
+                }
+            return matched == 2;
+            }();
+            return cached;
+        }
+
+        // Ordinary player craft are Wingman (and other HoverCraft subclasses),
+        // not bare HoverCraft. Accept a primary vtable whose RTTI lists
+        // .?AVHoverCraft@@ as a non-virtual base at displacement 0, so the
+        // carrier offset stays valid. Caller holds SEH; cached per vtable.
+        bool IsHoverCraft(std::uintptr_t vtable) noexcept
+        {
+            if (vtable == EngineAddresses::VehicleControl::HoverCraftVtable) return true;
+            static std::uintptr_t cachedVtable = 0;
+            static bool cachedResult = false;
+            if (vtable == cachedVtable) return cachedResult;
+            bool result = false;
+            const auto* col = *(reinterpret_cast<MsvcRtti::CompleteObjectLocator* const*>(vtable) - 1);
+            if (col && col->signature == 0 && col->offset == 0 && col->pClassDescriptor && col->pClassDescriptor->pBaseClassArray)
+            {
+                const auto* hierarchy = col->pClassDescriptor;
+                for (std::uint32_t i = 0; i < hierarchy->numBaseClasses && i < 64; ++i)
+                {
+                    const auto* base = hierarchy->pBaseClassArray[i];
+                    if (base && base->pTypeDescriptor && base->where.mdisp == 0 && base->where.pdisp == -1
+                        && std::strcmp(base->pTypeDescriptor->name, ".?AVHoverCraft@@") == 0) { result = true; break; }
+                }
+            }
+            cachedVtable = vtable;
+            cachedResult = result;
+            return result;
+        }
+
+        // Writes GAS_CTRL slots 0..5 after stock UserProcess::Execute, the same
+        // point the mask clears its output cache before craft simulation.
+        bool WriteGas(void* process, const InjectedInputs& inputs, bool fire, bool& local) noexcept
+        {
+            local = false;
+            __try
+            {
+                auto* object = *reinterpret_cast<std::uint8_t**>(static_cast<std::uint8_t*>(process)+0x0C);
+                auto* user = *reinterpret_cast<void**>(BZR::GameObject::p_userObject);
+                if (!object || object != user) return true;
+                local = true;
+                auto* gas = *reinterpret_cast<std::uint8_t**>(object+0x230);
+                if (!gas) return false;
+                Gas values{};
+                std::memcpy(values.data(), gas+0xC4, sizeof(values));
+                PlayerControlPolicy::Inject(values, inputs);
+                std::memcpy(gas+0xC4, values.data(), sizeof(values));
+                if (fire && IsHoverCraft(*reinterpret_cast<std::uintptr_t*>(object)))
+                    if (auto* carrier = *reinterpret_cast<void**>(object+0x1A0))
+                    { reinterpret_cast<void(__thiscall*)(void*)>(EngineAddresses::VehicleControl::FireSelected)(carrier); ++fires; }
+                return true;
+            }
+            __except(Seh::Filter(GetExceptionCode())) { return false; }
+        }
+
         // No stack arguments: the __fastcall wrapper receives this in ECX,
         // consumes the unused EDX, and preserves the original __thiscall ABI.
         void __fastcall Execute(void* process, void*) noexcept
@@ -75,8 +157,20 @@ namespace ExtraUtilities::Lua::PlayerControls
             const auto call = original;
             if (!call) return; // published before activation, removed at teardown
             const auto mask = requested.load(std::memory_order_relaxed);
+            const bool single = !faulted.load() && !NetworkSession();
             bool applied = false;
-            if (mask && !faulted.load() && !NetworkSession())
+            // An expired lease zeroes the smoothing cache once, so held script
+            // input does not bleed into the player's next frames.
+            // Stays pending until the local player's own process takes the zero.
+            if (injection.active) needZero = true;
+            const bool inject = single && injection.Live(Now());
+            if (single && needZero && !inject)
+            {
+                bool local = false;
+                if (!WriteGas(process, {}, false, local)) { faulted.store(true); lastApplied.store(0); }
+                else if (local) needZero = false;
+            }
+            if (mask && single)
             {
                 bool local = false;
                 if (!Apply(process, mask, local))
@@ -98,6 +192,14 @@ namespace ExtraUtilities::Lua::PlayerControls
                 const auto current = requested.load(std::memory_order_relaxed);
                 if (!Apply(process,current,local)) { faulted.store(true); lastApplied.store(0); }
                 else if (local) { lastApplied.store(current); applications.fetch_add(1,std::memory_order_relaxed); }
+            }
+            // Scripted inputs win over the mask: the mask filters the user, not scripts.
+            if (inject && !faulted.load() && injection.active)
+            {
+                bool local = false;
+                const auto command = injection.command; // a fire callback may change the lease
+                if (!WriteGas(process, command.inputs, command.fire, local)) { faulted.store(true); lastApplied.store(0); }
+                else if (local) ++injections;
             }
         }
 
@@ -140,6 +242,7 @@ namespace ExtraUtilities::Lua::PlayerControls
     {
         owners.Reset(); requested.store(0); lastApplied.store(0);
         applications.store(0); faulted.store(false);
+        injection.Clear(); injections = 0; needZero = false; fires = 0;
     }
     void Shutdown() noexcept
     {
@@ -169,6 +272,61 @@ namespace ExtraUtilities::Lua::PlayerControls
         if (!requested.load()) lastApplied.store(0);
         lua_pushboolean(L,cleared); return 1;
     }
+    int SetInputs(lua_State* L)
+    {
+        luaL_checktype(L,1,LUA_TTABLE);
+        lua_pushnil(L);
+        while (lua_next(L,1))
+        {
+            if (lua_type(L,-2) != LUA_TSTRING) luaL_error(L,"SetPlayerInputs keys must be strings");
+            std::size_t length = 0;
+            const char* key = lua_tolstring(L,-2,&length);
+            if (std::strlen(key) != length) luaL_error(L,"SetPlayerInputs keys must not contain NUL");
+            constexpr const char* keys[] = {"steer","pitch","strafe","throttle","turbo","jump","fire","timeout"};
+            bool known = false;
+            for (const auto* k : keys) if (std::strcmp(k,key) == 0) known = true;
+            if (!known) luaL_error(L,"unsupported SetPlayerInputs field '%s'",key);
+            lua_pop(L,1);
+        }
+        const auto number = [L](const char* name, double low, double high, double fallback) {
+            lua_getfield(L,1,name);
+            double value = fallback;
+            if (!lua_isnil(L,-1))
+            {
+                value = lua_tonumber(L,-1);
+                if (lua_type(L,-1) != LUA_TNUMBER || !std::isfinite(value) || value < low || value > high)
+                    luaL_error(L,"SetPlayerInputs.%s must be a finite number in [%g,%g]",name,low,high);
+            }
+            lua_pop(L,1); return static_cast<float>(value);
+        };
+        const auto boolean = [L](const char* name) {
+            lua_getfield(L,1,name);
+            if (!lua_isnil(L,-1) && lua_type(L,-1) != LUA_TBOOLEAN) luaL_error(L,"SetPlayerInputs.%s must be boolean",name);
+            const bool value = lua_toboolean(L,-1) != 0;
+            lua_pop(L,1); return value;
+        };
+        InjectedCommand c{};
+        c.inputs.steer = number("steer",-1,1,0); c.inputs.pitch = number("pitch",-1,1,0);
+        c.inputs.strafe = number("strafe",-1,1,0); c.inputs.throttle = number("throttle",-1,1,0);
+        c.inputs.turbo = boolean("turbo"); c.inputs.jump = boolean("jump");
+        c.fire = boolean("fire");
+        c.timeout = number("timeout",0.01,5,0.5);
+        // All argument errors precede any state change.
+        const char* reason = !RuntimeGate::IsSupported() ? "unsupported-build" : NetworkSession() ? "multiplayer-unsupported" :
+            (c.fire && !FireQualified()) ? "fire-qualification-failed" : !Install() ? "qualification-failed" : nullptr;
+        const float now = reason ? 0.f : Now();
+        if (!reason && !std::isfinite(now)) reason = "clock-unavailable";
+        if (!reason && !injection.Set(c,now)) reason = "invalid-command";
+        lua_pushboolean(L,!reason);
+        if (!reason) return 1;
+        lua_pushstring(L,reason); return 2;
+    }
+    int ClearInputs(lua_State* L)
+    {
+        // Leave the lease to expire on the next native update so the smoothing cache is zeroed there.
+        if (injection.active) injection.deadline = injection.issued;
+        lua_pushboolean(L,1); return 1;
+    }
     int GetState(lua_State* L)
     {
         const bool qualified = Qualified();
@@ -180,6 +338,12 @@ namespace ExtraUtilities::Lua::PlayerControls
         lua_pushinteger(L,lastApplied.load()); lua_setfield(L,-2,"lastAppliedMask");
         lua_pushinteger(L,owners.Count()); lua_setfield(L,-2,"ownerCount");
         lua_pushinteger(L,applications.load()); lua_setfield(L,-2,"applications");
+        const float now = Now();
+        const bool injecting = injection.active && std::isfinite(now) && now >= injection.issued && now < injection.deadline;
+        lua_pushboolean(L,injecting); lua_setfield(L,-2,"injecting");
+        lua_pushinteger(L,injections); lua_setfield(L,-2,"injections");
+        lua_pushinteger(L,fires); lua_setfield(L,-2,"injectedFires");
+        lua_pushnumber(L,injecting ? injection.deadline-now : 0); lua_setfield(L,-2,"injectRemaining");
         const char* reason = !RuntimeGate::IsSupported() ? "unsupported-build" : faulted.load() ? "runtime-fault" :
             !qualified ? "qualification-failed" : network ? "multiplayer-unsupported" : "available";
         lua_pushstring(L,reason); lua_setfield(L,-2,"reason");

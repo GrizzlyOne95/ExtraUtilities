@@ -52,5 +52,31 @@ int main()
     assert(owners.Combined()==(Fire|Eject));
     assert(owners.Set("5",0) && owners.Set("replacement",Jump));
     assert(owners.Count()==16 && owners.Combined()==(Fire|Jump));
-    std::cout << "PASS: 4096 channel combinations, UI/key preservation, gas smoothing, owner isolation/capacity/reset\n";
+    // Injection writes GAS_CTRL slots 0..5 (turbo/jump as int32) and preserves 6..10.
+    {
+        Gas gas{}; gas.fill(7.f);
+        InjectedInputs in{}; in.steer=-1; in.pitch=0.5f; in.strafe=0.25f; in.throttle=1; in.turbo=1; in.jump=1;
+        Inject(gas,in);
+        assert(gas[0]==-1.f && gas[1]==0.5f && gas[2]==0.25f && gas[3]==1.f);
+        std::int32_t turbo=0, jump=0;
+        std::memcpy(&turbo,&gas[4],4); std::memcpy(&jump,&gas[5],4);
+        assert(turbo==1 && jump==1);
+        for (unsigned i=6;i<gas.size();++i) assert(gas[i]==7.f);
+        Inject(gas,{}); for (unsigned i=0;i<6;++i) assert(gas[i]==0.f);
+    }
+    {
+        Injection lease;
+        assert(!lease.Live(1));
+        InjectedCommand c{}; c.inputs.throttle=1; c.timeout=0.5f;
+        assert(lease.Set(c,10) && lease.Live(10) && lease.Live(10.49f));
+        assert(!lease.Live(10.5f) && !lease.active); // expiry clears
+        assert(lease.Set(c,10) && !lease.Live(9) && !lease.active); // clock went backwards (load)
+        assert(lease.Set(c,10) && !lease.Live(NAN) && !lease.active);
+        assert(!lease.Set(c,NAN) && !lease.active);
+        InjectedCommand bad=c; bad.inputs.steer=2; assert(!lease.Set(bad,10));
+        bad=c; bad.timeout=0; assert(!lease.Set(bad,10));
+        bad=c; bad.inputs.turbo=2; assert(!lease.Set(bad,10));
+        assert(lease.Set(c,10)); lease.Clear(); assert(!lease.active && !lease.Live(10));
+    }
+    std::cout << "PASS: 4096 channel combinations, UI/key preservation, gas smoothing, owner isolation/capacity/reset, input injection/lease\n";
 }

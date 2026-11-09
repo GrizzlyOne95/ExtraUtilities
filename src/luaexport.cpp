@@ -618,6 +618,8 @@ namespace ExtraUtilities::Lua
 			{ "SetPlayerControlMask", &PlayerControls::SetMask },
 			{ "ClearPlayerControlMask", &PlayerControls::ClearMask },
 			{ "GetPlayerControlState", &PlayerControls::GetState },
+			{ "SetPlayerInputs", &PlayerControls::SetInputs },
+			{ "ClearPlayerInputs", &PlayerControls::ClearInputs },
 			// Camera
 			{ "GetCameraOrigins", &Camera::GetOrigins },
 			{ "GetCameraTransformMatrix", &Camera::GetTransformMatrix },
