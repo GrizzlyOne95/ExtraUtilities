@@ -67,6 +67,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int IsCommTowerPowered(lua_State* L);
 	int IsGunTowerPowered(lua_State* L);
+	int IsPowered(lua_State* L);
 	int IsObjectiveOn(lua_State* L);
 
 	int GetHandle(lua_State* L);

@@ -3665,6 +3665,12 @@ function exu.GetWeaponMuzzlePosition(handle, slot) end
 --- @return boolean|nil
 function exu.IsGunTowerPowered(handle) end
 
+--- Actual engine power state for any powered building: gun tower (turret), comm tower, shield tower.
+--- nil for other classes, dead handles or unsupported builds. A shield tower only pushes while this is true.
+--- @param handle Handle
+--- @return boolean|nil
+function exu.IsPowered(handle) end
+
 --- Optional shared scorched debris finish, creation-time only; disabled on Lua-state teardown.
 --- @param enabled boolean
 function exu.SetReactiveChunksEnabled(enabled) end
