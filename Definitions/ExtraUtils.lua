@@ -2437,7 +2437,8 @@ function exu.GetGameKey(key) end
 --- Mask bits come from exu.CONTROL; combine distinct bits with addition or bit.bor.
 --- A mask of 0 releases this owner. Owners combine with OR; releasing one cannot
 --- unlock another. Limited to 16 owners with names of 1..63 bytes without NUL.
---- Single player only. Returns false for an unsupported/unqualified runtime or
+--- In a network session it affects only the local player on each peer that calls
+--- it (untested in live multiplayer so far). Returns false for an unsupported/unqualified runtime or
 --- exhausted owner capacity. Invalid owner/mask arguments raise a Lua error.
 --- Opt-in native filtering starts on the next UserProcess simulation, follows
 --- pilot/craft changes, preserves UI keys, and clears at Lua-state teardown.
@@ -2474,8 +2475,9 @@ function exu.GetPlayerControlState() end
 --- Drive the LOCAL player's current vehicle as if by input, for a short lease.
 --- Renew it every Update (or within timeout); omitted fields are neutral. The
 --- lease overrides player input and any control mask, and its end zeroes the
---- driven controls once. Single player only. Returns false plus a reason
---- (unsupported-build, multiplayer-unsupported, qualification-failed,
+--- driven controls once. In a network session it drives only the local player
+--- on each peer that calls it (untested in multiplayer). Returns false plus a reason
+--- (unsupported-build, qualification-failed,
 --- fire-qualification-failed, clock-unavailable, invalid-command). Bad fields
 --- raise a Lua error. Verified on a wingman-class tank; pilot-on-foot is untested.
 ---@param inputs PlayerInputs

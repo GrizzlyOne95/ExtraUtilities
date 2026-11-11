@@ -10,7 +10,10 @@ end
 exu.ClearPlayerControlMask(owner)
 ```
 
-This is opt-in native input filtering for the local player in **single player**.
+This is opt-in native input filtering for the **local** player. In a network
+session each peer filters only its own player's input, so a co-op script must
+call it on every peer whose player should be held. Untested in a live multiplayer
+session so far (static analysis only; see the research note).
 It blocks the inputs consumed by UserProcess, including primary/auto/special
 fire and eject/abandon. It follows the current local pilot or craft; it does not
 retain an actor pointer or change weapons, ammo, AI, team or physical velocity.
@@ -44,7 +47,7 @@ false. Releasing an absent owner succeeds, including after a runtime fault.
 `GetPlayerControlState()` distinguishes availability, hook activation, requested
 mask and actual applications. `lastAppliedMask` is a historical sample; it is
 not a current UI/focus eligibility signal. Unsupported builds, a changed/owned
-entry point, multiplayer and native read/write faults stand the feature down.
+entry point and native read/write faults stand the feature down.
 Do not treat a missing API or false result as a successful lock.
 
 The hook installs lazily on the first accepted nonzero request. The input key
