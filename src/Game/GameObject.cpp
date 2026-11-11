@@ -187,12 +187,11 @@ namespace ExtraUtilities::Lua::GameObject
 		{
 			__try
 			{
-				__asm
-				{
-					mov eax, [obj]
-					mov eax, [eax+0x238]
-					mov [outHandle], eax;
-				}
+				// Plain C++ read: inline asm "mov [outHandle], eax" on a reference
+				// parameter overwrote the reference's own stack slot, so callers
+				// always saw 0 (unpowered).
+				outHandle = *reinterpret_cast<const BZR::handle*>(
+					reinterpret_cast<const uint8_t*>(obj) + 0x238);
 				return true;
 			}
 			__except (Seh::Filter(GetExceptionCode()))
