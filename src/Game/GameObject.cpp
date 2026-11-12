@@ -187,12 +187,11 @@ namespace ExtraUtilities::Lua::GameObject
 		{
 			__try
 			{
-				__asm
-				{
-					mov eax, [obj]
-					mov eax, [eax+0x238]
-					mov [outHandle], eax;
-				}
+				// Plain C++ read: inline asm "mov [outHandle], eax" on a reference
+				// parameter overwrote the reference's own stack slot, so callers
+				// always saw 0 (unpowered).
+				outHandle = *reinterpret_cast<const BZR::handle*>(
+					reinterpret_cast<const uint8_t*>(obj) + 0x238);
 				return true;
 			}
 			__except (Seh::Filter(GetExceptionCode()))
@@ -275,6 +274,43 @@ namespace ExtraUtilities::Lua::GameObject
         bool powered = false;
         if (!ReadTowerPowerSeh(object, powered)) lua_pushnil(L);
         else lua_pushboolean(L, powered);
+        return 1;
+    }
+
+    // exu.IsPowered(h) -> boolean | nil. The engine's own power state for
+    // buildings that need a power plant:
+    //   turret      (gun tower)    flag at +0x2c0, qualified by the gun tower anchor
+    //   commtower / shieldtower    power-source handle at +0x238 (non-zero = powered;
+    //                              stock ShieldTower::Simulate only pushes while set)
+    // nil for any other class, a dead handle or an unsupported build.
+    int IsPowered(lua_State* L)
+    {
+        const auto handle = CheckHandle(L, 1);
+        if (!RuntimeGate::IsSupported() || !handle) { lua_pushnil(L); return 1; }
+        lua_getglobal(L, "GetClassLabel");
+        if (!lua_isfunction(L, -1)) { lua_pushnil(L); return 1; }
+        lua_pushvalue(L, 1); lua_call(L, 1, 1);
+        const char* label = lua_tostring(L, -1);
+        const bool isTurret = label && std::strcmp(label, "turret") == 0;
+        const bool usesPowerHandle = label &&
+            (std::strcmp(label, "commtower") == 0 || std::strcmp(label, "shieldtower") == 0);
+        if (!isTurret && !usesPowerHandle) { lua_pushnil(L); return 1; }
+        if (isTurret && !TowerPowerLayoutSupported()) { lua_pushnil(L); return 1; }
+        // Re-resolve after calling Lua; never carry a native object across it.
+        auto* object = BZR::GameObject::GetObj(handle);
+        if (!object) { lua_pushnil(L); return 1; }
+        bool powered = false;
+        if (isTurret)
+        {
+            if (!ReadTowerPowerSeh(object, powered)) { lua_pushnil(L); return 1; }
+        }
+        else
+        {
+            BZR::handle powerHandle = 0;
+            if (!TryGetCommTowerPowerHandle(object, powerHandle)) { lua_pushnil(L); return 1; }
+            powered = powerHandle != 0;
+        }
+        lua_pushboolean(L, powered);
         return 1;
     }
 

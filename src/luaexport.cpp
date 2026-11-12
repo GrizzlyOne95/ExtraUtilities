@@ -854,6 +854,7 @@ namespace ExtraUtilities::Lua
 			{ "SetAsUser",		&GameObject::SetAsUser },
 			{ "IsCommTowerPowered", &GameObject::IsCommTowerPowered },
             { "IsGunTowerPowered", &GameObject::IsGunTowerPowered },
+            { "IsPowered", &GameObject::IsPowered },
 			{ "IsObjectiveOn",	&GameObject::IsObjectiveOn },
 			{ "GetHandle",		&GameObject::GetHandle },
 			{ "GetEntityVisible", &GameObject::GetEntityVisible },
