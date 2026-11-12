@@ -36,11 +36,6 @@ namespace ExtraUtilities::Lua::PlayerControls
             0x66,0xA1,0x9C,0x98,0x91,0x00,0x66,0x89,0x85,0xBC,0xFE,0xFF,0xFF,
             0x6A,0x38,0x6A,0x00,0x68,0x9C,0x98,0x91,0x00};
 
-        bool NetworkSession() noexcept
-        {
-            __try { return *BZR::Multiplayer::isNetGame; }
-            __except(Seh::Filter(GetExceptionCode())) { return true; }
-        }
         bool Qualified() noexcept
         {
             return RuntimeGate::IsSupported() && !faulted.load() &&
@@ -157,20 +152,20 @@ namespace ExtraUtilities::Lua::PlayerControls
             const auto call = original;
             if (!call) return; // published before activation, removed at teardown
             const auto mask = requested.load(std::memory_order_relaxed);
-            const bool single = !faulted.load() && !NetworkSession();
+            const bool usable = !faulted.load();
             bool applied = false;
             // An expired lease zeroes the smoothing cache once, so held script
             // input does not bleed into the player's next frames.
             // Stays pending until the local player's own process takes the zero.
             if (injection.active) needZero = true;
-            const bool inject = single && injection.Live(Now());
-            if (single && needZero && !inject)
+            const bool inject = usable && injection.Live(Now());
+            if (usable && needZero && !inject)
             {
                 bool local = false;
                 if (!WriteGas(process, {}, false, local)) { faulted.store(true); lastApplied.store(0); }
                 else if (local) needZero = false;
             }
-            if (mask && single)
+            if (mask && usable)
             {
                 bool local = false;
                 if (!Apply(process, mask, local))
@@ -222,7 +217,7 @@ namespace ExtraUtilities::Lua::PlayerControls
                 if (!original) { Shutdown(); return false; }
                 detour->SetStatus(true);
                 if (!detour->IsActive()) { Shutdown(); return false; }
-                Logging::LogMessage("exu: opt-in local player control mask active (single player)");
+                Logging::LogMessage("exu: opt-in local player control mask active");
                 return true;
             }
             catch (...) { Shutdown(); return false; }
@@ -257,8 +252,8 @@ namespace ExtraUtilities::Lua::PlayerControls
         if (!std::isfinite(value) || value<0 || value>static_cast<double>(All) || std::floor(value)!=value)
             return luaL_argerror(L,2,"mask must be an integer composed of exu.CONTROL flags");
         const auto mask = static_cast<std::uint32_t>(value);
-        // Clearing remains possible even after a runtime fault or in a network session.
-        if (mask && (!RuntimeGate::IsSupported() || NetworkSession() || !Install()))
+        // Clearing remains possible even after a runtime fault.
+        if (mask && (!RuntimeGate::IsSupported() || !Install()))
         { lua_pushboolean(L,0); return 1; }
         const bool accepted = owners.Set(owner,mask);
         requested.store(owners.Combined());
@@ -312,7 +307,7 @@ namespace ExtraUtilities::Lua::PlayerControls
         c.fire = boolean("fire");
         c.timeout = number("timeout",0.01,5,0.5);
         // All argument errors precede any state change.
-        const char* reason = !RuntimeGate::IsSupported() ? "unsupported-build" : NetworkSession() ? "multiplayer-unsupported" :
+        const char* reason = !RuntimeGate::IsSupported() ? "unsupported-build" :
             (c.fire && !FireQualified()) ? "fire-qualification-failed" : !Install() ? "qualification-failed" : nullptr;
         const float now = reason ? 0.f : Now();
         if (!reason && !std::isfinite(now)) reason = "clock-unavailable";
@@ -330,9 +325,8 @@ namespace ExtraUtilities::Lua::PlayerControls
     int GetState(lua_State* L)
     {
         const bool qualified = Qualified();
-        const bool network = qualified && NetworkSession();
         lua_newtable(L);
-        lua_pushboolean(L,qualified && !network); lua_setfield(L,-2,"available");
+        lua_pushboolean(L,qualified); lua_setfield(L,-2,"available");
         lua_pushboolean(L,detour && detour->IsActive()); lua_setfield(L,-2,"hookActive");
         lua_pushinteger(L,requested.load()); lua_setfield(L,-2,"requestedMask");
         lua_pushinteger(L,lastApplied.load()); lua_setfield(L,-2,"lastAppliedMask");
@@ -345,7 +339,7 @@ namespace ExtraUtilities::Lua::PlayerControls
         lua_pushinteger(L,fires); lua_setfield(L,-2,"injectedFires");
         lua_pushnumber(L,injecting ? injection.deadline-now : 0); lua_setfield(L,-2,"injectRemaining");
         const char* reason = !RuntimeGate::IsSupported() ? "unsupported-build" : faulted.load() ? "runtime-fault" :
-            !qualified ? "qualification-failed" : network ? "multiplayer-unsupported" : "available";
+            !qualified ? "qualification-failed" : "available";
         lua_pushstring(L,reason); lua_setfield(L,-2,"reason");
         return 1;
     }

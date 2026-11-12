@@ -49,9 +49,36 @@ unrelated EXU features. Read/write helpers are bounded POD-only SEH operations.
 This is a mission-requested EXU operation, not an always-on stock-game change.
 No OpenShim API currently owns this control-mask entry. A foreign entry patch
 causes qualification/installation refusal, rather than overwriting the owner.
-Network sessions are unsupported until input/network packet ordering is tested.
+Network sessions are allowed (2026-11-11): see "Network sessions" below.
 
 This note records static executable analysis and host checks, not a native
 playthrough. Qualification must test real bound input (including auto fire and
 analogue throttle), menu/chat access, a local pilot/craft swap, release, save/load,
 mission restart/exit and DLL teardown before claiming runtime acceptance.
+
+## Network sessions (2026-11-11)
+
+Static read of the 1.5 decompile (`Battlezone_Source/BZ1/1.5/functions`);
+the Redux 2.2.301 equivalents were not re-decompiled.
+
+- `0046/0046fad6_UserProcess_Execute.c:117-122` commits fire through
+  `Carrier::TriggerSelected/TriggerSpecial` inside Execute, and lines 124-167
+  turn `user_controls` into the GAS_CTRL slots at `+0xC4`. EXU filters both
+  before and after this call, so the local craft never sees masked input.
+- `0049/0049cc94_HoverCraft_PackTempState.c:38-55` sends the GAS_CTRL steer,
+  pitch, strafe, throttle, jump, turbo and eject values (`+0xC4..+0xDC`) to
+  peers. These are the values left after EXU's post-Execute clear, so peers
+  receive the suppressed state.
+- Of the 1.5 functions that read `user_controls`, none is a network send
+  (grep of `functions/`; the list is input, menu, camera, targeting and mission
+  code). Raw input is not sent to peers; the owning peer's craft state is.
+- `Apply` acts only when the process's object is `p_userObject`, so a peer
+  never filters another player's craft.
+
+UNVERIFIED: that Redux 2.2.301 keeps the 1.5 `HoverCraft::PackTempState`
+layout, and that the Person (pilot) and Walker temp states follow the same
+pattern. No multiplayer session has been run with the mask.
+
+UNVERIFIED: fire that a script issues itself (e.g. through
+`Carrier::FireSelected`) is not filtered by the mask, and whether such shots
+reach other peers or stay visible to the local peer only was not checked.
