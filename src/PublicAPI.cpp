@@ -69,6 +69,7 @@
 #include "Patches/EngineFlameColor.h"
 #include "Patches/GlobalTurbo.h"
 #include "Patches/KillMessages.h"
+#include "Patches/TargetChangedCallback.h"
 #include "Patches/UnitDamage.h"
 #include "Patches/UnitVo.h"
 #include "Scanner.h"
@@ -153,6 +154,8 @@ namespace ExtraUtilities::Lua
 		InitializeDebugConsole();
 		DamageResistance::ResetMissionState();
 		VehicleControl::ResetMissionState();
+		Patch::TargetChanged::HandleLuaStateAttached();
+		Patch::PreAction::HandleLuaStateAttached();
 		InstallLifecycleSentinel(L);
 		AnimationApi::Install(L);
 		StorageApi::Install(L);

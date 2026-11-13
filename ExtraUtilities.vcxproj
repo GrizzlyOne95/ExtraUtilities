@@ -138,6 +138,8 @@
     <ClCompile Include="src\Patches\AiTargetSelect.cpp" />
     <ClCompile Include="src\Patches\BulletHitCallback.cpp" />
     <ClCompile Include="src\Patches\BulletInitCallback.cpp" />
+    <ClCompile Include="src\Patches\TargetChangedCallback.cpp" />
+    <ClCompile Include="src\Patches\PreActionCallbacks.cpp" />
     <ClCompile Include="src\Game\AnimationApi.cpp" />
     <ClCompile Include="src\Game\FirstPersonLayers.cpp" />
     <ClCompile Include="src\Game\PersonAnimBlend.cpp" />
@@ -269,6 +271,7 @@
     <ClInclude Include="src\About.h" />
     <ClInclude Include="src\Patches\AddScrapCallback.h" />
     <ClInclude Include="src\Patches\AiTargetSelect.h" />
+    <ClInclude Include="src\Patches\TargetChangedCallback.h" />
     <ClInclude Include="src\bzr.h" />
     <ClInclude Include="src\Game\Camera.h" />
     <ClInclude Include="src\Patches\Cheats.h" />

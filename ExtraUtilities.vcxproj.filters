@@ -210,6 +210,12 @@
     <ClCompile Include="src\Patches\BulletHitCallback.cpp">
       <Filter>Source Files\Patches</Filter>
     </ClCompile>
+    <ClCompile Include="src\Patches\TargetChangedCallback.cpp">
+      <Filter>Source Files\Patches</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Patches\PreActionCallbacks.cpp">
+      <Filter>Source Files\Patches</Filter>
+    </ClCompile>
     <ClCompile Include="src\Game\GameObject.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
@@ -735,6 +741,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Patches\AddScrapCallback.h">
+      <Filter>Header Files\Patches</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Patches\TargetChangedCallback.h">
       <Filter>Header Files\Patches</Filter>
     </ClInclude>
     <ClInclude Include="src\Util\GraphicsOptions.h">
