@@ -125,6 +125,8 @@ namespace ExtraUtilities::Lua::Camera
 	int SetMaxZoom(lua_State* L)
 	{
 		float zoom = static_cast<float>(luaL_checknumber(L, 1));
+		if (!std::isfinite(zoom))
+			return luaL_argerror(L, 1, "must be a finite number");
 		maxZoom.Write(zoom);
 		return 0;
 	}
@@ -138,6 +140,8 @@ namespace ExtraUtilities::Lua::Camera
 	int SetMinZoom(lua_State* L)
 	{
 		float zoom = static_cast<float>(luaL_checknumber(L, 1));
+		if (!std::isfinite(zoom))
+			return luaL_argerror(L, 1, "must be a finite number");
 		minZoom.Write(zoom);
 		return 0;
 	}
@@ -384,6 +388,8 @@ namespace ExtraUtilities::Lua::Camera
 	{
 		int camera = luaL_checkinteger(L, 1);
 		float zoom = static_cast<float>(luaL_checknumber(L, 2));
+		if (!std::isfinite(zoom))
+			return luaL_argerror(L, 2, "must be a finite number");
 
 		using enum BZR::Camera::View;
 		switch (camera)

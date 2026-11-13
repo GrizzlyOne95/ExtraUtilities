@@ -1059,7 +1059,9 @@ namespace ExtraUtilities::Lua::GameObject
 		const UnitTaskLayout* task = nullptr;
 		{
 			PolymorphicObjectInfo taskInfo{};
-			if (!TryFindBestAiTask(aiProcess, scanBytes, taskInfo))
+			// RecycleTask derives from AiTask directly and is smaller than UnitTaskLayout,
+			// so reading it through this layout returned bytes past the object.
+			if (!TryFindBestAiTask(aiProcess, scanBytes, taskInfo, "UnitTask"))
 			{
 				lua_pushnil(L);
 				return 1;

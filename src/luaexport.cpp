@@ -274,7 +274,10 @@ namespace ExtraUtilities::Lua
 				lua_pushinteger(L, index);
 				lua_replace(L, lua_upvalueindex(1));
 
-				if (h != 0)
+				// Skip objects that have died since SetObjectiveOn. GetObj
+				// cannot answer on an unsupported build, so keep every
+				// tracked handle there, as before.
+				if (h != 0 && (!RuntimeGate::IsSupported() || BZR::GameObject::GetObj(h) != nullptr))
 				{
 					lua_pushlightuserdata(L, reinterpret_cast<void*>(static_cast<uintptr_t>(h)));
 					return 1;

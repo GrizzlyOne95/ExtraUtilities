@@ -65,11 +65,17 @@ namespace ExtraUtilities::Patch
 
 		if (messageMap.contains(killedTeam))
 		{
-			std::strncpy(killedTeamName, messageMap.at(killedTeam).c_str(), TEAM_MAX_LENGTH);
+			// strncpy leaves a full-length (32 character) message unterminated,
+			// and the notice then prints whatever follows it on the stack.
+			std::strncpy(killedTeamName, messageMap.at(killedTeam).c_str(), TEAM_MAX_LENGTH - 1);
+			killedTeamName[TEAM_MAX_LENGTH - 1] = '\0';
 		}
 		if (messageMap.contains(killerTeam))
 		{
-			std::strncpy(killerTeamName, messageMap.at(killerTeam).c_str(), TEAM_MAX_LENGTH);
+			// strncpy leaves a full-length (32 character) message unterminated,
+			// and the notice then prints whatever follows it on the stack.
+			std::strncpy(killerTeamName, messageMap.at(killerTeam).c_str(), TEAM_MAX_LENGTH - 1);
+			killerTeamName[TEAM_MAX_LENGTH - 1] = '\0';
 		}
 	}
 
@@ -155,7 +161,7 @@ namespace ExtraUtilities::Lua::Patches
 			size_t length{};
 			const char* const messageArg = luaL_checklstring(L, 2, &length);
 
-			if (length > Patch::TEAM_MAX_LENGTH)
+			if (length >= Patch::TEAM_MAX_LENGTH)
 			{
 				return luaL_argerror(L, 2, "Extra Utilities Error: Kill message string must be under 32 characters");
 			}
