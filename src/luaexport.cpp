@@ -34,6 +34,7 @@
 #include "Game/DeathCamera.h"
 #include "Game/PersonLongClips.h"
 #include "Game/PathBlock.h"
+#include "Game/LaserSight.h"
 #include "Game/BettyVoice.h"
 #include "Game/Plant.h"
 #include "Game/PersonAnimBlend.h"
@@ -658,6 +659,10 @@ namespace ExtraUtilities::Lua
 			{ "SetNativeHudMeterVisible", &NativeHud::SetNativeHudMeterVisible },
 			{ "RestoreNativeHudMeter", &NativeHud::RestoreNativeHudMeter },
 			{ "RestoreAllNativeHudMeters", &NativeHud::RestoreAllNativeHudMeters },
+
+			// OpenShim laser sight (optional export)
+			{ "SetLaserSightMode", &LaserSight::SetMode },
+			{ "GetLaserSightMode", &LaserSight::GetMode },
 
 			// Control Panel
 			{ "GetScrapPilotHudOffset", &ControlPanel::GetScrapPilotHudOffset },

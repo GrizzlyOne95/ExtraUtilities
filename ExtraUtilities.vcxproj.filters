@@ -83,6 +83,9 @@
     <ClCompile Include="src\Game\DeathCamera.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Game\LaserSight.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Game\PathBlock.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
@@ -369,6 +372,9 @@
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\DeathCamera.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\LaserSight.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\PathBlock.h">

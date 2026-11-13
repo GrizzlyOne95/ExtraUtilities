@@ -3630,6 +3630,19 @@ function exu.RestoreNativeHudMeter(meter) end
 --- @return string? reason
 function exu.RestoreAllNativeHudMeters() end
 
+--- Sets the OpenShim laser-sight mode: 0 = default (follows openshim.ini
+--- LaserSight, off in network games), 1 = also allowed in network games.
+--- OpenShim resets it to 0 whenever the game leaves a mission, so set it each
+--- mission. Needs an OpenShim build with the laser sight; nil without it.
+--- Raises an error for anything but 0 or 1.
+--- @param mode integer 0 or 1
+--- @return integer? modeInEffect
+function exu.SetLaserSightMode(mode) end
+
+--- Reads the OpenShim laser-sight mode (see exu.SetLaserSightMode).
+--- @return integer? mode nil when OpenShim lacks the laser sight
+function exu.GetLaserSightMode() end
+
 --- Path-grid footprint from collision faces (Docs/PATH_BLOCK.md). An ODF
 --- opts in under [GameObjectClass] with pathBlock = "faces" (block only the
 --- cells whose centre is inside the LOD0 collision faces at pathBlockHeight

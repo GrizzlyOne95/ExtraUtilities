@@ -145,6 +145,7 @@
     <ClCompile Include="src\Game\PersonAnimBlend.cpp" />
     <ClCompile Include="src\Game\PersonLongClips.cpp" />
     <ClCompile Include="src\Game\DeathCamera.cpp" />
+    <ClCompile Include="src\Game\LaserSight.cpp" />
     <ClCompile Include="src\Game\PathBlock.cpp" />
     <ClCompile Include="src\Game\PathBlockApi.cpp" />
     <ClCompile Include="src\Game\BettyVoice.cpp" />
@@ -391,6 +392,7 @@
     <ClInclude Include="src\Game\PersonLongClips.h" />
     <ClInclude Include="src\Game\PersonLongClipsCore.h" />
     <ClInclude Include="src\Game\DeathCamera.h" />
+    <ClInclude Include="src\Game\LaserSight.h" />
     <ClInclude Include="src\Game\PathBlock.h" />
     <ClInclude Include="src\Game\PathBlockMath.h" />
     <ClInclude Include="src\Game\BettyVoice.h" />
