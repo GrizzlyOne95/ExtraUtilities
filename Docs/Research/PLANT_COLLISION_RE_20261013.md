@@ -95,6 +95,77 @@ Entry `55 8B EC 81 EC 24 01 00 00` (9 bytes).
 - `ExplosionClass::Find` `0x004CB870`: `ExplosionClass* __cdecl(uint32 nameLo, uint32 nameHi)`; the 8-character name packed little-endian, zero padded (masked with `0x7F7F7F7F`). Returns the loaded class, or opens `<name>.odf` and builds it on demand; null (with a log line) when missing.
 - `ParameterDB::Lookup` `0x00589620`: `const char* __thiscall(ParameterDB*, uint32 sectionHash, uint32 keyHash)`, the raw value used by `GetBool`/`GetFloat`/Lua `GetODFString`; null when the key is absent.
 
+## Radar, hit marker and targeting (third pass, 2026-11-13)
+
+Goal: a plant never shows on the cockpit radar or the map, never draws the
+"recently shot" sprite, and can never be selected as a target, by the reticle,
+or by a click in the overview. Ordnance hits, plant death, collision and AI
+behaviour toward plants stay stock.
+
+Citations: `G:` is the GOG ghidrecomp corpus
+`Battlezone_Source/BZ1/Redux/openshim_re_corpus/bzr_gog_best_effort/ghidrecomp/results/bins/battlezone98redux.exe-6777ca/decomps/`;
+`1.5:` is `Battlezone_Source/BZ1/1.5/functions/`. Every byte string below was
+read from the shipping exe with capstone and matches `exu.json` (`qualify_bzr_build.py --catalog`).
+
+### Hit marker
+
+- `GameObject::SetDamageFlags` `0x004DC130`, `void __thiscall(GameObject*, Damage*)`, `ret 4` at `0x004DC2B9`. It stores the current time in `playerShot` (`+0x1D8`) when the damage carries flag bit 4 (`G:FUN_004dc130-004dc130.c:31-32`; `1.5:0049/00496da9_GameObject_SetDamageFlags.c:37`), then calls the Betty attack warning (`G:...:41`; `1.5:...:42`). `this` is the GameObject base: `Building::DamageAlloc` does `sub ecx,0x18` before the call (`0x0047EF9C`). Entry `55 8B EC 83 EC 0C` (6 bytes, three instructions).
+- `SelectionDisplay` `0x00497AA0` draws the sprite while `now < playerShot + 2.0` (`G:FUN_00497aa0-00497aa0.c:145-147`; `1.5:004c/004c1db7_SelectionDisplay_Render.c:129`). The getter is `FUN_00497890`.
+- EXU detours the entry, calls the original, and for a plant writes back the old `playerShot` when it changed. The Betty call and the other flag work still run.
+- Other `playerShot` readers (through `FUN_00497890`): `G:FUN_005c4aa0-005c4aa0.c:59` and `G:FUN_00605560-00605560.c:22,41`. They are not identified (UNVERIFIED: they look like AI code). For a plant they now see "never shot by the player".
+- OpenShim: its `GameObjectSetDamageFlags` row only validates the "Damage Reveal Probe", which rewrites the callers' rel32 (`0x0047EF9F`, `0x004AA677`, `0x005A0CE1`, `0x005AA371`), not this entry. Either load order works.
+
+### Cockpit radar
+
+`CockpitRadar::Render` `0x00493EC0` walks the object list (`1.5:004c/004c05b7_CockpitRadar_Render.c:181-186`; `G:FUN_00493ec0-00493ec0.c:290-292`). `0x00494569 mov edx,[eax]` loads the GameObject*, then:
+
+- `0x0049456B` `89 95 AC FE FF FF` (`mov [ebp-0x154],edx`, 6 bytes) is replaced by `call [ptr]` to `RadarGatherStub`. The illumination test follows at `0x0049457F` and the own-team fallback after it, so filtering here covers both.
+- Continue label `0x00494521` (`6A 00 8D 95 30 FD FF FF 52 ...`), the target of the stock skips at `0x004945AA` and `0x00494802`. The frame is ebp-relative and nothing is pushed at either point, so the stub returns there for a plant.
+- EXU's existing radar sites are `0x0049405B`-`0x0049446F`; no overlap.
+
+### Map radar
+
+`MapRadar::Render` `0x0050D6F0` builds its own object list (`1.5:004d/004d2395_MapRadar_Render.c:226-227`; `G:FUN_0050d6f0-0050d6f0.c:331-332`).
+
+- `0x0050E2C8` `89 95 B0 FE FF FF` (`mov [ebp-0x150],edx`) -> `MapRadarGatherStub`.
+- Continue label `0x0050E27E` (`6A 00 8D 95 90 FD FF FF 52 ...`), the target of `0x0050E3AA` and `0x0050E435`.
+- In 1.5 a map click only moves the overview position and picks no object (`1.5:004d/004d2395_MapRadar_Render.c:113-123`). The GOG map click was only skimmed: UNVERIFIED.
+
+### Overview click
+
+`OverView::ClickedOn` `0x005879E0` (1.5 `004d3676`), called from `0x0058821A` and `0x005884F4`, returns the clicked object (`1.5:004d/004d3676_OverView_ClickedOn.c:46-47`; `G:FUN_005879e0-005879e0.c:38-39`).
+
+- `0x00587A60` `89 55 EC 8B 4D EC` (`mov [ebp-0x14],edx; mov ecx,[ebp-0x14]`) -> `ClickedOnStub`, which also redoes the `mov ecx`.
+- Continue label `0x00587A25` (`6A 00 8D 55 B4 52 8D 4D E4 E8`), the target of `0x00587A82` and `0x00587A99`.
+- `ControlPanel::SelectRect` (drag select) was not checked: UNVERIFIED whether a drag box can include a plant.
+
+### Target (T key) and target validation
+
+`Targeting::Simulate` `0x005DEAE0` (1.5 `004dc119`): with the target key it calls `FindTarget` when there is no target, with the cycle key it walks unit slots `0x23`-`0x2C` (own units, not plants), otherwise it calls `ValidateTarget` on the current target; the result goes to `GameObject::SetTarget` `0x0049F450` (`1.5:004d/004dc119_Targeting_Simulate.c:31,63,69`; `G:FUN_005deae0-005deae0.c:16-19,56,61`).
+
+- `Targeting::FindTarget` `0x005DEC80` (1.5 `004dbe3d`) rejects a candidate whose `obj->flags & 0x201` is set (`1.5:004d/004dbe3d_Targeting_FindTarget.c:69`; `G:FUN_005dec80-005dec80.c:67`). The flags come from `GameObject::GetObjFlags` `0x0045C4B0` (`this->obj(+0xF4)->flags(+0x14)`), called at `0x005DEDD4` `E8 D7 D6 E7 FF`, then `25 01 02 00 00 74 02`.
+- `Targeting::ValidateTarget` `0x005DF0E0` (1.5 `004dc098`) returns null for the same test (`1.5:004d/004dc098_Targeting_ValidateTarget.c:21`; `G:FUN_005df0e0-005df0e0.c:17-18`). Call at `0x005DF0F9` `E8 B2 D3 E7 FF`, then `25 01 02 00 00 74 07`.
+- EXU retargets both calls to `TargetFlagsFilter`, which returns the real flags plus `0x200` for a plant. Only these two tests see it. A plant is never found, and a plant target set any other way (for example by script) is cleared on the next `ValidateTarget` frame.
+
+### Reticle
+
+`Reticle::FindReticleObject` `0x005BC640` (1.5 `004d95fa`), called from `0x005BA974` and `0x005BA9B1`, skips a candidate when `isCargo` (`+0x9C`, `GameObject::IsCargo` `0x0045BBC0`) is set (`1.5:004d/004d95fa_Reticle_FindReticleObject.c:61,94`; `G:FUN_005bc640-005bc640.c:70,110`). Its result is `Reticle::selectObj`, which drives the name/health readout and `ControlPanel::SetCommand` (`1.5:004d/004d997d_Reticle_Simulate.c:101-121`).
+
+- Not hooked (revised 2026-11-13): filtering `FindReticleObject` also removed the plant from `selectObj`, which lobbers and OpenShim convergence aim at. Instead the command-button fill is filtered: `Reticle::Simulate` calls `ControlPanel::SetCommand(startCommand, selectObj)` (`0x004A7230`, thiscall `ret 8`, `this` = controlPanel `0x00978E20`) at `0x005BAA7D` `E8 AE C7 EE FF`. That call is retargeted to `ReticleSetCommandFilter`, which for a plant calls the position overload `0x004A71E0` with `CMD_NONE` (0) and a null position, the same state as aiming at the sky (on bare ground stock would instead fill a ground command; a plant gives neither) (`1.5:004d/004d997d_Reticle_Simulate.c:114-119`). The button (+0x111C) is what `ControlPanel::Render` draws the name/health from and what the menu key issues (`1.5:004c/004c4998_ControlPanel_Render.c:194-215,397`; `1.5:004c/004c475e_ControlPanel_FillCmdButton.c`). `Reticle::startCommand` (+0xB0) keeps the plant's command, but its only reader, `Reticle::Submit`, uses it only when `groundPos` is set, and that is null whenever `selectObj` is (`1.5:004d/004d89d3_Reticle_Submit.c:368`).
+- OpenShim patches range literals in this function at `0x005BC6CF`, `0x005BC6F6`, `0x005BC728` and `0x005BC8BD`, and `0x005BCCB3` in `FindGroundPos`. None overlaps. A scan of all `patches.json` rows within 16 bytes of every new site found only the `SetDamageFlags` validation row above.
+
+### Weapon lock (NOT DONE)
+
+- `Launcher`/`RadarLauncher` lock onto the carrier's `targetHandle` (`+0x21C`), so the target filter covers them.
+- `InfoDisplay::FindSightObject` `0x004F4010` (called from `InfoDisplay::Render` `0x004F31D0` at `0x004F321D`-`0x004F3234` when `objectShow` +0x11C or profile option `[0x94672C]+0x30 & 0x80` is set) is a separate name/health picker. Its candidate test `call 0x0045C4B0; and eax,0x600` at `0x004F416E` is retargeted to the same dying filter (`G:FUN_004f4010`; 1.5 `InfoDisplay_FindSightObject.c`; bytes confirmed in the GOG exe 2026-11-13).
+- `Reticle::selectObj` (global `0x025CE6D0`+0xAC) is also read by `ObjectLobber::Control` `0x00581EF0` (1.5 `0x005326C0`) for the user's aim point and by OpenShim `weapon_convergence_hooks.cpp` `TryGetReticleConvergenceRange`. Plants stay in `selectObj`, so lobbers and convergence aim at them (user decision 2026-11-13).
+- Image-seeking launchers/missiles (`FUN_004f2210`, `FUN_005e1ea0`, `FUN_005e2810`) run their own range search with a `flags & 0x400` test and are shared with AI. Filtering only the player's launcher needs owner-aware RE that was not done; a plant may still be locked by these weapons. UNVERIFIED which ODF classes use them in Redux.
+- `UserPref_automaticAim` has no callers in 1.5; its Redux use is UNVERIFIED.
+
+### Classification cost
+
+The HUD sites classify every listed object every frame. `ClassifyGameObject` caches `GameObjectClass* -> Entry*` (`g_classEntries`), so after the first object of a class the cost is one virtual call and one hash lookup. The verdict is re-read from the entry, so `exu.SetPlant` applies at once. Both maps are cleared together with the mission state.
+
 ## Open points
 
 - Whether the AI path planner avoids buildings independently of collision
