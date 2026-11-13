@@ -2662,6 +2662,94 @@ function exu.AdoptObject(h, team) end
 --- @return boolean
 function exu.SetTargetReticlePopupMode(mode) end
 
+--- Callback. Define this function in your mission script; EXU calls it after any
+--- object's target changes (the engine's GameObject::SetTarget), the Redux
+--- counterpart of BZCC's SetPostTargetChangedCallback. It fires only when the
+--- stored target handle actually changed, never for a call that sets the same
+--- target again, and the return value is ignored.
+---
+--- It runs synchronously inside the engine, in the middle of AI and order
+--- processing, so keep it short. A target change made from inside the handler
+--- (for example SetTarget on any object) does not call it again. Errors are
+--- reported like other Lua errors and do not reach the engine.
+---
+--- Multiplayer remarks: runs on each client, for the objects whose target that
+--- client's simulation sets. Expect remote objects to be missing or to differ;
+--- do not treat it as a synchronized event.
+---
+--- objectHandle: the object whose target changed.
+--- oldTargetHandle: its previous target, nil when it had none (engine handle 0).
+--- newTargetHandle: its new target, nil when the target was cleared (engine handle 0).
+---
+--- Do not remove or destroy the objects passed in (RemoveObject, Damage to
+--- death) from inside the handler: the engine keeps using them right after
+--- the call returns. Defer that work to Update.
+---
+--- Declared as a field rather than a function stub because EXU does not export
+--- it; the mission assigns it:
+---     exu.TargetChanged = function(objectHandle, oldTargetHandle, newTargetHandle) ... end
+--- @type (fun(objectHandle: Handle, oldTargetHandle: Handle?, newTargetHandle: Handle?))?
+exu.TargetChanged = nil
+
+--- Veto callback. Define it in your mission script; EXU calls it when a pilot
+--- (the player or an AI pilot) touches an empty vehicle and every native
+--- get-in rule has already passed, before anything is applied. The Redux
+--- counterpart of BZCC's SetPreGetInCallback, without BZCC's world argument.
+---
+--- Return false to block the entry: the pilot bounces off as if the craft were
+--- occupied. Only an explicit boolean false blocks; nil, any other value, no
+--- handler, or a Lua error lets the engine continue natively.
+---
+--- Native vetoes (the engine's own checks, such as an occupied or unsuitable
+--- craft) happen before this call, so it never sees attempts the engine already refused. It
+--- runs synchronously inside the engine's collision code: keep it short. An
+--- entry attempt triggered from inside the handler is allowed without calling
+--- it again.
+---
+--- Do not remove or destroy the objects passed in (RemoveObject, Damage to
+--- death) from inside the handler: the engine keeps using them right after
+--- the call returns. Defer that work to Update.
+---
+--- Multiplayer remarks: runs only on the machine that owns the pilot (the
+--- engine skips remote pilots before this point), so a veto never desyncs.
+---
+--- pilotHandle: the pilot trying to get in.
+--- vehicleHandle: the vehicle it touched.
+---
+--- Declared as a field because EXU does not export it; the mission assigns it:
+---     exu.PreGetIn = function(pilotHandle, vehicleHandle) return false end
+--- @type (fun(pilotHandle: Handle, vehicleHandle: Handle): boolean?)?
+exu.PreGetIn = nil
+
+--- Veto callback. Define it in your mission script; EXU calls it when a vehicle
+--- (player or AI) touches a powerup and every native pickup rule has already
+--- passed, before the powerup is collected. The Redux counterpart of BZCC's
+--- SetPrePickupPowerupCallback, without BZCC's world argument.
+---
+--- Return false to block the pickup; the powerup stays where it is. Only an
+--- explicit boolean false blocks; nil, any other value, no handler, or a Lua
+--- error lets the engine continue natively.
+---
+--- Native vetoes (the engine's own checks, such as the vehicle class or a
+--- remote vehicle) happen before this call. It runs synchronously inside the engine's
+--- collision code, and the engine may ask again on later contacts. A pickup
+--- triggered from inside the handler is allowed without calling it again.
+---
+--- Do not remove or destroy the objects passed in (RemoveObject, Damage to
+--- death) from inside the handler: the engine keeps using them right after
+--- the call returns. Defer that work to Update.
+---
+--- Multiplayer remarks: runs only on the machine that owns the vehicle (the
+--- engine skips remote vehicles before this point), so a veto never desyncs.
+---
+--- vehicleHandle: the vehicle touching the powerup.
+--- powerupHandle: the powerup.
+---
+--- Declared as a field because EXU does not export it; the mission assigns it:
+---     exu.PrePickupPowerup = function(vehicleHandle, powerupHandle) return false end
+--- @type (fun(vehicleHandle: Handle, powerupHandle: Handle): boolean?)?
+exu.PrePickupPowerup = nil
+
 --- Ordnance
 ---
 --- These functions modify the behavior of ordnance.

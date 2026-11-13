@@ -218,6 +218,8 @@ namespace ExtraUtilities::EngineAddresses
 			GetObj_base = 0x0260DB20u,
 			// function: GameObject* __cdecl(handle)
 			GetObjByHandle = 0x004DA060u,
+			// function: void __thiscall(GameObject* this, GameObject* target), ret 4
+			SetTarget = 0x0049F450u,
 			// function: void __thiscall(GameObject*)
 			SetAsUser = 0x004DB930u,
 			// void*
@@ -242,6 +244,8 @@ namespace ExtraUtilities::EngineAddresses
 	{
 		enum : uintptr_t
 		{
+			// function: int __cdecl(void)
+			IsNetGameFunction = 0x00572A70u,
 			// bool*
 			isNetGame = 0x00917F7Bu,
 			// int*
@@ -591,6 +595,14 @@ namespace ExtraUtilities::EngineAddresses
 			BulletHitHook = 0x00480771u,
 			// hook site (6 bytes)
 			AddScrapHook = 0x005E1016u,
+			// hook site (7 bytes: call IsNetGame rel32; test eax,eax)
+			PreGetInHook = 0x005A163Du,
+			// code label (same stack depth as PreGetInHook)
+			PreGetInVeto = 0x005A179Cu,
+			// hook site (7 bytes: mov ecx,[ebp-0x60]; push ecx; mov edx,[ebp-0x5C])
+			PrePickupPowerupHook = 0x005AA1BCu,
+			// code label (same stack depth as PrePickupPowerupHook before its push)
+			PrePickupPowerupVeto = 0x005AA280u,
 			// hook site (8 bytes)
 			KillMessageHook = 0x0062627Fu,
 		};
@@ -1023,5 +1035,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 346u;
+	inline constexpr unsigned kEntryCount = 352u;
 }

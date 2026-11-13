@@ -459,7 +459,7 @@ def check_hardening_markers() -> None:
 # bytes before the object is constructed.
 SIGNATURE_RESOLVED_PATCHES: set[str] = set()
 
-PATCH_DECLARATION_RE = re.compile(r"^[ \t]*(?:inline[ \t]+)?(?:Hook|InlinePatch)[ \t]+(\w+)\((.*?)\);", re.M | re.S)
+PATCH_DECLARATION_RE = re.compile(r"^[ \t]*(?:inline[ \t]+)?(?:Hook|InlinePatch|EntryDetour32)[ \t]+(\w+)\((.*?)\);", re.M | re.S)
 
 
 def check_patch_preimages() -> None:

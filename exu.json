@@ -561,6 +561,18 @@
         "value": "0x15C",
         "description": "Offset of the live-object serial in a GameObject arena slot; 0 means the slot is free. Compared against handle & 0xFFFFF."
       },
+      "SetTarget": {
+        "address": "0x0049F450",
+        "type": "function: void __thiscall(GameObject* this, GameObject* target), ret 4",
+        "description": "GameObject::SetTarget, the general target setter (19 callers including AI retargeting): [this+0x21C] = target ? GetHandle(target) : 0. EXU's target-changed callback detours the entry (6-byte prologue 55 8B EC 83 EC 08) and compares the field before and after the original.",
+        "pattern": "55 8B EC 83 EC 08 89 4D F8 83 7D 08 00 74 0D 8B 4D 08 E8 ?? ?? ?? ?? 89 45 FC EB 07 C7 45 FC 00 00 00 00 8B 45 F8 8B 4D FC 89 88 1C 02 00 00 8B E5 5D C2 04 00",
+        "pattern_kind": "code",
+        "note": "Whole function with the GetHandle call rel32 wildcarded; unique in GOG 2.2.301 .text (the first 15 bytes alone are already unique). Verified against GOG 2.2.301 in Ghidra 2026-11-13."
+      },
+      "targetHandleOffset": {
+        "value": "0x21C",
+        "description": "Offset of the current target handle in a GameObject; 0 means no target. Set by GameObject.SetTarget; OpenShim src/patches/bzr_hooks_internal.h corroborates the offset."
+      },
       "SetAsUser": {
         "address": "0x004DB930",
         "type": "function: void __thiscall(GameObject*)",
@@ -596,6 +608,14 @@
       }
     },
     "Multiplayer": {
+      "IsNetGameFunction": {
+        "address": "0x00572A70",
+        "type": "function: int __cdecl(void)",
+        "description": "Returns nonzero in a network game (movzx of 0x00571C40's bool). Called first after Person::RegCollision's get-in checks; EXU's PreGetIn stub replays that call.",
+        "pattern": "55 8B EC E8 C8 F1 FF FF 0F B6 C0 5D C3 CC CC CC 55 8B EC 51 0F B6 05 4C 7F 91 00",
+        "pattern_kind": "code",
+        "note": "Whole function plus the padding and the start of the next function: the 13-byte body alone also matches the sibling wrapper at 0x00572A60 (same relative rel32). Unique in GOG 2.2.301 executable sections. Verified 2026-11-13."
+      },
       "isNetGame": {
         "address": "0x00917F7B",
         "type": "bool*",
@@ -1527,6 +1547,38 @@
         "pattern": "89 4D FC 8B 4D FC E8 ?? ?? ?? ?? 89 45 F8 8B 4D",
         "pattern_kind": "code",
         "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "PreGetInHook": {
+        "address": "0x005A163D",
+        "type": "hook site (7 bytes: call IsNetGame rel32; test eax,eax)",
+        "description": "Person::RegCollision (0x005A1550, Person vftable slot 0x00885674) after every native get-in check passed and before anything is applied; pilot Person* = [ebp-0x6C], vehicle GameObject* = [ebp-0x68]. Drives exu.PreGetIn. Allow replays the IsNetGame call and test; veto jumps to PreGetInVeto.",
+        "pattern": "E8 2E 14 FD FF 85 C0 74 15 6A 00 8B 4D 98 E8",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in GOG 2.2.301 executable sections; the rel32 ties it to Multiplayer.IsNetGameFunction. No branch in 0x005A1550-0x005A18B0 lands inside the stolen bytes. Verified 2026-11-13."
+      },
+      "PreGetInVeto": {
+        "address": "0x005A179C",
+        "type": "code label (same stack depth as PreGetInHook)",
+        "description": "Person::RegCollision path every failed get-in check jumps to (e.g. jle at 0x005A1637): returns true and the pilot bounces off as if the craft were occupied.",
+        "pattern": "8B 4D 94 8B B9 30 02 00 00 83 C7 4C B9 1E 00 00 00 8B 75 0C",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in GOG 2.2.301 executable sections. Verified 2026-11-13."
+      },
+      "PrePickupPowerupHook": {
+        "address": "0x005AA1BC",
+        "type": "hook site (7 bytes: mov ecx,[ebp-0x60]; push ecx; mov edx,[ebp-0x5C])",
+        "description": "PowerUp::RegCollision (0x005A9EA0) after every native pickup check (including IsRemote(vehicle) at 0x005AA1AC) and before the Collect call at 0x005AA1CB; powerup this = [ebp-0x5C], vehicle GameObject* = [ebp-0x60]. Drives exu.PrePickupPowerup. Allow replays the three stolen instructions and resumes at +7; veto jumps to PrePickupPowerupVeto without the push.",
+        "pattern": "8B 4D A0 51 8B 55 A4 8B 02 8B 4D A4 8B 50 64 FF D2 0F B6 C0 85 C0 0F 84 A8 00 00 00",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in GOG 2.2.301 executable sections. No branch in 0x005A9EA0-0x005AA2B0 lands inside the stolen bytes. Verified 2026-11-13."
+      },
+      "PrePickupPowerupVeto": {
+        "address": "0x005AA280",
+        "type": "code label (same stack depth as PrePickupPowerupHook before its push)",
+        "description": "PowerUp::RegCollision 'Collect returned false' path, also reached by the native checks (jne at 0x005AA1B6) and the jz at 0x005AA1D2 after the thiscall Collect popped its argument.",
+        "pattern": "8B 55 A4 8B BA 28 02 00 00 83 C7 4C B9 1E 00 00 00 8B 75 0C F3 A5 B0 01",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, unique in GOG 2.2.301 executable sections. Verified 2026-11-13."
       },
       "KillMessageHook": {
         "address": "0x0062627F",
