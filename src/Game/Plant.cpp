@@ -72,6 +72,7 @@ namespace ExtraUtilities::Plant
 
 		// Layouts (Docs/Research/PLANT_COLLISION_RE_20261013.md, GOG 2.2.301).
 		constexpr std::size_t kClsnInfoObj = 0x04;          // CLSN_INFO -> OBJ76*
+		constexpr std::size_t kClsnInfoVel = 0x60;          // CLSN_INFO VECTOR_3D velocity (float)
 		constexpr std::size_t kObjFlags = 0x14;             // OBJ76 flags
 		constexpr std::size_t kObjTransform = 0x20;         // OBJ76 MAT_3D
 		constexpr std::size_t kObjOwner = 0x8C;             // OBJ76 -> GameObject*
@@ -89,6 +90,7 @@ namespace ExtraUtilities::Plant
 		constexpr std::size_t kOrdnanceXplGround = 0x3C;
 		constexpr std::size_t kOrdnanceXplBuilding = 0x44;
 		constexpr std::size_t kMatrixPosit = 0x28;
+		constexpr std::size_t kExplosionDamageRadius = 0x50; // ExplosionClass float; > 0: Build applies damage at once
 		constexpr std::size_t kGameObjectPlayerShot = 0x1D8; // float, SetDamageFlags / SelectionDisplay
 		constexpr std::uint32_t kHashSeed = 0x811C9DC5u;
 
@@ -106,6 +108,8 @@ namespace ExtraUtilities::Plant
 			void* hitClass = nullptr;   // ExplosionClass* of hitExplosion
 			bool deathResolved = false;
 			void* deathClass = nullptr; // ExplosionClass* of explosionName
+			bool collisionResolved = false;
+			void* collisionClass = nullptr; // ExplosionClass* of collisionExplosion
 		};
 
 		std::unordered_map<std::string, Entry> g_entries;
@@ -114,6 +118,10 @@ namespace ExtraUtilities::Plant
 		// string key are paid once per class. Entries are node-stable and
 		// both maps are cleared together.
 		std::unordered_map<const void*, Entry*> g_classEntries;
+
+		// OBJ76* of a plant -> GetTickCount of its last collisionExplosion.
+		// Erased when the plant dies; cleared on mission reset.
+		std::unordered_map<const void*, std::uint32_t> g_lastBump;
 
 		// Hit scope state: set while a plant is being hit.
 		bool g_suppressChunklets = false;
@@ -324,6 +332,7 @@ namespace ExtraUtilities::Plant
 				const std::uint32_t keyHit = hash("hitExplosion", kHashSeed);
 				const std::uint32_t keyDeath = hash("explosionName", kHashSeed);
 				const std::uint32_t keyScrap = hash("dropScrap", kHashSeed);
+				const std::uint32_t keyBump = hash("collisionExplosion", kHashSeed);
 
 				void* handle = nullptr;
 				reinterpret_cast<PdbOpenFn>(OdfAddr::ParameterDbOpen)(&handle, fileName);
@@ -338,6 +347,8 @@ namespace ExtraUtilities::Plant
 				char hit[32];
 				Core::CleanOdfString(getString(&handle, section, keyHit), hit, sizeof(hit));
 				Core::CleanOdfString(getString(&handle, section, keyDeath), out.explosionName, sizeof(out.explosionName));
+				char bump[32];
+				Core::CleanOdfString(getString(&handle, section, keyBump), bump, sizeof(bump));
 				reinterpret_cast<PdbCloseFn>(OdfAddr::ParameterDbClose)(&handle);
 
 				out.isPlant = isPlant;
@@ -345,6 +356,8 @@ namespace ExtraUtilities::Plant
 				out.hitNone = Core::IsNoneName(hit);
 				if (!out.hitNone)
 					Core::CleanOdfString(hit, out.hitExplosion, sizeof(out.hitExplosion));
+				if (!Core::IsNoneName(bump))
+					Core::CleanOdfString(bump, out.collisionExplosion, sizeof(out.collisionExplosion));
 				return true;
 			}
 			__except (Seh::Filter(GetExceptionCode()))
@@ -369,10 +382,11 @@ namespace ExtraUtilities::Plant
 						entry.params = params;
 					if (entry.params.isPlant)
 					{
-						Logging::LogMessage("exu: plant: %s.odf isPlant hitExplosion=%s explosionName=%s dropScrap=%d",
+						Logging::LogMessage("exu: plant: %s.odf isPlant hitExplosion=%s explosionName=%s collisionExplosion=%s dropScrap=%d",
 							key.c_str(),
 							entry.params.hitNone ? "none" : (entry.params.hitExplosion[0] ? entry.params.hitExplosion : "(ordnance ground hit)"),
 							entry.params.explosionName[0] ? entry.params.explosionName : "(ODF explosion)",
+							entry.params.collisionExplosion[0] ? entry.params.collisionExplosion : "none",
 							entry.params.dropScrap ? 1 : 0);
 					}
 				}
@@ -456,9 +470,109 @@ namespace ExtraUtilities::Plant
 			return entry.deathClass;
 		}
 
+		bool ReadDamageRadiusSeh(const void* explosionClass, float& out) noexcept
+		{
+			__try
+			{
+				out = *reinterpret_cast<const float*>(reinterpret_cast<const std::uint8_t*>(explosionClass) + kExplosionDamageRadius);
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return false;
+			}
+		}
+
+		// The bump explosion is built inside the collision pair loop, and
+		// Explosion init applies damage to everything in its radius at once.
+		// Only a damage-free explosion is accepted, so no object can die (and
+		// leave the loop's cached list pointers) mid-loop.
+		void* ResolveCollisionExplosion(Entry& entry) noexcept
+		{
+			if (!entry.collisionResolved)
+			{
+				entry.collisionResolved = true;
+				void* found = entry.params.collisionExplosion[0] ? FindExplosion(entry.params.collisionExplosion) : nullptr;
+				float radius = 0.0f;
+				if (found != nullptr && (!ReadDamageRadiusSeh(found, radius) || !(radius <= 0.0f)))
+				{
+					Logging::LogMessage("exu: plant: collisionExplosion %s ignored: it has a damage radius (%.2f); use one without damage",
+						entry.params.collisionExplosion, static_cast<double>(radius));
+					found = nullptr;
+				}
+				entry.collisionClass = found;
+			}
+			return entry.collisionClass;
+		}
+
+		bool ReadRelSpeedSqSeh(const void* a, const void* b, float& out) noexcept
+		{
+			__try
+			{
+				const auto* va = reinterpret_cast<const float*>(reinterpret_cast<const std::uint8_t*>(a) + kClsnInfoVel);
+				const auto* vb = reinterpret_cast<const float*>(reinterpret_cast<const std::uint8_t*>(b) + kClsnInfoVel);
+				const float dx = va[0] - vb[0];
+				const float dy = va[1] - vb[1];
+				const float dz = va[2] - vb[2];
+				out = dx * dx + dy * dy + dz * dz;
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return false;
+			}
+		}
+
+		bool ReadTransformSeh(const void* obj76, BZR::MAT_3D& out) noexcept
+		{
+			__try
+			{
+				std::memcpy(&out, reinterpret_cast<const std::uint8_t*>(obj76) + kObjTransform, sizeof(out));
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return false;
+			}
+		}
+
+		// collisionExplosion: built at the plant's own transform when something
+		// bumps it hard enough (PlantCore::ShouldFireCollision). The class is
+		// damage-free (ResolveCollisionExplosion), so Build only adds particles,
+		// sound and an entry in the explosion list.
+		void PlantBump(const void* plantObj, Entry& plant, const void* a, const void* b) noexcept
+		{
+			try
+			{
+				void* explosion = ResolveCollisionExplosion(plant);
+				if (explosion == nullptr)
+					return;
+				float speedSq = 0.0f;
+				if (!ReadRelSpeedSqSeh(a, b, speedSq))
+					return;
+				std::uint32_t now = static_cast<std::uint32_t>(GetTickCount());
+				if (now == 0)
+					now = 1; // 0 means "never fired"
+				const auto found = g_lastBump.find(plantObj);
+				const std::uint32_t last = found != g_lastBump.end() ? found->second : 0;
+				if (!Core::ShouldFireCollision(speedSq, now, last))
+					return;
+				BZR::MAT_3D transform;
+				if (!ReadTransformSeh(plantObj, transform))
+					return;
+				g_lastBump[plantObj] = now;
+				reinterpret_cast<ExplosionBuildFn>(Addr::ExplosionBuild)(explosion, &transform, nullptr);
+			}
+			catch (...)
+			{
+			}
+		}
+
 		// ----- Hooks ----------------------------------------------------------
 
-		// ClsnSounds: the bump sound. Skipped when either side is a plant.
+		// ClsnSounds: the bump sound. Skipped when either side is a plant; the
+		// plant's collisionExplosion (if any) plays instead. Called for every
+		// colliding pair, AI included, not only the user's craft.
 		void __cdecl ClsnSoundsHook(void* a, void* b)
 		{
 			const ClsnSoundsFn original = g_originalClsnSounds;
@@ -468,9 +582,17 @@ namespace ExtraUtilities::Plant
 			void* objB = nullptr;
 			ReadPtrSeh(a, kClsnInfoObj, objA);
 			ReadPtrSeh(b, kClsnInfoObj, objB);
-			if (ClassifyObj76(objA) != nullptr || ClassifyObj76(objB) != nullptr)
+			Entry* plantA = ClassifyObj76(objA);
+			Entry* plantB = ClassifyObj76(objB);
+			if (plantA == nullptr && plantB == nullptr)
+			{
+				original(a, b);
 				return;
-			original(a, b);
+			}
+			if (plantA != nullptr)
+				PlantBump(objA, *plantA, a, b);
+			if (plantB != nullptr)
+				PlantBump(objB, *plantB, a, b);
 		}
 
 		// While a plant is hit: the building hit explosion of the ordnance
@@ -566,6 +688,7 @@ namespace ExtraUtilities::Plant
 			if (!ReadDeathSnapshotSeh(obj, objClass, snap))
 				return false;
 
+			g_lastBump.erase(obj);
 			reinterpret_cast<ObjSetFlagFn>(Addr::ObjSetFlag)(obj, kObjDying);
 			snap.flags |= kObjDying;
 
@@ -922,6 +1045,7 @@ namespace ExtraUtilities::Plant
 	{
 		g_classEntries.clear();
 		g_entries.clear();
+		g_lastBump.clear();
 	}
 
 	bool QueryPlant(const char* odf)

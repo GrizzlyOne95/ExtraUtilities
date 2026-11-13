@@ -60,6 +60,14 @@ Plants keep normal collision; what changes is the building feedback.
 
 `CheckPair` (`0x00443060`) calls `ClsnSounds` (`0x004436C0`, `void __cdecl(CLSN_INFO* a, CLSN_INFO* b)`) at `0x00443349` only when `ClassRegisterClsn` returned non-zero. `CLSN_INFO+4` is the `_OBJ76*`. It plays only when one side is the user's craft (`0x0062DFE0`) and picks the wav from the other side's class id (`+0x84`). Entry `55 8B EC 83 EC 2C` (6 bytes, three instructions).
 
+### collisionExplosion (2026-11-13)
+
+The `ClsnSounds` detour builds the plant's `collisionExplosion` in place of the bump sound.
+- Speed gate: the stock function's own measure, the squared difference of the two `CLSN_INFO` velocities at `+0x60/+0x64/+0x68`, with nothing played at `<= 25` (1.5 decompile `functions/0047/004736fc_ClsnSounds.c:36-39` and `:50`; GOG disassembly reads the same `+0x60`).
+- Position: the plant's own `_OBJ76` transform (`+0x20`), not `CLSN_INFO` `point` (`+0x54`, 1.5 PDB), whose space is UNVERIFIED.
+- Build in the shipping exe (`0x004CB7B0`) takes a pooled or new `_OBJ76` and calls Explosion init (`FUN_004c9ab0`). When the class's float at `+0x50` (damage radius) is `> 0`, init walks the grid and calls each object's `DamageAlloc` (secondary vtable `+0x38`) at once (GOG decomp `FUN_004c9ab0-004c9ab0.c:118-155`). The pair loop (`FUN_00442e70`) caches its next-node pointers before each `CheckPair`, so a death that unlinks an object at once could leave a dangling pointer. Whether craft and person deaths are deferred is UNVERIFIED. EXU therefore builds only explosions whose damage radius is `<= 0`; others are ignored and logged. A damage-free Build leaves the pair lists alone: the `_OBJ76` pool allocator (`FUN_0062ccc0-0062ccc0.c:13-77`) and Explosion init call none of the functions that touch `0x0260cac4`/`0x0260d0f0` (only `FUN_00442980`, `00442ca0`, `00442d30`, `00442e10`, `00442e70`, `004435f0`, `00443650` reference them).
+- The cooldown (1 s per plant `_OBJ76*`, `GetTickCount`) is EXU's; the stock code has none.
+
 ### Ordnance hit on a building
 
 `Ordnance::Hit` (`0x00480750`, `void __thiscall(Ordnance*, GameObject* hit /*may be null*/, float* normal)`; EXU's `BulletHitHook` is at `0x00480771` inside it) applies the ordnance damage through the hit object's secondary vtable `+0x38` and then builds one hit explosion chosen by the hit `_OBJ76` class id:

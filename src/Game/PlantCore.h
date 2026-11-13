@@ -42,8 +42,20 @@ namespace ExtraUtilities::PlantCore
 		bool hitNone = false;                            // hitExplosion = "none"
 		char hitExplosion[kExplosionNameMax + 1] = {};   // empty: the ordnance's ground hit
 		char explosionName[kExplosionNameMax + 1] = {};  // empty: the ODF's own explosion
+		char collisionExplosion[kExplosionNameMax + 1] = {}; // empty: no bump effect
 		bool dropScrap = false;
 	};
+
+	// collisionExplosion gate: a bump fires when the relative speed is above
+	// 5 m/s (the stock bump-sound threshold, speed squared > 25) and the same
+	// plant has not fired within the cooldown. lastMs == 0: never fired.
+	constexpr float kCollisionMinSpeedSq = 25.0f;
+	constexpr std::uint32_t kCollisionCooldownMs = 1000;
+
+	constexpr bool ShouldFireCollision(float relSpeedSq, std::uint32_t nowMs, std::uint32_t lastMs) noexcept
+	{
+		return relSpeedSq > kCollisionMinSpeedSq && (lastMs == 0 || nowMs - lastMs >= kCollisionCooldownMs);
+	}
 
 	constexpr char LowerAscii(char c) noexcept
 	{
