@@ -67,6 +67,15 @@ namespace
 		HostTest::Expect(!PackExplosionName("", packed), "empty name does not pack");
 	}
 
+	void TestCollisionGate()
+	{
+		HostTest::Expect(!ShouldFireCollision(25.0f, 5000, 0), "5 m/s exactly does not fire");
+		HostTest::Expect(ShouldFireCollision(26.0f, 5000, 0), "a first fast bump fires");
+		HostTest::Expect(!ShouldFireCollision(400.0f, 5999, 5000), "inside the cooldown does not fire");
+		HostTest::Expect(ShouldFireCollision(400.0f, 6000, 5000), "the cooldown ends at 1000 ms");
+		HostTest::Expect(ShouldFireCollision(400.0f, 500, 0xFFFFFE00u), "tick wrap-around still ends the cooldown");
+	}
+
 	void TestOverride()
 	{
 		HostTest::Expect(ResolveIsPlant(true, -1), "no override keeps the ODF verdict (plant)");
@@ -82,5 +91,6 @@ int main()
 	TestCleanString();
 	TestPack();
 	TestOverride();
+	TestCollisionGate();
 	return HostTest::Finish("plant core");
 }

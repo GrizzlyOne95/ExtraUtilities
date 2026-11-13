@@ -9,6 +9,7 @@ Trees and shrubs are usually built as buildings, so they bump, chip and die like
 isPlant = 1                ; required (default 0)
 hitExplosion = "xpltree"   ; explosion when ordnance hits it; default = the ordnance's own ground hit; "none" = no effect
 explosionName = "xpltree2" ; death explosion; default = [GameObjectClass] explosionName
+collisionExplosion = "xplbump" ; damage-free explosion when something bumps it at over 5 m/s, at most once per second per plant; default/"none" = nothing
 dropScrap = 0              ; 1 = drop the ODF scrap on death (single player only; default 0)
 ```
 
@@ -23,7 +24,7 @@ Keys are read through the engine's ParameterDB and are case-insensitive. Explosi
 
 ## What changes for a plant
 
-- The collision bump sound is not played.
+- The collision bump sound is not played. With `collisionExplosion`, that explosion (with its own sound and particles) is built at the plant's position instead, for any unit, AI included, that hits it at over 5 m/s relative speed; the same plant fires at most once per second. The explosion must have no damage (`damageRadius` 0 or absent); one with damage is ignored and logged, because it would run inside the collision loop. This is the BZ2 `hitByCarName` equivalent.
 - Ordnance hits play the plant hit explosion instead of the building hit explosion, and throw no geometry chips.
 - On death it plays the plant explosion and is removed. Skipped: the Betty "building lost" voice, ground shake, glare, the generic building/vehicle explosion, particles, fireballs and model fragmentation. With `dropScrap`, the scrap field is made as for a building.
 - It is not shown on the cockpit radar or the map, and being shot never draws the "recently shot" marker.
