@@ -1081,6 +1081,7 @@ namespace ExtraUtilities::Lua
 			{ "SetAiTargetScoringEnabled", &Patches::SetAiTargetScoringEnabled },
 			{ "GetAiTargetScoringEnabled", &Patches::GetAiTargetScoringEnabled },
 			{ "SetTurretAimPitchEnabled", &Patches::SetTurretAimPitchEnabled },
+			{ "AllowRallyPoints", &Patches::AllowRallyPoints },
 			{ "SetAttackRevealEnabled", &Patches::SetAttackRevealEnabled },
 			{ "SetJumpSnipeCrouch", &Patches::SetJumpSnipeCrouch },
 			{ "SetPlant", &Plant::SetPlant },

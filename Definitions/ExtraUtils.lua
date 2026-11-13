@@ -3515,6 +3515,12 @@ function exu.SetOrdnanceVelocMode(...) end
 --- @param ... any
 function exu.SetTurretAimPitchEnabled(...) end
 
+--- Lets producer rally points work in this network-game mission (co-op).
+--- Cleared on every mission reset; the player's setting still decides.
+--- @param allowed boolean
+--- @return boolean accepted false when OpenShim is missing or refuses
+function exu.AllowRallyPoints(allowed) end
+
 --- @param ... any
 function exu.SetUnderAttackAlertMode(...) end
 
