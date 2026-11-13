@@ -322,7 +322,14 @@ namespace ExtraUtilities::Lua::GameObject
 		lua_pushlightuserdata(L, reinterpret_cast<void*>(h));
 		lua_call(L, 1, 1);
 
-		const std::string_view classLabel = luaL_checkstring(L, -1);
+		if (!lua_isstring(L, -1))
+		{
+			// Destroyed tower: stock GetClassLabel returns nil.
+			lua_pushboolean(L, 0);
+			return 1;
+		}
+
+		const std::string_view classLabel = lua_tostring(L, -1);
 
 		if (classLabel != "commtower")
 		{

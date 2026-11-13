@@ -19,6 +19,8 @@
 #include "EnvironmentInternal.h"
 #include "Util/SehGuard.h"
 
+#include <cmath>
+
 // Fog, gravity, sun (ambient, diffuse, specular, direction, power, shadow
 // distance) and time of day: the guarded engine calls and their bindings.
 
@@ -412,6 +414,8 @@ namespace ExtraUtilities::Lua::Environment
 	int SetGravity(lua_State* L)
 	{
 		auto newGravity = CheckVectorOrSingles(L, 1);
+		if (!std::isfinite(newGravity.x) || !std::isfinite(newGravity.y) || !std::isfinite(newGravity.z))
+			return luaL_argerror(L, 1, "must be a finite number");
 		gravity.Write(newGravity);
 
 		return 0;

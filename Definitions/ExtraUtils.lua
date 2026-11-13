@@ -1572,6 +1572,7 @@ function exu.SetOverlayTextCharHeight(name, charHeight) end
 function exu.SetAsUser(h) end
 
 --- Gets if the given comm tower is powered or not, throws an error if the handle is not a comm tower.
+--- Returns false for a destroyed tower.
 --- @nodiscard
 --- @param h Handle
 --- @return boolean
@@ -2290,6 +2291,8 @@ function exu.GetAiTaskFieldScan(h) end
 --- Gets a typed snapshot of the primary live AI task for the object.
 --- Fields include task type/RTTI, state values, target handles, steering factors,
 --- pitch, goto force/direction, and EXU's current per-unit turbo flag.
+--- Returns nil for units whose task is not a UnitTask, e.g. a recycler's RecycleTask
+--- (use exu.GetAiRecycleTaskState for those).
 --- @nodiscard
 --- @param h Handle
 --- @param scanBytes? integer Defaults to 256. Max 512.

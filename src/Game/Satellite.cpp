@@ -20,6 +20,8 @@
 
 #include "LuaHelpers.h"
 
+#include <cmath>
+
 namespace ExtraUtilities::Lua::Satellite
 {
 	int GetState(lua_State* L)
@@ -64,6 +66,8 @@ namespace ExtraUtilities::Lua::Satellite
 	int SetPanSpeed(lua_State* L)
 	{
 		float speed = static_cast<float>(luaL_checknumber(L, 1));
+		if (!std::isfinite(speed))
+			return luaL_argerror(L, 1, "must be a finite number");
 		panSpeed.Write(speed);
 		return 0;
 	}
@@ -77,6 +81,8 @@ namespace ExtraUtilities::Lua::Satellite
 	int SetMinZoom(lua_State* L)
 	{
 		float newMin = static_cast<float>(luaL_checknumber(L, 1));
+		if (!std::isfinite(newMin))
+			return luaL_argerror(L, 1, "must be a finite number");
 		minZoom.Write(newMin);
 		return 0;
 	}
@@ -90,6 +96,8 @@ namespace ExtraUtilities::Lua::Satellite
 	int SetMaxZoom(lua_State* L)
 	{
 		float newMax = static_cast<float>(luaL_checknumber(L, 1));
+		if (!std::isfinite(newMax))
+			return luaL_argerror(L, 1, "must be a finite number");
 		maxZoom.Write(newMax);
 		return 0;
 	}
@@ -103,6 +111,8 @@ namespace ExtraUtilities::Lua::Satellite
 	int SetZoom(lua_State* L)
 	{
 		float newZoom = static_cast<float>(luaL_checknumber(L, 1));
+		if (!std::isfinite(newZoom))
+			return luaL_argerror(L, 1, "must be a finite number");
 		zoom.Write(newZoom);
 		return 0;
 	}

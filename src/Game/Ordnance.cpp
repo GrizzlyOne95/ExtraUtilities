@@ -250,7 +250,7 @@ namespace ExtraUtilities::Lua::Ordnance
 		}
 
 		BZR::GameObject* ownerObj = BZR::GameObject::GetObj(ownerHandle);
-		if (ownerObj == nullptr)
+		if (ownerObj == nullptr || ownerObj->obj == nullptr)
 		{
 			return luaL_argerror(L, 3, "owner handle does not refer to a live object");
 		}
