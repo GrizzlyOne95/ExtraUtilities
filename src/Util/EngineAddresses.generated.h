@@ -891,18 +891,18 @@ namespace ExtraUtilities::EngineAddresses
 			ClickedOnNext = 0x00587A25u,
 			// function: uint32 __thiscall(GameObject* this)
 			GameObjectGetObjFlags = 0x0045C4B0u,
-			// function: bool __thiscall(GameObject* this)
-			GameObjectIsCargo = 0x0045BBC0u,
 			// call site (5 bytes: call GameObjectGetObjFlags)
 			FindTargetFlagsCall = 0x005DEDD4u,
 			// call site (5 bytes: call GameObjectGetObjFlags)
 			ValidateTargetFlagsCall = 0x005DF0F9u,
 			// call site (5 bytes: call GameObjectGetObjFlags)
 			SightObjectFlagsCall = 0x004F416Eu,
-			// call site (5 bytes: call GameObjectIsCargo)
-			ReticleCargoCallA = 0x005BC7CFu,
-			// call site (5 bytes: call GameObjectIsCargo)
-			ReticleCargoCallB = 0x005BCAB4u,
+			// function: void __thiscall(ControlPanel* this, AiCommand cmd, GameObject* obj), ret 8
+			ControlPanelSetCommandObject = 0x004A7230u,
+			// function: void __thiscall(ControlPanel* this, AiCommand cmd, VECTOR_3D* pos), ret 8
+			ControlPanelSetCommandPosition = 0x004A71E0u,
+			// call site (5 bytes: call ControlPanelSetCommandObject)
+			ReticleSetCommandCall = 0x005BAA7Du,
 		};
 	}
 

@@ -2372,14 +2372,6 @@
         "pattern_kind": "code",
         "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
       },
-      "GameObjectIsCargo": {
-        "address": "0x0045BBC0",
-        "type": "function: bool __thiscall(GameObject* this)",
-        "description": "Returns the GameObject isCargo byte (+0x9C). Reticle::FindReticleObject skips a candidate for which it returns true.",
-        "pattern": "55 8B EC 51 89 4D FC 8B 45 FC 8A 80 9C 00 00 00 8B E5 5D C3",
-        "pattern_kind": "code",
-        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
-      },
       "FindTargetFlagsCall": {
         "address": "0x005DEDD4",
         "type": "call site (5 bytes: call GameObjectGetObjFlags)",
@@ -2404,21 +2396,29 @@
         "pattern_kind": "code",
         "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
       },
-      "ReticleCargoCallA": {
-        "address": "0x005BC7CF",
-        "type": "call site (5 bytes: call GameObjectIsCargo)",
-        "description": "Reticle::FindReticleObject (0x005BC640, 1.5 0x004D95FA) range-search loop candidate test: call IsCargo; movzx ecx,al; test; je accept. EXU's plant feature retargets the call so a plant is skipped.",
-        "pattern": "E8 EC F3 E9 FF 0F B6 C8 85 C9 74 05",
+      "ControlPanelSetCommandObject": {
+        "address": "0x004A7230",
+        "type": "function: void __thiscall(ControlPanel* this, AiCommand cmd, GameObject* obj), ret 8",
+        "description": "ControlPanel::SetCommand(AiCommand, GameObject*) (1.5 0x004C48BC). Fills the command button (+0x111C) with the command and object; ControlPanel::Render draws the object's name/health from it and the menu key issues the command.",
+        "pattern": "55 8B EC 51 89 4D FC E8 A4 AB FA FF 85 C0 74 07 C7 45 08 01 00 00 00",
         "pattern_kind": "code",
-        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
       },
-      "ReticleCargoCallB": {
-        "address": "0x005BCAB4",
-        "type": "call site (5 bytes: call GameObjectIsCargo)",
-        "description": "Reticle::FindReticleObject objective-list loop candidate test: call IsCargo; movzx eax,al; test; je accept. EXU's plant feature retargets the call so a plant is skipped.",
-        "pattern": "E8 07 F1 E9 FF 0F B6 C0 85 C0 74 02",
+      "ControlPanelSetCommandPosition": {
+        "address": "0x004A71E0",
+        "type": "function: void __thiscall(ControlPanel* this, AiCommand cmd, VECTOR_3D* pos), ret 8",
+        "description": "ControlPanel::SetCommand(AiCommand, VECTOR_3D*) (1.5 0x004C4889). Fills the command button with no object; Reticle::Simulate calls it with CMD_NONE (0) and a null position when nothing is under the reticle.",
+        "pattern": "55 8B EC 51 89 4D FC E8 F4 AB FA FF 85 C0 74 07 C7 45 08 00 00 00 00",
         "pattern_kind": "code",
-        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
+      },
+      "ReticleSetCommandCall": {
+        "address": "0x005BAA7D",
+        "type": "call site (5 bytes: call ControlPanelSetCommandObject)",
+        "description": "Reticle::Simulate (1.5 0x004D997D) hands selectObj to the command button: mov ecx,0x978E20 (controlPanel); call SetCommand(startCommand, selectObj). EXU's plant feature retargets the call so a plant fills the button as when aiming at the sky (CMD_NONE, no ground order); selectObj itself (lobber aim, OpenShim convergence) is untouched.",
+        "pattern": "E8 AE C7 EE FF EB 24",
+        "pattern_kind": "code",
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
       }
     },
     "BettyVoice": {

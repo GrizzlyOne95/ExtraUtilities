@@ -67,7 +67,8 @@ namespace ExtraUtilities::Plant
 		using ExplodeFn = void(__thiscall*)(void* self);
 		using SetDamageFlagsFn = void(__thiscall*)(void* self, void* damage);
 		using GetObjFlagsFn = std::uint32_t(__thiscall*)(void* self);
-		using IsCargoFn = bool(__thiscall*)(void* self);
+		using SetCommandObjectFn = void(__thiscall*)(void* panel, int command, void* object);
+		using SetCommandPositionFn = void(__thiscall*)(void* panel, int command, void* position);
 
 		// Layouts (Docs/Research/PLANT_COLLISION_RE_20261013.md, GOG 2.2.301).
 		constexpr std::size_t kClsnInfoObj = 0x04;          // CLSN_INFO -> OBJ76*
@@ -129,12 +130,13 @@ namespace ExtraUtilities::Plant
 		SetDamageFlagsFn g_originalSetDamageFlags = nullptr;
 
 		// Object-loop stores in CockpitRadar::Render, MapRadar::Render and
-		// OverView::ClickedOn, and the four candidate-test calls in
-		// Targeting::FindTarget/ValidateTarget and Reticle::FindReticleObject.
+		// OverView::ClickedOn, and four retargeted calls: the candidate tests of
+		// Targeting::FindTarget/ValidateTarget and InfoDisplay::FindSightObject,
+		// and Reticle::Simulate's ControlPanel::SetCommand(cmd, obj).
 		::ExtraUtilities::Hook* g_radarGather = nullptr;
 		::ExtraUtilities::Hook* g_mapRadarGather = nullptr;
 		::ExtraUtilities::Hook* g_clickedOn = nullptr;
-		InlinePatch* g_callSites[5] = {};
+		InlinePatch* g_callSites[4] = {};
 
 		// Loop-continue labels the stubs return to for a plant (read by asm).
 		std::uintptr_t g_radarGatherNext = Addr::RadarGatherNext;
@@ -153,11 +155,10 @@ namespace ExtraUtilities::Plant
 		constexpr std::array<std::uint8_t, 6> kRadarGatherStore = { 0x89, 0x95, 0xAC, 0xFE, 0xFF, 0xFF };
 		constexpr std::array<std::uint8_t, 6> kMapRadarGatherStore = { 0x89, 0x95, 0xB0, 0xFE, 0xFF, 0xFF };
 		constexpr std::array<std::uint8_t, 6> kClickedOnStore = { 0x89, 0x55, 0xEC, 0x8B, 0x4D, 0xEC };
-		// The stock call rel32 of each candidate test (GetObjFlags, IsCargo).
+		// The stock call rel32 of each retargeted call (GetObjFlags, SetCommand).
 		constexpr std::array<std::uint8_t, 5> kFindTargetFlagsCall = { 0xE8, 0xD7, 0xD6, 0xE7, 0xFF };
 		constexpr std::array<std::uint8_t, 5> kValidateTargetFlagsCall = { 0xE8, 0xB2, 0xD3, 0xE7, 0xFF };
-		constexpr std::array<std::uint8_t, 5> kReticleCargoCallA = { 0xE8, 0xEC, 0xF3, 0xE9, 0xFF };
-		constexpr std::array<std::uint8_t, 5> kReticleCargoCallB = { 0xE8, 0x07, 0xF1, 0xE9, 0xFF };
+		constexpr std::array<std::uint8_t, 5> kReticleSetCommandCall = { 0xE8, 0xAE, 0xC7, 0xEE, 0xFF };
 		constexpr std::array<std::uint8_t, 5> kSightObjectFlagsCall = { 0xE8, 0x3D, 0x83, 0xF6, 0xFF };
 
 		// ----- Raw engine reads (POD-only SEH shells) -------------------------
@@ -729,14 +730,19 @@ namespace ExtraUtilities::Plant
 			return flags;
 		}
 
-		// Replaces GameObject::IsCargo at the two candidate tests of
-		// Reticle::FindReticleObject, which skips cargo. A plant reads as
-		// cargo there only.
-		bool __fastcall ReticleCargoFilter(void* self)
+		// Replaces ControlPanel::SetCommand(cmd, obj) where Reticle::Simulate
+		// hands the object under the reticle to the command button. For a plant
+		// the button is filled as when aiming at the sky (CMD_NONE,
+		// no position): no name/health readout and no order on it. The reticle
+		// still selects the plant, so lobbers and convergence aim at it.
+		void __fastcall ReticleSetCommandFilter(void* panel, void* /*edx*/, int command, void* object)
 		{
-			if (reinterpret_cast<IsCargoFn>(Addr::GameObjectIsCargo)(self))
-				return true;
-			return ClassifyGameObject(self) != nullptr;
+			if (object != nullptr && ClassifyGameObject(object) != nullptr)
+			{
+				reinterpret_cast<SetCommandPositionFn>(Addr::ControlPanelSetCommandPosition)(panel, 0, nullptr);
+				return;
+			}
+			reinterpret_cast<SetCommandObjectFn>(Addr::ControlPanelSetCommandObject)(panel, command, object);
 		}
 
 		std::vector<std::uint8_t> CallTo(std::uintptr_t site, const void* target)
@@ -802,8 +808,8 @@ namespace ExtraUtilities::Plant
 				return false;
 			}
 
-			// The HUD and targeting sites: three object-loop stores and five
-			// candidate-test calls. All eight must qualify, or none stays.
+			// The HUD and targeting sites: three object-loop stores and four
+			// retargeted calls. All seven must qualify, or none stays.
 			const auto makeLoopHook = [](std::uintptr_t address, void (*stub)(), const std::array<std::uint8_t, 6>& preimage) {
 				return new (std::nothrow) ::ExtraUtilities::Hook(
 					address, reinterpret_cast<const void*>(stub), preimage.size(), BasicPatch::Status::INACTIVE,
@@ -818,12 +824,11 @@ namespace ExtraUtilities::Plant
 					std::vector<std::uint8_t>(preimage.begin(), preimage.end()));
 			};
 			const void* flagsFilter = reinterpret_cast<const void*>(&TargetFlagsFilter);
-			const void* cargoFilter = reinterpret_cast<const void*>(&ReticleCargoFilter);
+			const void* commandFilter = reinterpret_cast<const void*>(&ReticleSetCommandFilter);
 			g_callSites[0] = makeCall(Addr::FindTargetFlagsCall, flagsFilter, kFindTargetFlagsCall);
 			g_callSites[1] = makeCall(Addr::ValidateTargetFlagsCall, flagsFilter, kValidateTargetFlagsCall);
-			g_callSites[2] = makeCall(Addr::ReticleCargoCallA, cargoFilter, kReticleCargoCallA);
-			g_callSites[3] = makeCall(Addr::ReticleCargoCallB, cargoFilter, kReticleCargoCallB);
-			g_callSites[4] = makeCall(Addr::SightObjectFlagsCall, flagsFilter, kSightObjectFlagsCall);
+			g_callSites[2] = makeCall(Addr::SightObjectFlagsCall, flagsFilter, kSightObjectFlagsCall);
+			g_callSites[3] = makeCall(Addr::ReticleSetCommandCall, commandFilter, kReticleSetCommandCall);
 
 			std::vector<BasicPatch*> sitePatches = { g_radarGather, g_mapRadarGather, g_clickedOn };
 			for (InlinePatch* site : g_callSites)

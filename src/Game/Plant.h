@@ -35,7 +35,7 @@ namespace ExtraUtilities::Plant
 	// GameObject::SetDamageFlags, the CockpitRadar, MapRadar and
 	// OverView::ClickedOn object loops, the two Targeting flag tests, the
 	// InfoDisplay sight-object flag test and the
-	// two Reticle cargo tests). All or nothing: fails
+	// Reticle command-button fill). All or nothing: fails
 	// closed (returns false and leaves the engine untouched) on any build or
 	// preimage mismatch. Call once the build gate passed and deferred patches
 	// are enabled.
