@@ -875,6 +875,34 @@ namespace ExtraUtilities::EngineAddresses
 			MakeScrapField = 0x005C65A0u,
 			// function: bool __thiscall(ParameterDB* self, uint32 sectionHash, uint32 keyHash, bool* out, bool defaultValue), ret 0x10
 			ParameterDbGetBool = 0x00589920u,
+			// hook site (6 bytes: push ebp; mov ebp,esp; sub esp,0x0C)
+			SetDamageFlags = 0x004DC130u,
+			// hook site (6 bytes: mov [ebp-0x154], edx)
+			RadarGatherObject = 0x0049456Bu,
+			// code reference (loop continue: iterator ++)
+			RadarGatherNext = 0x00494521u,
+			// hook site (6 bytes: mov [ebp-0x150], edx)
+			MapRadarGatherObject = 0x0050E2C8u,
+			// code reference (loop continue: iterator ++)
+			MapRadarGatherNext = 0x0050E27Eu,
+			// hook site (6 bytes: mov [ebp-0x14], edx; mov ecx, [ebp-0x14])
+			ClickedOnObject = 0x00587A60u,
+			// code reference (loop continue: iterator ++)
+			ClickedOnNext = 0x00587A25u,
+			// function: uint32 __thiscall(GameObject* this)
+			GameObjectGetObjFlags = 0x0045C4B0u,
+			// function: bool __thiscall(GameObject* this)
+			GameObjectIsCargo = 0x0045BBC0u,
+			// call site (5 bytes: call GameObjectGetObjFlags)
+			FindTargetFlagsCall = 0x005DEDD4u,
+			// call site (5 bytes: call GameObjectGetObjFlags)
+			ValidateTargetFlagsCall = 0x005DF0F9u,
+			// call site (5 bytes: call GameObjectGetObjFlags)
+			SightObjectFlagsCall = 0x004F416Eu,
+			// call site (5 bytes: call GameObjectIsCargo)
+			ReticleCargoCallA = 0x005BC7CFu,
+			// call site (5 bytes: call GameObjectIsCargo)
+			ReticleCargoCallB = 0x005BCAB4u,
 		};
 	}
 
@@ -1035,5 +1063,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 352u;
+	inline constexpr unsigned kEntryCount = 366u;
 }

@@ -2307,6 +2307,118 @@
         "pattern": "55 8B EC 83 EC 0C 89 4D F4 8B 45 0C 50 8B 4D 08 51 8B",
         "pattern_kind": "code",
         "note": "Code pattern at the address, unique in GOG 2.2.301 .text (checked 2026-10-13: the shorter prefixes match more than one site, so the pattern runs on until unique). Verified against GOG 2.2.301 by disassembly 2026-10-13 (Docs/Research/PLANT_COLLISION_RE_20261013.md)."
+      },
+      "SetDamageFlags": {
+        "address": "0x004DC130",
+        "type": "hook site (6 bytes: push ebp; mov ebp,esp; sub esp,0x0C)",
+        "description": "GameObject::SetDamageFlags(GameObject* this, DAMAGE* damage), void __thiscall, ret 4 (1.5 0x00496DA9). Stamps the collide/shot timestamps; playerShot (GameObject+0x1D8) when DAMAGE+8 bit 0x10 (the user is the shooter). SelectionDisplay (0x00497AA0) draws the hit marker for 2 s after playerShot. EXU's plant feature detours the entry and puts a plant's playerShot back after the original. OpenShim's damage-reveal probe rewrites the callers' rel32, not this entry.",
+        "pattern": "55 8B EC 83 EC 0C 89 4D FC E8 ?? ?? ?? ?? D9 5D F4 8B 45 FC C7 80 98 00 00 00 00 00 00 00",
+        "pattern_kind": "code",
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
+      },
+      "RadarGatherObject": {
+        "address": "0x0049456B",
+        "type": "hook site (6 bytes: mov [ebp-0x154], edx)",
+        "description": "CockpitRadar::Render (0x00493EC0) contact gather loop: stores the current objectList GameObject* (EDX) before the illumination (+0xE8) and own-team tests that add it to the radar list. EXU's plant feature hooks the store and continues the loop at RadarGatherNext for plants.",
+        "pattern": "89 95 AC FE FF FF 8B 85 AC FE FF FF F3 0F 10 05 ?? ?? ?? ?? 0F 2F 80 E8 00 00 00",
+        "pattern_kind": "code",
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
+      },
+      "RadarGatherNext": {
+        "address": "0x00494521",
+        "type": "code reference (loop continue: iterator ++)",
+        "description": "CockpitRadar::Render gather loop continue label (push 0; lea edx,[ebp-0x2D0]; push edx; lea ecx,[ebp-0x1A4]; call iterator++). Reached from 0x004945AA and 0x00494802 with no extra stack.",
+        "pattern": "6A 00 8D 95 30 FD FF FF 52 8D 8D 5C FE FF FF E8",
+        "pattern_kind": "code",
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
+      },
+      "MapRadarGatherObject": {
+        "address": "0x0050E2C8",
+        "type": "hook site (6 bytes: mov [ebp-0x150], edx)",
+        "description": "MapRadar::Render (0x0050D6F0) object loop: stores the current objectList GameObject* (EDX) before the name compare, the illumination test and the contact draw. EXU's plant feature hooks the store and continues the loop at MapRadarGatherNext for plants.",
+        "pattern": "89 95 B0 FE FF FF C7 85 38 FE FF FF ?? ?? ?? ?? 8B 8D B0 FE FF FF E8",
+        "pattern_kind": "code",
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
+      },
+      "MapRadarGatherNext": {
+        "address": "0x0050E27E",
+        "type": "code reference (loop continue: iterator ++)",
+        "description": "MapRadar::Render object loop continue label (push 0; lea edx,[ebp-0x270]; push edx; lea ecx,[ebp-0x1B0]; call iterator++). Reached from 0x0050E3AA and 0x0050E435 with no extra stack.",
+        "pattern": "6A 00 8D 95 90 FD FF FF 52 8D 8D 50 FE FF FF E8",
+        "pattern_kind": "code",
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
+      },
+      "ClickedOnObject": {
+        "address": "0x00587A60",
+        "type": "hook site (6 bytes: mov [ebp-0x14], edx; mov ecx, [ebp-0x14])",
+        "description": "OverView::ClickedOn (0x005879E0, 1.5 0x004D3676; returns the GameObject nearest a screen point in the overhead command view; called twice from 0x00587EF0) object loop: stores the current GameObject*. EXU's plant feature hooks the store and continues the loop at ClickedOnNext for plants.",
+        "pattern": "89 55 EC 8B 4D EC 83 C1 18 8B 45 EC 8B 50 18 8B 42 30 FF D0",
+        "pattern_kind": "code",
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
+      },
+      "ClickedOnNext": {
+        "address": "0x00587A25",
+        "type": "code reference (loop continue: iterator ++)",
+        "description": "OverView::ClickedOn loop continue label (push 0; lea edx,[ebp-0x4C]; push edx; lea ecx,[ebp-0x1C]; call iterator++). Reached from 0x00587A82 and 0x00587A99 with no extra stack.",
+        "pattern": "6A 00 8D 55 B4 52 8D 4D E4 E8",
+        "pattern_kind": "code",
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
+      },
+      "GameObjectGetObjFlags": {
+        "address": "0x0045C4B0",
+        "type": "function: uint32 __thiscall(GameObject* this)",
+        "description": "Returns GameObject->obj (+0xF4) OBJ76 flags (+0x14). Targeting::FindTarget and Targeting::ValidateTarget reject a candidate whose flags have 0x201.",
+        "pattern": "55 8B EC 51 89 4D FC 8B 45 FC 8B 88 F4 00 00 00 8B 41 14 8B E5 5D C3",
+        "pattern_kind": "code",
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
+      },
+      "GameObjectIsCargo": {
+        "address": "0x0045BBC0",
+        "type": "function: bool __thiscall(GameObject* this)",
+        "description": "Returns the GameObject isCargo byte (+0x9C). Reticle::FindReticleObject skips a candidate for which it returns true.",
+        "pattern": "55 8B EC 51 89 4D FC 8B 45 FC 8A 80 9C 00 00 00 8B E5 5D C3",
+        "pattern_kind": "code",
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
+      },
+      "FindTargetFlagsCall": {
+        "address": "0x005DEDD4",
+        "type": "call site (5 bytes: call GameObjectGetObjFlags)",
+        "description": "Targeting::FindTarget (0x005DEC80, 1.5 0x004DBE3D; the T key with no current target) candidate test: call GetObjFlags; and eax,0x201; je accept. EXU's plant feature retargets the call so a plant reads as dying.",
+        "pattern": "E8 D7 D6 E7 FF 25 01 02 00 00 74 02",
+        "pattern_kind": "code",
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
+      },
+      "ValidateTargetFlagsCall": {
+        "address": "0x005DF0F9",
+        "type": "call site (5 bytes: call GameObjectGetObjFlags)",
+        "description": "Targeting::ValidateTarget (0x005DF0E0, 1.5 0x004DC098; keeps or drops the user's current target every frame from Targeting::Simulate 0x005DEAE0) test: call GetObjFlags; and eax,0x201; je keep. EXU's plant feature retargets the call so a plant target is dropped.",
+        "pattern": "E8 B2 D3 E7 FF 25 01 02 00 00 74 07",
+        "pattern_kind": "code",
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
+      },
+      "SightObjectFlagsCall": {
+        "address": "0x004F416E",
+        "type": "call site (5 bytes: call GameObjectGetObjFlags)",
+        "description": "InfoDisplay::FindSightObject (0x004F4010; the info panel's name/health picker, called from InfoDisplay::Render 0x004F31D0) candidate test: call GetObjFlags; and eax,0x600; je accept. EXU's plant feature retargets the call so a plant reads as dying (0x200).",
+        "pattern": "E8 3D 83 F6 FF 25 00 06 00 00 74 02",
+        "pattern_kind": "code",
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
+      },
+      "ReticleCargoCallA": {
+        "address": "0x005BC7CF",
+        "type": "call site (5 bytes: call GameObjectIsCargo)",
+        "description": "Reticle::FindReticleObject (0x005BC640, 1.5 0x004D95FA) range-search loop candidate test: call IsCargo; movzx ecx,al; test; je accept. EXU's plant feature retargets the call so a plant is skipped.",
+        "pattern": "E8 EC F3 E9 FF 0F B6 C8 85 C9 74 05",
+        "pattern_kind": "code",
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
+      },
+      "ReticleCargoCallB": {
+        "address": "0x005BCAB4",
+        "type": "call site (5 bytes: call GameObjectIsCargo)",
+        "description": "Reticle::FindReticleObject objective-list loop candidate test: call IsCargo; movzx eax,al; test; je accept. EXU's plant feature retargets the call so a plant is skipped.",
+        "pattern": "E8 07 F1 E9 FF 0F B6 C0 85 C0 74 02",
+        "pattern_kind": "code",
+        "note": "Unique in the GOG 2.2.301 exe (checked 2026-11-13 by byte search of battlezone98redux.exe sha256 8d71f56c...; read by capstone disassembly). See Docs/Research/PLANT_COLLISION_RE_20261013.md, section \"Radar, hit marker and targeting\"."
       }
     },
     "BettyVoice": {

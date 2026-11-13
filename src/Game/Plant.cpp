@@ -20,6 +20,7 @@
 
 #include "EntryDetour32.h"
 #include "Hook.h"
+#include "InlinePatch.h"
 #include "Util/EngineAddresses.generated.h"
 #include "Util/Logging.h"
 #include "Util/RuntimeGate.h"
@@ -64,6 +65,9 @@ namespace ExtraUtilities::Plant
 		using ClsnSoundsFn = void(__cdecl*)(void* a, void* b);
 		using OrdnanceHitFn = void(__thiscall*)(void* self, void* hit, float* normal);
 		using ExplodeFn = void(__thiscall*)(void* self);
+		using SetDamageFlagsFn = void(__thiscall*)(void* self, void* damage);
+		using GetObjFlagsFn = std::uint32_t(__thiscall*)(void* self);
+		using IsCargoFn = bool(__thiscall*)(void* self);
 
 		// Layouts (Docs/Research/PLANT_COLLISION_RE_20261013.md, GOG 2.2.301).
 		constexpr std::size_t kClsnInfoObj = 0x04;          // CLSN_INFO -> OBJ76*
@@ -84,6 +88,7 @@ namespace ExtraUtilities::Plant
 		constexpr std::size_t kOrdnanceXplGround = 0x3C;
 		constexpr std::size_t kOrdnanceXplBuilding = 0x44;
 		constexpr std::size_t kMatrixPosit = 0x28;
+		constexpr std::size_t kGameObjectPlayerShot = 0x1D8; // float, SetDamageFlags / SelectionDisplay
 		constexpr std::uint32_t kHashSeed = 0x811C9DC5u;
 
 		static_assert(sizeof(BZR::MAT_3D) == 0x40, "MAT_3D must match the engine transform");
@@ -103,6 +108,11 @@ namespace ExtraUtilities::Plant
 		};
 
 		std::unordered_map<std::string, Entry> g_entries;
+		// GameObjectClass* -> its g_entries node (null: no ODF name). The HUD
+		// hooks classify every object every frame, so the name read and the
+		// string key are paid once per class. Entries are node-stable and
+		// both maps are cleared together.
+		std::unordered_map<const void*, Entry*> g_classEntries;
 
 		// Hit scope state: set while a plant is being hit.
 		bool g_suppressChunklets = false;
@@ -111,11 +121,25 @@ namespace ExtraUtilities::Plant
 		{
 			EntryDetour32* detour = nullptr;
 		};
-		Hook g_clsnSounds, g_ordnanceHit, g_explode;
+		Hook g_clsnSounds, g_ordnanceHit, g_explode, g_setDamageFlags;
 		::ExtraUtilities::Hook* g_chunkletGate = nullptr;
 		ClsnSoundsFn g_originalClsnSounds = nullptr;
 		OrdnanceHitFn g_originalOrdnanceHit = nullptr;
 		ExplodeFn g_originalExplode = nullptr;
+		SetDamageFlagsFn g_originalSetDamageFlags = nullptr;
+
+		// Object-loop stores in CockpitRadar::Render, MapRadar::Render and
+		// OverView::ClickedOn, and the four candidate-test calls in
+		// Targeting::FindTarget/ValidateTarget and Reticle::FindReticleObject.
+		::ExtraUtilities::Hook* g_radarGather = nullptr;
+		::ExtraUtilities::Hook* g_mapRadarGather = nullptr;
+		::ExtraUtilities::Hook* g_clickedOn = nullptr;
+		InlinePatch* g_callSites[5] = {};
+
+		// Loop-continue labels the stubs return to for a plant (read by asm).
+		std::uintptr_t g_radarGatherNext = Addr::RadarGatherNext;
+		std::uintptr_t g_mapRadarGatherNext = Addr::MapRadarGatherNext;
+		std::uintptr_t g_clickedOnNext = Addr::ClickedOnNext;
 
 		// Stolen bytes: push ebp; mov ebp,esp; sub esp,imm. Whole, reloc-free
 		// instructions; identity is catalogued as Plant.* in exu.json.
@@ -124,6 +148,17 @@ namespace ExtraUtilities::Plant
 		// cmp dword ptr [eax+0x8028], 0x400
 		constexpr std::array<std::uint8_t, 10> kChunkletPoolCheck = { 0x81, 0xB8, 0x28, 0x80, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00 };
 		constexpr std::array<std::uint8_t, 9> kExplodeEntry = { 0x55, 0x8B, 0xEC, 0x81, 0xEC, 0x24, 0x01, 0x00, 0x00 };
+		constexpr std::array<std::uint8_t, 6> kSetDamageFlagsEntry = { 0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x0C };
+		// mov [ebp-0x154], edx / mov [ebp-0x150], edx / mov [ebp-0x14], edx; mov ecx, [ebp-0x14]
+		constexpr std::array<std::uint8_t, 6> kRadarGatherStore = { 0x89, 0x95, 0xAC, 0xFE, 0xFF, 0xFF };
+		constexpr std::array<std::uint8_t, 6> kMapRadarGatherStore = { 0x89, 0x95, 0xB0, 0xFE, 0xFF, 0xFF };
+		constexpr std::array<std::uint8_t, 6> kClickedOnStore = { 0x89, 0x55, 0xEC, 0x8B, 0x4D, 0xEC };
+		// The stock call rel32 of each candidate test (GetObjFlags, IsCargo).
+		constexpr std::array<std::uint8_t, 5> kFindTargetFlagsCall = { 0xE8, 0xD7, 0xD6, 0xE7, 0xFF };
+		constexpr std::array<std::uint8_t, 5> kValidateTargetFlagsCall = { 0xE8, 0xB2, 0xD3, 0xE7, 0xFF };
+		constexpr std::array<std::uint8_t, 5> kReticleCargoCallA = { 0xE8, 0xEC, 0xF3, 0xE9, 0xFF };
+		constexpr std::array<std::uint8_t, 5> kReticleCargoCallB = { 0xE8, 0x07, 0xF1, 0xE9, 0xFF };
+		constexpr std::array<std::uint8_t, 5> kSightObjectFlagsCall = { 0xE8, 0x3D, 0x83, 0xF6, 0xFF };
 
 		// ----- Raw engine reads (POD-only SEH shells) -------------------------
 
@@ -159,11 +194,41 @@ namespace ExtraUtilities::Plant
 			}
 		}
 
-		// Class ODF base name of a GameObject (as Lua GetOdf reads it), copied
-		// into a terminated buffer. false when the class is unreadable.
-		bool ReadClassNameSeh(void* gameObject, char (&out)[Core::kOdfNameMax + 1]) noexcept
+		bool ReadU32Seh(const void* base, std::size_t offset, std::uint32_t& out) noexcept
 		{
-			out[0] = '\0';
+			out = 0;
+			if (base == nullptr)
+				return false;
+			__try
+			{
+				out = *reinterpret_cast<const std::uint32_t*>(reinterpret_cast<const std::uint8_t*>(base) + offset);
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return false;
+			}
+		}
+
+		bool WriteU32Seh(void* base, std::size_t offset, std::uint32_t value) noexcept
+		{
+			if (base == nullptr)
+				return false;
+			__try
+			{
+				*reinterpret_cast<std::uint32_t*>(reinterpret_cast<std::uint8_t*>(base) + offset) = value;
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return false;
+			}
+		}
+
+		// GameObjectClass* of a GameObject (secondary vtable slot 0).
+		bool ReadClassSeh(void* gameObject, const void*& out) noexcept
+		{
+			out = nullptr;
 			if (gameObject == nullptr)
 				return false;
 			__try
@@ -171,9 +236,26 @@ namespace ExtraUtilities::Plant
 				auto* sub = reinterpret_cast<std::uint8_t*>(gameObject) + kGameObjectClassSub;
 				void** vtable = *reinterpret_cast<void***>(sub);
 				const auto getClass = reinterpret_cast<VirtualGetFn>(vtable[0]);
-				const auto* cls = reinterpret_cast<const std::uint8_t*>(getClass(sub));
-				if (cls == nullptr)
-					return false;
+				out = getClass(sub);
+				return out != nullptr;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				out = nullptr;
+				return false;
+			}
+		}
+
+		// Class ODF base name (as Lua GetOdf reads it), copied into a
+		// terminated buffer. false when the class is unreadable.
+		bool ReadClassNameSeh(const void* objClass, char (&out)[Core::kOdfNameMax + 1]) noexcept
+		{
+			out[0] = '\0';
+			if (objClass == nullptr)
+				return false;
+			__try
+			{
+				const auto* cls = reinterpret_cast<const std::uint8_t*>(objClass);
 				const char* name = reinterpret_cast<const char*>(cls + kClassOdfName);
 				std::size_t n = 0;
 				for (; n < Core::kOdfNameMax && name[n] != '\0'; ++n)
@@ -303,19 +385,33 @@ namespace ExtraUtilities::Plant
 		}
 
 		// The plant entry of a GameObject, or null when it is not a plant (or
-		// unreadable). Never throws.
+		// unreadable). Never throws. After the first object of a class this
+		// is one virtual call and one pointer-keyed lookup; the verdict itself
+		// is re-read from the entry, so exu.SetPlant applies at once.
 		Entry* ClassifyGameObject(void* gameObject) noexcept
 		{
 			try
 			{
-				char name[Core::kOdfNameMax + 1];
-				if (!ReadClassNameSeh(gameObject, name))
+				const void* objClass = nullptr;
+				if (!ReadClassSeh(gameObject, objClass))
 					return nullptr;
-				char key[Core::kOdfNameMax + 1];
-				if (Core::NormalizeOdfNameInto(std::string_view(name, Core::kOdfNameMax), key) == 0)
-					return nullptr;
-				Entry& entry = GetEntry(key);
-				return EntryIsPlant(entry) ? &entry : nullptr;
+				Entry* entry = nullptr;
+				const auto cached = g_classEntries.find(objClass);
+				if (cached != g_classEntries.end())
+				{
+					entry = cached->second;
+				}
+				else
+				{
+					char name[Core::kOdfNameMax + 1];
+					if (!ReadClassNameSeh(objClass, name))
+						return nullptr; // not cached: may be readable later
+					char key[Core::kOdfNameMax + 1];
+					if (Core::NormalizeOdfNameInto(std::string_view(name, Core::kOdfNameMax), key) != 0)
+						entry = &GetEntry(key);
+					g_classEntries.emplace(objClass, entry);
+				}
+				return entry != nullptr && EntryIsPlant(*entry) ? entry : nullptr;
 			}
 			catch (...)
 			{
@@ -510,6 +606,149 @@ namespace ExtraUtilities::Plant
 				original(self);
 		}
 
+		// ----- HUD and targeting ----------------------------------------------
+
+		// GameObject::SetDamageFlags is __thiscall(this = GameObject, Damage*)
+		// with ret 4. It stamps playerShot (+0x1D8), which SelectionDisplay
+		// compares with now + 2 s to draw the "recently shot" sprite. For a
+		// plant the stamp is undone; everything else the call does stays.
+		void __fastcall SetDamageFlagsHook(void* self, void* /*edx*/, void* damage)
+		{
+			const SetDamageFlagsFn original = g_originalSetDamageFlags;
+			if (original == nullptr)
+				return;
+			std::uint32_t before = 0;
+			const bool haveBefore = ReadU32Seh(self, kGameObjectPlayerShot, before);
+			original(self, damage);
+			if (!haveBefore)
+				return;
+			std::uint32_t after = 0;
+			if (ReadU32Seh(self, kGameObjectPlayerShot, after) && after != before &&
+				ClassifyGameObject(self) != nullptr)
+			{
+				WriteU32Seh(self, kGameObjectPlayerShot, before);
+			}
+		}
+
+		bool __cdecl IsPlantForStub(void* gameObject) noexcept
+		{
+			return ClassifyGameObject(gameObject) != nullptr;
+		}
+
+		// The three object-loop stubs replace a 6-byte store of the current
+		// GameObject* (EDX) into the loop's local. They run the stolen bytes,
+		// then for a plant swap the return address for the loop's own continue
+		// label, so the object is skipped exactly as the stock filters skip
+		// one. No stack is pending at either point (ebp-relative frames).
+		// EAX/ECX/EDX are kept; the flags at the return point are dead.
+		__declspec(naked) void RadarGatherStub()
+		{
+			__asm
+			{
+				mov dword ptr [ebp - 0x154], edx
+				push eax
+				push ecx
+				push edx
+				push edx
+				call IsPlantForStub
+				add esp, 4
+				test al, al
+				pop edx
+				pop ecx
+				pop eax
+				jz keep
+				push eax
+				mov eax, dword ptr [g_radarGatherNext]
+				mov dword ptr [esp + 4], eax
+				pop eax
+			keep:
+				ret
+			}
+		}
+
+		__declspec(naked) void MapRadarGatherStub()
+		{
+			__asm
+			{
+				mov dword ptr [ebp - 0x150], edx
+				push eax
+				push ecx
+				push edx
+				push edx
+				call IsPlantForStub
+				add esp, 4
+				test al, al
+				pop edx
+				pop ecx
+				pop eax
+				jz keep
+				push eax
+				mov eax, dword ptr [g_mapRadarGatherNext]
+				mov dword ptr [esp + 4], eax
+				pop eax
+			keep:
+				ret
+			}
+		}
+
+		__declspec(naked) void ClickedOnStub()
+		{
+			__asm
+			{
+				mov dword ptr [ebp - 0x14], edx
+				push eax
+				push ecx
+				push edx
+				push edx
+				call IsPlantForStub
+				add esp, 4
+				test al, al
+				pop edx
+				pop ecx
+				pop eax
+				mov ecx, dword ptr [ebp - 0x14]
+				jz keep
+				push eax
+				mov eax, dword ptr [g_clickedOnNext]
+				mov dword ptr [esp + 4], eax
+				pop eax
+			keep:
+				ret
+			}
+		}
+
+		// Replaces GameObject::GetObjFlags at the candidate tests of
+		// Targeting::FindTarget/ValidateTarget (and InfoDisplay::FindSightObject,
+		// whose mask is 0x600), which reject an object
+		// whose flags & 0x201 is set. A plant reads as dying (0x200) there only.
+		std::uint32_t __fastcall TargetFlagsFilter(void* self)
+		{
+			std::uint32_t flags = reinterpret_cast<GetObjFlagsFn>(Addr::GameObjectGetObjFlags)(self);
+			if (ClassifyGameObject(self) != nullptr)
+				flags |= kObjDying;
+			return flags;
+		}
+
+		// Replaces GameObject::IsCargo at the two candidate tests of
+		// Reticle::FindReticleObject, which skips cargo. A plant reads as
+		// cargo there only.
+		bool __fastcall ReticleCargoFilter(void* self)
+		{
+			if (reinterpret_cast<IsCargoFn>(Addr::GameObjectIsCargo)(self))
+				return true;
+			return ClassifyGameObject(self) != nullptr;
+		}
+
+		std::vector<std::uint8_t> CallTo(std::uintptr_t site, const void* target)
+		{
+			const std::int32_t rel = static_cast<std::int32_t>(
+				reinterpret_cast<std::uintptr_t>(target) - (site + 5u));
+			std::vector<std::uint8_t> bytes(5);
+			bytes[0] = 0xE8;
+			std::memcpy(bytes.data() + 1, &rel, sizeof(rel));
+			return bytes;
+		}
+
 		// ----- Install --------------------------------------------------------
 
 		void DestroyHook(Hook& hook) noexcept
@@ -555,10 +794,48 @@ namespace ExtraUtilities::Plant
 				!PrepareHook(g_ordnanceHit, g_originalOrdnanceHit, Addr::OrdnanceHit,
 					reinterpret_cast<const void*>(&OrdnanceHitHook), kOrdnanceHitEntry, "Ordnance::Hit") ||
 				!PrepareHook(g_explode, g_originalExplode, Addr::BuildingExplode,
-					reinterpret_cast<const void*>(&ExplodeHook), kExplodeEntry, "Building::Explode"))
+					reinterpret_cast<const void*>(&ExplodeHook), kExplodeEntry, "Building::Explode") ||
+				!PrepareHook(g_setDamageFlags, g_originalSetDamageFlags, Addr::SetDamageFlags,
+					reinterpret_cast<const void*>(&SetDamageFlagsHook), kSetDamageFlagsEntry, "GameObject::SetDamageFlags"))
 			{
 				Shutdown();
 				return false;
+			}
+
+			// The HUD and targeting sites: three object-loop stores and five
+			// candidate-test calls. All eight must qualify, or none stays.
+			const auto makeLoopHook = [](std::uintptr_t address, void (*stub)(), const std::array<std::uint8_t, 6>& preimage) {
+				return new (std::nothrow) ::ExtraUtilities::Hook(
+					address, reinterpret_cast<const void*>(stub), preimage.size(), BasicPatch::Status::INACTIVE,
+					std::vector<std::uint8_t>(preimage.begin(), preimage.end()));
+			};
+			g_radarGather = makeLoopHook(Addr::RadarGatherObject, &RadarGatherStub, kRadarGatherStore);
+			g_mapRadarGather = makeLoopHook(Addr::MapRadarGatherObject, &MapRadarGatherStub, kMapRadarGatherStore);
+			g_clickedOn = makeLoopHook(Addr::ClickedOnObject, &ClickedOnStub, kClickedOnStore);
+
+			const auto makeCall = [](std::uintptr_t site, const void* target, const std::array<std::uint8_t, 5>& preimage) {
+				return new (std::nothrow) InlinePatch(site, CallTo(site, target), BasicPatch::Status::INACTIVE,
+					std::vector<std::uint8_t>(preimage.begin(), preimage.end()));
+			};
+			const void* flagsFilter = reinterpret_cast<const void*>(&TargetFlagsFilter);
+			const void* cargoFilter = reinterpret_cast<const void*>(&ReticleCargoFilter);
+			g_callSites[0] = makeCall(Addr::FindTargetFlagsCall, flagsFilter, kFindTargetFlagsCall);
+			g_callSites[1] = makeCall(Addr::ValidateTargetFlagsCall, flagsFilter, kValidateTargetFlagsCall);
+			g_callSites[2] = makeCall(Addr::ReticleCargoCallA, cargoFilter, kReticleCargoCallA);
+			g_callSites[3] = makeCall(Addr::ReticleCargoCallB, cargoFilter, kReticleCargoCallB);
+			g_callSites[4] = makeCall(Addr::SightObjectFlagsCall, flagsFilter, kSightObjectFlagsCall);
+
+			std::vector<BasicPatch*> sitePatches = { g_radarGather, g_mapRadarGather, g_clickedOn };
+			for (InlinePatch* site : g_callSites)
+				sitePatches.push_back(site);
+			for (BasicPatch* patch : sitePatches)
+			{
+				if (patch == nullptr || (patch->SetStatus(true), !patch->IsActive()))
+				{
+					Logging::LogMessage("exu: plant unavailable; a radar/target/reticle site did not qualify");
+					Shutdown();
+					return false;
+				}
 			}
 
 			g_chunkletGate = new (std::nothrow) ::ExtraUtilities::Hook(
@@ -572,7 +849,7 @@ namespace ExtraUtilities::Plant
 				return false;
 			}
 
-			for (Hook* hook : { &g_clsnSounds, &g_ordnanceHit, &g_explode })
+			for (Hook* hook : { &g_clsnSounds, &g_ordnanceHit, &g_explode, &g_setDamageFlags })
 			{
 				hook->detour->SetStatus(true);
 				if (!hook->detour->IsActive())
@@ -600,23 +877,45 @@ namespace ExtraUtilities::Plant
 		delete g_chunkletGate;
 		g_chunkletGate = nullptr;
 		DestroyHook(g_explode);
+		DestroyHook(g_setDamageFlags);
+		delete g_radarGather;
+		g_radarGather = nullptr;
+		delete g_mapRadarGather;
+		g_mapRadarGather = nullptr;
+		delete g_clickedOn;
+		g_clickedOn = nullptr;
+		for (InlinePatch*& site : g_callSites)
+		{
+			delete site;
+			site = nullptr;
+		}
 		g_originalClsnSounds = nullptr;
 		g_originalOrdnanceHit = nullptr;
 		g_originalExplode = nullptr;
+		g_originalSetDamageFlags = nullptr;
 		g_suppressChunklets = false;
 		ResetMissionState();
 	}
 
 	bool IsActive() noexcept
 	{
-		return g_clsnSounds.detour != nullptr && g_ordnanceHit.detour != nullptr &&
-			g_chunkletGate != nullptr && g_explode.detour != nullptr &&
-			g_clsnSounds.detour->IsActive() && g_ordnanceHit.detour->IsActive() &&
-			g_chunkletGate->IsActive() && g_explode.detour->IsActive();
+		if (g_clsnSounds.detour == nullptr || g_ordnanceHit.detour == nullptr ||
+			g_chunkletGate == nullptr || g_explode.detour == nullptr || g_setDamageFlags.detour == nullptr ||
+			g_radarGather == nullptr || g_mapRadarGather == nullptr || g_clickedOn == nullptr)
+			return false;
+		for (const InlinePatch* site : g_callSites)
+		{
+			if (site == nullptr || !site->IsActive())
+				return false;
+		}
+		return g_clsnSounds.detour->IsActive() && g_ordnanceHit.detour->IsActive() &&
+			g_chunkletGate->IsActive() && g_explode.detour->IsActive() && g_setDamageFlags.detour->IsActive() &&
+			g_radarGather->IsActive() && g_mapRadarGather->IsActive() && g_clickedOn->IsActive();
 	}
 
 	void ResetMissionState() noexcept
 	{
+		g_classEntries.clear();
 		g_entries.clear();
 	}
 
