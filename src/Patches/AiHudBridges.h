@@ -67,6 +67,7 @@ namespace ExtraUtilities::Lua::Patches
 	int ClearAiUnitTuning(lua_State* L);
 	int ClearAllAiUnitTuning(lua_State* L);
 	int SetTurretAimPitchEnabled(lua_State* L);
+	int AllowRallyPoints(lua_State* L);
 	int SetAttackRevealEnabled(lua_State* L);
 	int SetJumpSnipeCrouch(lua_State* L);
 	int ResetMissionHookOverrides(lua_State* L);

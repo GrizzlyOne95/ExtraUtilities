@@ -49,6 +49,7 @@ namespace ExtraUtilities::Lua::Patches
         using OpenShimClearAiUnitTuningFn = BOOL(WINAPI*)(void*);
         using OpenShimClearAllAiUnitTuningFn = BOOL(WINAPI*)();
         using OpenShimSetTurretAimPitchEnabledFn = BOOL(WINAPI*)(BOOL);
+        using OpenShimSetRallyPointsAllowedInNetworkFn = BOOL(WINAPI*)(BOOL);
         using OpenShimSetAttackRevealEnabledFn = BOOL(WINAPI*)(BOOL);
         using OpenShimSetJumpSnipeCrouchEnabledFn = BOOL(WINAPI*)(BOOL);
 		using OpenShimResetMissionHookOverridesFn = BOOL(WINAPI*)();
@@ -184,6 +185,14 @@ namespace ExtraUtilities::Lua::Patches
             static constinit OpenShimBridge::CachedExport<OpenShimSetTurretAimPitchEnabledFn> bridge{
                 "OpenShimSetTurretAimPitchEnabled",
                 "[EXU::UnitVo] OpenShim turret aim pitch bridge unavailable" };
+            return bridge.Get();
+        }
+
+        OpenShimSetRallyPointsAllowedInNetworkFn ResolveRallyNetworkBridge()
+        {
+            static constinit OpenShimBridge::CachedExport<OpenShimSetRallyPointsAllowedInNetworkFn> bridge{
+                "OpenShimSetRallyPointsAllowedInNetwork",
+                "[EXU::UnitVo] OpenShim rally-point network opt-in bridge unavailable" };
             return bridge.Get();
         }
 
@@ -631,6 +640,22 @@ namespace ExtraUtilities::Lua::Patches
     {
         const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
         if (OpenShimSetTurretAimPitchEnabledFn fn = ResolveTurretAimPitchBridge())
+        {
+            lua_pushboolean(L, fn(requested) ? 1 : 0);
+            return 1;
+        }
+
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    // Lets a co-op mission use producer rally points in a network game. OpenShim
+    // clears the opt-in on every mission reset, and the player's setting still
+    // decides. Returns false when OpenShim is missing or refuses.
+    int AllowRallyPoints(lua_State* L)
+    {
+        const BOOL requested = lua_toboolean(L, 1) ? TRUE : FALSE;
+        if (OpenShimSetRallyPointsAllowedInNetworkFn fn = ResolveRallyNetworkBridge())
         {
             lua_pushboolean(L, fn(requested) ? 1 : 0);
             return 1;
