@@ -153,6 +153,8 @@ namespace ExtraUtilities::Lua::GameObject
 	int GetAiTaskInfo(lua_State* L);
 	int GetAiTaskFieldScan(lua_State* L);
 	int GetAiTaskState(lua_State* L);
+	int GetAiState(lua_State* L);
+	int GetAiPath(lua_State* L);
 	int SetAiTaskState(lua_State* L);
 	int GetAiRecycleTaskState(lua_State* L);
 
