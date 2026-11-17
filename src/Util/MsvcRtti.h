@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 // The 32-bit MSVC RTTI records Redux's classes carry, as read by the AI
 // inspection bindings, the Ordnance* validity check and AiTargetSelect's hook
@@ -67,4 +68,35 @@ namespace ExtraUtilities::MsvcRtti
 	static_assert(offsetof(CompleteObjectLocator, pTypeDescriptor) == 0x0C);
 	static_assert(offsetof(CompleteObjectLocator, pClassDescriptor) == 0x10);
 #endif
+
+	// Unsafe: no validation, so call only inside an SEH-guarded POD shell on a
+	// pointer to a polymorphic object. True if the hierarchy lists baseName
+	// (decorated, e.g. ".?AVUnitTask@@").
+	inline bool HasBaseUnsafe(const void* object, const char* baseName)
+	{
+		if (object == nullptr) return false;
+		void** vtable = *reinterpret_cast<void***>(const_cast<void*>(object));
+		const auto* col = reinterpret_cast<const CompleteObjectLocator*>(vtable[-1]);
+		if (col->signature != 0 || col->pClassDescriptor == nullptr) return false;
+		const auto* hierarchy = col->pClassDescriptor;
+		if (hierarchy->numBaseClasses > 64) return false;
+		for (uint32_t i = 0; i < hierarchy->numBaseClasses; ++i)
+			if (std::strcmp(hierarchy->pBaseClassArray[i]->pTypeDescriptor->name, baseName) == 0) return true;
+		return false;
+	}
+
+	// Unsafe, same rules: the undecorated class name (".?AVFoo@@" -> "Foo").
+	template <std::size_t N>
+	inline void ClassNameUnsafe(const void* object, char (&out)[N])
+	{
+		out[0] = '\0';
+		if (object == nullptr) return;
+		void** vtable = *reinterpret_cast<void***>(const_cast<void*>(object));
+		const auto* col = reinterpret_cast<const CompleteObjectLocator*>(vtable[-1]);
+		const char* raw = col->pTypeDescriptor->name;
+		if (std::strncmp(raw, ".?AV", 4) == 0 || std::strncmp(raw, ".?AU", 4) == 0) raw += 4;
+		std::size_t n = 0;
+		while (n < N - 1 && raw[n] != '\0' && raw[n] != '@') { out[n] = raw[n]; ++n; }
+		out[n] = '\0';
+	}
 }

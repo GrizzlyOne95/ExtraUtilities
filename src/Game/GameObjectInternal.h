@@ -144,6 +144,18 @@ namespace ExtraUtilities::Lua::GameObject
 			BZR::VECTOR_3D lastRecyclerPos; // 0x60 ctor: vector
 		};
 
+		// AiPath for 2.2.301: ctor 0x00460490 stores label 0, count 2 and
+		// new(count * 8) at +8 (Battlezone_Source BZ1/research/
+		// AI_DEBUG_VIEW_EXU_SCOPE_20261117.md). Points are {x, z} float pairs
+		// with no y. The BAD_PATH flag offset is not verified in this build,
+		// so it is not declared.
+		struct AiPathLayout
+		{
+			const char* label;             // 0x00 ctor: 0
+			int32_t count;                 // 0x04 ctor: 2 (then the real count)
+			float* points;                 // 0x08 ctor: new(count * 8), {x, z} pairs
+		};
+
 		// Not verified against 2.2.301: its constructor initialises too few
 		// fields to confirm the layout. Read-only diagnostics use it.
 		struct ScavengerProcessLayout
@@ -174,6 +186,8 @@ namespace ExtraUtilities::Lua::GameObject
 		static_assert(offsetof(UnitTaskLayout, himHandle) == 0x14);
 		static_assert(offsetof(UnitTaskLayout, wasInTransition) == 0x1C);
 		static_assert(offsetof(UnitTaskLayout, gotoPoint) == 0x28);
+		static_assert(offsetof(UnitTaskLayout, plan) == 0x40);
+		static_assert(offsetof(UnitTaskLayout, planPoint) == 0x44);
 		static_assert(offsetof(UnitTaskLayout, gotoForce) == 0x4C);
 		static_assert(offsetof(UnitTaskLayout, gotoDir) == 0x58);
 		static_assert(offsetof(UnitTaskLayout, braccelFactor) == 0x64);
@@ -181,6 +195,9 @@ namespace ExtraUtilities::Lua::GameObject
 		static_assert(offsetof(UnitTaskLayout, lastStuck) == 0x88);
 		static_assert(offsetof(UnitTaskLayout, stuckState) == 0x94);
 		static_assert(offsetof(UnitTaskLayout, pitch) == 0xB0);
+		static_assert(offsetof(AiPathLayout, count) == 0x04);
+		static_assert(offsetof(AiPathLayout, points) == 0x08);
+		static_assert(sizeof(AiPathLayout) == 0x0C);
 		static_assert(offsetof(RecycleTaskLayout, deployMsg) == 0x08);
 		static_assert(offsetof(RecycleTaskLayout, me) == 0x2C);
 		static_assert(offsetof(RecycleTaskLayout, lastScrap) == 0x34);

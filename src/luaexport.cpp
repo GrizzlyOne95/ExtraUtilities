@@ -943,6 +943,8 @@ namespace ExtraUtilities::Lua
 			{ "GetAiTaskInfo", &GameObject::GetAiTaskInfo },
 			{ "GetAiTaskFieldScan", &GameObject::GetAiTaskFieldScan },
 			{ "GetAiTaskState", &GameObject::GetAiTaskState },
+			{ "GetAiState", &GameObject::GetAiState },
+			{ "GetAiPath", &GameObject::GetAiPath },
 			{ "SetAiTaskState", &GameObject::SetAiTaskState },
 			{ "GetAiRecycleTaskState", &GameObject::GetAiRecycleTaskState },
 			{ "GetRadarRange",	&GameObject::GetRadarRange },

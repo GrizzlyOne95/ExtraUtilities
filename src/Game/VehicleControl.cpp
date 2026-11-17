@@ -36,30 +36,8 @@ namespace ExtraUtilities::Lua::VehicleControl
         }
         // Only call inside a POD-only SEH shell. RTTI bounds are conservative;
         // neither a class name substring nor an arbitrary task pointer is enough.
-        bool HasBase(void* p, const char* name)
-        {
-            if (!p) return false;
-            auto** vt = *reinterpret_cast<void***>(p);
-            const auto* col = reinterpret_cast<const MsvcRtti::CompleteObjectLocator*>(vt[-1]);
-            if (col->signature != 0 || !col->pClassDescriptor) return false;
-            const auto* hierarchy = col->pClassDescriptor;
-            if (hierarchy->numBaseClasses > 64) return false;
-            for (std::uint32_t n = 0; n < hierarchy->numBaseClasses; ++n)
-                if (std::strcmp(hierarchy->pBaseClassArray[n]->pTypeDescriptor->name, name) == 0) return true;
-            return false;
-        }
-        void CopyType(void* p, char (&name)[80])
-        {
-            name[0] = 0;
-            if (!p) return;
-            auto** vt = *reinterpret_cast<void***>(p);
-            const auto* col = reinterpret_cast<const MsvcRtti::CompleteObjectLocator*>(vt[-1]);
-            const char* raw = col->pTypeDescriptor->name;
-            if (std::strncmp(raw, ".?AV", 4) == 0 || std::strncmp(raw, ".?AU", 4) == 0) raw += 4;
-            std::size_t n = 0;
-            while (n < sizeof(name)-1 && raw[n] && raw[n] != '@') { name[n] = raw[n]; ++n; }
-            name[n] = 0;
-        }
+        bool HasBase(void* p, const char* name) { return MsvcRtti::HasBaseUnsafe(p, name); }
+        void CopyType(void* p, char (&name)[80]) { MsvcRtti::ClassNameUnsafe(p, name); }
         float Now() noexcept
         {
             __try { return *reinterpret_cast<const float*>(EngineAddresses::Time::SimTimeSeconds); }

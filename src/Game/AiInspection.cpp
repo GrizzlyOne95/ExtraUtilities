@@ -17,6 +17,8 @@
 */
 
 #include "GameObjectInternal.h"
+#include "AiPathCore.h"
+#include "Util/EngineAddresses.generated.h"
 #include "Util/SehGuard.h"
 
 #include "Util/MsvcRtti.h"
@@ -1403,6 +1405,223 @@ namespace ExtraUtilities::Lua::GameObject
 			lua_setfield(L, -2, "scrapDistance");
 		}
 
+		return 1;
+	}
+
+	namespace
+	{
+		// Direct reads for exu.GetAiState / exu.GetAiPath, the pattern of
+		// VehicleControl.cpp: RTTI base check, then fixed offsets. The SEH
+		// callers are POD-only so __try is legal; use them on game-thread
+		// pointers only.
+		constexpr uint32_t kProcessCurState = 0x1C;
+		constexpr uint32_t kProcessNextState = 0x20;
+		constexpr uint32_t kProcessTask = 0x38;
+
+		struct AiStateSnapshot
+		{
+			char processClass[80]{};
+			bool exactUnitProcess = false;
+			int32_t state = 0;
+			int32_t nextState = 0;
+			char taskClass[80]{};
+			bool hasTask = false;
+			bool unitTask = false;
+			int32_t taskState = 0;
+			int32_t stuckState = 0;
+			bool hasPlan = false;
+			uint32_t planPoint = 0;
+			int32_t planCount = 0;
+		};
+
+		// Replicas carry a NetProcess, not a UnitProcess, so they fail here.
+		bool ReadUnitProcessSnapshot(void* process, AiStateSnapshot& s) noexcept
+		{
+			__try
+			{
+				if (!MsvcRtti::HasBaseUnsafe(process, ".?AVUnitProcess@@"))
+				{
+					return false;
+				}
+				MsvcRtti::ClassNameUnsafe(process, s.processClass);
+				s.exactUnitProcess = std::strcmp(s.processClass, "UnitProcess") == 0;
+				uint8_t* base = static_cast<uint8_t*>(process);
+				s.state = *reinterpret_cast<int32_t*>(base + kProcessCurState);
+				s.nextState = *reinterpret_cast<int32_t*>(base + kProcessNextState);
+
+				void* task = *reinterpret_cast<void**>(base + kProcessTask);
+				if (task == nullptr)
+				{
+					return true;
+				}
+				s.hasTask = true;
+				MsvcRtti::ClassNameUnsafe(task, s.taskClass);
+				// RecycleTask is not a UnitTask and has its own layout.
+				if (!MsvcRtti::HasBaseUnsafe(task, ".?AVUnitTask@@"))
+				{
+					return true;
+				}
+				const auto* unit = static_cast<const UnitTaskLayout*>(task);
+				s.unitTask = true;
+				s.taskState = static_cast<int32_t>(unit->curState);
+				s.stuckState = static_cast<int32_t>(unit->stuckState);
+				s.planPoint = unit->planPoint;
+				if (unit->plan != nullptr)
+				{
+					const auto* path = static_cast<const AiPathLayout*>(unit->plan);
+					s.hasPlan = AiPath::PlanLooksValid(path->count, path->points);
+					s.planCount = path->count;
+				}
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return false;
+			}
+		}
+
+		bool ReadPlanSnapshot(void* process, AiPath::PathSnapshot& out) noexcept
+		{
+			__try
+			{
+				if (!MsvcRtti::HasBaseUnsafe(process, ".?AVUnitProcess@@"))
+				{
+					return false;
+				}
+				void* task = *reinterpret_cast<void**>(static_cast<uint8_t*>(process) + kProcessTask);
+				if (task == nullptr || !MsvcRtti::HasBaseUnsafe(task, ".?AVUnitTask@@"))
+				{
+					return false;
+				}
+				const auto* unit = static_cast<const UnitTaskLayout*>(task);
+				if (unit->plan == nullptr)
+				{
+					return false;
+				}
+				const auto* path = static_cast<const AiPathLayout*>(unit->plan);
+				return AiPath::CopyPath(path->count, path->points, unit->planPoint, out);
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				out = AiPath::PathSnapshot{};
+				return false;
+			}
+		}
+
+		using TerrainHeightAtFn = double(__cdecl*)(double, double);
+
+		bool TryTerrainHeight(float x, float z, float& outY) noexcept
+		{
+			__try
+			{
+				const double y = reinterpret_cast<TerrainHeightAtFn>(EngineAddresses::Terrain::HeightAt)(x, z);
+				if (!std::isfinite(y) || std::fabs(y) >= 1.0e6)
+				{
+					return false;
+				}
+				outY = static_cast<float>(y);
+				return true;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return false;
+			}
+		}
+	}
+
+	int GetAiState(lua_State* L)
+	{
+		BZR::handle h = CheckHandle(L, 1);
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		AiStateSnapshot s{};
+		if (obj == nullptr || obj->aiProcess == nullptr || !ReadUnitProcessSnapshot(obj->aiProcess, s))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		lua_createtable(L, 0, 9);
+		lua_pushstring(L, s.processClass);
+		lua_setfield(L, -2, "processClass");
+		lua_pushinteger(L, s.state);
+		lua_setfield(L, -2, "state");
+		// Other process classes have their own state enums.
+		const char* stateName = s.exactUnitProcess ? AiPath::UnitProcessStateName(s.state) : nullptr;
+		if (stateName != nullptr)
+		{
+			lua_pushstring(L, stateName);
+			lua_setfield(L, -2, "stateName");
+		}
+		lua_pushinteger(L, s.nextState);
+		lua_setfield(L, -2, "nextState");
+		if (s.hasTask)
+		{
+			lua_pushstring(L, s.taskClass);
+			lua_setfield(L, -2, "taskClass");
+		}
+		if (s.unitTask)
+		{
+			lua_pushinteger(L, s.taskState);
+			lua_setfield(L, -2, "taskState");
+			const char* taskStateName = AiPath::UnitTaskStateName(s.taskState);
+			if (taskStateName != nullptr)
+			{
+				lua_pushstring(L, taskStateName);
+				lua_setfield(L, -2, "taskStateName");
+			}
+			lua_pushinteger(L, s.stuckState);
+			lua_setfield(L, -2, "stuckState");
+			const int planIndex = s.hasPlan ? AiPath::LuaPlanIndex(s.planPoint, s.planCount) : 0;
+			if (planIndex > 0)
+			{
+				lua_pushinteger(L, planIndex);
+				lua_setfield(L, -2, "planIndex");
+			}
+		}
+		return 1;
+	}
+
+	int GetAiPath(lua_State* L)
+	{
+		BZR::handle h = CheckHandle(L, 1);
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		AiPath::PathSnapshot path;
+		if (obj == nullptr || obj->aiProcess == nullptr || !ReadPlanSnapshot(obj->aiProcess, path))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		lua_createtable(L, 0, 4);
+		lua_createtable(L, path.copied, 0);
+		for (int32_t i = 0; i < path.copied; ++i)
+		{
+			const float x = path.xz[i * 2];
+			const float z = path.xz[i * 2 + 1];
+			lua_createtable(L, 0, 3);
+			lua_pushnumber(L, x);
+			lua_setfield(L, -2, "x");
+			float y = 0.0f;
+			if (TryTerrainHeight(x, z, y))
+			{
+				lua_pushnumber(L, y);
+				lua_setfield(L, -2, "y");
+			}
+			lua_pushnumber(L, z);
+			lua_setfield(L, -2, "z");
+			lua_rawseti(L, -2, i + 1);
+		}
+		lua_setfield(L, -2, "points");
+		const int index = AiPath::SnapshotLuaIndex(path);
+		if (index > 0)
+		{
+			lua_pushinteger(L, index);
+			lua_setfield(L, -2, "index");
+		}
+		lua_pushinteger(L, path.count);
+		lua_setfield(L, -2, "count");
+		lua_pushboolean(L, path.truncated);
+		lua_setfield(L, -2, "truncated");
 		return 1;
 	}
 }

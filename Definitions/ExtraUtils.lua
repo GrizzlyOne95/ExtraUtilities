@@ -3242,6 +3242,41 @@ function exu.GetAiTaskFieldScan(h) end
 --- @return table | nil
 function exu.GetAiTaskState(h) end
 
+--- Gets the object's AI process state and current task state by direct field reads
+--- (no scanning). Returns nil when the object has no UnitProcess (dead handle, no AI
+--- process, or a multiplayer replica, which carries a NetProcess instead).
+--- Fields: `processClass` (RTTI class name), `state`, `nextState`; `stateName` only when
+--- the process class is exactly UnitProcess (0-17: NO_STATE, START, DONE, WAIT, GOTO,
+--- PATROL, STAGE, ATTACK, FOLLOW, DEFEND, REPAIR, RELOAD, RESCUE, RECYCLE, PACKUP,
+--- SUBATTACK, USTATE1, USTATE2); other process classes have their own state enums, so
+--- they get the raw int and no name. `taskClass` is the current task's RTTI class name
+--- when there is one. `taskState`, `taskStateName`, `stuckState` and `planIndex` are
+--- present only when the task is a UnitTask (not e.g. a RecycleTask). `taskState` is the
+--- UnitTask enum: 0 NO_STATE, 1 START, 2 GOTO, 3 STUCK, 4 FOLLOW, 5 ATTACK, 6 WAIT,
+--- 7 SLIDE, 8 STAND, 9 FLEE, 10 BLAST, 11 LEAD, 12 CATCH, 13 DONE (the stock debug text
+--- labels a GOTO task "DONE"; this does not). `planIndex` is the 1-based current plan
+--- point, absent when the task has no readable plan or the engine's index is outside
+--- the plan. `stuckState` is the raw engine stuck-action value (no name is given).
+--- @nodiscard
+--- @param h Handle
+--- @return { processClass: string, state: integer, stateName: string|nil, nextState: integer, taskClass: string|nil, taskState: integer|nil, taskStateName: string|nil, stuckState: integer|nil, planIndex: integer|nil }|nil
+function exu.GetAiState(h) end
+
+--- Gets the pathfinder route the unit's current UnitTask is following.
+--- Returns nil when there is no readable plan: dead handle, no UnitProcess (including
+--- multiplayer replicas), a task that is not a UnitTask, no plan, or a corrupt plan.
+--- `points` are the whole plan in order as `{x, y, z}` (simulation coordinates; `y` is
+--- the terrain height at x,z and is absent if the lookup failed), capped at 512;
+--- `truncated` is true when the plan was longer, and `count` is the true point count.
+--- `index` is the 1-based current plan point (the stock debug view draws from it
+--- onward), absent if the engine's index is outside the plan or, when `truncated`,
+--- beyond the 512 points returned. A 2-point plan can be
+--- the pathfinder's straight-line fallback.
+--- @nodiscard
+--- @param h Handle
+--- @return { points: { x: number, y: number|nil, z: number }[], index: integer|nil, count: integer, truncated: boolean }|nil
+function exu.GetAiPath(h) end
+
 --- Updates selected fields on the primary live UnitTask (any stock task except
 --- RecycleTask) for the object. Supported fields: `braccel`, `strafe`, `steer`,
 --- `omega`, `omegaScale`, `pitch`, `gotoForce`, `gotoDir`, and `turbo`.
