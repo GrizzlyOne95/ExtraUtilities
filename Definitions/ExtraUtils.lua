@@ -3300,6 +3300,25 @@ function exu.GetPathRegion(x, z) end
 --- True when both positions are in the same nonzero pathing region (ground-reachable
 --- at map load; buildings are not considered). False when either is a cliff or outside
 --- the grid. Returns nil when there is no pathing grid.
+---
+--- Example: gate an order on reachability. nil means "unknown" (no grid or
+--- unsupported build), so only skip the order on an explicit false.
+--- ```lua
+--- local from, to = GetPosition(h), GetPosition(target)
+--- if exu.IsPathReachable(from.x, from.z, to.x, to.z) == false then
+---     print("unreachable by ground")
+--- else
+---     Goto(h, target)
+--- end
+--- ```
+---
+--- Example: same-region test with GetPathRegion (0 = cliff, nil = no data).
+--- ```lua
+--- local ra = exu.GetPathRegion(a.x, a.z)
+--- local rb = exu.GetPathRegion(b.x, b.z)
+--- local same = ra ~= nil and ra ~= 0 and ra == rb
+--- ```
+---
 --- @nodiscard
 --- @param x0 number
 --- @param z0 number
@@ -3318,6 +3337,21 @@ function exu.IsPathReachable(x0, z0, x1, z1) end
 --- grid, or the engine returned no plan or an empty/unreadable one. The plan is freed
 --- before returning, and the search resets its own settings on every call (a fault
 --- inside the native search is caught, but can leak that plan).
+---
+--- Example: walk the route and mark it with stock BuildObject. Check for nil
+--- (no grid, no plan, unsupported build) and for `ok == false` (fallback path).
+--- ```lua
+--- local from, to = GetPosition(h), GetPosition(target)
+--- local points, ok = exu.FindPath(from.x, from.z, to.x, to.z, 0, GetTeamNum(h))
+--- if points and ok then
+---     for i, p in ipairs(points) do
+---         BuildObject("my_marker", 0, SetVector(p.x, p.y or from.y, p.z)) -- your own marker ODF
+---     end
+--- else
+---     print("no usable path")
+--- end
+--- ```
+---
 --- @nodiscard
 --- @param x0 number
 --- @param z0 number
