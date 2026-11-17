@@ -17,6 +17,10 @@ EXU is the reusable Lua/native runtime library for Battlezone 98 Redux (`Grizzly
 - Keep Ogre ABI/runtime assumptions under `src/Ogre/` or another clearly owned runtime layer.
 - Prefer reusable C++ operations with thin Lua bindings. Native hooks and patches must fail closed when build or target assumptions fail.
 - Distinguish process, runtime/Ogre, Lua-state, mission, and temporary-patch lifetimes.
+- Before writing a naked `__asm` hook or thunk at a game address, grep the sibling BZR-OpenShim repo (`%USERPROFILE%\Documents\GIT\BZR-OpenShim`, `src/patches`, `scripts/patches.json`) for the same address; it may already have a verified contract (example: EXU `TurboGateThunk.h` for 0x00601C92).
+- Write the entry contract in a comment, verified against the bytes before the site: which registers and stack slots hold what. Never assume eax/ecx hold the object; a preceding call leaves them as garbage.
+- Run the stolen instructions first, and check that nothing branches into the overwritten range.
+- EXU APIs have no network gates; scripts opt in.
 - Current code and `ARCHITECTURE.md` take precedence over dated research under `Docs/Research/`.
 
 ## Work and validation
