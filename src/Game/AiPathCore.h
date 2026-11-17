@@ -83,4 +83,87 @@ namespace ExtraUtilities::AiPath
 		const int index = LuaPlanIndex(s.planPoint, s.count);
 		return index > 0 && index <= s.copied ? index : 0;
 	}
+
+	// ---- Terrain pathing grid (exu.GetPathCell / GetPathRegion / IsPathReachable) ----
+
+	// Native bounds ints; max values are exclusive.
+	struct PathGridBounds
+	{
+		std::int32_t minX = 0;
+		std::int32_t maxX = 0;
+		std::int32_t minZ = 0;
+		std::int32_t maxZ = 0;
+	};
+
+	// floor(v * scale) as an int, or false for a non-finite or absurdly large value.
+	inline bool ScaledFloor(float v, float scale, std::int32_t& out) noexcept
+	{
+		const double r = std::floor(static_cast<double>(v) * static_cast<double>(scale));
+		if (!std::isfinite(r) || r < -1.0e9 || r > 1.0e9) return false;
+		out = static_cast<std::int32_t>(r);
+		return true;
+	}
+
+	// Byte index of cell (cx, cz) in the row-major grid, or false when outside
+	// [min, max) on either axis (or the bounds are empty).
+	inline bool PathCellIndex(const PathGridBounds& b, std::int32_t cx, std::int32_t cz, std::size_t& out) noexcept
+	{
+		if (b.maxX <= b.minX || b.maxZ <= b.minZ) return false;
+		if (cx < b.minX || cx >= b.maxX || cz < b.minZ || cz >= b.maxZ) return false;
+		const std::int64_t width = static_cast<std::int64_t>(b.maxX) - b.minX;
+		out = static_cast<std::size_t>((static_cast<std::int64_t>(cz) - b.minZ) * width + (cx - b.minX));
+		return true;
+	}
+
+	// World x/z (native, no flip) to a grid byte index. gridScale is cells per metre.
+	inline bool WorldToPathIndex(const PathGridBounds& b, float gridScale, float x, float z, std::size_t& out) noexcept
+	{
+		if (!(gridScale > 0.0f)) return false;
+		std::int32_t cx = 0, cz = 0;
+		return ScaledFloor(x, gridScale, cx) && ScaledFloor(z, gridScale, cz) && PathCellIndex(b, cx, cz, out);
+	}
+
+	// Two points are reachable when both regions are nonzero and equal.
+	inline bool RegionsReachable(std::uint8_t a, std::uint8_t b) noexcept
+	{
+		return a != 0 && a == b;
+	}
+
+	// FindPath plan type byte (+0x10): 3 is the bad/fallback path.
+	constexpr std::uint8_t kBadPathType = 3;
+	inline bool PlanTypeOk(std::uint8_t type) noexcept { return type != kBadPathType; }
+
+	// ---- AI strategic grid (exu.GetAiGridCell) ----
+
+	constexpr float kAiCellSize = 80.0f;
+	constexpr std::int32_t kMaxTeams = 16;
+
+	struct AiGridCoord
+	{
+		std::int32_t row = 0;
+		std::int32_t col = 0;
+		float minX = 0.0f;
+		float minZ = 0.0f;
+		float maxX = 0.0f;
+		float maxZ = 0.0f;
+	};
+
+	// Stock DrawPriorities: col = floor((x - ox) / 80), row = floor((z - oz) / 80).
+	// Fails outside [0, rows) x [0, cols).
+	inline bool WorldToAiCell(float x, float z, float ox, float oz, std::int32_t rows, std::int32_t cols, AiGridCoord& out) noexcept
+	{
+		std::int32_t col = 0, row = 0;
+		if (!ScaledFloor(x - ox, 1.0f / kAiCellSize, col) || !ScaledFloor(z - oz, 1.0f / kAiCellSize, row)) return false;
+		if (rows <= 0 || cols <= 0 || row < 0 || row >= rows || col < 0 || col >= cols) return false;
+		out.row = row;
+		out.col = col;
+		out.minX = static_cast<float>(col) * kAiCellSize + ox;
+		out.minZ = static_cast<float>(row) * kAiCellSize + oz;
+		out.maxX = out.minX + kAiCellSize;
+		out.maxZ = out.minZ + kAiCellSize;
+		return true;
+	}
+
+	// priority <= -100000 marks an unused cell.
+	inline bool AiCellUsed(float priority) noexcept { return priority > -100000.0f; }
 }

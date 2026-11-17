@@ -1624,4 +1624,302 @@ namespace ExtraUtilities::Lua::GameObject
 		lua_setfield(L, -2, "truncated");
 		return 1;
 	}
+
+	namespace
+	{
+		// exu.GetPathCell / GetPathRegion / IsPathReachable / FindPath / GetAiGridCell.
+		// Addresses live in exu.json (Pathing); every read is SEH-guarded and
+		// null-checks its globals.
+		namespace PathAddr = EngineAddresses::Pathing;
+		constexpr uint32_t kAiPathType = 0x10; // byte; 3 = bad/fallback path
+
+		struct PathGridView
+		{
+			const uint8_t* cells = nullptr;
+			const uint8_t* regions = nullptr;
+			AiPath::PathGridBounds bounds;
+			float scale = 0.0f;
+		};
+
+		// False when there is no grid (before map load / after teardown).
+		bool ReadPathGrid(PathGridView& g) noexcept
+		{
+			__try
+			{
+				g.cells = *reinterpret_cast<const uint8_t* const*>(PathAddr::CellArray);
+				g.regions = *reinterpret_cast<const uint8_t* const*>(PathAddr::RegionArray);
+				if (g.cells == nullptr || g.regions == nullptr)
+				{
+					return false;
+				}
+				g.bounds.minX = *reinterpret_cast<const int32_t*>(PathAddr::MinX);
+				g.bounds.maxX = *reinterpret_cast<const int32_t*>(PathAddr::MaxX);
+				g.bounds.minZ = *reinterpret_cast<const int32_t*>(PathAddr::MinZ);
+				g.bounds.maxZ = *reinterpret_cast<const int32_t*>(PathAddr::MaxZ);
+				g.scale = *reinterpret_cast<const float*>(PathAddr::GridScale);
+				return g.bounds.maxX > g.bounds.minX && g.bounds.maxZ > g.bounds.minZ && g.scale > 0.0f;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return false;
+			}
+		}
+
+		// 1 = byte read into out, 0 = outside the grid (no data), -1 = no grid.
+		int ReadPathByte(const uint8_t* PathGridView::* which, float x, float z, uint8_t& out) noexcept
+		{
+			PathGridView g;
+			if (!ReadPathGrid(g))
+			{
+				return -1;
+			}
+			std::size_t index = 0;
+			if (!AiPath::WorldToPathIndex(g.bounds, g.scale, x, z, index))
+			{
+				return 0;
+			}
+			__try
+			{
+				out = (g.*which)[index];
+				return 1;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return -1;
+			}
+		}
+
+		void PushPathByte(lua_State* L, const uint8_t* PathGridView::* which)
+		{
+			const float x = static_cast<float>(luaL_checknumber(L, 1));
+			const float z = static_cast<float>(luaL_checknumber(L, 2));
+			uint8_t value = 0;
+			if (ReadPathByte(which, x, z, value) == 1)
+			{
+				lua_pushinteger(L, value);
+			}
+			else
+			{
+				lua_pushnil(L);
+			}
+		}
+
+		using FindPathFn = void*(__cdecl*)(float, float, float, float, int, int);
+		using PlanDtorFn = void(__thiscall*)(void*, int);
+
+		// Runs the native search, copies the plan, then frees it (the engine
+		// registers every plan in a global list). Returns 1 when copied, 0 for
+		// a null plan or any failure. okFlag is the type ~= 3 result.
+		int RunFindPath(float x0, float z0, float x1, float z1, int mode, int team, AiPath::PathSnapshot& out, bool& okFlag) noexcept
+		{
+			void* plan = nullptr;
+			__try
+			{
+				plan = reinterpret_cast<FindPathFn>(PathAddr::FindPath)(x0, z0, x1, z1, mode, team);
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return 0;
+			}
+			if (plan == nullptr)
+			{
+				return 0;
+			}
+
+			int result = 0;
+			__try
+			{
+				const auto* path = static_cast<const AiPathLayout*>(plan);
+				okFlag = AiPath::PlanTypeOk(*(static_cast<const uint8_t*>(plan) + kAiPathType));
+				result = AiPath::CopyPath(path->count, path->points, 0, out) ? 1 : 0;
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				out = AiPath::PathSnapshot{};
+				result = 0;
+			}
+
+			__try
+			{
+				reinterpret_cast<PlanDtorFn>(PathAddr::PlanDtor)(plan, 1);
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+			}
+			return result;
+		}
+
+		struct AiGridCellSnapshot
+		{
+			int32_t goal = 0;
+			float priority = 0.0f;
+			AiPath::AiGridCoord coord;
+		};
+
+		bool ReadAiGridCell(int team, float x, float z, AiGridCellSnapshot& out) noexcept
+		{
+			__try
+			{
+				const uint8_t* root = *reinterpret_cast<const uint8_t* const*>(PathAddr::AiRoot);
+				if (root == nullptr)
+				{
+					return false;
+				}
+				const uint8_t* block = *reinterpret_cast<const uint8_t* const*>(root + static_cast<std::size_t>(team) * 4);
+				if (block == nullptr)
+				{
+					return false;
+				}
+				const int32_t rows = *reinterpret_cast<const int32_t*>(block + 0x78);
+				const int32_t cols = *reinterpret_cast<const int32_t*>(block + 0x7C);
+				const int32_t* rowArray = *reinterpret_cast<const int32_t* const*>(block + 0x80);
+				const float ox = static_cast<float>(*reinterpret_cast<const int32_t*>(PathAddr::AiOriginX)) * 5.0f;
+				const float oz = static_cast<float>(*reinterpret_cast<const int32_t*>(PathAddr::AiOriginZ)) * 5.0f;
+				if (rowArray == nullptr || !AiPath::WorldToAiCell(x, z, ox, oz, rows, cols, out.coord))
+				{
+					return false;
+				}
+				const int32_t* rowPtr = reinterpret_cast<const int32_t*>(rowArray[out.coord.row]);
+				if (rowPtr == nullptr)
+				{
+					return false;
+				}
+				const uint8_t* cell = reinterpret_cast<const uint8_t*>(rowPtr[out.coord.col]);
+				if (cell == nullptr)
+				{
+					return false;
+				}
+				out.goal = *reinterpret_cast<const int32_t*>(cell + 0x04);
+				out.priority = *reinterpret_cast<const float*>(cell + 0x1C);
+				return AiPath::AiCellUsed(out.priority);
+			}
+			__except (Seh::Filter(GetExceptionCode()))
+			{
+				return false;
+			}
+		}
+	}
+
+	int GetPathCell(lua_State* L)
+	{
+		PushPathByte(L, &PathGridView::cells);
+		return 1;
+	}
+
+	int GetPathRegion(lua_State* L)
+	{
+		PushPathByte(L, &PathGridView::regions);
+		return 1;
+	}
+
+	int IsPathReachable(lua_State* L)
+	{
+		const float x0 = static_cast<float>(luaL_checknumber(L, 1));
+		const float z0 = static_cast<float>(luaL_checknumber(L, 2));
+		const float x1 = static_cast<float>(luaL_checknumber(L, 3));
+		const float z1 = static_cast<float>(luaL_checknumber(L, 4));
+		uint8_t a = 0;
+		uint8_t b = 0;
+		const int ra = ReadPathByte(&PathGridView::regions, x0, z0, a);
+		const int rb = ReadPathByte(&PathGridView::regions, x1, z1, b);
+		if (ra < 0 || rb < 0)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		// Outside the grid counts as unreachable, not as "no grid".
+		lua_pushboolean(L, ra == 1 && rb == 1 && AiPath::RegionsReachable(a, b));
+		return 1;
+	}
+
+	int FindPath(lua_State* L)
+	{
+		const float x0 = static_cast<float>(luaL_checknumber(L, 1));
+		const float z0 = static_cast<float>(luaL_checknumber(L, 2));
+		const float x1 = static_cast<float>(luaL_checknumber(L, 3));
+		const float z1 = static_cast<float>(luaL_checknumber(L, 4));
+		const lua_Integer mode = luaL_optinteger(L, 5, 0);
+		const lua_Integer team = luaL_optinteger(L, 6, 1);
+		if (mode < 0 || mode > 3)
+		{
+			return luaL_argerror(L, 5, "mode must be 0 to 3");
+		}
+		if (team < 0 || team >= AiPath::kMaxTeams)
+		{
+			return luaL_argerror(L, 6, "team must be 0 to 15");
+		}
+
+		PathGridView grid;
+		if (!ReadPathGrid(grid))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		AiPath::PathSnapshot path;
+		bool ok = false;
+		if (RunFindPath(x0, z0, x1, z1, static_cast<int>(mode), static_cast<int>(team), path, ok) != 1)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		lua_createtable(L, path.copied, 0);
+		for (int32_t i = 0; i < path.copied; ++i)
+		{
+			const float x = path.xz[i * 2];
+			const float z = path.xz[i * 2 + 1];
+			lua_createtable(L, 0, 3);
+			lua_pushnumber(L, x);
+			lua_setfield(L, -2, "x");
+			float y = 0.0f;
+			if (TryTerrainHeight(x, z, y))
+			{
+				lua_pushnumber(L, y);
+				lua_setfield(L, -2, "y");
+			}
+			lua_pushnumber(L, z);
+			lua_setfield(L, -2, "z");
+			lua_rawseti(L, -2, i + 1);
+		}
+		lua_pushboolean(L, ok);
+		return 2;
+	}
+
+	int GetAiGridCell(lua_State* L)
+	{
+		const lua_Integer team = luaL_checkinteger(L, 1);
+		const float x = static_cast<float>(luaL_checknumber(L, 2));
+		const float z = static_cast<float>(luaL_checknumber(L, 3));
+		if (team < 0 || team >= AiPath::kMaxTeams)
+		{
+			return luaL_argerror(L, 1, "team must be 0 to 15");
+		}
+
+		AiGridCellSnapshot cell;
+		if (!ReadAiGridCell(static_cast<int>(team), x, z, cell))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+
+		lua_createtable(L, 0, 8);
+		lua_pushinteger(L, cell.goal);
+		lua_setfield(L, -2, "goal");
+		lua_pushnumber(L, cell.priority);
+		lua_setfield(L, -2, "priority");
+		lua_pushinteger(L, cell.coord.row);
+		lua_setfield(L, -2, "row");
+		lua_pushinteger(L, cell.coord.col);
+		lua_setfield(L, -2, "col");
+		lua_pushnumber(L, cell.coord.minX);
+		lua_setfield(L, -2, "minX");
+		lua_pushnumber(L, cell.coord.minZ);
+		lua_setfield(L, -2, "minZ");
+		lua_pushnumber(L, cell.coord.maxX);
+		lua_setfield(L, -2, "maxX");
+		lua_pushnumber(L, cell.coord.maxZ);
+		lua_setfield(L, -2, "maxZ");
+		return 1;
+	}
 }

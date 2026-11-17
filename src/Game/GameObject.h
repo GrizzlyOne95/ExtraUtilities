@@ -155,6 +155,11 @@ namespace ExtraUtilities::Lua::GameObject
 	int GetAiTaskState(lua_State* L);
 	int GetAiState(lua_State* L);
 	int GetAiPath(lua_State* L);
+	int GetPathCell(lua_State* L);
+	int GetPathRegion(lua_State* L);
+	int IsPathReachable(lua_State* L);
+	int FindPath(lua_State* L);
+	int GetAiGridCell(lua_State* L);
 	int SetAiTaskState(lua_State* L);
 	int GetAiRecycleTaskState(lua_State* L);
 

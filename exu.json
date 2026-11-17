@@ -1983,6 +1983,92 @@
         "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-10-05. Callers push two doubles (x then z on the stack at [ebp+8]/[ebp+0x10]) and pop 0x10."
       }
     },
+    "Pathing": {
+      "CellArray": {
+        "address": "0x0260D178",
+        "type": "uint8_t**",
+        "description": "Pointer to the terrain pathing cell byte array (one byte per cell: bit0 slope, bit1 steep, bit2 lava-ish, bit3 building, unverified). Null before map load and after teardown. Read by exu.GetPathCell.",
+        "pattern": null,
+        "note": "Fixed address, no pattern: verified by hand for GOG and Steam 2.2.301 (same layout); only used after the runtime build gate."
+      },
+      "RegionArray": {
+        "address": "0x0260D17C",
+        "type": "uint8_t**",
+        "description": "Pointer to the pathing region byte array (connected-component ids built once at map load, 0 = cliff/unconnected, not updated when buildings are placed). Null before map load and after teardown. Read by exu.GetPathRegion / IsPathReachable.",
+        "pattern": null,
+        "note": "Fixed address, no pattern: verified by hand for GOG and Steam 2.2.301 (same layout); only used after the runtime build gate."
+      },
+      "MinX": {
+        "address": "0x02CE99C0",
+        "type": "int32_t*",
+        "description": "Pathing grid minimum cell X (inclusive). Index = (cz - MinZ) * (MaxX - MinX) + (cx - MinX).",
+        "pattern": null,
+        "note": "Fixed address, no pattern: verified by hand for GOG and Steam 2.2.301 (same layout); only used after the runtime build gate."
+      },
+      "MaxX": {
+        "address": "0x02CE99A0",
+        "type": "int32_t*",
+        "description": "Pathing grid maximum cell X (exclusive).",
+        "pattern": null,
+        "note": "Fixed address, no pattern: verified by hand for GOG and Steam 2.2.301 (same layout); only used after the runtime build gate."
+      },
+      "MinZ": {
+        "address": "0x02CD9984",
+        "type": "int32_t*",
+        "description": "Pathing grid minimum cell Z (inclusive).",
+        "pattern": null,
+        "note": "Fixed address, no pattern: verified by hand for GOG and Steam 2.2.301 (same layout); only used after the runtime build gate."
+      },
+      "MaxZ": {
+        "address": "0x02CE99C4",
+        "type": "int32_t*",
+        "description": "Pathing grid maximum cell Z (exclusive).",
+        "pattern": null,
+        "note": "Fixed address, no pattern: verified by hand for GOG and Steam 2.2.301 (same layout); only used after the runtime build gate."
+      },
+      "GridScale": {
+        "address": "0x02CC50E4",
+        "type": "float*",
+        "description": "Pathing grid cells per metre: cx = floor(x * GridScale), cz = floor(z * GridScale), native x/z with no flip.",
+        "pattern": null,
+        "note": "Fixed address, no pattern: verified by hand for GOG and Steam 2.2.301 (same layout); only used after the runtime build gate."
+      },
+      "FindPath": {
+        "address": "0x00466450",
+        "type": "void* (__cdecl*)(float x0, float z0, float x1, float z1, int mode, int team)",
+        "description": "Pathfinder entry (caller pops 0x18; its unit wrapper 0x004666C0 passes obj+0x234 as mode and the unit team). mode 3 = flying (straight 2-point path), 0..2 ground classes. Returns an AiPath registered in a global path list; the caller must free it with PlanDtor. Only call while the pathing grid globals are non-null. Used by exu.FindPath.",
+        "pattern": null,
+        "note": "Fixed address, no pattern: verified by hand for GOG and Steam 2.2.301 (same layout); only used after the runtime build gate."
+      },
+      "PlanDtor": {
+        "address": "0x00460640",
+        "type": "void (__thiscall*)(void* plan, int flags)",
+        "description": "AiPath scalar deleting destructor (flags = 1 frees). Pairs with FindPath.",
+        "pattern": null,
+        "note": "Fixed address, no pattern: verified by hand for GOG and Steam 2.2.301 (same layout); only used after the runtime build gate."
+      },
+      "AiRoot": {
+        "address": "0x00920F04",
+        "type": "uint8_t***",
+        "description": "AI strategic grid root: per-team block pointer array indexed by team (null for non-AI teams, root null when no AI). Per team block: rows int @+0x78, cols int @+0x7C, row-pointer array @+0x80; cell struct 0x88 bytes (goal @+4, priority float @+0x1C, <= -100000 unused). Used by exu.GetAiGridCell.",
+        "pattern": null,
+        "note": "Fixed address, no pattern: verified by hand for GOG and Steam 2.2.301 (same layout); only used after the runtime build gate."
+      },
+      "AiOriginX": {
+        "address": "0x00931018",
+        "type": "int32_t*",
+        "description": "AI strategic grid origin X in 5 m units (world origin = value * 5.0, from stock DrawPriorities 0x00596520). Cells are 80 m squares.",
+        "pattern": null,
+        "note": "Fixed address, no pattern: verified by hand for GOG and Steam 2.2.301 (same layout); only used after the runtime build gate."
+      },
+      "AiOriginZ": {
+        "address": "0x00931020",
+        "type": "int32_t*",
+        "description": "AI strategic grid origin Z in 5 m units (world origin = value * 5.0).",
+        "pattern": null,
+        "note": "Fixed address, no pattern: verified by hand for GOG and Steam 2.2.301 (same layout); only used after the runtime build gate."
+      }
+    },
     "Time": {
       "SimTimeSeconds": {
         "address": "0x02CC1B2C",
