@@ -54,24 +54,45 @@ local gibs = {}
 --- turning them off removes the hook (gibs already on screen finish their
 --- life). Returns whether gibs are now active; when they are not,
 --- GetCapabilities().reason says why.
+--- ```lua
+--- local active = exu.gibs.Enable(true)
+--- if not active then print(exu.gibs.GetCapabilities().reason) end
+--- ```
 --- @param enable boolean
 --- @return boolean active
 function gibs.Enable(enable) end
 
 --- Sets the pool size, rest time and launch force. Any field may be omitted;
 --- values are clamped to their ranges. Applies to gibs spawned afterwards.
+--- ```lua
+--- exu.gibs.Configure({ max = 200, linger = 8, force = 1 })
+--- ```
 --- @param config ExuGibsConfig
 function gibs.Configure(config) end
 
+--- ```lua
+--- local enabled = exu.gibs.IsEnabled()
+--- ```
 --- @return boolean enabled Whether the death hook is active.
 function gibs.IsEnabled() end
 
 --- Hides every gib now (the pooled objects are kept for reuse).
+--- ```lua
+--- exu.gibs.Clear()
+--- ```
 function gibs.Clear() end
 
+--- ```lua
+--- local stats = exu.gibs.GetStats()
+--- print(stats.live, stats.deaths)
+--- ```
 --- @return ExuGibsStats
 function gibs.GetStats() end
 
+--- ```lua
+--- local caps = exu.gibs.GetCapabilities()
+--- if not caps.gibs then print(caps.reason) end
+--- ```
 --- @return ExuGibsCapabilities
 function gibs.GetCapabilities() end
 

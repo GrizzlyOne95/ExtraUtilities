@@ -44,6 +44,9 @@ local animation = {}
 
 --- Wraps a normal BZR handle in an explicit animation-target descriptor.
 --- All animation functions also accept a raw Handle directly, so this helper is optional.
+--- ```lua
+--- local target = exu.animation.Target(GetPlayerHandle())
+--- ```
 --- @param h Handle
 --- @return ExuAnimationTarget
 function animation.Target(h) end
@@ -52,6 +55,9 @@ function animation.Target(h) end
 --- target. OpenShim remains the preferred resolver when installed; otherwise EXU
 --- resolves the current Person render bridge directly. The Ogre pointer is
 --- re-resolved on every operation and never cached. See Docs/ANIMATION_API.md.
+--- ```lua
+--- local target = exu.animation.TargetLocalFirstPerson()
+--- ```
 --- @return ExuAnimationTarget
 function animation.TargetLocalFirstPerson() end
 
@@ -66,11 +72,18 @@ function animation.TargetLocalFirstPerson() end
 --- renderer builds it, unsupported build). Works for any GameObject, no clip
 --- requirements. Also accepted as argument 1 by the handle-based entity,
 --- sub-entity material and `*EntityAnimation*` functions.
+--- ```lua
+--- local target = exu.animation.TargetCockpit(GetPlayerHandle())
+--- ```
 --- @param h Handle
 --- @return ExuAnimationTarget
 function animation.TargetCockpit(h) end
 
 --- Same as `exu.SetSubEntityRenderQueueGroup`, here beside `TargetCockpit`.
+--- ```lua
+--- local changed, firstIndex = exu.animation.SetSubEntityRenderQueue(exu.animation.TargetCockpit(GetPlayerHandle()), "glass", 80)
+--- if changed == 0 then print("no sub-entity matched") end
+--- ```
 --- @param target Handle|ExuAnimationTarget
 --- @param selector integer|string Sub-entity index or material name
 --- @param group integer
@@ -80,6 +93,10 @@ function animation.TargetCockpit(h) end
 function animation.SetSubEntityRenderQueue(target, selector, group, priority) end
 
 --- Same as `exu.GetSubEntityRenderQueueGroup`.
+--- ```lua
+--- local group, isOwnGroup = exu.animation.GetSubEntityRenderQueue(GetPlayerHandle(), 0)
+--- if not group then return end
+--- ```
 --- @param target Handle|ExuAnimationTarget
 --- @param subEntityIndex integer
 --- @return integer? group
@@ -88,18 +105,29 @@ function animation.GetSubEntityRenderQueue(target, subEntityIndex) end
 
 --- World transform of the target entity's scene node, in sim space (right/up/front are the
 --- object's axes, posit is world position). Returns nil when the target has no renderable entity.
+--- ```lua
+--- local m = exu.animation.GetTargetTransform(GetPlayerHandle())
+--- if not m then return end -- no renderable entity
+--- ```
 --- @nodiscard
 --- @param target Handle|ExuAnimationTarget
 --- @return Matrix?
 function animation.GetTargetTransform(target) end
 
 --- Returns the currently implemented target/clock capabilities.
+--- ```lua
+--- local caps = exu.animation.GetCapabilities()
+--- if not caps.cockpitTarget then print("cockpit targets unavailable") end
+--- ```
 --- @nodiscard
 --- @return ExuAnimationCapabilities
 function animation.GetCapabilities() end
 
 --- Returns whether the target exposes a named Ogre AnimationState.
 --- Unsupported target kinds fail closed and return false.
+--- ```lua
+--- local hasClip = exu.animation.Has(GetPlayerHandle(), "my_animation")
+--- ```
 --- @nodiscard
 --- @param target Handle|ExuAnimationTarget
 --- @param name string
@@ -107,6 +135,10 @@ function animation.GetCapabilities() end
 function animation.Has(target, name) end
 
 --- Returns current state for a named animation, or nil when the target/state cannot be resolved.
+--- ```lua
+--- local info = exu.animation.GetInfo(GetPlayerHandle(), "my_animation")
+--- if info then print(info.timePosition, info.length) end
+--- ```
 --- @nodiscard
 --- @param target Handle|ExuAnimationTarget
 --- @param name string
@@ -116,6 +148,10 @@ function animation.GetInfo(target, name) end
 --- Returns a deterministic name-sorted snapshot of every Ogre AnimationState
 --- currently exposed by the target. Returns nil when the target or state set
 --- cannot be resolved; a valid target with no states returns an empty array.
+--- ```lua
+--- local clips = exu.animation.List(GetPlayerHandle())
+--- if clips then for _, clip in ipairs(clips) do print(clip.name) end end
+--- ```
 --- @nodiscard
 --- @param target Handle|ExuAnimationTarget
 --- @return ExuAnimationInfo[]|nil
@@ -123,6 +159,10 @@ function animation.List(target) end
 
 --- Enables and configures a named Ogre animation state.
 --- EXU does not install a separate animation clock; Redux/Ogre owns time advancement.
+--- ```lua
+--- local ok = exu.animation.Play(GetPlayerHandle(), "my_animation", { loop = true, weight = 1.0 })
+--- if not ok then print("clip not found") end
+--- ```
 --- @param target Handle|ExuAnimationTarget
 --- @param name string
 --- @param options ExuAnimationPlayOptions?
@@ -130,6 +170,9 @@ function animation.List(target) end
 function animation.Play(target, name, options) end
 
 --- Disables a named animation. When reset is true, its time is also returned to 0.
+--- ```lua
+--- local ok = exu.animation.Stop(GetPlayerHandle(), "my_animation", true)
+--- ```
 --- @param target Handle|ExuAnimationTarget
 --- @param name string
 --- @param reset boolean?
@@ -137,12 +180,18 @@ function animation.Play(target, name, options) end
 function animation.Stop(target, name, reset) end
 
 --- Seeks to time 0 and enables a named animation without altering loop or weight.
+--- ```lua
+--- local ok = exu.animation.Restart(GetPlayerHandle(), "my_animation")
+--- ```
 --- @param target Handle|ExuAnimationTarget
 --- @param name string
 --- @return boolean success
 function animation.Restart(target, name) end
 
 --- Enables or disables a named animation state.
+--- ```lua
+--- local ok = exu.animation.SetEnabled(GetPlayerHandle(), "my_animation", true)
+--- ```
 --- @param target Handle|ExuAnimationTarget
 --- @param name string
 --- @param enabled boolean
@@ -150,6 +199,9 @@ function animation.Restart(target, name) end
 function animation.SetEnabled(target, name, enabled) end
 
 --- Changes the Ogre loop flag for a named animation state.
+--- ```lua
+--- local ok = exu.animation.SetLoop(GetPlayerHandle(), "my_animation", true)
+--- ```
 --- @param target Handle|ExuAnimationTarget
 --- @param name string
 --- @param loop boolean
@@ -157,6 +209,9 @@ function animation.SetEnabled(target, name, enabled) end
 function animation.SetLoop(target, name, loop) end
 
 --- Sets animation blend weight. The high-level API accepts values in [0, 1].
+--- ```lua
+--- local ok = exu.animation.SetWeight(GetPlayerHandle(), "my_animation", 0.5)
+--- ```
 --- @param target Handle|ExuAnimationTarget
 --- @param name string
 --- @param weight number
@@ -164,6 +219,9 @@ function animation.SetLoop(target, name, loop) end
 function animation.SetWeight(target, name, weight) end
 
 --- Sets the named animation time position in seconds.
+--- ```lua
+--- local ok = exu.animation.Seek(GetPlayerHandle(), "my_animation", 0.5)
+--- ```
 --- @param target Handle|ExuAnimationTarget
 --- @param name string
 --- @param timePosition number Non-negative seconds.
@@ -191,11 +249,19 @@ function animation.Seek(target, name, timePosition) end
 --- Presentation only, so also in multiplayer. Mission-scoped; off by default.
 --- `true` = both on; a table replaces the setting (omitted keys true); nil/false = stock.
 --- See Docs/Research/PERSON_LONG_CLIPS_RE_20261005.md.
+--- ```lua
+--- local available = exu.animation.SetPersonLongClips({ runs = true, idle = true })
+--- if not available then print("long clips unavailable") end
+--- ```
 --- @param options ExuPersonLongClipsOptions|boolean|nil
 --- @return boolean available
 function animation.SetPersonLongClips(options) end
 
 --- Returns the long-clip settings and live counters.
+--- ```lua
+--- local settings = exu.animation.GetPersonLongClips()
+--- print(settings.runs, settings.idle, settings.available)
+--- ```
 --- @nodiscard
 --- @return ExuPersonLongClips
 function animation.GetPersonLongClips() end
