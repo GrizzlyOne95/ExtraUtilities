@@ -20,6 +20,8 @@
 #include "AiPathCore.h"
 #include "Util/EngineAddresses.generated.h"
 #include "Util/SehGuard.h"
+#include "Util/RuntimeGate.h"
+#include "LuaHelpers.h"
 
 #include "Util/MsvcRtti.h"
 
@@ -1802,18 +1804,21 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int GetPathCell(lua_State* L)
 	{
+		if (!RuntimeGate::IsSupported()) return PushUnsupportedBuild(L);
 		PushPathByte(L, &PathGridView::cells);
 		return 1;
 	}
 
 	int GetPathRegion(lua_State* L)
 	{
+		if (!RuntimeGate::IsSupported()) return PushUnsupportedBuild(L);
 		PushPathByte(L, &PathGridView::regions);
 		return 1;
 	}
 
 	int IsPathReachable(lua_State* L)
 	{
+		if (!RuntimeGate::IsSupported()) return PushUnsupportedBuild(L);
 		const float x0 = static_cast<float>(luaL_checknumber(L, 1));
 		const float z0 = static_cast<float>(luaL_checknumber(L, 2));
 		const float x1 = static_cast<float>(luaL_checknumber(L, 3));
@@ -1834,6 +1839,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int FindPath(lua_State* L)
 	{
+		if (!RuntimeGate::IsSupported()) return PushUnsupportedBuild(L);
 		const float x0 = static_cast<float>(luaL_checknumber(L, 1));
 		const float z0 = static_cast<float>(luaL_checknumber(L, 2));
 		const float x1 = static_cast<float>(luaL_checknumber(L, 3));
@@ -1888,6 +1894,7 @@ namespace ExtraUtilities::Lua::GameObject
 
 	int GetAiGridCell(lua_State* L)
 	{
+		if (!RuntimeGate::IsSupported()) return PushUnsupportedBuild(L);
 		const lua_Integer team = luaL_checkinteger(L, 1);
 		const float x = static_cast<float>(luaL_checknumber(L, 2));
 		const float z = static_cast<float>(luaL_checknumber(L, 3));

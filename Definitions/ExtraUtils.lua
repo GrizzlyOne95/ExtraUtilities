@@ -3316,7 +3316,8 @@ function exu.IsPathReachable(x0, z0, x1, z1) end
 --- costs a real pathfind: do not call it every frame for many units. Longer routes are
 --- cut to their first 512 points without notice. Returns nil when there is no pathing
 --- grid, or the engine returned no plan or an empty/unreadable one. The plan is freed
---- before returning, and the search resets its own settings on every call.
+--- before returning, and the search resets its own settings on every call (a fault
+--- inside the native search is caught, but can leak that plan).
 --- @nodiscard
 --- @param x0 number
 --- @param z0 number
