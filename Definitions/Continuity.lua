@@ -86,6 +86,10 @@ local continuity = {}
 
 --- Captures one live GameObject into a pointer-free, persistable descriptor using
 --- documented Battlezone 98 Redux Lua calls.
+--- ```lua
+--- local object, err = exu.continuity.CaptureObject(GetPlayerHandle())
+--- if not object then print(err) end
+--- ```
 --- @param h Handle
 --- @return ExuContinuityObject|nil object
 --- @return string? error
@@ -93,6 +97,10 @@ function continuity.CaptureObject(h) end
 
 --- Captures an explicit table of handles. This is the safest option for mods that
 --- already track which base units/structures should carry into the sequel.
+--- ```lua
+--- local snapshot = exu.continuity.CaptureObjects({ GetHandle("recycler"), GetHandle("factory") })
+--- print(snapshot.objectCount)
+--- ```
 --- @param handles Handle[]|table<any,Handle>
 --- @param options ExuContinuityCaptureOptions?
 --- @return ExuContinuitySnapshot snapshot
@@ -101,6 +109,10 @@ function continuity.CaptureObjects(handles, options) end
 --- Enumerates the map with BZR's documented AllObjects() iterator and captures
 --- reconstruction-safe state. Use the team filter for a player/base carry-over
 --- rather than blindly restoring every map object.
+--- ```lua
+--- local snapshot, err = exu.continuity.CaptureWorld({ team = 1, includePlayers = false })
+--- if not snapshot then print(err) end
+--- ```
 --- @param options ExuContinuityCaptureOptions?
 --- @return ExuContinuitySnapshot|nil snapshot
 --- @return string? error
@@ -109,12 +121,20 @@ function continuity.CaptureWorld(options) end
 --- Rebuilds objects from a continuity snapshot with BZR BuildObject(odf, team,
 --- matrix). In multiplayer, restoration fails closed unless IsNetGame/IsHosting
 --- verify that the current machine has host authority.
+--- ```lua
+--- local handles, report = exu.continuity.Restore(snapshot, { offset = { x = 100, y = 0, z = 0 }, restoreHealth = true })
+--- if not handles then print(report.error) end
+--- ```
 --- @param snapshot ExuContinuitySnapshot
 --- @param options ExuContinuityRestoreOptions?
 --- @return Handle[]|nil handles
 --- @return ExuContinuityRestoreReport report
 function continuity.Restore(snapshot, options) end
 
+--- ```lua
+--- local caps = exu.continuity.GetCapabilities()
+--- print(caps.captureWorld, caps.restoreObjects)
+--- ```
 --- @return ExuContinuityCapabilities
 function continuity.GetCapabilities() end
 

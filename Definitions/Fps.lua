@@ -157,12 +157,19 @@ local fps = {}
 --- Returns true only when the local first-person animation target can be
 --- resolved right now. This can change as the player enters/leaves pilot mode
 --- or across mission/scene transitions.
+--- ```lua
+--- local available = exu.fps.IsAvailable()
+--- ```
 --- @nodiscard
 --- @return boolean
 function fps.IsAvailable() end
 
 --- Returns the underlying animation capability/status table used by the FPS
 --- facade. The facade does not have a separate resolver or animation runtime.
+--- ```lua
+--- local caps = exu.fps.GetCapabilities()
+--- print(caps.firstPersonLayers)
+--- ```
 --- @nodiscard
 --- @return ExuAnimationCapabilities
 function fps.GetCapabilities() end
@@ -170,6 +177,10 @@ function fps.GetCapabilities() end
 --- Returns a read-only snapshot of the current local on-foot Person animation
 --- FSM and its inputs. Returns nil when the current user object is not a Person
 --- or the qualified native read fails.
+--- ```lua
+--- local state = exu.fps.GetPilotState()
+--- if state and state.crouched then print(state.state) end
+--- ```
 --- @nodiscard
 --- @return ExuPilotState|nil
 function fps.GetPilotState() end
@@ -178,6 +189,10 @@ function fps.GetPilotState() end
 --- policy layer does for each pilot animation slot (mode, animation,
 --- completion, duration, nativeState). Stock by default and again at every
 --- mission/Lua-state boundary. Changes nothing.
+--- ```lua
+--- local profile = exu.fps.GetPilotAnimationProfile()
+--- print(profile.jump.mode)
+--- ```
 --- @nodiscard
 --- @return ExuPilotAnimationProfile
 function fps.GetPilotAnimationProfile() end
@@ -200,6 +215,9 @@ function fps.GetPilotAnimationProfile() end
 ---   end/duration; end = 0.967-capped stock clip, or the whole substitute).
 ---   `"manual"`: the clip plays at stock speed and holds at its end until
 ---   `exu.fps.CompleteTransition()`.
+--- ```lua
+--- exu.fps.SetPilotAnimationProfile({ jump = { mode = "substitute", animation = "my_jump" } }) -- single player only; nil restores stock
+--- ```
 --- @param profile ExuPilotAnimationProfileConfig?
 function fps.SetPilotAnimationProfile(profile) end
 
@@ -207,6 +225,9 @@ function fps.SetPilotAnimationProfile(profile) end
 --- true only when overrides are available, the session is single player, the
 --- local pilot is entering or exiting crouch (native state 1 or 3), and that
 --- transition's profile completion is "manual". One-shot.
+--- ```lua
+--- local requested = exu.fps.CompleteTransition()
+--- ```
 --- @return boolean requested
 function fps.CompleteTransition() end
 
@@ -215,6 +236,10 @@ function fps.CompleteTransition() end
 --- non-stock profile (single player) it rewrites the native clip tables
 --- around that call and restores them straight after. It also records local
 --- pre/post state transitions.
+--- ```lua
+--- local status = exu.fps.GetPilotInterceptStatus()
+--- print(status.installed, status.active)
+--- ```
 --- @nodiscard
 --- @return ExuPilotInterceptStatus
 function fps.GetPilotInterceptStatus() end
@@ -224,17 +249,27 @@ function fps.GetPilotInterceptStatus() end
 --- mission/Lua state, and writes nothing to the game. Unknown option keys are
 --- an error. Returns whether the interception seam is active, i.e. whether
 --- samples can actually arrive.
+--- ```lua
+--- local seamActive = exu.fps.StartPilotTrace({ changesOnly = true })
+--- ```
 --- @param options ExuPilotTraceOptions?
 --- @return boolean seamActive
 function fps.StartPilotTrace(options) end
 
 --- Stops recording. Recorded data stays readable until the next start or the
 --- end of the mission/Lua state.
+--- ```lua
+--- exu.fps.StopPilotTrace()
+--- ```
 function fps.StopPilotTrace() end
 
 --- Returns the timing trace: at most `limit` of the newest samples (default:
 --- all held) plus per-state dwell times. Returns nil only if the native
 --- writer kept rewriting the data during every read attempt; retry later.
+--- ```lua
+--- local trace = exu.fps.GetPilotTrace(50)
+--- if not trace then return end -- retry later
+--- ```
 --- @nodiscard
 --- @param limit integer? Positive integer.
 --- @return ExuPilotTrace|nil
@@ -256,6 +291,9 @@ function fps.GetPilotTrace(limit) end
 ---
 --- If the FSM itself is playing a clip of the same name this tick, EXU leaves
 --- it alone (reason "engineOwned") instead of advancing it twice.
+--- ```lua
+--- exu.fps.SetLayer("my_barrel_spin", { speed = 2, loop = true })
+--- ```
 --- @param name string Ogre animation name.
 --- @param options ExuFirstPersonLayerOptions?
 --- @return true
@@ -263,6 +301,9 @@ function fps.SetLayer(name, options) end
 
 --- Sets a layer's speed (clip-seconds per second, 0..50). Raises a Lua error
 --- if no layer has that name or the speed is invalid.
+--- ```lua
+--- exu.fps.SetLayerSpeed("my_barrel_spin", 4)
+--- ```
 --- @param name string
 --- @param speed number
 --- @return true
@@ -270,6 +311,9 @@ function fps.SetLayerSpeed(name, speed) end
 
 --- Sets a layer's blend weight (0..1), optionally fading to it. Raises a Lua
 --- error if no layer has that name or an argument is invalid.
+--- ```lua
+--- exu.fps.SetLayerWeight("my_barrel_spin", 0.5, 0.25)
+--- ```
 --- @param name string
 --- @param weight number
 --- @param fadeSeconds number?
@@ -279,6 +323,9 @@ function fps.SetLayerWeight(name, weight, fadeSeconds) end
 --- Creates or restarts a non-looping one-shot layer at time 0. Each call bumps
 --- the layer's `playCount`; `finishedCount == playCount` means this play is
 --- done. Raises on an invalid name or option, or a ninth live layer.
+--- ```lua
+--- exu.fps.PlayLayer("my_recoil", { speed = 1, clearOnEnd = true })
+--- ```
 --- @param name string
 --- @param options ExuFirstPersonPlayLayerOptions?
 --- @return true
@@ -287,28 +334,43 @@ function fps.PlayLayer(name, options) end
 --- Removes a layer. On the next local pilot tick that has a first-person
 --- entity, EXU disables the Ogre state and resets its weight to 1 and time to
 --- 0 (if the state still exists). Returns whether the layer existed.
+--- ```lua
+--- local existed = exu.fps.ClearLayer("my_barrel_spin", 0.25)
+--- ```
 --- @param name string
 --- @param fadeSeconds number? Fade to 0 first (default: the layer's `fadeOut`).
 --- @return boolean existed
 function fps.ClearLayer(name, fadeSeconds) end
 
 --- Removes every layer (each is disabled and reset as in `ClearLayer`).
+--- ```lua
+--- exu.fps.ClearLayers()
+--- ```
 function fps.ClearLayers() end
 
 --- Returns the layers in creation order with the hook's most recent result
 --- for each. Changes nothing.
+--- ```lua
+--- for _, layer in ipairs(exu.fps.GetLayers()) do print(layer.name, layer.active) end
+--- ```
 --- @nodiscard
 --- @return ExuFirstPersonLayer[]
 function fps.GetLayers() end
 
 --- Ramps the weight EXU applies to the clip the pilot FSM is currently playing
 --- (default 1; reset to 1 when the FSM moves on and at mission boundaries).
+--- ```lua
+--- exu.fps.SetBaseWeight(0.5, 0.25)
+--- ```
 --- @param weight number 0..1
 --- @param fadeSeconds number?
 --- @return true
 function fps.SetBaseWeight(weight, fadeSeconds) end
 
 --- Returns the base clip weight as `current, target`.
+--- ```lua
+--- local current, target = exu.fps.GetBaseWeight()
+--- ```
 --- @nodiscard
 --- @return number current
 --- @return number target
@@ -342,11 +404,17 @@ function fps.GetBaseWeight() end
 --- defaults); `nil`/`false` turns it off. Off by default and at every mission
 --- boundary. Presentation only (weights and the outgoing clip's clock), so it
 --- also works in multiplayer. Returns whether the seam is active.
+--- ```lua
+--- local available = exu.fps.SetTransitionBlend({ time = 0.15 }) -- false or nil turns it off
+--- ```
 --- @param options ExuTransitionBlendOptions|false|nil
 --- @return boolean available
 function fps.SetTransitionBlend(options) end
 
 --- Returns the transition blend settings and live counters.
+--- ```lua
+--- local blend = exu.fps.GetTransitionBlend()
+--- ```
 --- @nodiscard
 --- @return ExuTransitionBlend
 function fps.GetTransitionBlend() end
@@ -367,18 +435,28 @@ function fps.GetTransitionBlend() end
 --- are unaffected. When death1 ends, the stock camera switch runs as usual.
 --- Mission-scoped: stock at every mission boundary. Returns whether first
 --- person is active.
+--- ```lua
+--- local active = exu.fps.SetDeathCamera("first") -- "stock" or nil restores the stock camera
+--- ```
 --- @param mode "first"|"stock"|nil
 --- @param options { probe: boolean? }?
 --- @return boolean active
 function fps.SetDeathCamera(mode, options) end
 
 --- Returns the death camera mode and counters.
+--- ```lua
+--- local info = exu.fps.GetDeathCamera()
+--- print(info.mode, info.kept)
+--- ```
 --- @nodiscard
 --- @return ExuDeathCamera
 function fps.GetDeathCamera() end
 
 --- Returns whether the local fire/auto-fire bind was held at the engine's last
 --- poll. False when `firstPersonTrigger` is false.
+--- ```lua
+--- local firing = exu.fps.IsTriggerHeld()
+--- ```
 --- @nodiscard
 --- @return boolean
 function fps.IsTriggerHeld() end
@@ -387,6 +465,10 @@ function fps.IsTriggerHeld() end
 --- of the local first-person skeleton. Idempotent; call it every Update while
 --- the effect should show. Returns `attached, reattached`; an unknown bone or
 --- missing FP entity returns `false` without changes.
+--- ```lua
+--- local attached, reattached = exu.fps.AttachParticleToBone("my_muzzle_smoke", "muzzle", SetVector(0, 0, 0.1))
+--- if not attached then return end -- unknown bone or no first-person entity
+--- ```
 --- @param name string
 --- @param boneName string
 --- @param offset Vector|number? Offset in the bone's local frame (vector, or x then y, z).
@@ -397,6 +479,9 @@ function fps.IsTriggerHeld() end
 function fps.AttachParticleToBone(name, boneName, offset, y, z) end
 
 --- Returns whether the named system is currently bound to a first-person bone.
+--- ```lua
+--- local isAttached = exu.fps.IsParticleAttached("my_muzzle_smoke")
+--- ```
 --- @nodiscard
 --- @param name string
 --- @return boolean
@@ -404,30 +489,48 @@ function fps.IsParticleAttached(name) end
 
 --- Drops the first-person binding of a named particle system. Returns whether
 --- a binding existed.
+--- ```lua
+--- local hadBinding = exu.fps.DetachParticle("my_muzzle_smoke")
+--- ```
 --- @param name string
 --- @return boolean hadBinding
 function fps.DetachParticle(name) end
 
 --- Returns a counter that increments each time a binding lands on a different
 --- first-person entity than the previous binding.
+--- ```lua
+--- local generation = exu.fps.GetParticleTargetGeneration()
+--- ```
 --- @nodiscard
 --- @return integer
 function fps.GetParticleTargetGeneration() end
 
 --- Returns true only for the fully crouched native FSM state (state 2).
 --- Entering/exiting crouch return false; unavailable pilot state returns nil.
+--- ```lua
+--- local crouched = exu.fps.IsCrouched()
+--- if crouched == nil then return end -- no readable local Person
+--- ```
 --- @nodiscard
 --- @return boolean|nil
 function fps.IsCrouched() end
 
 --- Returns the native grounded flag for the current local Person, or nil when
 --- no readable local Person exists.
+--- ```lua
+--- local grounded = exu.fps.IsGrounded()
+--- if grounded == nil then return end
+--- ```
 --- @nodiscard
 --- @return boolean|nil
 function fps.IsGrounded() end
 
 --- Returns whether any selected live weapon is a sniper-class weapon (SNIP),
 --- or nil when no readable local Person exists.
+--- ```lua
+--- local sniper = exu.fps.IsSniperSelected()
+--- if sniper == nil then return end
+--- ```
 --- @nodiscard
 --- @return boolean|nil
 function fps.IsSniperSelected() end
@@ -435,12 +538,19 @@ function fps.IsSniperSelected() end
 --- Returns a deterministic name-sorted snapshot of every Ogre AnimationState
 --- exposed by the current local first-person target. Returns nil when the
 --- target is unavailable or enumeration fails.
+--- ```lua
+--- local clips = exu.fps.ListAnimations()
+--- if clips then for _, clip in ipairs(clips) do print(clip.name) end end
+--- ```
 --- @nodiscard
 --- @return ExuAnimationInfo[]|nil
 function fps.ListAnimations() end
 
 --- Returns whether the current local first-person target exposes a named
 --- animation state.
+--- ```lua
+--- local hasClip = exu.fps.HasAnimation("idle")
+--- ```
 --- @nodiscard
 --- @param name string
 --- @return boolean
@@ -448,6 +558,10 @@ function fps.HasAnimation(name) end
 
 --- Returns current state for a named local first-person animation, or nil when
 --- the target/state cannot be resolved.
+--- ```lua
+--- local info = exu.fps.GetInfo("idle")
+--- if info then print(info.timePosition, info.length) end
+--- ```
 --- @nodiscard
 --- @param name string
 --- @return ExuAnimationInfo|nil
@@ -455,6 +569,10 @@ function fps.GetInfo(name) end
 
 --- Enables and configures a named local first-person Ogre animation state.
 --- EXU does not install a separate animation clock.
+--- ```lua
+--- local ok = exu.fps.Play("idle", { loop = true })
+--- if not ok then print("clip not found") end
+--- ```
 --- @param name string
 --- @param options ExuAnimationPlayOptions?
 --- @return boolean success
@@ -462,6 +580,9 @@ function fps.Play(name, options) end
 
 --- Disables a named local first-person animation. When reset is true, its time
 --- is also returned to 0.
+--- ```lua
+--- local ok = exu.fps.Stop("idle", true)
+--- ```
 --- @param name string
 --- @param reset boolean?
 --- @return boolean success
@@ -469,11 +590,17 @@ function fps.Stop(name, reset) end
 
 --- Seeks to time 0 and enables a named local first-person animation without
 --- altering loop or weight.
+--- ```lua
+--- local ok = exu.fps.Restart("idle")
+--- ```
 --- @param name string
 --- @return boolean success
 function fps.Restart(name) end
 
 --- Sets the named local first-person animation time position in seconds.
+--- ```lua
+--- local ok = exu.fps.Seek("idle", 0.5)
+--- ```
 --- @param name string
 --- @param timePosition number Non-negative seconds.
 --- @return boolean success

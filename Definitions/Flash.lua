@@ -52,29 +52,53 @@
 local flash = {}
 
 --- Spawns one flash. When the pool is full the flash nearest its end is retired.
+--- ```lua
+--- local id, err = exu.flash.Spawn({ transform = GetTransform(GetPlayerHandle()), mesh = "my_flash.mesh", owner = GetPlayerHandle(), duration = 0.1, startScale = 1, finishScale = 2, roll = math.random() * 6.28 })
+--- if not id then print(err) end
+--- ```
 --- @param spec ExuFlashSpawn
 --- @return integer|nil id
 --- @return string? error
 function flash.Spawn(spec) end
 
 --- Sets the pool size (default 48, 0..256). Shrinking retires the oldest.
+--- ```lua
+--- local max = exu.flash.SetMax(64)
+--- ```
 --- @param max integer
 --- @return integer max
 function flash.SetMax(max) end
 
+--- ```lua
+--- local max = exu.flash.GetMax()
+--- ```
 --- @return integer max
 function flash.GetMax() end
 
 --- Destroys every flash now.
+--- ```lua
+--- local destroyed = exu.flash.Clear()
+--- ```
 --- @return integer destroyed
 function flash.Clear() end
 
+--- ```lua
+--- local live = exu.flash.GetCount()
+--- ```
 --- @return integer live
 function flash.GetCount() end
 
+--- ```lua
+--- local stats = exu.flash.GetStats()
+--- print(stats.live, stats.spawned)
+--- ```
 --- @return ExuFlashStats
 function flash.GetStats() end
 
+--- ```lua
+--- local caps = exu.flash.GetCapabilities()
+--- if not caps.flash then return end
+--- ```
 --- @return ExuFlashCapabilities
 function flash.GetCapabilities() end
 

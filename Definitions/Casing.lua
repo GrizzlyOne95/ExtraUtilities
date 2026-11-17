@@ -70,29 +70,53 @@ local casing = {}
 
 --- Spawns one casing. When the pool is full the least important casing
 --- (sinking, then longest resting, then oldest) is retired to make room.
+--- ```lua
+--- local id, err = exu.casing.Spawn({ pos = GetPosition(GetPlayerHandle()), vel = SetVector(2, 3, 0), spin = SetVector(0, 10, 0), owner = GetPlayerHandle() })
+--- if not id then print(err) end
+--- ```
 --- @param spec ExuCasingSpawn
 --- @return integer|nil id
 --- @return string? error
 function casing.Spawn(spec) end
 
 --- Sets the pool size (default 32, 0..256). Shrinking retires the oldest.
+--- ```lua
+--- local max = exu.casing.SetMax(64)
+--- ```
 --- @param max integer
 --- @return integer max
 function casing.SetMax(max) end
 
+--- ```lua
+--- local max = exu.casing.GetMax()
+--- ```
 --- @return integer max
 function casing.GetMax() end
 
 --- Destroys every casing now.
+--- ```lua
+--- local destroyed = exu.casing.Clear()
+--- ```
 --- @return integer destroyed
 function casing.Clear() end
 
+--- ```lua
+--- local live = exu.casing.GetCount()
+--- ```
 --- @return integer live
 function casing.GetCount() end
 
+--- ```lua
+--- local stats = exu.casing.GetStats()
+--- print(stats.live, stats.spawned)
+--- ```
 --- @return ExuCasingStats
 function casing.GetStats() end
 
+--- ```lua
+--- local caps = exu.casing.GetCapabilities()
+--- if not caps.casings then return end
+--- ```
 --- @return ExuCasingCapabilities
 function casing.GetCapabilities() end
 
