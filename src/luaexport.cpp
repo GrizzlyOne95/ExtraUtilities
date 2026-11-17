@@ -911,6 +911,8 @@ namespace ExtraUtilities::Lua
             { "SetReactiveChunksEnabled", &GameObject::SetReactiveChunksEnabled },
             { "SetSurfaceMaterial", &GameObject::SetSurfaceMaterial },
             { "GetWeaponMuzzlePosition", &GameObject::GetWeaponMuzzlePosition },
+            { "GetHardpointTransform", &GameObject::GetHardpointTransform },
+            { "GetBoneTransform", &GameObject::GetBoneTransform },
 			{ "SetHeadlightDiffuse", &GameObject::SetHeadlightDiffuse },
 			{ "SetHeadlightSpecular", &GameObject::SetHeadlightSpecular },
 			{ "SetHeadlightRange", &GameObject::SetHeadlightRange },

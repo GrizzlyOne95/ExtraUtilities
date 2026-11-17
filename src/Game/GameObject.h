@@ -117,6 +117,8 @@ namespace ExtraUtilities::Lua::GameObject
     int SetReactiveChunksEnabled(lua_State* L);
     int SetSurfaceMaterial(lua_State* L);
     int GetWeaponMuzzlePosition(lua_State* L);
+    int GetHardpointTransform(lua_State* L);
+    int GetBoneTransform(lua_State* L);
 
 	int SetHeadlightDiffuse(lua_State* L);
 	int SetHeadlightSpecular(lua_State* L);
