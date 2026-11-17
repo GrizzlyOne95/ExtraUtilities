@@ -40,6 +40,10 @@ local storage = {}
 
 --- Atomically persists a supported Lua value in a sandboxed namespace.
 --- A successful replacement retains the prior generation as a backup.
+--- ```lua
+--- local ok, err = exu.storage.Save("my_mod.progress", { mission = 3, flags = { intro = true } }, 1)
+--- if not ok then print(err) end
+--- ```
 --- @param namespace string 1-64 characters; starts alphanumeric and contains only A-Z, a-z, 0-9, '.', '_', '-'.
 --- @param value any
 --- @param schemaVersion integer? Application schema version; defaults to 1.
@@ -50,29 +54,49 @@ function storage.Save(namespace, value, schemaVersion) end
 --- Loads a namespace, automatically falling back to the backup when the primary
 --- fails format/checksum validation. A brand-new namespace returns an empty table
 --- with meta.exists=false. Corrupt primary+backup data returns nil and error metadata.
+--- ```lua
+--- local value, meta = exu.storage.Load("my_mod.progress")
+--- if value == nil then print(meta.primaryError) return end
+--- if not meta.exists then value = { mission = 1 } end
+--- ```
 --- @param namespace string
 --- @return any|nil value
 --- @return ExuStorageLoadMeta meta
 function storage.Load(namespace) end
 
 --- Returns true when the primary or backup generation exists.
+--- ```lua
+--- local exists = exu.storage.Exists("my_mod.progress")
+--- ```
 --- @param namespace string
 --- @return boolean
 function storage.Exists(namespace) end
 
 --- Deletes the primary, backup, and temporary files for a namespace.
+--- ```lua
+--- local ok, err = exu.storage.Delete("my_mod.progress")
+--- if not ok then print(err) end
+--- ```
 --- @param namespace string
 --- @return boolean success
 --- @return string? error
 function storage.Delete(namespace) end
 
 --- Returns storage-file metadata without exposing or accepting arbitrary paths.
+--- ```lua
+--- local info, err = exu.storage.GetInfo("my_mod.progress")
+--- if not info then print(err) end
+--- ```
 --- @param namespace string
 --- @return ExuStorageInfo|nil info
 --- @return string? error
 function storage.GetInfo(namespace) end
 
 --- Returns implementation and safety-limit capabilities.
+--- ```lua
+--- local caps = exu.storage.GetCapabilities()
+--- print(caps.maxFileBytes)
+--- ```
 --- @return ExuStorageCapabilities
 function storage.GetCapabilities() end
 
