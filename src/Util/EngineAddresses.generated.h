@@ -766,6 +766,37 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
+	namespace Pathing
+	{
+		enum : uintptr_t
+		{
+			// uint8_t**
+			CellArray = 0x0260D178u,
+			// uint8_t**
+			RegionArray = 0x0260D17Cu,
+			// int32_t*
+			MinX = 0x02CE99C0u,
+			// int32_t*
+			MaxX = 0x02CE99A0u,
+			// int32_t*
+			MinZ = 0x02CD9984u,
+			// int32_t*
+			MaxZ = 0x02CE99C4u,
+			// float*
+			GridScale = 0x02CC50E4u,
+			// void* (__cdecl*)(float x0, float z0, float x1, float z1, int mode, int team)
+			FindPath = 0x00466450u,
+			// void (__thiscall*)(void* plan, int flags)
+			PlanDtor = 0x00460640u,
+			// uint8_t***
+			AiRoot = 0x00920F04u,
+			// int32_t*
+			AiOriginX = 0x00931018u,
+			// int32_t*
+			AiOriginZ = 0x00931020u,
+		};
+	}
+
 	namespace Time
 	{
 		enum : uintptr_t
@@ -1063,5 +1094,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 366u;
+	inline constexpr unsigned kEntryCount = 378u;
 }

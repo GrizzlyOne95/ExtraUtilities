@@ -3277,6 +3277,69 @@ function exu.GetAiState(h) end
 --- @return { points: { x: number, y: number|nil, z: number }[], index: integer|nil, count: integer, truncated: boolean }|nil
 function exu.GetAiPath(h) end
 
+--- Gets the terrain pathing-grid cell flags at a world position (native x/z, no flip).
+--- Bits: 1 slope, 2 steep (both = cliff), 4 lava-ish, 8 building (bit 8 unverified).
+--- Returns nil when there is no pathing grid (no map loaded) or the position is outside
+--- the grid.
+--- @nodiscard
+--- @param x number
+--- @param z number
+--- @return integer|nil
+function exu.GetPathCell(x, z) end
+
+--- Gets the pathing region id at a world position. Regions are connected components
+--- built once at map load; 0 means cliff/unconnected. They do NOT reflect buildings
+--- placed afterwards. Returns nil when there is no pathing grid or the position is
+--- outside it.
+--- @nodiscard
+--- @param x number
+--- @param z number
+--- @return integer|nil
+function exu.GetPathRegion(x, z) end
+
+--- True when both positions are in the same nonzero pathing region (ground-reachable
+--- at map load; buildings are not considered). False when either is a cliff or outside
+--- the grid. Returns nil when there is no pathing grid.
+--- @nodiscard
+--- @param x0 number
+--- @param z0 number
+--- @param x1 number
+--- @param z1 number
+--- @return boolean|nil
+function exu.IsPathReachable(x0, z0, x1, z1) end
+
+--- Runs the engine pathfinder from (x0, z0) to (x1, z1) and returns the route as
+--- `{x, y, z}` points (`y` is terrain height and is absent if the lookup failed;
+--- capped at 512 points) plus an `ok` boolean that is false when the engine returned
+--- its bad/fallback path. `mode` 0-2 are ground classes (the stock editor uses 0),
+--- 3 is flying (a straight 2-point path); `team` is 0-15. The search is synchronous and
+--- costs a real pathfind: do not call it every frame for many units. Longer routes are
+--- cut to their first 512 points without notice. Returns nil when there is no pathing
+--- grid, or the engine returned no plan or an empty/unreadable one. The plan is freed
+--- before returning, and the search resets its own settings on every call (a fault
+--- inside the native search is caught, but can leak that plan).
+--- @nodiscard
+--- @param x0 number
+--- @param z0 number
+--- @param x1 number
+--- @param z1 number
+--- @param mode integer|nil Default 0.
+--- @param team integer|nil Default 1.
+--- @return { x: number, y: number|nil, z: number }[]|nil points
+--- @return boolean|nil ok
+function exu.FindPath(x0, z0, x1, z1, mode, team) end
+
+--- Gets the AI strategic-grid cell (80 m squares) a team's AI holds at a world position.
+--- The grid only exists for AI-controlled teams. Returns nil when the team has no grid,
+--- the position is outside it, or the cell is unused. `goal` is the engine's raw goal
+--- type; `priority` is the cell priority.
+--- @nodiscard
+--- @param team integer 0-15
+--- @param x number
+--- @param z number
+--- @return { goal: integer, priority: number, row: integer, col: integer, minX: number, minZ: number, maxX: number, maxZ: number }|nil
+function exu.GetAiGridCell(team, x, z) end
+
 --- Updates selected fields on the primary live UnitTask (any stock task except
 --- RecycleTask) for the object. Supported fields: `braccel`, `strafe`, `steer`,
 --- `omega`, `omegaScale`, `pitch`, `gotoForce`, `gotoDir`, and `turbo`.
