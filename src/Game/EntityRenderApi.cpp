@@ -349,6 +349,54 @@ namespace ExtraUtilities::Lua::GameObject
         return 1;
     }
 
+    namespace
+    {
+        // Resolves an optional OpenShim export and runs it under SEH; false
+        // when OpenShim, or this export on an older OpenShim, is absent.
+        template<class Query, class Call>
+        bool CallOpenShimExport(const char* name, const char* decorated, const char* guard, Call&& call)
+        {
+            HMODULE module = nullptr;
+            if (!GetModuleHandleExA(0, "openshim.dll", &module) && !GetModuleHandleExA(0, "winmm.dll", &module))
+                return false;
+            auto query = reinterpret_cast<Query>(GetProcAddress(module, name));
+            if (!query) query = reinterpret_cast<Query>(GetProcAddress(module, decorated));
+            int result = 0;
+            if (query) Seh::Guard(guard, [&] { result = call(query); });
+            FreeLibrary(module);
+            return result != 0;
+        }
+    }
+
+    // exu.GetHardpointTransform(handle, slot) -> Matrix | nil
+    int GetHardpointTransform(lua_State* L)
+    {
+        const auto handle = CheckHandle(L, 1);
+        const int slot = luaL_checkint(L, 2);
+        using Query = int (__cdecl*)(uint32_t, int, void*);
+        BZR::MAT_3D m{};
+        if (slot < 0 || slot >= 5 || !CallOpenShimExport<Query>("OpenShimGetHardpointTransform",
+                "_OpenShimGetHardpointTransform", "GetHardpointTransform",
+                [&](Query query) { return query(static_cast<uint32_t>(handle), slot, &m); }))
+        { lua_pushnil(L); return 1; }
+        PushMatrix(L, m);
+        return 1;
+    }
+
+    // exu.GetBoneTransform(handle, boneName) -> Matrix | nil
+    int GetBoneTransform(lua_State* L)
+    {
+        const auto handle = CheckHandle(L, 1);
+        const char* const name = luaL_checkstring(L, 2);
+        using Query = int (__cdecl*)(uint32_t, const char*, void*);
+        BZR::MAT_3D m{};
+        if (!CallOpenShimExport<Query>("OpenShimGetNodeTransform", "_OpenShimGetNodeTransform", "GetBoneTransform",
+                [&](Query query) { return query(static_cast<uint32_t>(handle), name, &m); }))
+        { lua_pushnil(L); return 1; }
+        PushMatrix(L, m);
+        return 1;
+    }
+
     int SetSurfaceMaterial(lua_State* L)
     {
         const EntityTarget target = CheckEntityTarget(L, 1);

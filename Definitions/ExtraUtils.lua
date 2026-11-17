@@ -3772,6 +3772,31 @@ function exu.RaycastObjectSurface(handle, from, to) end
 --- @return Vector|nil
 function exu.GetWeaponMuzzlePosition(handle, slot) end
 
+--- World transform of a craft's weapon hardpoint node, for SetTransform.
+--- Simulation pose from the native node tree, current at the call: valid off-screen,
+--- in multiplayer and with OpenShim presentation off. This is the hardpoint itself,
+--- before the weapon's muzzle offset and barrel aim, so it can sit a little behind
+--- GetWeaponMuzzlePosition. nil for a dead/stale handle, a non-craft, an empty or
+--- out-of-range slot, or an OpenShim without the export.
+--- A node whose composed frame is scaled, mirrored or non-orthonormal (ValidPose tolerance 0.01) returns nil, the same as a missing node.
+--- An out-of-range slot returns nil (unlike GetWeaponMuzzlePosition, which raises an argument error).
+--- @param handle Handle
+--- @param slot integer 0..4
+--- @return Matrix|nil
+function exu.GetHardpointTransform(handle, slot) end
+
+--- World transform of a named model part (native node, the SDF/VDF part name,
+--- at most 8 characters, case-insensitive) on an object, for SetTransform.
+--- Simulation pose: the engine animates these nodes and the renderer copies them,
+--- so it moves with walker legs/arms and is valid when the object is not rendered.
+--- Not an Ogre skeleton bone: skinned-mesh-only bones are not found.
+--- nil for a dead/stale handle, no part by that name, a name shared by two parts,
+--- or an OpenShim without the export.
+--- @param handle Handle
+--- @param boneName string
+--- @return Matrix|nil
+function exu.GetBoneTransform(handle, boneName) end
+
 --- Actual engine power-source state, class turret only; nil for unsupported layouts/classes.
 --- @param handle Handle
 --- @return boolean|nil
