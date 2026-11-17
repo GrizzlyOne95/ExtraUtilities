@@ -529,16 +529,20 @@ namespace
 		Expect(!Encode(Num(std::numeric_limits<double>::quiet_NaN()), payload, error) && error == "numbers must be finite",
 			"NaN is not written");
 		error.clear();
-		Expect(!Encode(Table({ Entry{ Str("x"), Num(-std::numeric_limits<double>::infinity()) } }), payload, error) &&
+		const Value nestedInf = Table({ Entry{ Str("x"), Num(-std::numeric_limits<double>::infinity()) } });
+		Expect(!Encode(nestedInf, payload, error) &&
 			error == "numbers must be finite", "a nested infinity is not written");
 		error.clear();
-		Expect(!Encode(Table({ Entry{ Num(std::numeric_limits<double>::infinity()), Bool(true) } }), payload, error) &&
+		const Value infKey = Table({ Entry{ Num(std::numeric_limits<double>::infinity()), Bool(true) } });
+		Expect(!Encode(infKey, payload, error) &&
 			error == "table numeric keys must be finite", "an infinite key is not written");
 		error.clear();
-		Expect(!Encode(Table({ Entry{ Str("f"), Function() } }), payload, error) &&
+		const Value fnValue = Table({ Entry{ Str("f"), Function() } });
+		Expect(!Encode(fnValue, payload, error) &&
 			error == "unsupported Lua value type: function", "an unsupported value type is not written");
 		error.clear();
-		Expect(!Encode(Table({ Entry{ Bool(true), Num(1.0) } }), payload, error) &&
+		const Value boolKey = Table({ Entry{ Bool(true), Num(1.0) } });
+		Expect(!Encode(boolKey, payload, error) &&
 			error == "table keys must be strings or numbers", "a boolean key is not written");
 
 		error.clear();
@@ -600,7 +604,8 @@ namespace
 		Expect(!Encode(Str(maxString + "s"), payload, error) && error == "string exceeds the EXU storage string-size limit",
 			"a string over the size limit is not written");
 		error.clear();
-		Expect(!Encode(Table({ Entry{ Str(maxString + "s"), Nil() } }), payload, error) &&
+		const Value longKey = Table({ Entry{ Str(maxString + "s"), Nil() } });
+		Expect(!Encode(longKey, payload, error) &&
 			error == "string exceeds the EXU storage string-size limit", "a key over the size limit is not written");
 
 		std::vector<Entry> entries;
