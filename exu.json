@@ -184,7 +184,7 @@
         "note": "Measured in the shipped GOG 2.2.301 executable (SHA-256 8d71f56c1314e69a8ad38f4eeaf20a8ff825965a84cf196e5f77ea4cc3377413), 2026-10-27, from raw bytes. See ARCHITECTURE.md / Lua API exu.SetChatOnEnter. Static evidence; live validation pending."
       },
       "KeyBindingParserWriteSite": {
-        "address": "0x00620CC1",
+        "address": "0x00620CC6",
         "type": "code: table-write identity site (not callable)",
         "description": "Instruction site inside the gamekey.map parser 0x00620980 that stores the action id byte into KeyBindingTable[keyCode]. The parser does not clear the table first and re-runs after the ESC menu closes. Optional feature-specific identity anchor for exu.SetChatOnEnter.",
         "pattern": "0F BF 85 A8 EE FF FF 8B 8D A4 EE FF FF 8A 14 CD 8C B0 8E 00 88 90 50 88 91 00",

@@ -77,7 +77,7 @@ namespace ExtraUtilities::EngineAddresses
 			// function: uint8 __cdecl(int16 keyCode)
 			KeyBindingLookup = 0x006217F0u,
 			// code: table-write identity site (not callable)
-			KeyBindingParserWriteSite = 0x00620CC1u,
+			KeyBindingParserWriteSite = 0x00620CC6u,
 			// uint8[0x1000] (action id indexed by key code | 0x100 Ctrl | 0x200 Shift | 0x400 Alt | 0x800 Caps)
 			KeyBindingTable = 0x00918850u,
 		};
