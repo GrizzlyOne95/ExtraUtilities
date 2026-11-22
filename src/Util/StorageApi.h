@@ -39,4 +39,12 @@ namespace ExtraUtilities::Lua::StorageApi
 {
 	// Registers exu.storage on the global exu table, if it exists.
 	void Install(lua_State* L);
+
+	// Native callers (the exu settings calls) use the same store as the Lua
+	// API through these. `name` must pass StorageCodec::IsSafeNamespace.
+	// PushLoad pushes exactly what exu.storage.Load(name) returns (value,
+	// meta); PushSave pushes what exu.storage.Save(name, value) returns (ok,
+	// err) for the value at valueIndex.
+	void PushLoad(lua_State* L, const char* name);
+	void PushSave(lua_State* L, const char* name, int valueIndex);
 }
