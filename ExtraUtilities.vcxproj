@@ -181,6 +181,7 @@
     <ClCompile Include="src\dllmain.cpp" />
     <ClCompile Include="src\Patches\EngineFlameColor.cpp" />
     <ClCompile Include="src\Game\Environment.cpp" />
+    <ClCompile Include="src\Game\EnvironmentHazards.cpp" />
     <ClCompile Include="src\Ogre\OgreParticleAbi.cpp" />
     <ClCompile Include="src\Ogre\OgreSceneRuntime.cpp" />
     <ClCompile Include="src\Game\SceneDebug.cpp" />
@@ -295,6 +296,7 @@
     <ClInclude Include="src\Ogre\OgreSceneRuntime.h" />
     <ClInclude Include="src\Game\EnvironmentLog.h" />
     <ClInclude Include="src\Game\EnvironmentInternal.h" />
+    <ClInclude Include="src\Game\EnvironmentHazardsCore.h" />
     <ClInclude Include="include\ExtraUtils.h" />
     <ClInclude Include="src\Exports.h" />
     <ClInclude Include="src\Game\GameObject.h" />

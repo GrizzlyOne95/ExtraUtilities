@@ -205,6 +205,24 @@ namespace ExtraUtilities::EngineAddresses
 			ViewportSchemeCallSite1 = 0x00682AA0u,
 			// call site (call [IAT])
 			ViewportSchemeCallSite2 = 0x00682EA7u,
+			// data (LightningFeature singleton)
+			LightningFeature = 0x009B7CD8u,
+			// vftable (LightningFeature)
+			LightningFeatureVftable = 0x0087B934u,
+			// data (BoltSet globals)
+			LightningBoltSet = 0x009B7CA4u,
+			// function (thiscall LightningFeature::AddBoltEmitter(target))
+			LightningAddBoltEmitter = 0x004FAB60u,
+			// function (thiscall LightningFeature::BoltInit(emitter))
+			LightningBoltInit = 0x004FABB0u,
+			// data (int lavaMat)
+			LavaMaterial = 0x008F05C8u,
+			// patch site (mulss xmm0, [0x8a295c]; disp32 at +4)
+			LavaDamageScaleSite = 0x004AB171u,
+			// data (ColorFade singleton)
+			ColorFade = 0x0097838Cu,
+			// function (thiscall ColorFade::SetGlare(float amount))
+			ColorFadeSetGlare = 0x0049B4C0u,
 		};
 	}
 
@@ -1129,5 +1147,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 392u;
+	inline constexpr unsigned kEntryCount = 401u;
 }

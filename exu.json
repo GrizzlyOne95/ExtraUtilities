@@ -534,6 +534,78 @@
         "pattern": "FF 15 ?? ?? ?? ?? C7 45 FC FF FF FF FF 8D 4D A4",
         "pattern_kind": "code",
         "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "LightningFeature": {
+        "address": "0x009B7CD8",
+        "type": "data (LightningFeature singleton)",
+        "description": "Stock LightningFeature (1.5 lightning.cpp): activeList BoltEmitter*[16] at +0x28, activeNum at +0x68, emitterList[16] (stride 0x103C) at +0x6C.",
+        "pattern": "B9 D8 7C 9B 00 E8",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov ecx, 0x9b7cd8; call ctor' at 0x00408003, verified unique in GOG 2.2.301 executable sections 2026-11-21."
+      },
+      "LightningFeatureVftable": {
+        "address": "0x0087B934",
+        "type": "vftable (LightningFeature)",
+        "description": "Written by the LightningFeature ctor FUN_004fa310; slots [3] PostLoad 0x4fa380, [5] Cleanup 0x4fa920, [7] Simulate 0x4fa9a0, [8] Submit 0x4faaf0. Used to check the singleton is constructed.",
+        "pattern": "C7 00 34 B9 87 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [eax], 0x87b934' at 0x004FA322, verified unique in GOG 2.2.301 executable sections 2026-11-21."
+      },
+      "LightningBoltSet": {
+        "address": "0x009B7CA4",
+        "type": "data (BoltSet globals)",
+        "description": "TRN [LightningBolt] values: bolts int +0x0, name object +0x4, color ARGB u32 +0xC, minDelay/maxDelay/duration float seconds +0x10/+0x14/+0x18, distance float +0x1C, sound char[16] +0x20.",
+        "pattern": "C7 05 A4 7C 9B 00 00 00 00 00 B9 A8 7C 9B 00 E8 ?? ?? ?? ?? C7 05 B0 7C 9B 00 00 00 00 00 F3 0F 10 05 ?? ?? ?? ?? F3 0F 11 05 B4 7C 9B 00 F3 0F 10 05 ?? ?? ?? ?? F3 0F 11 05 B8 7C 9B 00 F3 0F 10 05 ?? ?? ?? ?? F3 0F 11 05 BC 7C 9B 00 F3 0F 10 05 ?? ?? ?? ?? F3 0F 11 05 C0 7C 9B 00 33 C0 A3 C4 7C 9B 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: LightningFeature::Cleanup FUN_004fa920 zeroing every BoltSet field from 0x004FA927 through 'mov [0x9b7cc4], eax', so it also pins the field offsets; verified unique in GOG 2.2.301 executable sections 2026-11-21."
+      },
+      "LightningAddBoltEmitter": {
+        "address": "0x004FAB60",
+        "type": "function (thiscall LightningFeature::AddBoltEmitter(target))",
+        "description": "Appends activeList[activeNum] when activeNum < 16 and sets its target; PostLoad calls it with target 0 per TRN bolt (0x4fa8fb).",
+        "pattern": "55 8B EC 83 EC 08 89 4D FC 8B 45 FC 83 78 68 10 7D 2B",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-11-21."
+      },
+      "LightningBoltInit": {
+        "address": "0x004FABB0",
+        "type": "function (thiscall LightningFeature::BoltInit(emitter))",
+        "description": "Resets a bolt: flashes 1, flash 0, random delay between BoltSet min and max, duration; Simulate calls it after each strike (0x4faab3).",
+        "pattern": "55 8B EC 83 EC 08 89 4D F8 8B 45 08 C7 40 1C 01 00 00 00 8B 4D 08 C7 41 20 00 00 00 00",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-11-21."
+      },
+      "LavaMaterial": {
+        "address": "0x008F05C8",
+        "type": "data (int lavaMat)",
+        "description": "Terrain material index (cell >> 12) that damages craft, -1 for none. Written by the TRN loader FUN_00780160 at 0x780458 ([NormalView] Lava, default -1) on every terrain load; read per call by craft lava damage FUN_004aaea0.",
+        "pattern": "55 8B EC A1 C8 05 8F 00 5D C3",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: the lavaMat getter FUN_0077d680, verified unique in GOG 2.2.301 executable sections 2026-11-21."
+      },
+      "LavaDamageScaleSite": {
+        "address": "0x004AB171",
+        "type": "patch site (mulss xmm0, [0x8a295c]; disp32 at +4)",
+        "description": "Craft lava damage FUN_004aaea0 scales lava neighbours by the shared 40.0 constant here; exu.StartLava(damage) retargets the disp32 to EXU's own float.",
+        "pattern": "F3 0F 59 05 5C 29 8A 00 F3 0F 59 45 D0 F3 0F 59 45 08 F3 0F 11 45 C4",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-11-21. The 40.0 at 0x8a295c has 71 references, so only this operand is changed."
+      },
+      "ColorFade": {
+        "address": "0x0097838C",
+        "type": "data (ColorFade singleton)",
+        "description": "Screen colour fade/glare overlay; glare float at +0x28.",
+        "pattern": "F3 0F 59 41 4C 51 F3 0F 11 04 24 B9 8C 83 97 00 E8",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches the sun lens flare's 'mov ecx, 0x97838c; call ColorFade::SetGlare' at 0x004F9FC3, verified unique in GOG 2.2.301 executable sections 2026-11-21."
+      },
+      "ColorFadeSetGlare": {
+        "address": "0x0049B4C0",
+        "type": "function (thiscall ColorFade::SetGlare(float amount))",
+        "description": "glare(+0x28) += amount; the ColorFade render FUN_0049b520 draws alpha min(glare, 1) * 224 and zeroes it each frame.",
+        "pattern": "55 8B EC 51 89 4D FC 8B 45 FC F3 0F 10 40 28 F3 0F 58 45 08 8B 4D FC F3 0F 11 41 28 8B E5 5D C2 04 00",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address (whole function), verified unique in GOG 2.2.301 executable sections 2026-11-21."
       }
     },
     "GameObject": {
