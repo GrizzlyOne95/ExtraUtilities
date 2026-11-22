@@ -5693,6 +5693,127 @@ function exu.SetBuildEventsEnabled(enabled) end
 --- @return integer pending
 function exu.DrainBuildEvents(limit) end
 
+--- Cancels the active build of a Producer (Recycler, Factory, Armory, ConstructionRig) and refunds it,
+--- through the engine's own CancelBuild, so exu.DrainBuildEvents reports it as 'cancelled'.
+--- False for a non-producer, an idle producer, or a remote replica in a net game (call it on the owning machine).
+--- ```lua
+--- if exu.CancelBuild(GetRecyclerHandle()) then print("refunded") end
+--- ```
+--- @param h Handle
+--- @return boolean cancelled
+function exu.CancelBuild(h) end
+
+--- Completes the active build now, as if its timer had run out (engine FinishBuild, so it emits a
+--- 'completed' build event). Only when the engine would itself finish it: deployed and busy.
+--- An undeployed Recycler/Factory, or a ConstructionRig still driving to its site, returns nil.
+--- Returns the new object, or nil (also nil for an Armory, whose launch has no handle).
+--- Refuses remote replicas in a net game; call it on the owning machine.
+--- ```lua
+--- local built = exu.FinishBuild(GetFactoryHandle())
+--- ```
+--- @param h Handle
+--- @return Handle? built
+function exu.FinishBuild(h) end
+
+--- Seconds left on a Producer's active build (0 once it is due), or nil when idle or not a producer.
+--- The timer only counts down while the producer is deployed.
+--- ```lua
+--- local left = exu.GetBuildTimeLeft(GetRecyclerHandle())
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return number? seconds
+function exu.GetBuildTimeLeft(h) end
+
+--- Sets the seconds left on a Producer's active build (0..1e6; 0 finishes it on the next deployed update).
+--- False when idle, not a producer, or out of range. Local effect only: in a net game call it on the owner.
+--- ```lua
+--- exu.SetBuildTimeLeft(GetFactoryHandle(), 2.5)
+--- ```
+--- @param h Handle
+--- @param seconds number
+--- @return boolean ok
+function exu.SetBuildTimeLeft(h, seconds) end
+
+--- ODF basename (up to eight characters) a Producer is building, or nil when idle or not a producer.
+--- ```lua
+--- print(exu.GetBuildingOdf(GetRecyclerHandle()))
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return string? odf
+function exu.GetBuildingOdf(h) end
+
+--- Scrap a Scavenger currently holds, or nil for a non-scavenger.
+--- ```lua
+--- local held = exu.GetCurScrapHold(GetHandle("scav1"))
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return integer? scrap
+function exu.GetCurScrapHold(h) end
+
+--- Sets the scrap a Scavenger holds, clamped to [0, GetMaxScrapHold] and truncated to an integer.
+--- False for a non-scavenger or NaN. Local effect only: in a net game call it on the owner.
+--- ```lua
+--- exu.SetCurScrapHold(GetHandle("scav1"), 10)
+--- ```
+--- @param h Handle
+--- @param amount number
+--- @return boolean ok
+function exu.SetCurScrapHold(h, amount) end
+
+--- A Scavenger's scrap capacity, or nil for a non-scavenger.
+--- ```lua
+--- local cap = exu.GetMaxScrapHold(GetHandle("scav1"))
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return integer? capacity
+function exu.GetMaxScrapHold(h) end
+
+--- Sets a Scavenger's scrap capacity (1..1e6, truncated); the held amount is clamped to it.
+--- Not saved: a loaded game restores the ODF capacity, so set it again after load.
+--- Local effect only: in a net game call it on the owner.
+--- ```lua
+--- exu.SetMaxScrapHold(GetHandle("scav1"), 40)
+--- ```
+--- @param h Handle
+--- @param capacity number
+--- @return boolean ok
+function exu.SetMaxScrapHold(h, capacity) end
+
+--- ODF basename the unit's current Build command builds (Build, BuildAt, or SetCommand with
+--- the build command and a string param), or nil for any other command. Pairs with GetCurrentCommand/GetCurrentWho.
+--- ```lua
+--- print(GetCurrentCommand(rig), exu.GetCurrentParam(rig))
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return string? odf
+function exu.GetCurrentParam(h) end
+
+--- The 'when' value of the unit's current command (as given to SetCommand), or nil.
+--- Commands that do not set it (stock Build, for example) leave an arbitrary value here.
+--- ```lua
+--- local when = exu.GetCurrentWhen(GetHandle("tank1"))
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return number? when
+function exu.GetCurrentWhen(h) end
+
+--- The path of the unit's current command: its name (nil for an anonymous path, such as Goto or BuildAt
+--- to a position) and its last point, with y from the terrain height. Nil when the command has no path or the height cannot be read.
+--- ```lua
+--- local name, dest = exu.GetCurrentWhere(GetHandle("tank1"))
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return string? path
+--- @return Vector? destination
+function exu.GetCurrentWhere(h) end
+
 --- Runs BZR's native rig placement validation, with its 10-unit X/Z clearance.
 --- Adjusts height to the engine floor, checks terrain/collisions and allied power range.
 --- Does not issue Build, spawn an object, check affordability/prerequisites, or reserve space.

@@ -329,6 +329,16 @@
       "reason": "Armory override at vtable 0x875cb0+0xa8. Calls ObjectLobber to launch selected class and clears buildClass, returning null by design."
     },
     {
+      "name": "Producer scrap IsBusy",
+      "source": "catalog",
+      "catalog_path": "ProducerEvents.IsBusy",
+      "match": "expected_va",
+      "expected_va": "0x004723D0",
+      "required": false,
+      "runtime_gate": true,
+      "reason": "Producer::IsBusy (non-zero buildClass +0x300, with a virtual +0x68 veto when byte +0x308 is set); exu.FinishBuild calls it before the +0xa8 completion slot. Failure disables only the Producer + scrap Lua calls."
+    },
+    {
       "name": "Player identity NetPlayerCreate",
       "source": "catalog",
       "catalog_path": "PlayerIdentity.NetPlayerCreate",

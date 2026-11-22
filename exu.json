@@ -2617,6 +2617,14 @@
         "pattern": "55 8B EC 83 EC 08 89 4D FC 6A 00 8B 45 FC 8B 88 A0 01 00 00 E8 87 4C FA FF 89 45 F8 8B 4D FC 81",
         "pattern_kind": "code",
         "note": "Independently traced in the released GOG 2.2.301 executable, 2026-10-23. Exact sequence is unique in executable sections and matched settled GOG process bytes on 2026-10-23. See Docs/Research/EXU2_CAPABILITIES_VALIDATION_20261023.md for runtime scope and remaining platform/multiplayer checks."
+      },
+      "IsBusy": {
+        "address": "0x004723D0",
+        "type": "bool __thiscall(void*)",
+        "description": "Producer::IsBusy: false when the deployedBuilder byte +0x308 is set and virtual +0x68 (IsDeployed 0x4AE300) is false, else buildClass +0x300 != 0. src/Game/ProducerScrap.cpp calls it before exu.FinishBuild so an undeployed Recycler/Factory is not finished early.",
+        "pattern": "55 8B EC 51 89 4D FC 8B 45 FC 0F B6 88 08 03 00 00 85 C9 74 18 8B 55 FC 8B 02 8B 4D FC 8B 50 68 FF D2 0F B6 C0 85 C0 75",
+        "pattern_kind": "code",
+        "note": "Ghidra decompile of GOG 2.2.301 FUN_004723d0: 'if (((char)param_1[0xc2] != 0) && (**(code **)(*param_1 + 0x68))() == 0) return false; return param_1[0xc0] != 0;'. Matches BZ 1.5 Producer::IsBusy 0x40c600. Deployable Producer simulate 0x5AC580 gates UpdateBuild 0x5AEE30 on it. Exact 40-byte sequence verified unique in the GOG executable .text by raw scan 2026-11-21."
       }
     },
     "PlayerIdentity": {

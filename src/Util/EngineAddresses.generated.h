@@ -995,6 +995,8 @@ namespace ExtraUtilities::EngineAddresses
 			FinishBuild = 0x005AF160u,
 			// void* __thiscall(void*)
 			ArmoryFinishBuild = 0x004732C0u,
+			// bool __thiscall(void*)
+			IsBusy = 0x004723D0u,
 		};
 	}
 
@@ -1094,5 +1096,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 378u;
+	inline constexpr unsigned kEntryCount = 379u;
 }
