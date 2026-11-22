@@ -981,6 +981,15 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
+	namespace WeaponControl
+	{
+		enum : uintptr_t
+		{
+			// function: void __thiscall(Carrier*)
+			UnTriggerAll = 0x004A7800u,
+		};
+	}
+
 	namespace VehicleControl
 	{
 		enum : uintptr_t
@@ -1118,5 +1127,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 390u;
+	inline constexpr unsigned kEntryCount = 391u;
 }

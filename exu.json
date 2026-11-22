@@ -2629,6 +2629,16 @@
         "note": "Ported from OpenShim scripts/patches.json Craft::EffectiveDamageResistanceSite (pattern there starts 6 bytes earlier, unique at 0x004AA69A). Frame offsets proven live on GOG 2.2.301 by OpenShim 2026-10-07."
       }
     },
+    "WeaponControl": {
+      "UnTriggerAll": {
+        "address": "0x004A7800",
+        "type": "function: void __thiscall(Carrier*)",
+        "description": "Carrier::UnTriggerAll: for slots 0-4 with a non-null weapon (carrier+0x18+slot*4), calls weapon virtual +0xC (UnTrigger). Cannon's UnTrigger clears its one-tick trigger latch; SpecialItem's (0x005D98F0) switches the item off. Used by exu.CeaseFire.",
+        "pattern": "55 8B EC 83 EC 08 89 4D F8 C7 45 FC 00 00 00 00 EB 09 8B 45 FC 83 C0 01 89 45 FC 83 7D FC 05 7D 2A 8B 4D FC 8B 55 F8 83 7C 8A 18 00 74 1B 8B 45 FC 8B 4D F8 8B 54 81 18 8B 45 FC 8B 4D F8 8B 12 8B 4C 81 18 8B 42 0C FF D0 EB C7 8B E5 5D C3",
+        "pattern_kind": "code",
+        "note": "GOG 2.2.301: bytes read from the shipping exe; the full 76-byte body matches once (the first 48 bytes already match once). Ghidra callers 0x004AD819, 0x004ADAE5, 0x004ADDE7, 0x004ADFEA match the 1.5 Craft::ExplodePilot/RemovePilot/EjectPilot/AbandonPilot calls to Carrier::UnTriggerAll (1.5 all_decompiled.c 157047/157118/157172/157238). Verified 2026-11-21."
+      }
+    },
     "VehicleControl": {
       "UnitProcessExecute": {
         "address": "0x005FA6E0",

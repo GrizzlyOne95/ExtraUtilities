@@ -30,6 +30,7 @@
 #include "Game/Culling.h"
 #include "Game/DamageResistance.h"
 #include "Game/VehicleControl.h"
+#include "Game/WeaponControl.h"
 #include "Game/FirstPersonLayers.h"
 #include "Game/DeathCamera.h"
 #include "Game/PersonLongClips.h"
@@ -958,6 +959,15 @@ namespace ExtraUtilities::Lua
 			{ "SetRadarPeriod", &GameObject::SetRadarPeriod },
 			{ "GetVelocJam",	&GameObject::GetVelocJam },
 			{ "SetVelocJam",	&GameObject::SetVelocJam },
+
+			// Weapon control
+			{ "FireWeapons",		&WeaponControl::FireWeapons },
+			{ "FireSpecialWeapon",	&WeaponControl::FireSpecialWeapon },
+			{ "CeaseFire",		&WeaponControl::CeaseFire },
+			{ "GetWeaponEnabled",	&WeaponControl::GetWeaponEnabled },
+			{ "SetWeaponEnabled",	&WeaponControl::SetWeaponEnabled },
+			{ "IsSpecialActive",	&WeaponControl::IsSpecialActive },
+			{ "GetHardpoint",		&WeaponControl::GetHardpoint },
 
 			// Graphics Options
 			{ "GetFullscreen", &GraphicsOptions::GetFullscreen },
