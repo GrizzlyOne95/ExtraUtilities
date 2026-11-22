@@ -3517,6 +3517,68 @@ function exu.FindPath(x0, z0, x1, z1, mode, team) end
 --- @return { goal: integer, priority: number, row: integer, col: integer, minX: number, minZ: number, maxX: number, maxZ: number }|nil
 function exu.GetAiGridCell(team, x, z) end
 
+--- Lists the names of every mission path (the labeled paths stock `Goto`,
+--- `Patrol`, `CameraPath` and `GetPathPointCount` take), including ones made with
+--- `exu.BuildPath` and the engine's own runtime paths (such as `bad_<x>_<z>`), in
+--- the engine's list order. AI plan paths (unnamed) and paths removed with
+--- `exu.RemovePath` are left out. Returns nil when the path list cannot be read.
+--- @nodiscard
+--- @return string[]|nil names
+function exu.AllPaths() end
+
+--- Makes a new mission path named `name` through the given positions (only `x`
+--- and `z` are used; paths are 2D). Stock calls can then use it by name
+--- (`Goto(h, name)`, `Patrol`, `CameraPath`, `GetPathPointCount`, `SetPathType`).
+--- Names are case-sensitive, 1-255 bytes. Returns false, making nothing, when the
+--- name is taken (by a map path too), invalid, a coordinate is not finite, or
+--- there are more than 4096 positions; a non-vector position raises a Lua error. The path lives until the mission ends
+--- (stock cleanup frees it) and is written to save games like map paths.
+--- Local only: nothing is sent over the network, so in multiplayer every machine
+--- that needs the path must build it with the same arguments.
+--- ```lua
+--- if exu.BuildPath("exu_route", GetPosition(a), GetPosition(b), SetVector(500, 0, 300)) then
+---     Goto(GetHandle("tank1"), "exu_route")
+--- end
+--- ```
+--- @param name string
+--- @param position Vector First point.
+--- @param ... Vector More points, in order.
+--- @return boolean|nil ok nil on an unsupported game build.
+function exu.BuildPath(name, position, ...) end
+
+--- Inserts a point into the mission path `name` (only `x` and `z` are used).
+--- `point` is the 1-based position the new point takes (1 to count + 1); omitted,
+--- the point is appended. Returns false when the path does not exist, `point` is
+--- out of range or not a whole number, a coordinate is not finite, or the path
+--- already has 4096 points. A non-vector `position` raises a Lua error. Works on map paths too. A unit already on the path keeps the
+--- destination it computed when it was ordered; give the order again to follow
+--- the new shape. Local only (see `exu.BuildPath`).
+--- @param name string
+--- @param position Vector
+--- @param point integer|nil 1-based insert position; default appends.
+--- @return boolean|nil ok nil on an unsupported game build.
+function exu.AddPathPoint(name, position, point) end
+
+--- Removes the mission path `name`: stock calls and `exu.AllPaths` no longer find
+--- it, and the name is free for `exu.BuildPath` again. The path's memory is kept
+--- (unnamed) until the mission ends, because units and the camera hold the path
+--- directly: a unit already following it finishes the route, and a save game
+--- keeps it as an unnamed path. Works on map paths too. Returns false when no
+--- path has that name. Local only (see `exu.BuildPath`).
+--- @param name string
+--- @return boolean|nil ok nil on an unsupported game build.
+function exu.RemovePath(name) end
+
+--- Removes one point from the mission path `name`. `point` is 1-based (1 to
+--- count); omitted, the last point goes. A path always keeps at least one point,
+--- so this returns false on a one-point path, and also when the path does not
+--- exist or `point` is out of range or not a whole number. A unit already on the path keeps the
+--- destination it computed when it was ordered. Local only (see `exu.BuildPath`).
+--- @param name string
+--- @param point integer|nil 1-based point; default the last.
+--- @return boolean|nil ok nil on an unsupported game build.
+function exu.RemovePathPoint(name, point) end
+
 --- Updates selected fields on the primary live UnitTask (any stock task except
 --- RecycleTask) for the object. Supported fields: `braccel`, `strafe`, `steer`,
 --- `omega`, `omegaScale`, `pitch`, `gotoForce`, `gotoDir`, and `turbo`.

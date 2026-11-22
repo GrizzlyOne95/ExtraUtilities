@@ -864,6 +864,17 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
+	namespace MissionPaths
+	{
+		enum : uintptr_t
+		{
+			// function: void* __thiscall(void* path, const char* label, int count)
+			Ctor = 0x00460390u,
+			// std::list<AiPath*>* (MSVC 2013: _Myhead @+0, node {_Next @+0, _Prev @+4, _Myval @+8})
+			PathList = 0x0094DE1Cu,
+		};
+	}
+
 	namespace Time
 	{
 		enum : uintptr_t
@@ -1172,5 +1183,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 410u;
+	inline constexpr unsigned kEntryCount = 412u;
 }

@@ -2311,6 +2311,24 @@
         "note": "Fixed address, no pattern: verified by hand for GOG and Steam 2.2.301 (same layout); only used after the runtime build gate."
       }
     },
+    "MissionPaths": {
+      "Ctor": {
+        "address": "0x00460390",
+        "type": "function: void* __thiscall(void* path, const char* label, int count)",
+        "description": "AiPath::AiPath(label, count) for a 0x18-byte AiPath: copies label with the engine allocator (SetLabel 0x00460DE0), allocates count {x,z} float pairs and zeroes them, pushes the path on the front of the global path list (iterator stored at +0x14), clears bDontSave (+0x0C) and pathType (+0x10). Returns this (ret 8). Stock FUN_006A5000 builds labeled paths at runtime the same way (operator new(0x18) then this ctor). Used by exu.BuildPath.",
+        "pattern": "55 8B EC 83 EC 1C 89 4D FC 8B 4D FC 83 C1 14 E8 ?? ?? ?? ?? 8B 45 FC C7 00 00 00 00 00 8B 4D 08 51 8B 4D FC E8",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in the GOG 2.2.301 .text section 2026-11-21 (raw bytes of the shipping exe; Ghidra /battlezone98redux.exe-007c64 decompile of 0x00460390 shows SetLabel 0x00460DE0, operator new 0x0083D92C -> jmp [0x00869428] MSVCR120 ??2, list insert, +0x0C = 0, +0x10 = 0)."
+      },
+      "PathList": {
+        "address": "0x0094DE1C",
+        "type": "std::list<AiPath*>* (MSVC 2013: _Myhead @+0, node {_Next @+0, _Prev @+4, _Myval @+8})",
+        "description": "Global AiPath list: mission paths (label != NULL) and AI plan paths (label == NULL). begin = head->_Next (list::begin 0x0042D8C0); the walk ends back at head. AiPath::Find 0x00460FC0 walks it with a case-sensitive compare; AI_Cleanup 0x0045C030 -> AiPath::Cleanup 0x004610C0 deletes every entry at mission end. Read by exu.AllPaths and the name lookup of the other mission-path calls.",
+        "pattern": "55 8B EC 83 EC 2C 8D 4D F8 E8 ?? ?? ?? ?? 8D 45 E0 50 B9 1C DE 94 00 E8",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches AiPath::Find 0x00460FC0 (mov ecx,0x0094DE1C; call list::begin 0x0042D8C0), verified unique in the GOG 2.2.301 .text section 2026-11-21; the same operand appears in ~AiPath 0x00460590 (list erase)."
+      }
+    },
     "Time": {
       "SimTimeSeconds": {
         "address": "0x02CC1B2C",

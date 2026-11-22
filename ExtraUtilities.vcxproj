@@ -147,6 +147,7 @@
     <ClCompile Include="src\Game\DeathCamera.cpp" />
     <ClCompile Include="src\Game\SmallCalls.cpp" />
     <ClCompile Include="src\Game\LaserSight.cpp" />
+    <ClCompile Include="src\Game\MissionPaths.cpp" />
     <ClCompile Include="src\Game\PathBlock.cpp" />
     <ClCompile Include="src\Game\PathBlockApi.cpp" />
     <ClCompile Include="src\Game\BettyVoice.cpp" />
@@ -405,6 +406,8 @@
     <ClInclude Include="src\Game\SmallCalls.h" />
     <ClInclude Include="src\Game\SmallCallsLogic.h" />
     <ClInclude Include="src\Game\LaserSight.h" />
+    <ClInclude Include="src\Game\MissionPaths.h" />
+    <ClInclude Include="src\Game\MissionPathsCore.h" />
     <ClInclude Include="src\Game\PathBlock.h" />
     <ClInclude Include="src\Game\PathBlockMath.h" />
     <ClInclude Include="src\Game\BettyVoice.h" />
