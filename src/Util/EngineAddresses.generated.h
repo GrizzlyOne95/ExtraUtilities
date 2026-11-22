@@ -501,6 +501,31 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
+	namespace SmallCalls
+	{
+		enum : uintptr_t
+		{
+			// function: void __cdecl(int color, const char* text)
+			ChatMessageAdd = 0x007A47B0u,
+			// const char** (.data, initially -> "bail.wav" at 0x008782A0)
+			EjectSoundName = 0x008E7C9Cu,
+			// code: push imm32 (5 bytes, imm -> "jump.wav" at 0x008783A0)
+			HopOutSoundPush = 0x004AE0E9u,
+			// function: int __cdecl(void) (returns 0/1 in eax)
+			SatelliteAvailable = 0x0049F500u,
+			// function: void __cdecl(GameObject* craft, int unitMsg, int unused)
+			UnitSay = 0x005F91E0u,
+			// function: const char* __cdecl(GameObject* craft, int unitMsg)
+			UnitMsgFilename = 0x005F8FB0u,
+			// function: bool __cdecl(const char* name, void* owner, unsigned priority)
+			UnitVoQueue = 0x0043D1D0u,
+			// function: void __cdecl(int)
+			UnitVoKillQueue = 0x0043D4F0u,
+			// void** (head of the QueueCB list; NULL when nothing is playing or queued)
+			UnitVoQueueHead = 0x00915640u,
+		};
+	}
+
 	namespace Steam
 	{
 		enum : uintptr_t
@@ -1094,5 +1119,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 378u;
+	inline constexpr unsigned kEntryCount = 387u;
 }

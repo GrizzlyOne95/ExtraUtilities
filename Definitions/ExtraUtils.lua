@@ -4879,6 +4879,263 @@ function exu.PauseMusic() end
 --- @return boolean reset false when OpenShim lacks the export
 function exu.ResetMissionHookOverrides() end
 
+-------------------------------------------------------------------------------
+-- Small calls (idea credit: GoombaBZ's bzx; reimplemented from the decompiles)
+-------------------------------------------------------------------------------
+
+--- Clears the engine's chat/message list (the engine's own clear, run when a
+--- network game ends). Local to this machine.
+--- ```lua
+--- exu.ClearMessages()
+--- ```
+--- @return boolean ok
+function exu.ClearMessages() end
+
+--- The sound played when a pilot ejects from a destroyed craft (stock "bail.wav").
+--- ```lua
+--- local name = exu.GetEjectSound()
+--- ```
+--- @nodiscard
+--- @return string | nil name nil when the engine string cannot be read
+function exu.GetEjectSound() end
+
+--- Replaces the pilot eject sound for every craft; nil restores "bail.wav".
+--- The stock sound returns when the Lua state closes. Local to this machine.
+--- ```lua
+--- exu.SetEjectSound("mybail.wav")
+--- exu.SetEjectSound(nil)
+--- ```
+--- @param name string? 1-63 chars of A-Z a-z 0-9 . _ - (a bare file name)
+--- @return boolean ok
+function exu.SetEjectSound(name) end
+
+--- The sound played when the player hops out of a craft (stock "jump.wav").
+--- ```lua
+--- local name = exu.GetHopOutSound()
+--- ```
+--- @nodiscard
+--- @return string | nil name
+function exu.GetHopOutSound() end
+
+--- Replaces the hop-out sound; nil restores "jump.wav". Only the hop-out
+--- sound changes: other "jump.wav" uses keep the stock name. Restored when the
+--- Lua state closes. Local to this machine.
+--- ```lua
+--- exu.SetHopOutSound("myhop.wav")
+--- ```
+--- @param name string? 1-63 chars of A-Z a-z 0-9 . _ -
+--- @return boolean ok
+function exu.SetHopOutSound(name) end
+
+--- A craft's pilot eject ratio (0..1, ODF personEjectRatio). The stock death
+--- roll ejects the pilot when ratio * 2 - 1 < random.
+--- ```lua
+--- local ratio = exu.GetPersonEjectRatio(h)
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return number | nil ratio nil when the handle is stale or not a craft
+function exu.GetPersonEjectRatio(h) end
+
+--- Sets a craft's pilot eject ratio. Per object; in multiplayer the death roll
+--- runs on the owning machine, so set it there.
+--- ```lua
+--- exu.SetPersonEjectRatio(h, 0) -- never eject
+--- ```
+--- @param h Handle
+--- @param ratio number 0..1
+--- @return boolean ok false for a non-craft, a dead handle or a bad ratio
+function exu.SetPersonEjectRatio(h, ratio) end
+
+--- Spawns a stock scrap field (the ScrapField object's own call): count
+--- scrap pieces scattered around the position. The engine caps the count to
+--- the free scrap slots. The scrap is local to the calling machine; in
+--- multiplayer call it on every machine.
+--- ```lua
+--- exu.MakeScrapField(GetPosition(h), 8)
+--- ```
+--- @param position Vector
+--- @param count integer 1..1024
+--- @return boolean ok
+function exu.MakeScrapField(position, count) end
+
+--- True when the satellite view is available to the player (a powered comm
+--- tower, the free-satellite option, or arcade).
+--- ```lua
+--- if exu.HasSatellite() then exu.ActivateSatellite() end
+--- ```
+--- @nodiscard
+--- @return boolean
+function exu.HasSatellite() end
+
+--- Switches the player into the satellite view, like pressing the satellite
+--- key. Does nothing when the satellite is unavailable. Use exu.GetSatState
+--- to read the current state.
+--- ```lua
+--- local active = exu.ActivateSatellite()
+--- ```
+--- @return boolean active satellite view is on after the call
+function exu.ActivateSatellite() end
+
+--- Leaves the satellite view for the previous view.
+--- ```lua
+--- exu.DeactivateSatellite()
+--- ```
+--- @return boolean inactive satellite view is off after the call
+function exu.DeactivateSatellite() end
+
+--- Plays a craft's unit voice message through the stock path: only for units
+--- on the player's team, with the stock repeat throttle and mutes (and the EXU
+--- unit-voice policy). Local to this machine.
+--- Names: select_wait, select_go, select_follow, select_attack, select_pickup,
+--- select_dropoff, select_deploy, select_other, go, go_object, follow,
+--- follow_me, attack, repair, reload, rescue, recycle, other, deployed, packed,
+--- killed, died, blocked; or a number 0..26.
+--- ```lua
+--- exu.UnitMessage(h, "attack")
+--- ```
+--- @param h Handle
+--- @param msg string | integer
+--- @return boolean called false for a non-craft or an unknown message; true does not mean a clip played
+function exu.UnitMessage(h, msg) end
+
+--- Queues a craft's unit voice clip directly, skipping the team check,
+--- throttle and mutes of exu.UnitMessage. Priority follows the engine queue:
+--- 0 append, 1 flush the queue first, 2 replace the playing clip, 5 drop when
+--- busy, 6 drop unless the queue is idle or low priority. Local to this machine.
+--- ```lua
+--- exu.UnitMessageDirect(h, "killed", 1)
+--- ```
+--- @param h Handle
+--- @param msg string | integer
+--- @param priority integer? 0..6, default 0
+--- @return boolean queued
+function exu.UnitMessageDirect(h, msg, priority) end
+
+--- Stops the playing unit voice clip and clears the queue.
+--- ```lua
+--- exu.StopUnitMessage()
+--- ```
+--- @return boolean ok
+function exu.StopUnitMessage() end
+
+--- True while a unit voice clip is playing or queued.
+--- ```lua
+--- if not exu.IsUnitMessagePlaying() then exu.UnitMessage(h, "go") end
+--- ```
+--- @nodiscard
+--- @return boolean
+function exu.IsUnitMessagePlaying() end
+
+--- Typed persistent settings, stored in the exu.storage namespace
+--- "exu.settings" as { [section] = { [label] = value } }. The section defaults
+--- to "General". Each call reads the file, so cache values you read often.
+--- Settings live on each machine; they are not synced in multiplayer.
+--- Returns the default (or nil) and false when the key is missing or holds
+--- another type.
+--- ```lua
+--- local hard, found = exu.GetSettingBool("MyMod", "HardMode", false)
+--- local hard2 = exu.GetSettingBool("HardMode", false) -- section "General"
+--- ```
+--- @nodiscard
+--- @param section string? 1-64 printable ASCII chars
+--- @param label string 1-64 printable ASCII chars
+--- @param default boolean?
+--- @return boolean | nil value
+--- @return boolean found
+function exu.GetSettingBool(section, label, default) end
+
+--- Integer setting; see exu.GetSettingBool.
+--- ```lua
+--- local waves = exu.GetSettingInt("MyMod", "Waves", 3)
+--- ```
+--- @nodiscard
+--- @param section string?
+--- @param label string
+--- @param default integer?
+--- @return integer | nil value
+--- @return boolean found
+function exu.GetSettingInt(section, label, default) end
+
+--- Number setting; see exu.GetSettingBool.
+--- ```lua
+--- local scale = exu.GetSettingFloat("MyMod", "Scale", 1.0)
+--- ```
+--- @nodiscard
+--- @param section string?
+--- @param label string
+--- @param default number?
+--- @return number | nil value
+--- @return boolean found
+function exu.GetSettingFloat(section, label, default) end
+
+--- String setting; see exu.GetSettingBool. One argument is the label; two
+--- arguments are always (section, label), so pass the section to give a default.
+--- ```lua
+--- local name = exu.GetSettingString("MyMod", "Callsign", "Red 1")
+--- ```
+--- @nodiscard
+--- @param section string?
+--- @param label string
+--- @param default string?
+--- @return string | nil value
+--- @return boolean found
+function exu.GetSettingString(section, label, default) end
+
+--- Saves a boolean setting ([section] defaults to "General").
+--- ```lua
+--- local ok, err = exu.SaveSettingBool("MyMod", "HardMode", true)
+--- ```
+--- @param section string?
+--- @param label string
+--- @param value boolean
+--- @return boolean ok
+--- @return string | nil err
+function exu.SaveSettingBool(section, label, value) end
+
+--- Saves an integer setting.
+--- ```lua
+--- exu.SaveSettingInt("MyMod", "Waves", 5)
+--- ```
+--- @param section string?
+--- @param label string
+--- @param value integer
+--- @return boolean ok
+--- @return string | nil err
+function exu.SaveSettingInt(section, label, value) end
+
+--- Saves a finite number setting.
+--- ```lua
+--- exu.SaveSettingFloat("MyMod", "Scale", 1.5)
+--- ```
+--- @param section string?
+--- @param label string
+--- @param value number
+--- @return boolean ok
+--- @return string | nil err
+function exu.SaveSettingFloat(section, label, value) end
+
+--- Saves a string setting.
+--- ```lua
+--- exu.SaveSettingString("MyMod", "Callsign", "Red 1")
+--- ```
+--- @param section string?
+--- @param label string
+--- @param value string
+--- @return boolean ok
+--- @return string | nil err
+function exu.SaveSettingString(section, label, value) end
+
+--- Removes one setting; an emptied section is removed too.
+--- ```lua
+--- exu.DeleteSetting("MyMod", "HardMode")
+--- ```
+--- @param section string?
+--- @param label string
+--- @return boolean ok
+--- @return string | nil err
+function exu.DeleteSetting(section, label) end
+
 --- ```lua
 --- local ok = exu.ResetOverlaySupport("mission-end")
 --- if not ok then print("overlay reset failed") end

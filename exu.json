@@ -1295,6 +1295,80 @@
         "description": "Byte offset from soundStruct1 to the music volume display byte."
       }
     },
+    "SmallCalls": {
+      "ChatMessageAdd": {
+        "address": "0x007A47B0",
+        "type": "function: void __cdecl(int color, const char* text)",
+        "description": "Adds a line to the Redux chat/message list (logs 'Chat Message: %s'); text == NULL instead clears the list (deque _Tidy via FUN_007A7BB0 on the list at 0x0260B994) and sets the byte at 0x00945549. Net::~Net (0x005703A0) calls it with (0, 0) at 0x005703EC; OpenShim calls it as HelpUi(0, line).",
+        "pattern": "55 8B EC 83 EC 20 A1 ?? ?? ?? ?? 33 C5 89 45 FC 83 7D 0C 00 75 0C B9 ?? ?? ?? ?? E8",
+        "pattern_kind": "code",
+        "note": "Ghidra FUN_007A47B0: 'if (param_2 == 0) { FUN_007a7bb0(); ... DAT_00945549 = 1 }'. Verified against GOG 2.2.301 2026-11-21 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
+      },
+      "EjectSoundName": {
+        "address": "0x008E7C9C",
+        "type": "const char** (.data, initially -> \"bail.wav\" at 0x008782A0)",
+        "description": "Sound Craft::EjectPilot (FUN_004ADCC0) plays when the pilot ejects; read once at 0x004ADF01 (mov eax, [0x008E7C9C]; push eax; call DoAudio).",
+        "pattern": "A1 9C 7C 8E 00 50 E8",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: the read at 0x004ADF01 in FUN_004ADCC0 (1.5 Craft::EjectPilot 0x00488C5C, PTR_s_bail_wav). Its only code xref. Verified against GOG 2.2.301 2026-11-21 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
+      },
+      "HopOutSoundPush": {
+        "address": "0x004AE0E9",
+        "type": "code: push imm32 (5 bytes, imm -> \"jump.wav\" at 0x008783A0)",
+        "description": "Craft::AbandonPilot (FUN_004ADF20) 'push 0x008783A0' that passes \"jump.wav\" to DoAudio; EXU rewrites the imm32 at +1 to point at its own buffer. Other \"jump.wav\" users (0x005A2A9C, 0x006104AF) are separate pushes and untouched.",
+        "pattern": "68 A0 83 87 00 E8 ?? ?? ?? ?? 83 C4 0C",
+        "pattern_kind": "code",
+        "note": "Bytes at 0x004AE0E9: 68 A0 83 87 00 E8 CD 95 F8 FF 83 C4 0C (1.5 Craft::AbandonPilot 0x00488DB8 literal 'jump.wav'). Not patched by BZR-OpenShim (grep 2026-11-21). Verified against GOG 2.2.301 2026-11-21 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
+      },
+      "SatelliteAvailable": {
+        "address": "0x0049F500",
+        "type": "function: int __cdecl(void) (returns 0/1 in eax)",
+        "description": "ControlPanel satellite-enabled test: 1 when the comm-tower refcount at 0x00979F98 is nonzero, the free-satellite option (FUN_0049F4C0) is on, or FUN_00451DE0 (arcade) is set. Apply_Satellite_View (FUN_0061BD20) checks it first.",
+        "pattern": "55 8B EC 51 83 3D ?? ?? ?? ?? 00 75 1B E8 ?? ?? ?? ?? 85 C0 75 12 E8",
+        "pattern_kind": "code",
+        "note": "Ghidra FUN_0049F500; bytes end '8B 45 FC 8B E5 5D C3' (dword 0/1 in eax, no stack args). 1.5 ControlPanel satelliteEnabled refcount (CommTower::Init/Cleanup). Verified against GOG 2.2.301 2026-11-21 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
+      },
+      "UnitSay": {
+        "address": "0x005F91E0",
+        "type": "function: void __cdecl(GameObject* craft, int unitMsg, int unused)",
+        "description": "Redux Say: plays a craft's unit voice message for user-team units only (team == user team, no AI owner), with the stock 1 s repeat throttle and the 5 s deployed/packed post-load mute; skips while an audio message (FUN_00437DA0) or cineractive (FUN_0061A050) runs; then QueueCB(name, userOwner, 0). EXU's UnitVo hook sits on that QueueCB call at 0x005F9309.",
+        "pattern": "55 8B EC 83 EC 10 56 E8 ?? ?? ?? ?? 89 45 FC 83 7D FC 00 75 05 E9",
+        "pattern_kind": "code",
+        "note": "Ghidra FUN_005F91E0 contains UNIT_VO_SAY_QUEUE_CALL_SIGNATURE (match at 0x005F9309); 1.5 Say(Craft*, UnitMsg, int) 0x00468746. Verified against GOG 2.2.301 2026-11-21 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
+      },
+      "UnitMsgFilename": {
+        "address": "0x005F8FB0",
+        "type": "function: const char* __cdecl(GameObject* craft, int unitMsg)",
+        "description": "Redux GetUnitMsg: returns the craft class's 16-char sound name slot for a UnitMsg (class+0x160 + 0x10*msg for 0..25, class+0x650 for 26), NULL for other values.",
+        "pattern": "55 8B EC 83 EC 0C 8B 4D 08 83 C1 18 8B 45 08 8B 50 18 8B 02 FF D0 89 45",
+        "pattern_kind": "code",
+        "note": "Ghidra FUN_005F8FB0 switch on param_2; 1.5 GetUnitMsg 0x004685E2. Verified against GOG 2.2.301 2026-11-21 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
+      },
+      "UnitVoQueue": {
+        "address": "0x0043D1D0",
+        "type": "function: bool __cdecl(const char* name, void* owner, unsigned priority)",
+        "description": "QueueCB: queues a unit voice clip (malloc 0x24 item: name[16], owner +0x10, sound +0x14, priority +0x18, time +0x1C, next +0x20). Name 'STOPCBXX' stops; priority 5 drops when busy, 6 drops when the head priority < 5, 1 (or < 5 over a head > 4) flushes, 2 replaces the head.",
+        "pattern": "55 8B EC 83 EC 10 C7 45 FC 00 00 00 00 83 3D ?? ?? ?? ?? 00 74 07 33 C0 E9",
+        "pattern_kind": "code",
+        "note": "Ghidra FUN_0043D1D0; 1.5 QueueCB 0x004717EE. The same target UnitVo.cpp resolves at runtime from the Say call site. Verified against GOG 2.2.301 2026-11-21 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
+      },
+      "UnitVoKillQueue": {
+        "address": "0x0043D4F0",
+        "type": "function: void __cdecl(int)",
+        "description": "KillCBQueue: stops and frees every queued unit voice clip. QueueCB and UnitVo.cpp call it with 0.",
+        "pattern": "55 8B EC 51 A1 40 56 91 00 89 45 FC 83 7D FC 00 74",
+        "pattern_kind": "code",
+        "note": "Called as FUN_0043D4F0(0) from QueueCB; matches UnitVo.cpp LooksLikeKillQueueFunction (push ebp; mov ebp,esp; push ecx; mov eax,[queueHead]). Verified against GOG 2.2.301 2026-11-21 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
+      },
+      "UnitVoQueueHead": {
+        "address": "0x00915640",
+        "type": "void** (head of the QueueCB list; NULL when nothing is playing or queued)",
+        "description": "QueueCB list head (DAT_00915640). The mute flag NoMoreCB sits one dword above at 0x00915644.",
+        "pattern": "55 8B EC 83 EC 08 A1 40 56 91 00 89 45 F8 8B 4D F8 89 4D FC",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: the queue walker at 0x0043D580 that loads the head. QueueCB stores the new head to DAT_00915640. Verified against GOG 2.2.301 2026-11-21 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
+      }
+    },
     "Steam": {
       "steam64": {
         "address": "0x0260B1D0",

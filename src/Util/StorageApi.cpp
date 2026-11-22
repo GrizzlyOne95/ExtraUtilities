@@ -640,6 +640,22 @@ namespace ExtraUtilities::Lua::StorageApi
 		}
 	}
 
+	void PushLoad(lua_State* L, const char* name)
+	{
+		lua_pushcfunction(L, &CppBarrier<&Load>);
+		lua_pushstring(L, name);
+		lua_call(L, 1, 2);
+	}
+
+	void PushSave(lua_State* L, const char* name, int valueIndex)
+	{
+		const int value = AbsoluteStackIndex(L, valueIndex);
+		lua_pushcfunction(L, &CppBarrier<&Save>);
+		lua_pushstring(L, name);
+		lua_pushvalue(L, value);
+		lua_call(L, 2, 2);
+	}
+
 	void Install(lua_State* L)
 	{
 		lua_getglobal(L, "exu");

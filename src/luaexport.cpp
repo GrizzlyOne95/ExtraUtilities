@@ -37,6 +37,7 @@
 #include "Game/LaserSight.h"
 #include "Game/BettyVoice.h"
 #include "Game/Plant.h"
+#include "Game/SmallCalls.h"
 #include "Game/PersonAnimBlend.h"
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotFsmIntercept.h"
@@ -1102,6 +1103,32 @@ namespace ExtraUtilities::Lua
 			{ "GetUserAmmoWarning", &BettyVoice::GetUserAmmoWarning },
 			{ "PlayUserAmmoWarning", &BettyVoice::PlayUserAmmoWarning },
 			{ "ResetMissionHookOverrides", &Patches::ResetMissionHookOverrides },
+
+			// Small calls
+			{ "ClearMessages", &SmallCalls::ClearMessages },
+			{ "GetEjectSound", &SmallCalls::GetEjectSound },
+			{ "SetEjectSound", &SmallCalls::SetEjectSound },
+			{ "GetHopOutSound", &SmallCalls::GetHopOutSound },
+			{ "SetHopOutSound", &SmallCalls::SetHopOutSound },
+			{ "GetPersonEjectRatio", &SmallCalls::GetPersonEjectRatio },
+			{ "SetPersonEjectRatio", &SmallCalls::SetPersonEjectRatio },
+			{ "MakeScrapField", &SmallCalls::MakeScrapField },
+			{ "HasSatellite", &SmallCalls::HasSatellite },
+			{ "ActivateSatellite", &SmallCalls::ActivateSatellite },
+			{ "DeactivateSatellite", &SmallCalls::DeactivateSatellite },
+			{ "UnitMessage", &SmallCalls::UnitMessage },
+			{ "UnitMessageDirect", &SmallCalls::UnitMessageDirect },
+			{ "StopUnitMessage", &SmallCalls::StopUnitMessage },
+			{ "IsUnitMessagePlaying", &SmallCalls::IsUnitMessagePlaying },
+			{ "GetSettingBool", &SmallCalls::GetSettingBool },
+			{ "GetSettingInt", &SmallCalls::GetSettingInt },
+			{ "GetSettingFloat", &SmallCalls::GetSettingFloat },
+			{ "GetSettingString", &SmallCalls::GetSettingString },
+			{ "SaveSettingBool", &SmallCalls::SaveSettingBool },
+			{ "SaveSettingInt", &SmallCalls::SaveSettingInt },
+			{ "SaveSettingFloat", &SmallCalls::SaveSettingFloat },
+			{ "SaveSettingString", &SmallCalls::SaveSettingString },
+			{ "DeleteSetting", &SmallCalls::DeleteSetting },
 
 			// Play Options
 			{ "GetAutoLevel",	 &PlayOption::GetAutoLevel },
