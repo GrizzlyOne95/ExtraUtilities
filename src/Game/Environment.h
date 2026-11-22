@@ -118,6 +118,31 @@ namespace ExtraUtilities::Lua::Environment
 	int SetParticleEmitterTimeToLive(lua_State* L);
 	int SetParticleEmitterColor(lua_State* L);
 
+	// Environment hazards (EnvironmentHazards.cpp): stock lightning, lava
+	// damage and the ColorFade glare overlay.
+	int GetLightningBolts(lua_State* L);
+	int GetLightningColor(lua_State* L);
+	int SetLightningColor(lua_State* L);
+	int GetLightningDistance(lua_State* L);
+	int SetLightningDistance(lua_State* L);
+	int GetLightningDuration(lua_State* L);
+	int SetLightningDuration(lua_State* L);
+	int GetLightningMaxDelay(lua_State* L);
+	int SetLightningMaxDelay(lua_State* L);
+	int GetLightningMinDelay(lua_State* L);
+	int SetLightningMinDelay(lua_State* L);
+	int GetLightningSound(lua_State* L);
+	int SetLightningSound(lua_State* L);
+	int StartLightning(lua_State* L);
+	int StopLightning(lua_State* L);
+	int FireLightning(lua_State* L);
+	int StartLava(lua_State* L);
+	int StopLava(lua_State* L);
+	int SetLava(lua_State* L);
+	int SetGlare(lua_State* L);
+	// Per-mission hazard state; called from Shutdown.
+	void ResetHazardState() noexcept;
+
 	// Generic Ogre::StringInterface bridge. The typed setters above cover the
 	// properties every emitter shares; these reach the type-specific ones
 	// (Box "width", Ring "inner_width", Scaler "rate") that only exist in the

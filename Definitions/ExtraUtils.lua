@@ -1531,6 +1531,149 @@ function exu.SetParticleEmitterTimeToLive(name, emitterIndex, minTimeToLive, max
 --- @return boolean
 function exu.SetParticleEmitterColor(name, emitterIndex, startColor, endColor) end
 
+--- Returns how many lightning bolts are active: the TRN `[LightningBolt] Bolts` count
+--- (at most 16) unless `exu.StartLightning` or `exu.StopLightning` changed it. nil on failure.
+--- ```lua
+--- print("bolts", exu.GetLightningBolts())
+--- ```
+--- @nodiscard
+--- @return integer?
+function exu.GetLightningBolts() end
+
+--- Returns the lightning colour as r, g, b, a integers 0-255, or nil on failure.
+--- @nodiscard
+--- @return integer? r
+--- @return integer? g
+--- @return integer? b
+--- @return integer? a
+function exu.GetLightningColor() end
+
+--- Sets the lightning colour; channels are integers 0-255 and alpha defaults to 255.
+--- Unlike BZ 1.5's palette index, Redux stores a packed ARGB colour.
+--- Local only: in multiplayer each machine that should see it must call it.
+--- ```lua
+--- exu.SetLightningColor(160, 180, 255)
+--- ```
+--- @param r integer
+--- @param g integer
+--- @param b integer
+--- @param a integer? optional, default 255
+--- @return boolean
+function exu.SetLightningColor(r, g, b, a) end
+
+--- Returns the lightning strike distance in world units, or nil on failure.
+--- @nodiscard
+--- @return number?
+function exu.GetLightningDistance() end
+
+--- Sets the lightning strike distance in world units (finite, 0 or more).
+--- @param distance number
+--- @return boolean
+function exu.SetLightningDistance(distance) end
+
+--- Returns how long each bolt stays lit, in milliseconds, or nil on failure.
+--- @nodiscard
+--- @return number?
+function exu.GetLightningDuration() end
+
+--- Sets how long each bolt stays lit, in milliseconds (0 or more), as TRN `Duration` does.
+--- A bolt picks up the new value at its next strike.
+--- @param ms number
+--- @return boolean
+function exu.SetLightningDuration(ms) end
+
+--- Returns the longest wait between strikes, in milliseconds, or nil on failure.
+--- @nodiscard
+--- @return number?
+function exu.GetLightningMaxDelay() end
+
+--- Sets the longest wait between strikes, in milliseconds (0 or more).
+--- Each bolt draws a new wait between the min and max delay after it strikes.
+--- Keep it at or above the min delay; with min, max and duration all 0 a bolt strikes every frame.
+--- @param ms number
+--- @return boolean
+function exu.SetLightningMaxDelay(ms) end
+
+--- Returns the shortest wait between strikes, in milliseconds, or nil on failure.
+--- @nodiscard
+--- @return number?
+function exu.GetLightningMinDelay() end
+
+--- Sets the shortest wait between strikes, in milliseconds (0 or more).
+--- @param ms number
+--- @return boolean
+function exu.SetLightningMinDelay(ms) end
+
+--- Returns the sound file each strike plays ("" for none), or nil on failure.
+--- @nodiscard
+--- @return string?
+function exu.GetLightningSound() end
+
+--- Sets the sound file each strike plays, at most 15 characters; "" is silent.
+--- ```lua
+--- exu.SetLightningSound("thunder.wav")
+--- ```
+--- @param sound string
+--- @return boolean
+function exu.SetLightningSound(sound) end
+
+--- Starts lightning with `bolts` bolts (1-16). Without it, uses the TRN bolt count, or 1
+--- when the TRN has none. New bolts wait a random min-max delay before their first strike.
+--- Set colour, sound, distance and timing first on a TRN with no `[LightningBolt]` section:
+--- they are 0 there. The stock renderer draws bolts with the TRN `Name` material or the
+--- engine default. Local only: in multiplayer strikes are not synchronised.
+--- ```lua
+--- exu.SetLightningMinDelay(2000); exu.SetLightningMaxDelay(6000); exu.SetLightningDuration(150)
+--- exu.StartLightning(4)
+--- ```
+--- @param bolts integer? optional, 1-16
+--- @return boolean
+function exu.StartLightning(bolts) end
+
+--- Stops all lightning. `exu.StartLightning()` resumes the same bolt count.
+--- The next mission's TRN sets lightning up again.
+--- @return boolean
+function exu.StopLightning() end
+
+--- Makes every idle bolt strike on the next frame. Returns how many were triggered
+--- (0 when lightning is stopped), or nil on failure.
+--- @return integer?
+function exu.FireLightning() end
+
+--- Turns lava back on after `exu.StopLava`, or keeps the current lava. `damage` sets the
+--- craft lava damage scale (stock 40, finite and 0 or more) until the mission ends.
+--- Returns false when there is no lava material to restore (use `exu.SetLava`).
+--- Changes craft damage only: AI pathing and terrain zones keep the TRN lava from load time.
+--- Local only: in multiplayer each machine applies damage to its own craft, so every
+--- machine should make the same call.
+--- ```lua
+--- exu.StartLava(80) -- twice the stock damage
+--- ```
+--- @param damage number? optional, default unchanged
+--- @return boolean
+function exu.StartLava(damage) end
+
+--- Turns lava damage off (lava material -1) until `exu.StartLava` or the next terrain load.
+--- @return boolean
+function exu.StopLava() end
+
+--- Makes terrain material `textureType` (0-15, the TRN `[NormalView] Lava` index) the lava
+--- material for craft damage, and turns lava on. Same caveats as `exu.StartLava`.
+--- @param textureType integer
+--- @return boolean
+function exu.SetLava(textureType) end
+
+--- Adds `amount` (finite, 0 to 1000) of white screen glare, the overlay the sun lens flare
+--- uses. It lasts one frame: the engine draws alpha min(total, 1) * 224 and clears it, so
+--- call it every frame for a lasting effect. Not drawn in some camera modes.
+--- Local only: it affects only the calling machine's screen.
+--- ```lua
+--- function Update() exu.SetGlare(0.5) end
+--- ```
+--- @param amount number
+--- @return boolean
+function exu.SetGlare(amount) end
+
 --- Returns the Ogre type name of one emitter ("Box", "Point", "Ring", "HollowEllipsoid", ...),
 --- or nil if it does not exist. The type determines which parameter names
 --- `exu.SetParticleEmitterParameter` will accept.
@@ -3592,6 +3735,108 @@ function exu.GetVelocJam(h) end
 --- @param maxSpeed number finite and non-negative
 function exu.SetVelocJam(h, maxSpeed) end
 
+--- Triggers the unit's selected weapons this tick, the same call the engine
+--- makes when a pilot or the AI fires (Carrier::TriggerSelected). With a mask,
+--- the weapon selection is first changed to those slots (bit i = slot i, 1..31;
+--- slots without a weapon are dropped). Disabled slots (see
+--- exu.SetWeaponEnabled) never fire.
+---
+--- The trigger is a one-tick latch the weapon consumes on its next update:
+--- call this every frame for sustained fire. The mask changes the selection
+--- persistently (Select/Deselect run, the HUD follows for the player), and the
+--- unit's AI may reselect weapons on its own afterwards.
+---
+--- Multiplayer: weapon fire is simulated by the machine that owns the unit;
+--- call this there. On other machines it only affects the local copy.
+--- ```lua
+--- exu.FireWeapons(h)      -- fire whatever is selected
+--- exu.FireWeapons(h, 3)   -- select slots 0 and 1, then fire them
+--- ```
+--- @param h Handle
+--- @param mask? integer slot bitmask 1..31
+--- @return boolean|nil fired true if any weapon was triggered, false if nothing could fire (bad mask, nothing selected or enabled), nil for an invalid handle or a unit without weapons
+function exu.FireWeapons(h, mask) end
+
+--- Triggers the unit's special slot (Carrier::TriggerSpecial), if it has one
+--- and it is enabled. Special items (RadarDamper, ImageRefract,
+--- TerrainExpose, SpecialItem) toggle on trigger and ignore repeated triggers
+--- while held, so one call switches the item; check exu.IsSpecialActive.
+--- UNVERIFIED: the engine may ignore this toggle on the local player's own
+--- vehicle (SpecialItem::Trigger is gated for the user object).
+---
+--- Multiplayer: call on the machine that owns the unit.
+--- ```lua
+--- exu.FireSpecialWeapon(h)
+--- ```
+--- @param h Handle
+--- @return boolean|nil fired true if the special slot was triggered, nil for an invalid handle or a unit without weapons
+function exu.FireSpecialWeapon(h) end
+
+--- Releases the trigger on every mounted weapon (Carrier::UnTriggerAll, the
+--- call the engine makes when a pilot leaves a craft). Cancels a fire latched
+--- earlier in the same tick and switches special items off. It does not stop
+--- the AI or the player pulling the trigger again on a later tick.
+---
+--- Multiplayer: call on the machine that owns the unit.
+--- ```lua
+--- exu.CeaseFire(h)
+--- ```
+--- @param h Handle
+--- @return boolean|nil done true once the weapons were untriggered, nil for an invalid handle or a unit without weapons
+function exu.CeaseFire(h) end
+
+--- Gets whether the weapon in a slot is enabled (the carrier's enabled mask).
+--- A disabled weapon never fires, whoever pulls the trigger.
+--- ```lua
+--- local on = exu.GetWeaponEnabled(GetPlayerHandle(), 0)
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @param slot integer weapon slot 0..4
+--- @return boolean|nil enabled nil for an empty slot, an invalid slot, an invalid handle or a unit without weapons
+function exu.GetWeaponEnabled(h, slot) end
+
+--- Enables or disables the weapon in a slot. A disabled weapon never fires,
+--- for the player or the AI. Refused (false) for an empty slot and for
+--- producers (factory, armory, recycler, constructor) and turret tanks /
+--- howitzers, whose enabled mask the engine rewrites every tick from their
+--- deployed state. GiveWeapon re-enables the slot it fills.
+---
+--- Multiplayer: the mask is local to each machine; call on the machine that
+--- owns the unit (and on every machine if the HUD should agree).
+--- ```lua
+--- exu.SetWeaponEnabled(h, 1, false) -- slot 1 stops firing
+--- ```
+--- @param h Handle
+--- @param slot integer weapon slot 0..4
+--- @param enabled boolean
+--- @return boolean applied true if the mask was written
+function exu.SetWeaponEnabled(h, slot, enabled) end
+
+--- Gets whether the special item in a slot is switched on (RadarDamper,
+--- ImageRefract, TerrainExpose or another SpecialItem). False for a weapon
+--- that is not a special item.
+--- ```lua
+--- if exu.IsSpecialActive(h, 4) then print("cloaked") end
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @param slot integer weapon slot 0..4
+--- @return boolean|nil active nil for an empty slot, an invalid slot, an invalid handle or a unit without weapons
+function exu.IsSpecialActive(h, slot) end
+
+--- Gets the hardpoint name of a weapon slot (the ODF weaponHardN, e.g. "GC1")
+--- and the ODF of the weapon mounted there.
+--- ```lua
+--- local hardpoint, odf = exu.GetHardpoint(GetPlayerHandle(), 0)
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @param slot integer weapon slot 0..4
+--- @return string|nil hardpoint nil when the slot has no hardpoint
+--- @return string|nil odf nil when the slot has no weapon
+function exu.GetHardpoint(h, slot) end
+
 --- Graphics Options
 
 --- Gets if the game is currently in fullscreen.
@@ -3940,6 +4185,111 @@ function exu.DisableStartingRecycler() end
 --- @return boolean ok
 --- @return string? reason when not ok
 function exu.AdoptObject(h, team) end
+
+--- Gets the object's network id: the id the engine uses to name this object in
+--- network packets. A local object gets `(owner's net id * 65536) + counter`
+--- when it is networked, and remote copies on other machines carry the same
+--- id, so the number names one object on every machine and can be sent with
+--- Send() and resolved with exu.GetHandleFromNetworkID. Returns nil for an
+--- invalid handle and for objects that are not networked (single player, or
+--- map objects nobody has taken ownership of, which keep id 0).
+--- ```lua
+--- local id = exu.GetNetworkID(GetHandle("tank1"))
+--- if id then Send(0, "T", id) end
+--- ```
+--- @nodiscard
+--- @param h handle
+--- @return integer? id
+function exu.GetNetworkID(h) end
+
+--- Finds the object with a network id from exu.GetNetworkID, on this machine:
+--- the local object with that id, else the local copy of a remote one. Returns
+--- nil when no object here has that id (not networked yet, already dead, not
+--- yet created here, or single player).
+--- ```lua
+--- local h = exu.GetHandleFromNetworkID(id)
+--- if h then SetTeamNum(h, 2) end
+--- ```
+--- @nodiscard
+--- @param id integer
+--- @return handle?
+function exu.GetHandleFromNetworkID(id) end
+
+--- Gets the network id of the player whose machine owns (simulates) this
+--- object. Compare it with exu.GetMyNetID() or the `id` fields of
+--- exu.AllPlayers(). Ownership moves when a player boards a craft or a script
+--- calls SetLocal / exu.AdoptObject. Returns nil for an invalid handle and for
+--- objects nobody owns on the network (all objects in single player).
+--- ```lua
+--- if exu.GetOwnerID(h) == exu.GetMyNetID() then print("mine") end
+--- ```
+--- @nodiscard
+--- @param h handle
+--- @return integer? ownerId
+function exu.GetOwnerID(h) end
+
+--- Lists the players in the network session as this machine sees them, one
+--- table each: `id` (network id, as used by Send, exu.GetMyNetID and
+--- exu.GetOwnerID), `team` (0-15; missing if the engine holds no valid team
+--- yet), `name`, and `isLocal`. There is no handle: GetPlayerHandle(team) does
+--- not resolve remote players in BZR, so look up the craft yourself. Returns an
+--- empty table outside a network game.
+--- ```lua
+--- for _, p in ipairs(exu.AllPlayers()) do print(p.id, p.team, p.name, p.isLocal) end
+--- ```
+--- @nodiscard
+--- @return { id: integer, team: integer?, name: string, isLocal: boolean }[]
+function exu.AllPlayers() end
+
+--- Returns true in a deathmatch-class network game (the engine's MultDM mission),
+--- false in strategy games and single player. The engine sets
+--- it when a stock DM mission starts and clears it when a stock ST mission
+--- starts; other mission types keep the last value (not verified for Lua MP
+--- missions).
+--- ```lua
+--- if exu.IsDeathmatch() then print("DM") end
+--- ```
+--- @nodiscard
+--- @return boolean
+function exu.IsDeathmatch() end
+
+--- Gets the session's launch settings, the same values the engine logs at
+--- "Launching Network Game": `timeLimit` (minutes, 0 = none), `killLimit`
+--- (0 = none), `lives` (lives each player starts with; the live counter is
+--- exu.GetLives), and booleans `sniper`, `barracks`, `commSat`, `splinter`
+--- and `syncJoin`. Returns nil outside a network game. Read-only.
+--- ```lua
+--- local o = exu.GetNetGameOptions()
+--- if o then print(o.timeLimit, o.killLimit, o.lives) end
+--- ```
+--- @nodiscard
+--- @return { timeLimit: integer, killLimit: integer, lives: integer, sniper: boolean, barracks: boolean, commSat: boolean, splinter: boolean, syncJoin: boolean }?
+function exu.GetNetGameOptions() end
+
+--- Gets this machine's network start location: where the stock DM and ST
+--- missions build and respawn the local player. Returns nil when there is no
+--- network session (single player).
+--- ```lua
+--- local pos = exu.GetStartLocation()
+--- ```
+--- @nodiscard
+--- @return vector?
+function exu.GetStartLocation() end
+
+--- Sets this machine's network start location, used by the stock DM respawn
+--- (when no weighted spawn point applies) and the ST respawn. Local only: each
+--- machine keeps its own, so call it on the machine whose player should move.
+--- When the mission ends, EXU puts back the value the engine had before
+--- the first call.
+--- Returns false when there is no network session or a coordinate is not finite.
+--- ```lua
+--- exu.SetStartLocation(GetPosition("spawn_red"))
+--- ```
+--- @param pos vector|number x, or call as (x, y, z)
+--- @param y? number
+--- @param z? number
+--- @return boolean ok
+function exu.SetStartLocation(pos, y, z) end
 
 --- Sets the OpenShim target-reticle popup mode.
 --- 1 = Default, 3 = Explicit Only
@@ -4941,6 +5291,263 @@ function exu.PauseMusic() end
 --- @return boolean reset false when OpenShim lacks the export
 function exu.ResetMissionHookOverrides() end
 
+-------------------------------------------------------------------------------
+-- Small calls (idea credit: GoombaBZ's bzx; reimplemented from the decompiles)
+-------------------------------------------------------------------------------
+
+--- Clears the engine's chat/message list (the engine's own clear, run when a
+--- network game ends). Local to this machine.
+--- ```lua
+--- exu.ClearMessages()
+--- ```
+--- @return boolean ok
+function exu.ClearMessages() end
+
+--- The sound played when a pilot ejects from a destroyed craft (stock "bail.wav").
+--- ```lua
+--- local name = exu.GetEjectSound()
+--- ```
+--- @nodiscard
+--- @return string | nil name nil when the engine string cannot be read
+function exu.GetEjectSound() end
+
+--- Replaces the pilot eject sound for every craft; nil restores "bail.wav".
+--- The stock sound returns when the Lua state closes. Local to this machine.
+--- ```lua
+--- exu.SetEjectSound("mybail.wav")
+--- exu.SetEjectSound(nil)
+--- ```
+--- @param name string? 1-63 chars of A-Z a-z 0-9 . _ - (a bare file name)
+--- @return boolean ok
+function exu.SetEjectSound(name) end
+
+--- The sound played when the player hops out of a craft (stock "jump.wav").
+--- ```lua
+--- local name = exu.GetHopOutSound()
+--- ```
+--- @nodiscard
+--- @return string | nil name
+function exu.GetHopOutSound() end
+
+--- Replaces the hop-out sound; nil restores "jump.wav". Only the hop-out
+--- sound changes: other "jump.wav" uses keep the stock name. Restored when the
+--- Lua state closes. Local to this machine.
+--- ```lua
+--- exu.SetHopOutSound("myhop.wav")
+--- ```
+--- @param name string? 1-63 chars of A-Z a-z 0-9 . _ -
+--- @return boolean ok
+function exu.SetHopOutSound(name) end
+
+--- A craft's pilot eject ratio (0..1, ODF personEjectRatio). The stock death
+--- roll ejects the pilot when ratio * 2 - 1 < random.
+--- ```lua
+--- local ratio = exu.GetPersonEjectRatio(h)
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return number | nil ratio nil when the handle is stale or not a craft
+function exu.GetPersonEjectRatio(h) end
+
+--- Sets a craft's pilot eject ratio. Per object; in multiplayer the death roll
+--- runs on the owning machine, so set it there.
+--- ```lua
+--- exu.SetPersonEjectRatio(h, 0) -- never eject
+--- ```
+--- @param h Handle
+--- @param ratio number 0..1
+--- @return boolean ok false for a non-craft, a dead handle or a bad ratio
+function exu.SetPersonEjectRatio(h, ratio) end
+
+--- Spawns a stock scrap field (the ScrapField object's own call): count
+--- scrap pieces scattered around the position. The engine caps the count to
+--- the free scrap slots. The scrap is local to the calling machine; in
+--- multiplayer call it on every machine.
+--- ```lua
+--- exu.MakeScrapField(GetPosition(h), 8)
+--- ```
+--- @param position Vector
+--- @param count integer 1..1024
+--- @return boolean ok
+function exu.MakeScrapField(position, count) end
+
+--- True when the satellite view is available to the player (a powered comm
+--- tower, the free-satellite option, or arcade).
+--- ```lua
+--- if exu.HasSatellite() then exu.ActivateSatellite() end
+--- ```
+--- @nodiscard
+--- @return boolean
+function exu.HasSatellite() end
+
+--- Switches the player into the satellite view, like pressing the satellite
+--- key. Does nothing when the satellite is unavailable. Use exu.GetSatState
+--- to read the current state.
+--- ```lua
+--- local active = exu.ActivateSatellite()
+--- ```
+--- @return boolean active satellite view is on after the call
+function exu.ActivateSatellite() end
+
+--- Leaves the satellite view for the previous view.
+--- ```lua
+--- exu.DeactivateSatellite()
+--- ```
+--- @return boolean inactive satellite view is off after the call
+function exu.DeactivateSatellite() end
+
+--- Plays a craft's unit voice message through the stock path: only for units
+--- on the player's team, with the stock repeat throttle and mutes (and the EXU
+--- unit-voice policy). Local to this machine.
+--- Names: select_wait, select_go, select_follow, select_attack, select_pickup,
+--- select_dropoff, select_deploy, select_other, go, go_object, follow,
+--- follow_me, attack, repair, reload, rescue, recycle, other, deployed, packed,
+--- killed, died, blocked; or a number 0..26.
+--- ```lua
+--- exu.UnitMessage(h, "attack")
+--- ```
+--- @param h Handle
+--- @param msg string | integer
+--- @return boolean called false for a non-craft or an unknown message; true does not mean a clip played
+function exu.UnitMessage(h, msg) end
+
+--- Queues a craft's unit voice clip directly, skipping the team check,
+--- throttle and mutes of exu.UnitMessage. Priority follows the engine queue:
+--- 0 append, 1 flush the queue first, 2 replace the playing clip, 5 drop when
+--- busy, 6 drop unless the queue is idle or low priority. Local to this machine.
+--- ```lua
+--- exu.UnitMessageDirect(h, "killed", 1)
+--- ```
+--- @param h Handle
+--- @param msg string | integer
+--- @param priority integer? 0..6, default 0
+--- @return boolean queued
+function exu.UnitMessageDirect(h, msg, priority) end
+
+--- Stops the playing unit voice clip and clears the queue.
+--- ```lua
+--- exu.StopUnitMessage()
+--- ```
+--- @return boolean ok
+function exu.StopUnitMessage() end
+
+--- True while a unit voice clip is playing or queued.
+--- ```lua
+--- if not exu.IsUnitMessagePlaying() then exu.UnitMessage(h, "go") end
+--- ```
+--- @nodiscard
+--- @return boolean
+function exu.IsUnitMessagePlaying() end
+
+--- Typed persistent settings, stored in the exu.storage namespace
+--- "exu.settings" as { [section] = { [label] = value } }. The section defaults
+--- to "General". Each call reads the file, so cache values you read often.
+--- Settings live on each machine; they are not synced in multiplayer.
+--- Returns the default (or nil) and false when the key is missing or holds
+--- another type.
+--- ```lua
+--- local hard, found = exu.GetSettingBool("MyMod", "HardMode", false)
+--- local hard2 = exu.GetSettingBool("HardMode", false) -- section "General"
+--- ```
+--- @nodiscard
+--- @param section string? 1-64 printable ASCII chars
+--- @param label string 1-64 printable ASCII chars
+--- @param default boolean?
+--- @return boolean | nil value
+--- @return boolean found
+function exu.GetSettingBool(section, label, default) end
+
+--- Integer setting; see exu.GetSettingBool.
+--- ```lua
+--- local waves = exu.GetSettingInt("MyMod", "Waves", 3)
+--- ```
+--- @nodiscard
+--- @param section string?
+--- @param label string
+--- @param default integer?
+--- @return integer | nil value
+--- @return boolean found
+function exu.GetSettingInt(section, label, default) end
+
+--- Number setting; see exu.GetSettingBool.
+--- ```lua
+--- local scale = exu.GetSettingFloat("MyMod", "Scale", 1.0)
+--- ```
+--- @nodiscard
+--- @param section string?
+--- @param label string
+--- @param default number?
+--- @return number | nil value
+--- @return boolean found
+function exu.GetSettingFloat(section, label, default) end
+
+--- String setting; see exu.GetSettingBool. One argument is the label; two
+--- arguments are always (section, label), so pass the section to give a default.
+--- ```lua
+--- local name = exu.GetSettingString("MyMod", "Callsign", "Red 1")
+--- ```
+--- @nodiscard
+--- @param section string?
+--- @param label string
+--- @param default string?
+--- @return string | nil value
+--- @return boolean found
+function exu.GetSettingString(section, label, default) end
+
+--- Saves a boolean setting ([section] defaults to "General").
+--- ```lua
+--- local ok, err = exu.SaveSettingBool("MyMod", "HardMode", true)
+--- ```
+--- @param section string?
+--- @param label string
+--- @param value boolean
+--- @return boolean ok
+--- @return string | nil err
+function exu.SaveSettingBool(section, label, value) end
+
+--- Saves an integer setting.
+--- ```lua
+--- exu.SaveSettingInt("MyMod", "Waves", 5)
+--- ```
+--- @param section string?
+--- @param label string
+--- @param value integer
+--- @return boolean ok
+--- @return string | nil err
+function exu.SaveSettingInt(section, label, value) end
+
+--- Saves a finite number setting.
+--- ```lua
+--- exu.SaveSettingFloat("MyMod", "Scale", 1.5)
+--- ```
+--- @param section string?
+--- @param label string
+--- @param value number
+--- @return boolean ok
+--- @return string | nil err
+function exu.SaveSettingFloat(section, label, value) end
+
+--- Saves a string setting.
+--- ```lua
+--- exu.SaveSettingString("MyMod", "Callsign", "Red 1")
+--- ```
+--- @param section string?
+--- @param label string
+--- @param value string
+--- @return boolean ok
+--- @return string | nil err
+function exu.SaveSettingString(section, label, value) end
+
+--- Removes one setting; an emptied section is removed too.
+--- ```lua
+--- exu.DeleteSetting("MyMod", "HardMode")
+--- ```
+--- @param section string?
+--- @param label string
+--- @return boolean ok
+--- @return string | nil err
+function exu.DeleteSetting(section, label) end
+
 --- ```lua
 --- local ok = exu.ResetOverlaySupport("mission-end")
 --- if not ok then print("overlay reset failed") end
@@ -5754,6 +6361,127 @@ function exu.SetBuildEventsEnabled(enabled) end
 --- @return number dropped Cumulative overwritten events.
 --- @return integer pending
 function exu.DrainBuildEvents(limit) end
+
+--- Cancels the active build of a Producer (Recycler, Factory, Armory, ConstructionRig) and refunds it,
+--- through the engine's own CancelBuild, so exu.DrainBuildEvents reports it as 'cancelled'.
+--- False for a non-producer, an idle producer, or a remote replica in a net game (call it on the owning machine).
+--- ```lua
+--- if exu.CancelBuild(GetRecyclerHandle()) then print("refunded") end
+--- ```
+--- @param h Handle
+--- @return boolean cancelled
+function exu.CancelBuild(h) end
+
+--- Completes the active build now, as if its timer had run out (engine FinishBuild, so it emits a
+--- 'completed' build event). Only when the engine would itself finish it: deployed and busy.
+--- An undeployed Recycler/Factory, or a ConstructionRig still driving to its site, returns nil.
+--- Returns the new object, or nil (also nil for an Armory, whose launch has no handle).
+--- Refuses remote replicas in a net game; call it on the owning machine.
+--- ```lua
+--- local built = exu.FinishBuild(GetFactoryHandle())
+--- ```
+--- @param h Handle
+--- @return Handle? built
+function exu.FinishBuild(h) end
+
+--- Seconds left on a Producer's active build (0 once it is due), or nil when idle or not a producer.
+--- The timer only counts down while the producer is deployed.
+--- ```lua
+--- local left = exu.GetBuildTimeLeft(GetRecyclerHandle())
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return number? seconds
+function exu.GetBuildTimeLeft(h) end
+
+--- Sets the seconds left on a Producer's active build (0..1e6; 0 finishes it on the next deployed update).
+--- False when idle, not a producer, or out of range. Local effect only: in a net game call it on the owner.
+--- ```lua
+--- exu.SetBuildTimeLeft(GetFactoryHandle(), 2.5)
+--- ```
+--- @param h Handle
+--- @param seconds number
+--- @return boolean ok
+function exu.SetBuildTimeLeft(h, seconds) end
+
+--- ODF basename (up to eight characters) a Producer is building, or nil when idle or not a producer.
+--- ```lua
+--- print(exu.GetBuildingOdf(GetRecyclerHandle()))
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return string? odf
+function exu.GetBuildingOdf(h) end
+
+--- Scrap a Scavenger currently holds, or nil for a non-scavenger.
+--- ```lua
+--- local held = exu.GetCurScrapHold(GetHandle("scav1"))
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return integer? scrap
+function exu.GetCurScrapHold(h) end
+
+--- Sets the scrap a Scavenger holds, clamped to [0, GetMaxScrapHold] and truncated to an integer.
+--- False for a non-scavenger or NaN. Local effect only: in a net game call it on the owner.
+--- ```lua
+--- exu.SetCurScrapHold(GetHandle("scav1"), 10)
+--- ```
+--- @param h Handle
+--- @param amount number
+--- @return boolean ok
+function exu.SetCurScrapHold(h, amount) end
+
+--- A Scavenger's scrap capacity, or nil for a non-scavenger.
+--- ```lua
+--- local cap = exu.GetMaxScrapHold(GetHandle("scav1"))
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return integer? capacity
+function exu.GetMaxScrapHold(h) end
+
+--- Sets a Scavenger's scrap capacity (1..1e6, truncated); the held amount is clamped to it.
+--- Not saved: a loaded game restores the ODF capacity, so set it again after load.
+--- Local effect only: in a net game call it on the owner.
+--- ```lua
+--- exu.SetMaxScrapHold(GetHandle("scav1"), 40)
+--- ```
+--- @param h Handle
+--- @param capacity number
+--- @return boolean ok
+function exu.SetMaxScrapHold(h, capacity) end
+
+--- ODF basename the unit's current Build command builds (Build, BuildAt, or SetCommand with
+--- the build command and a string param), or nil for any other command. Pairs with GetCurrentCommand/GetCurrentWho.
+--- ```lua
+--- print(GetCurrentCommand(rig), exu.GetCurrentParam(rig))
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return string? odf
+function exu.GetCurrentParam(h) end
+
+--- The 'when' value of the unit's current command (as given to SetCommand), or nil.
+--- Commands that do not set it (stock Build, for example) leave an arbitrary value here.
+--- ```lua
+--- local when = exu.GetCurrentWhen(GetHandle("tank1"))
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return number? when
+function exu.GetCurrentWhen(h) end
+
+--- The path of the unit's current command: its name (nil for an anonymous path, such as Goto or BuildAt
+--- to a position) and its last point, with y from the terrain height. Nil when the command has no path or the height cannot be read.
+--- ```lua
+--- local name, dest = exu.GetCurrentWhere(GetHandle("tank1"))
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return string? path
+--- @return Vector? destination
+function exu.GetCurrentWhere(h) end
 
 --- Runs BZR's native rig placement validation, with its 10-unit X/Z clearance.
 --- Adjusts height to the engine floor, checks terrain/collisions and allied power range.

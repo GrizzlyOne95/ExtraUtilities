@@ -24,12 +24,14 @@
 #include "UI/InterfacePresentation.h"
 #include "Game/ProjectionBindings.h"
 #include "Game/BuildEvents.h"
+#include "Game/ProducerScrap.h"
 #include "Game/ConstructionHologram.h"
 #include "Game/TerrainPlacement.h"
 #include "Game/ConsoleRegistry.h"
 #include "Game/Culling.h"
 #include "Game/DamageResistance.h"
 #include "Game/VehicleControl.h"
+#include "Game/WeaponControl.h"
 #include "Game/FirstPersonLayers.h"
 #include "Game/DeathCamera.h"
 #include "Game/PersonLongClips.h"
@@ -38,6 +40,7 @@
 #include "Game/LaserSight.h"
 #include "Game/BettyVoice.h"
 #include "Game/Plant.h"
+#include "Game/SmallCalls.h"
 #include "Game/PersonAnimBlend.h"
 #include "Game/PilotAnimationPolicy.h"
 #include "Game/PilotFsmIntercept.h"
@@ -759,6 +762,27 @@ namespace ExtraUtilities::Lua
 			{ "SetParticleEmitterAngle", &Environment::SetParticleEmitterAngle },
 			{ "SetParticleEmitterTimeToLive", &Environment::SetParticleEmitterTimeToLive },
 			{ "SetParticleEmitterColor", &Environment::SetParticleEmitterColor },
+			// Environment hazards
+			{ "GetLightningBolts", &Environment::GetLightningBolts },
+			{ "GetLightningColor", &Environment::GetLightningColor },
+			{ "SetLightningColor", &Environment::SetLightningColor },
+			{ "GetLightningDistance", &Environment::GetLightningDistance },
+			{ "SetLightningDistance", &Environment::SetLightningDistance },
+			{ "GetLightningDuration", &Environment::GetLightningDuration },
+			{ "SetLightningDuration", &Environment::SetLightningDuration },
+			{ "GetLightningMaxDelay", &Environment::GetLightningMaxDelay },
+			{ "SetLightningMaxDelay", &Environment::SetLightningMaxDelay },
+			{ "GetLightningMinDelay", &Environment::GetLightningMinDelay },
+			{ "SetLightningMinDelay", &Environment::SetLightningMinDelay },
+			{ "GetLightningSound", &Environment::GetLightningSound },
+			{ "SetLightningSound", &Environment::SetLightningSound },
+			{ "StartLightning", &Environment::StartLightning },
+			{ "StopLightning", &Environment::StopLightning },
+			{ "FireLightning", &Environment::FireLightning },
+			{ "StartLava", &Environment::StartLava },
+			{ "StopLava", &Environment::StopLava },
+			{ "SetLava", &Environment::SetLava },
+			{ "SetGlare", &Environment::SetGlare },
 			{ "GetParticleEmitterType", &Environment::GetParticleEmitterType },
 			{ "GetParticleEmitterParameterNames", &Environment::GetParticleEmitterParameterNames },
 			{ "GetParticleEmitterParameter", &Environment::GetParticleEmitterParameter },
@@ -966,6 +990,15 @@ namespace ExtraUtilities::Lua
 			{ "GetVelocJam",	&GameObject::GetVelocJam },
 			{ "SetVelocJam",	&GameObject::SetVelocJam },
 
+			// Weapon control
+			{ "FireWeapons",		&WeaponControl::FireWeapons },
+			{ "FireSpecialWeapon",	&WeaponControl::FireSpecialWeapon },
+			{ "CeaseFire",		&WeaponControl::CeaseFire },
+			{ "GetWeaponEnabled",	&WeaponControl::GetWeaponEnabled },
+			{ "SetWeaponEnabled",	&WeaponControl::SetWeaponEnabled },
+			{ "IsSpecialActive",	&WeaponControl::IsSpecialActive },
+			{ "GetHardpoint",		&WeaponControl::GetHardpoint },
+
 			// Graphics Options
 			{ "GetFullscreen", &GraphicsOptions::GetFullscreen },
 			{ "GetGameResolution", &GraphicsOptions::GetGameResolution },
@@ -1004,6 +1037,15 @@ namespace ExtraUtilities::Lua
 			{ "SetShowScoreboard", &Multiplayer::SetShowScoreboard },
 			{ "DisableStartingRecycler", &Multiplayer::DisableStartingRecycler },
 			{ "AdoptObject", &Multiplayer::AdoptObject },
+			// Net identity
+			{ "GetNetworkID", &Multiplayer::GetNetworkID },
+			{ "GetHandleFromNetworkID", &Multiplayer::GetHandleFromNetworkID },
+			{ "GetOwnerID", &Multiplayer::GetOwnerID },
+			{ "AllPlayers", &Multiplayer::AllPlayers },
+			{ "IsDeathmatch", &Multiplayer::IsDeathmatch },
+			{ "GetNetGameOptions", &Multiplayer::GetNetGameOptions },
+			{ "GetStartLocation", &Multiplayer::GetStartLocation },
+			{ "SetStartLocation", &Multiplayer::SetStartLocation },
 
 			// Ordnance
 			{ "BuildOrdnance", &Ordnance::BuildOrdnance },
@@ -1110,6 +1152,32 @@ namespace ExtraUtilities::Lua
 			{ "PlayUserAmmoWarning", &BettyVoice::PlayUserAmmoWarning },
 			{ "ResetMissionHookOverrides", &Patches::ResetMissionHookOverrides },
 
+			// Small calls
+			{ "ClearMessages", &SmallCalls::ClearMessages },
+			{ "GetEjectSound", &SmallCalls::GetEjectSound },
+			{ "SetEjectSound", &SmallCalls::SetEjectSound },
+			{ "GetHopOutSound", &SmallCalls::GetHopOutSound },
+			{ "SetHopOutSound", &SmallCalls::SetHopOutSound },
+			{ "GetPersonEjectRatio", &SmallCalls::GetPersonEjectRatio },
+			{ "SetPersonEjectRatio", &SmallCalls::SetPersonEjectRatio },
+			{ "MakeScrapField", &SmallCalls::MakeScrapField },
+			{ "HasSatellite", &SmallCalls::HasSatellite },
+			{ "ActivateSatellite", &SmallCalls::ActivateSatellite },
+			{ "DeactivateSatellite", &SmallCalls::DeactivateSatellite },
+			{ "UnitMessage", &SmallCalls::UnitMessage },
+			{ "UnitMessageDirect", &SmallCalls::UnitMessageDirect },
+			{ "StopUnitMessage", &SmallCalls::StopUnitMessage },
+			{ "IsUnitMessagePlaying", &SmallCalls::IsUnitMessagePlaying },
+			{ "GetSettingBool", &SmallCalls::GetSettingBool },
+			{ "GetSettingInt", &SmallCalls::GetSettingInt },
+			{ "GetSettingFloat", &SmallCalls::GetSettingFloat },
+			{ "GetSettingString", &SmallCalls::GetSettingString },
+			{ "SaveSettingBool", &SmallCalls::SaveSettingBool },
+			{ "SaveSettingInt", &SmallCalls::SaveSettingInt },
+			{ "SaveSettingFloat", &SmallCalls::SaveSettingFloat },
+			{ "SaveSettingString", &SmallCalls::SaveSettingString },
+			{ "DeleteSetting", &SmallCalls::DeleteSetting },
+
 			// Play Options
 			{ "GetAutoLevel",	 &PlayOption::GetAutoLevel },
 			{ "SetAutoLevel",	 &PlayOption::SetAutoLevel },
@@ -1169,6 +1237,19 @@ namespace ExtraUtilities::Lua
             { "SetConstructionHologramEnabled", &ConstructionHologram::SetEnabled },
             { "SetBuildEventsEnabled", &BuildEvents::SetEnabled },
             { "DrainBuildEvents", &BuildEvents::Drain },
+            // Producer + scrap
+            { "CancelBuild", &ProducerScrap::CancelBuild },
+            { "FinishBuild", &ProducerScrap::FinishBuild },
+            { "GetBuildTimeLeft", &ProducerScrap::GetBuildTimeLeft },
+            { "SetBuildTimeLeft", &ProducerScrap::SetBuildTimeLeft },
+            { "GetBuildingOdf", &ProducerScrap::GetBuildingOdf },
+            { "GetCurScrapHold", &ProducerScrap::GetCurScrapHold },
+            { "SetCurScrapHold", &ProducerScrap::SetCurScrapHold },
+            { "GetMaxScrapHold", &ProducerScrap::GetMaxScrapHold },
+            { "SetMaxScrapHold", &ProducerScrap::SetMaxScrapHold },
+            { "GetCurrentParam", &ProducerScrap::GetCurrentParam },
+            { "GetCurrentWhen", &ProducerScrap::GetCurrentWhen },
+            { "GetCurrentWhere", &ProducerScrap::GetCurrentWhere },
             { "IsTerrainBuildable", &TerrainPlacementBindings::IsTerrainBuildable },
             { "RegisterConsoleCommand", &ConsoleRegistry::RegisterCommand },
             { "RegisterConsoleVariable", &ConsoleRegistry::RegisterVariable },

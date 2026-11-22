@@ -205,6 +205,24 @@ namespace ExtraUtilities::EngineAddresses
 			ViewportSchemeCallSite1 = 0x00682AA0u,
 			// call site (call [IAT])
 			ViewportSchemeCallSite2 = 0x00682EA7u,
+			// data (LightningFeature singleton)
+			LightningFeature = 0x009B7CD8u,
+			// vftable (LightningFeature)
+			LightningFeatureVftable = 0x0087B934u,
+			// data (BoltSet globals)
+			LightningBoltSet = 0x009B7CA4u,
+			// function (thiscall LightningFeature::AddBoltEmitter(target))
+			LightningAddBoltEmitter = 0x004FAB60u,
+			// function (thiscall LightningFeature::BoltInit(emitter))
+			LightningBoltInit = 0x004FABB0u,
+			// data (int lavaMat)
+			LavaMaterial = 0x008F05C8u,
+			// patch site (mulss xmm0, [0x8a295c]; disp32 at +4)
+			LavaDamageScaleSite = 0x004AB171u,
+			// data (ColorFade singleton)
+			ColorFade = 0x0097838Cu,
+			// function (thiscall ColorFade::SetGlare(float amount))
+			ColorFadeSetGlare = 0x0049B4C0u,
 		};
 	}
 
@@ -276,6 +294,30 @@ namespace ExtraUtilities::EngineAddresses
 			NetPlayerLoss = 0x00575FF0u,
 			// code identity anchor
 			ScoreboardRowIdentity = 0x006265DAu,
+			// function: GameObject* __cdecl(unsigned int networkId)
+			DistributedObjectGetGameObject = 0x004B9AB0u,
+			// function: void* __cdecl(void* previousPlayer)
+			NextNetPlayer = 0x00577B50u,
+			// void** (session object)
+			NetSession = 0x00917F48u,
+			// bool*
+			deathmatch = 0x00917F7Au,
+			// bool*
+			syncJoin = 0x00917F8Eu,
+			// bool*
+			sniperOption = 0x009175BFu,
+			// bool*
+			barracksOption = 0x008E8C0Eu,
+			// int*
+			startLives = 0x00917FA4u,
+			// bool*
+			commSatOption = 0x008E7733u,
+			// bool*
+			splinterOption = 0x008E8C0Cu,
+			// int*
+			timeLimit = 0x00917F44u,
+			// int*
+			killLimit = 0x00917F54u,
 		};
 	}
 
@@ -498,6 +540,31 @@ namespace ExtraUtilities::EngineAddresses
 		{
 			// uint8_t*
 			soundStruct1 = 0x0094672Cu,
+		};
+	}
+
+	namespace SmallCalls
+	{
+		enum : uintptr_t
+		{
+			// function: void __cdecl(int color, const char* text)
+			ChatMessageAdd = 0x007A47B0u,
+			// const char** (.data, initially -> "bail.wav" at 0x008782A0)
+			EjectSoundName = 0x008E7C9Cu,
+			// code: push imm32 (5 bytes, imm -> "jump.wav" at 0x008783A0)
+			HopOutSoundPush = 0x004AE0E9u,
+			// function: int __cdecl(void) (returns 0/1 in eax)
+			SatelliteAvailable = 0x0049F500u,
+			// function: void __cdecl(GameObject* craft, int unitMsg, int unused)
+			UnitSay = 0x005F91E0u,
+			// function: const char* __cdecl(GameObject* craft, int unitMsg)
+			UnitMsgFilename = 0x005F8FB0u,
+			// function: bool __cdecl(const char* name, void* owner, unsigned priority)
+			UnitVoQueue = 0x0043D1D0u,
+			// function: void __cdecl(int)
+			UnitVoKillQueue = 0x0043D4F0u,
+			// void** (head of the QueueCB list; NULL when nothing is playing or queued)
+			UnitVoQueueHead = 0x00915640u,
 		};
 	}
 
@@ -968,6 +1035,15 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
+	namespace WeaponControl
+	{
+		enum : uintptr_t
+		{
+			// function: void __thiscall(Carrier*)
+			UnTriggerAll = 0x004A7800u,
+		};
+	}
+
 	namespace VehicleControl
 	{
 		enum : uintptr_t
@@ -1006,6 +1082,8 @@ namespace ExtraUtilities::EngineAddresses
 			FinishBuild = 0x005AF160u,
 			// void* __thiscall(void*)
 			ArmoryFinishBuild = 0x004732C0u,
+			// bool __thiscall(void*)
+			IsBusy = 0x004723D0u,
 		};
 	}
 
@@ -1105,5 +1183,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 380u;
+	inline constexpr unsigned kEntryCount = 412u;
 }
