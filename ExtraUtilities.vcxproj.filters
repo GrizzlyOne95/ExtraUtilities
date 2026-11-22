@@ -41,6 +41,7 @@
     <ClCompile Include="src\Game\ConsoleRegistry.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Game\ProjectionBindings.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Game\TerrainPlacement.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\Game\WeaponControl.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Ogre\OgreCameraRuntime.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\luaexport.cpp">
       <Filter>Source Files</Filter>

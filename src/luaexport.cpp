@@ -31,6 +31,7 @@
 #include "Game/Culling.h"
 #include "Game/DamageResistance.h"
 #include "Game/VehicleControl.h"
+#include "Game/WeaponControl.h"
 #include "Game/FirstPersonLayers.h"
 #include "Game/DeathCamera.h"
 #include "Game/PersonLongClips.h"
@@ -960,6 +961,15 @@ namespace ExtraUtilities::Lua
 			{ "GetVelocJam",	&GameObject::GetVelocJam },
 			{ "SetVelocJam",	&GameObject::SetVelocJam },
 
+			// Weapon control
+			{ "FireWeapons",		&WeaponControl::FireWeapons },
+			{ "FireSpecialWeapon",	&WeaponControl::FireSpecialWeapon },
+			{ "CeaseFire",		&WeaponControl::CeaseFire },
+			{ "GetWeaponEnabled",	&WeaponControl::GetWeaponEnabled },
+			{ "SetWeaponEnabled",	&WeaponControl::SetWeaponEnabled },
+			{ "IsSpecialActive",	&WeaponControl::IsSpecialActive },
+			{ "GetHardpoint",		&WeaponControl::GetHardpoint },
+
 			// Graphics Options
 			{ "GetFullscreen", &GraphicsOptions::GetFullscreen },
 			{ "GetGameResolution", &GraphicsOptions::GetGameResolution },
@@ -998,6 +1008,15 @@ namespace ExtraUtilities::Lua
 			{ "SetShowScoreboard", &Multiplayer::SetShowScoreboard },
 			{ "DisableStartingRecycler", &Multiplayer::DisableStartingRecycler },
 			{ "AdoptObject", &Multiplayer::AdoptObject },
+			// Net identity
+			{ "GetNetworkID", &Multiplayer::GetNetworkID },
+			{ "GetHandleFromNetworkID", &Multiplayer::GetHandleFromNetworkID },
+			{ "GetOwnerID", &Multiplayer::GetOwnerID },
+			{ "AllPlayers", &Multiplayer::AllPlayers },
+			{ "IsDeathmatch", &Multiplayer::IsDeathmatch },
+			{ "GetNetGameOptions", &Multiplayer::GetNetGameOptions },
+			{ "GetStartLocation", &Multiplayer::GetStartLocation },
+			{ "SetStartLocation", &Multiplayer::SetStartLocation },
 
 			// Ordnance
 			{ "BuildOrdnance", &Ordnance::BuildOrdnance },

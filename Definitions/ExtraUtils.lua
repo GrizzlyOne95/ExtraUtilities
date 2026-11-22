@@ -3530,6 +3530,108 @@ function exu.GetVelocJam(h) end
 --- @param maxSpeed number finite and non-negative
 function exu.SetVelocJam(h, maxSpeed) end
 
+--- Triggers the unit's selected weapons this tick, the same call the engine
+--- makes when a pilot or the AI fires (Carrier::TriggerSelected). With a mask,
+--- the weapon selection is first changed to those slots (bit i = slot i, 1..31;
+--- slots without a weapon are dropped). Disabled slots (see
+--- exu.SetWeaponEnabled) never fire.
+---
+--- The trigger is a one-tick latch the weapon consumes on its next update:
+--- call this every frame for sustained fire. The mask changes the selection
+--- persistently (Select/Deselect run, the HUD follows for the player), and the
+--- unit's AI may reselect weapons on its own afterwards.
+---
+--- Multiplayer: weapon fire is simulated by the machine that owns the unit;
+--- call this there. On other machines it only affects the local copy.
+--- ```lua
+--- exu.FireWeapons(h)      -- fire whatever is selected
+--- exu.FireWeapons(h, 3)   -- select slots 0 and 1, then fire them
+--- ```
+--- @param h Handle
+--- @param mask? integer slot bitmask 1..31
+--- @return boolean|nil fired true if any weapon was triggered, false if nothing could fire (bad mask, nothing selected or enabled), nil for an invalid handle or a unit without weapons
+function exu.FireWeapons(h, mask) end
+
+--- Triggers the unit's special slot (Carrier::TriggerSpecial), if it has one
+--- and it is enabled. Special items (RadarDamper, ImageRefract,
+--- TerrainExpose, SpecialItem) toggle on trigger and ignore repeated triggers
+--- while held, so one call switches the item; check exu.IsSpecialActive.
+--- UNVERIFIED: the engine may ignore this toggle on the local player's own
+--- vehicle (SpecialItem::Trigger is gated for the user object).
+---
+--- Multiplayer: call on the machine that owns the unit.
+--- ```lua
+--- exu.FireSpecialWeapon(h)
+--- ```
+--- @param h Handle
+--- @return boolean|nil fired true if the special slot was triggered, nil for an invalid handle or a unit without weapons
+function exu.FireSpecialWeapon(h) end
+
+--- Releases the trigger on every mounted weapon (Carrier::UnTriggerAll, the
+--- call the engine makes when a pilot leaves a craft). Cancels a fire latched
+--- earlier in the same tick and switches special items off. It does not stop
+--- the AI or the player pulling the trigger again on a later tick.
+---
+--- Multiplayer: call on the machine that owns the unit.
+--- ```lua
+--- exu.CeaseFire(h)
+--- ```
+--- @param h Handle
+--- @return boolean|nil done true once the weapons were untriggered, nil for an invalid handle or a unit without weapons
+function exu.CeaseFire(h) end
+
+--- Gets whether the weapon in a slot is enabled (the carrier's enabled mask).
+--- A disabled weapon never fires, whoever pulls the trigger.
+--- ```lua
+--- local on = exu.GetWeaponEnabled(GetPlayerHandle(), 0)
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @param slot integer weapon slot 0..4
+--- @return boolean|nil enabled nil for an empty slot, an invalid slot, an invalid handle or a unit without weapons
+function exu.GetWeaponEnabled(h, slot) end
+
+--- Enables or disables the weapon in a slot. A disabled weapon never fires,
+--- for the player or the AI. Refused (false) for an empty slot and for
+--- producers (factory, armory, recycler, constructor) and turret tanks /
+--- howitzers, whose enabled mask the engine rewrites every tick from their
+--- deployed state. GiveWeapon re-enables the slot it fills.
+---
+--- Multiplayer: the mask is local to each machine; call on the machine that
+--- owns the unit (and on every machine if the HUD should agree).
+--- ```lua
+--- exu.SetWeaponEnabled(h, 1, false) -- slot 1 stops firing
+--- ```
+--- @param h Handle
+--- @param slot integer weapon slot 0..4
+--- @param enabled boolean
+--- @return boolean applied true if the mask was written
+function exu.SetWeaponEnabled(h, slot, enabled) end
+
+--- Gets whether the special item in a slot is switched on (RadarDamper,
+--- ImageRefract, TerrainExpose or another SpecialItem). False for a weapon
+--- that is not a special item.
+--- ```lua
+--- if exu.IsSpecialActive(h, 4) then print("cloaked") end
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @param slot integer weapon slot 0..4
+--- @return boolean|nil active nil for an empty slot, an invalid slot, an invalid handle or a unit without weapons
+function exu.IsSpecialActive(h, slot) end
+
+--- Gets the hardpoint name of a weapon slot (the ODF weaponHardN, e.g. "GC1")
+--- and the ODF of the weapon mounted there.
+--- ```lua
+--- local hardpoint, odf = exu.GetHardpoint(GetPlayerHandle(), 0)
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @param slot integer weapon slot 0..4
+--- @return string|nil hardpoint nil when the slot has no hardpoint
+--- @return string|nil odf nil when the slot has no weapon
+function exu.GetHardpoint(h, slot) end
+
 --- Graphics Options
 
 --- Gets if the game is currently in fullscreen.
@@ -3878,6 +3980,111 @@ function exu.DisableStartingRecycler() end
 --- @return boolean ok
 --- @return string? reason when not ok
 function exu.AdoptObject(h, team) end
+
+--- Gets the object's network id: the id the engine uses to name this object in
+--- network packets. A local object gets `(owner's net id * 65536) + counter`
+--- when it is networked, and remote copies on other machines carry the same
+--- id, so the number names one object on every machine and can be sent with
+--- Send() and resolved with exu.GetHandleFromNetworkID. Returns nil for an
+--- invalid handle and for objects that are not networked (single player, or
+--- map objects nobody has taken ownership of, which keep id 0).
+--- ```lua
+--- local id = exu.GetNetworkID(GetHandle("tank1"))
+--- if id then Send(0, "T", id) end
+--- ```
+--- @nodiscard
+--- @param h handle
+--- @return integer? id
+function exu.GetNetworkID(h) end
+
+--- Finds the object with a network id from exu.GetNetworkID, on this machine:
+--- the local object with that id, else the local copy of a remote one. Returns
+--- nil when no object here has that id (not networked yet, already dead, not
+--- yet created here, or single player).
+--- ```lua
+--- local h = exu.GetHandleFromNetworkID(id)
+--- if h then SetTeamNum(h, 2) end
+--- ```
+--- @nodiscard
+--- @param id integer
+--- @return handle?
+function exu.GetHandleFromNetworkID(id) end
+
+--- Gets the network id of the player whose machine owns (simulates) this
+--- object. Compare it with exu.GetMyNetID() or the `id` fields of
+--- exu.AllPlayers(). Ownership moves when a player boards a craft or a script
+--- calls SetLocal / exu.AdoptObject. Returns nil for an invalid handle and for
+--- objects nobody owns on the network (all objects in single player).
+--- ```lua
+--- if exu.GetOwnerID(h) == exu.GetMyNetID() then print("mine") end
+--- ```
+--- @nodiscard
+--- @param h handle
+--- @return integer? ownerId
+function exu.GetOwnerID(h) end
+
+--- Lists the players in the network session as this machine sees them, one
+--- table each: `id` (network id, as used by Send, exu.GetMyNetID and
+--- exu.GetOwnerID), `team` (0-15; missing if the engine holds no valid team
+--- yet), `name`, and `isLocal`. There is no handle: GetPlayerHandle(team) does
+--- not resolve remote players in BZR, so look up the craft yourself. Returns an
+--- empty table outside a network game.
+--- ```lua
+--- for _, p in ipairs(exu.AllPlayers()) do print(p.id, p.team, p.name, p.isLocal) end
+--- ```
+--- @nodiscard
+--- @return { id: integer, team: integer?, name: string, isLocal: boolean }[]
+function exu.AllPlayers() end
+
+--- Returns true in a deathmatch-class network game (the engine's MultDM mission),
+--- false in strategy games and single player. The engine sets
+--- it when a stock DM mission starts and clears it when a stock ST mission
+--- starts; other mission types keep the last value (not verified for Lua MP
+--- missions).
+--- ```lua
+--- if exu.IsDeathmatch() then print("DM") end
+--- ```
+--- @nodiscard
+--- @return boolean
+function exu.IsDeathmatch() end
+
+--- Gets the session's launch settings, the same values the engine logs at
+--- "Launching Network Game": `timeLimit` (minutes, 0 = none), `killLimit`
+--- (0 = none), `lives` (lives each player starts with; the live counter is
+--- exu.GetLives), and booleans `sniper`, `barracks`, `commSat`, `splinter`
+--- and `syncJoin`. Returns nil outside a network game. Read-only.
+--- ```lua
+--- local o = exu.GetNetGameOptions()
+--- if o then print(o.timeLimit, o.killLimit, o.lives) end
+--- ```
+--- @nodiscard
+--- @return { timeLimit: integer, killLimit: integer, lives: integer, sniper: boolean, barracks: boolean, commSat: boolean, splinter: boolean, syncJoin: boolean }?
+function exu.GetNetGameOptions() end
+
+--- Gets this machine's network start location: where the stock DM and ST
+--- missions build and respawn the local player. Returns nil when there is no
+--- network session (single player).
+--- ```lua
+--- local pos = exu.GetStartLocation()
+--- ```
+--- @nodiscard
+--- @return vector?
+function exu.GetStartLocation() end
+
+--- Sets this machine's network start location, used by the stock DM respawn
+--- (when no weighted spawn point applies) and the ST respawn. Local only: each
+--- machine keeps its own, so call it on the machine whose player should move.
+--- When the mission ends, EXU puts back the value the engine had before
+--- the first call.
+--- Returns false when there is no network session or a coordinate is not finite.
+--- ```lua
+--- exu.SetStartLocation(GetPosition("spawn_red"))
+--- ```
+--- @param pos vector|number x, or call as (x, y, z)
+--- @param y? number
+--- @param z? number
+--- @return boolean ok
+function exu.SetStartLocation(pos, y, z) end
 
 --- Sets the OpenShim target-reticle popup mode.
 --- 1 = Default, 3 = Explicit Only
