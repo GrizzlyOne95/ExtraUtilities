@@ -77,8 +77,9 @@ int main()
     Expect(!IsLoadableResourceName("null", 4) && !IsLoadableResourceName("NULL.des", 8) && !IsLoadableResourceName("Nullify.odf", 11),
         "UseItem refuses any name starting \"null\" in any case");
     Expect(IsLoadableResourceName("anull.des", 9), "\"null\" only matters as a prefix");
+    Expect(IsLoadableResourceName("nul", 3) && !IsLoadableResourceName("NuLl", 4), "3-char names pass; mixed-case null refused");
     Expect(!IsLoadableResourceName("a\0b.des", 7), "embedded NUL rejected");
     Expect(IsLoadableResourceSize(1) && !IsLoadableResourceSize(0) && !IsLoadableResourceSize(-1),
-        "only a positive size is loadable (0 absent, -1 missing pak record)");
+        "only a positive size is loadable");
     return HostTest::Finish("small calls");
 }

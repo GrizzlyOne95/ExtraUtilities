@@ -5552,7 +5552,8 @@ function exu.DeleteSetting(section, label) end
 --- it asks the same engine lookup UseItem uses (loaded-resource cache, then
 --- the game's file index and search path), but nothing is read and no
 --- `Couldn't find file` line reaches BZLogger.txt. Names starting "null"
---- and empty names are false, as UseItem returns nil for them. Local to
+--- and empty names are false, as UseItem returns nil for them; so is a name
+--- with an embedded NUL (the engine would see a shorter name). Local to
 --- this machine; nil when the build is unsupported or the lookup faults, so
 --- treat nil as "unknown" and fall back to reading.
 --- ```lua

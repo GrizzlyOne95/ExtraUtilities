@@ -257,9 +257,10 @@ namespace ExtraUtilities::SmallCallsLogic
 	}
 
 	// The resource loader (0x00481B80) logs "Couldn't find file" when the
-	// size lookup returns 0. A pak whose record is absent returns -1, which
-	// the loader's unsigned test lets through but no read can satisfy, so
-	// only a positive size counts as loadable.
+	// size lookup returns 0 (cmp [ebp-0x24], 0; ja at 0x00481C6F). Every miss
+	// path of FUN_00829150 returns 0 (xor eax, eax at 0x0082919F, 0x0082925E,
+	// 0x0082931C, 0x00829379 and 0x0082937D; a missing pak record included).
+	// Only a positive size counts, so a stray negative is never "present".
 	inline bool IsLoadableResourceSize(int size) noexcept
 	{
 		return size > 0;

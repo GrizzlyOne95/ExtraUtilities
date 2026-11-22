@@ -18,6 +18,7 @@ return function(exu, stem)
     end
 
     assert(agrees(stem .. ".des") == true)
+    assert(agrees(stem .. ".des") == true) -- again, now from the loaded-resource cache
     assert(agrees("ivtank.odf") == true) -- stock archive asset
     assert(agrees(stem .. "_9.des") == false)
     assert(agrees("exu_no_such_file.des") == false)
