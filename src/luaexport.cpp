@@ -33,6 +33,7 @@
 #include "Game/FirstPersonLayers.h"
 #include "Game/DeathCamera.h"
 #include "Game/PersonLongClips.h"
+#include "Game/MissionPaths.h"
 #include "Game/PathBlock.h"
 #include "Game/LaserSight.h"
 #include "Game/BettyVoice.h"
@@ -950,6 +951,12 @@ namespace ExtraUtilities::Lua
 			{ "IsPathReachable", &GameObject::IsPathReachable },
 			{ "FindPath", &GameObject::FindPath },
 			{ "GetAiGridCell", &GameObject::GetAiGridCell },
+			// Mission paths
+			{ "AllPaths", &MissionPaths::AllPaths },
+			{ "BuildPath", &MissionPaths::BuildPath },
+			{ "AddPathPoint", &MissionPaths::AddPathPoint },
+			{ "RemovePath", &MissionPaths::RemovePath },
+			{ "RemovePathPoint", &MissionPaths::RemovePathPoint },
 			{ "SetAiTaskState", &GameObject::SetAiTaskState },
 			{ "GetAiRecycleTaskState", &GameObject::GetAiRecycleTaskState },
 			{ "GetRadarRange",	&GameObject::GetRadarRange },
