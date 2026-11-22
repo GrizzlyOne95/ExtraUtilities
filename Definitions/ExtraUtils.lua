@@ -3530,6 +3530,108 @@ function exu.GetVelocJam(h) end
 --- @param maxSpeed number finite and non-negative
 function exu.SetVelocJam(h, maxSpeed) end
 
+--- Triggers the unit's selected weapons this tick, the same call the engine
+--- makes when a pilot or the AI fires (Carrier::TriggerSelected). With a mask,
+--- the weapon selection is first changed to those slots (bit i = slot i, 1..31;
+--- slots without a weapon are dropped). Disabled slots (see
+--- exu.SetWeaponEnabled) never fire.
+---
+--- The trigger is a one-tick latch the weapon consumes on its next update:
+--- call this every frame for sustained fire. The mask changes the selection
+--- persistently (Select/Deselect run, the HUD follows for the player), and the
+--- unit's AI may reselect weapons on its own afterwards.
+---
+--- Multiplayer: weapon fire is simulated by the machine that owns the unit;
+--- call this there. On other machines it only affects the local copy.
+--- ```lua
+--- exu.FireWeapons(h)      -- fire whatever is selected
+--- exu.FireWeapons(h, 3)   -- select slots 0 and 1, then fire them
+--- ```
+--- @param h Handle
+--- @param mask? integer slot bitmask 1..31
+--- @return boolean|nil fired true if any weapon was triggered, false if nothing could fire (bad mask, nothing selected or enabled), nil for an invalid handle or a unit without weapons
+function exu.FireWeapons(h, mask) end
+
+--- Triggers the unit's special slot (Carrier::TriggerSpecial), if it has one
+--- and it is enabled. Special items (RadarDamper, ImageRefract,
+--- TerrainExpose, SpecialItem) toggle on trigger and ignore repeated triggers
+--- while held, so one call switches the item; check exu.IsSpecialActive.
+--- UNVERIFIED: the engine may ignore this toggle on the local player's own
+--- vehicle (SpecialItem::Trigger is gated for the user object).
+---
+--- Multiplayer: call on the machine that owns the unit.
+--- ```lua
+--- exu.FireSpecialWeapon(h)
+--- ```
+--- @param h Handle
+--- @return boolean|nil fired true if the special slot was triggered, nil for an invalid handle or a unit without weapons
+function exu.FireSpecialWeapon(h) end
+
+--- Releases the trigger on every mounted weapon (Carrier::UnTriggerAll, the
+--- call the engine makes when a pilot leaves a craft). Cancels a fire latched
+--- earlier in the same tick and switches special items off. It does not stop
+--- the AI or the player pulling the trigger again on a later tick.
+---
+--- Multiplayer: call on the machine that owns the unit.
+--- ```lua
+--- exu.CeaseFire(h)
+--- ```
+--- @param h Handle
+--- @return boolean|nil done true once the weapons were untriggered, nil for an invalid handle or a unit without weapons
+function exu.CeaseFire(h) end
+
+--- Gets whether the weapon in a slot is enabled (the carrier's enabled mask).
+--- A disabled weapon never fires, whoever pulls the trigger.
+--- ```lua
+--- local on = exu.GetWeaponEnabled(GetPlayerHandle(), 0)
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @param slot integer weapon slot 0..4
+--- @return boolean|nil enabled nil for an empty slot, an invalid slot, an invalid handle or a unit without weapons
+function exu.GetWeaponEnabled(h, slot) end
+
+--- Enables or disables the weapon in a slot. A disabled weapon never fires,
+--- for the player or the AI. Refused (false) for an empty slot and for
+--- producers (factory, armory, recycler, constructor) and turret tanks /
+--- howitzers, whose enabled mask the engine rewrites every tick from their
+--- deployed state. GiveWeapon re-enables the slot it fills.
+---
+--- Multiplayer: the mask is local to each machine; call on the machine that
+--- owns the unit (and on every machine if the HUD should agree).
+--- ```lua
+--- exu.SetWeaponEnabled(h, 1, false) -- slot 1 stops firing
+--- ```
+--- @param h Handle
+--- @param slot integer weapon slot 0..4
+--- @param enabled boolean
+--- @return boolean applied true if the mask was written
+function exu.SetWeaponEnabled(h, slot, enabled) end
+
+--- Gets whether the special item in a slot is switched on (RadarDamper,
+--- ImageRefract, TerrainExpose or another SpecialItem). False for a weapon
+--- that is not a special item.
+--- ```lua
+--- if exu.IsSpecialActive(h, 4) then print("cloaked") end
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @param slot integer weapon slot 0..4
+--- @return boolean|nil active nil for an empty slot, an invalid slot, an invalid handle or a unit without weapons
+function exu.IsSpecialActive(h, slot) end
+
+--- Gets the hardpoint name of a weapon slot (the ODF weaponHardN, e.g. "GC1")
+--- and the ODF of the weapon mounted there.
+--- ```lua
+--- local hardpoint, odf = exu.GetHardpoint(GetPlayerHandle(), 0)
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @param slot integer weapon slot 0..4
+--- @return string|nil hardpoint nil when the slot has no hardpoint
+--- @return string|nil odf nil when the slot has no weapon
+function exu.GetHardpoint(h, slot) end
+
 --- Graphics Options
 
 --- Gets if the game is currently in fullscreen.
