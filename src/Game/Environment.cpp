@@ -99,6 +99,7 @@ namespace ExtraUtilities::Lua::Environment
 			g_desiredLightingMode = ViewportLightingMode::Default;
 			DisableScriptSkies();
 			RestoreSkyClearColor();
+			ResetHazardState();
 		}
 		catch (...)
 		{
@@ -107,6 +108,7 @@ namespace ExtraUtilities::Lua::Environment
 			FirstPersonParticles::ResetMissionState();
 			DisableScriptSkies();
 			RestoreSkyClearColor();
+			ResetHazardState();
 		}
 	}
 }

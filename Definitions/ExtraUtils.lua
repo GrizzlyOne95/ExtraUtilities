@@ -1531,6 +1531,149 @@ function exu.SetParticleEmitterTimeToLive(name, emitterIndex, minTimeToLive, max
 --- @return boolean
 function exu.SetParticleEmitterColor(name, emitterIndex, startColor, endColor) end
 
+--- Returns how many lightning bolts are active: the TRN `[LightningBolt] Bolts` count
+--- (at most 16) unless `exu.StartLightning` or `exu.StopLightning` changed it. nil on failure.
+--- ```lua
+--- print("bolts", exu.GetLightningBolts())
+--- ```
+--- @nodiscard
+--- @return integer?
+function exu.GetLightningBolts() end
+
+--- Returns the lightning colour as r, g, b, a integers 0-255, or nil on failure.
+--- @nodiscard
+--- @return integer? r
+--- @return integer? g
+--- @return integer? b
+--- @return integer? a
+function exu.GetLightningColor() end
+
+--- Sets the lightning colour; channels are integers 0-255 and alpha defaults to 255.
+--- Unlike BZ 1.5's palette index, Redux stores a packed ARGB colour.
+--- Local only: in multiplayer each machine that should see it must call it.
+--- ```lua
+--- exu.SetLightningColor(160, 180, 255)
+--- ```
+--- @param r integer
+--- @param g integer
+--- @param b integer
+--- @param a integer? optional, default 255
+--- @return boolean
+function exu.SetLightningColor(r, g, b, a) end
+
+--- Returns the lightning strike distance in world units, or nil on failure.
+--- @nodiscard
+--- @return number?
+function exu.GetLightningDistance() end
+
+--- Sets the lightning strike distance in world units (finite, 0 or more).
+--- @param distance number
+--- @return boolean
+function exu.SetLightningDistance(distance) end
+
+--- Returns how long each bolt stays lit, in milliseconds, or nil on failure.
+--- @nodiscard
+--- @return number?
+function exu.GetLightningDuration() end
+
+--- Sets how long each bolt stays lit, in milliseconds (0 or more), as TRN `Duration` does.
+--- A bolt picks up the new value at its next strike.
+--- @param ms number
+--- @return boolean
+function exu.SetLightningDuration(ms) end
+
+--- Returns the longest wait between strikes, in milliseconds, or nil on failure.
+--- @nodiscard
+--- @return number?
+function exu.GetLightningMaxDelay() end
+
+--- Sets the longest wait between strikes, in milliseconds (0 or more).
+--- Each bolt draws a new wait between the min and max delay after it strikes.
+--- Keep it at or above the min delay; with min, max and duration all 0 a bolt strikes every frame.
+--- @param ms number
+--- @return boolean
+function exu.SetLightningMaxDelay(ms) end
+
+--- Returns the shortest wait between strikes, in milliseconds, or nil on failure.
+--- @nodiscard
+--- @return number?
+function exu.GetLightningMinDelay() end
+
+--- Sets the shortest wait between strikes, in milliseconds (0 or more).
+--- @param ms number
+--- @return boolean
+function exu.SetLightningMinDelay(ms) end
+
+--- Returns the sound file each strike plays ("" for none), or nil on failure.
+--- @nodiscard
+--- @return string?
+function exu.GetLightningSound() end
+
+--- Sets the sound file each strike plays, at most 15 characters; "" is silent.
+--- ```lua
+--- exu.SetLightningSound("thunder.wav")
+--- ```
+--- @param sound string
+--- @return boolean
+function exu.SetLightningSound(sound) end
+
+--- Starts lightning with `bolts` bolts (1-16). Without it, uses the TRN bolt count, or 1
+--- when the TRN has none. New bolts wait a random min-max delay before their first strike.
+--- Set colour, sound, distance and timing first on a TRN with no `[LightningBolt]` section:
+--- they are 0 there. The stock renderer draws bolts with the TRN `Name` material or the
+--- engine default. Local only: in multiplayer strikes are not synchronised.
+--- ```lua
+--- exu.SetLightningMinDelay(2000); exu.SetLightningMaxDelay(6000); exu.SetLightningDuration(150)
+--- exu.StartLightning(4)
+--- ```
+--- @param bolts integer? optional, 1-16
+--- @return boolean
+function exu.StartLightning(bolts) end
+
+--- Stops all lightning. `exu.StartLightning()` resumes the same bolt count.
+--- The next mission's TRN sets lightning up again.
+--- @return boolean
+function exu.StopLightning() end
+
+--- Makes every idle bolt strike on the next frame. Returns how many were triggered
+--- (0 when lightning is stopped), or nil on failure.
+--- @return integer?
+function exu.FireLightning() end
+
+--- Turns lava back on after `exu.StopLava`, or keeps the current lava. `damage` sets the
+--- craft lava damage scale (stock 40, finite and 0 or more) until the mission ends.
+--- Returns false when there is no lava material to restore (use `exu.SetLava`).
+--- Changes craft damage only: AI pathing and terrain zones keep the TRN lava from load time.
+--- Local only: in multiplayer each machine applies damage to its own craft, so every
+--- machine should make the same call.
+--- ```lua
+--- exu.StartLava(80) -- twice the stock damage
+--- ```
+--- @param damage number? optional, default unchanged
+--- @return boolean
+function exu.StartLava(damage) end
+
+--- Turns lava damage off (lava material -1) until `exu.StartLava` or the next terrain load.
+--- @return boolean
+function exu.StopLava() end
+
+--- Makes terrain material `textureType` (0-15, the TRN `[NormalView] Lava` index) the lava
+--- material for craft damage, and turns lava on. Same caveats as `exu.StartLava`.
+--- @param textureType integer
+--- @return boolean
+function exu.SetLava(textureType) end
+
+--- Adds `amount` (finite, 0 to 1000) of white screen glare, the overlay the sun lens flare
+--- uses. It lasts one frame: the engine draws alpha min(total, 1) * 224 and clears it, so
+--- call it every frame for a lasting effect. Not drawn in some camera modes.
+--- Local only: it affects only the calling machine's screen.
+--- ```lua
+--- function Update() exu.SetGlare(0.5) end
+--- ```
+--- @param amount number
+--- @return boolean
+function exu.SetGlare(amount) end
+
 --- Returns the Ogre type name of one emitter ("Box", "Point", "Ring", "HollowEllipsoid", ...),
 --- or nil if it does not exist. The type determines which parameter names
 --- `exu.SetParticleEmitterParameter` will accept.

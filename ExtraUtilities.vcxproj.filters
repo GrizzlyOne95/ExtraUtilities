@@ -141,6 +141,9 @@
     <ClCompile Include="src\Game\Environment.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
+    <ClCompile Include="src\Game\EnvironmentHazards.cpp">
+      <Filter>Source Files\Exports</Filter>
+    </ClCompile>
     <ClCompile Include="src\Ogre\OgreParticleAbi.cpp">
       <Filter>Source Files\Exports</Filter>
     </ClCompile>
@@ -534,6 +537,9 @@
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="src\Game\EnvironmentInternal.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Game\EnvironmentHazardsCore.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
     <ClInclude Include="include\ExtraUtils.h">
