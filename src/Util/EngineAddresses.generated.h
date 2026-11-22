@@ -276,6 +276,30 @@ namespace ExtraUtilities::EngineAddresses
 			NetPlayerLoss = 0x00575FF0u,
 			// code identity anchor
 			ScoreboardRowIdentity = 0x006265DAu,
+			// function: GameObject* __cdecl(unsigned int networkId)
+			DistributedObjectGetGameObject = 0x004B9AB0u,
+			// function: void* __cdecl(void* previousPlayer)
+			NextNetPlayer = 0x00577B50u,
+			// void** (session object)
+			NetSession = 0x00917F48u,
+			// bool*
+			deathmatch = 0x00917F7Au,
+			// bool*
+			syncJoin = 0x00917F8Eu,
+			// bool*
+			sniperOption = 0x009175BFu,
+			// bool*
+			barracksOption = 0x008E8C0Eu,
+			// int*
+			startLives = 0x00917FA4u,
+			// bool*
+			commSatOption = 0x008E7733u,
+			// bool*
+			splinterOption = 0x008E8C0Cu,
+			// int*
+			timeLimit = 0x00917F44u,
+			// int*
+			killLimit = 0x00917F54u,
 		};
 	}
 
@@ -1094,5 +1118,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 378u;
+	inline constexpr unsigned kEntryCount = 390u;
 }

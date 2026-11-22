@@ -405,4 +405,280 @@ static_assert(sizeof(NetworkTrafficSnapshot) == 88, "SDK traffic record layout")
 		lua_pushstring(L, reason);
 		return 2;
 	}
+
+	// Net identity
+	//
+	// Engine facts (GOG 2.2.301, Ghidra on battlezone98redux.exe):
+	//  * DistributedObject::SetLocal 0x004B8460 gives a new local object
+	//    id = (word [myNetID] << 16) + counter [0x008E80B0] at
+	//    DistributedObject+0x64 and the owner id (word [0x009175BC], set to the
+	//    same local user id) at +0x62; the state byte at +0x68 is 0 unowned,
+	//    1 local, 2 remote. A remote copy is filed under the same id in the
+	//    remote map, so the id names one object on every machine. 1.5 source:
+	//    DistributedObject::GetID (0x0048A252) returns dwLocalID and
+	//    GetPlayerID (0x0048A206) returns activnet_id.
+	//  * myNetID is a u16: SetLocal reads it with 'movzx eax, word ptr
+	//    [0x9180d4]' at 0x004B8548.
+	//  * Player records (NextNetPlayer / FindNetPlayer map) keep the u16 id at
+	//    +0x28 and the team byte at +0x68, the same reads ReadNetworkStatsSeh
+	//    makes above.
+	//  * NetSession +0x410 is start_location, three floats: the thiscall
+	//    getter 0x00570470 and setter 0x005704A0 both 'add eax, 0x410' and then
+	//    copy three dwords.
+	namespace NetIdentity
+	{
+		constexpr uintptr_t kOwnerIdOffset = 0x62; // within the DistributedObject
+		constexpr uintptr_t kNetIdOffset = 0x64; // within the DistributedObject
+		constexpr uintptr_t kPlayerIdOffset = 0x28;
+		constexpr uintptr_t kPlayerTeamOffset = 0x68;
+		constexpr uintptr_t kStartLocationOffset = 0x410; // within the NetSession
+		constexpr unsigned int kMaxPlayers = 64;
+		constexpr unsigned int kNameCapacity = 34;
+		static_assert(kOwnerIdOffset + sizeof(uint16_t) <= kNetIdOffset, "owner id precedes the net id");
+		static_assert(kNetIdOffset + sizeof(uint32_t) <= BZR::Ownership::stateOffset, "net id precedes the state byte");
+
+		struct PlayerEntry
+		{
+			unsigned short id = 0;
+			int team = 0;
+			char name[kNameCapacity] = {};
+		};
+
+		struct StartLocation
+		{
+			float x, y, z;
+		};
+		static_assert(sizeof(StartLocation) == 12, "start_location is three floats");
+
+		// SetStartLocation keeps the engine value it first replaced so the end
+		// of the mission can put it back. Only the host's DM/ST Init picks a new
+		// spawn point (0x0056C320 calls 0x005D9100 then the setter), so a
+		// client would otherwise carry a script's value into the next mission.
+		void* savedSession = nullptr;
+		StartLocation savedStart{};
+
+		unsigned char* DistributedObjectOf(BZR::GameObject* obj)
+		{
+			return reinterpret_cast<unsigned char*>(obj) + BZR::Ownership::distributedObjectOffset;
+		}
+
+		void* Session()
+		{
+			return *reinterpret_cast<void* const*>(EngineAddresses::Multiplayer::NetSession);
+		}
+
+		uint16_t LocalNetId()
+		{
+			return *reinterpret_cast<const uint16_t*>(EngineAddresses::Multiplayer::myNetID);
+		}
+
+		bool Finite(float v)
+		{
+			return v == v && v <= 3.0e38f && v >= -3.0e38f;
+		}
+	}
+
+	// exu.GetNetworkID(h) -> integer | nil
+	int GetNetworkID(lua_State* L)
+	{
+		const BZR::handle h = CheckHandle(L, 1);
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		uint32_t id = 0;
+		uint8_t ownership = 0;
+		if (obj == nullptr || !Seh::Guard("GetNetworkID", [&] {
+				const unsigned char* dobj = NetIdentity::DistributedObjectOf(obj);
+				id = *reinterpret_cast<const uint32_t*>(dobj + NetIdentity::kNetIdOffset);
+				ownership = dobj[BZR::Ownership::stateOffset];
+			}) || id == 0 || (ownership != BZR::Ownership::stateLocal && ownership != BZR::Ownership::stateRemote))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		lua_pushnumber(L, static_cast<lua_Number>(id));
+		return 1;
+	}
+
+	// exu.GetHandleFromNetworkID(id) -> handle | nil
+	int GetHandleFromNetworkID(lua_State* L)
+	{
+		const lua_Number value = luaL_checknumber(L, 1);
+		if (!RuntimeGate::IsSupported() || !(value >= 1.0 && value <= 4294967295.0) ||
+			value != static_cast<lua_Number>(static_cast<uint32_t>(value)))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		const uint32_t id = static_cast<uint32_t>(value);
+		using Fn = BZR::GameObject* (__cdecl*)(uint32_t);
+		BZR::handle h = 0;
+		if (!Seh::Guard("GetHandleFromNetworkID", [&] {
+				BZR::GameObject* obj = reinterpret_cast<Fn>(EngineAddresses::Multiplayer::DistributedObjectGetGameObject)(id);
+				if (obj != nullptr && BZR::GameObject::IsLiveArenaObject(obj))
+				{
+					h = BZR::GameObject::GetHandle(obj);
+				}
+			}) || h == 0 || BZR::GameObject::GetObj(h) == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		lua_pushlightuserdata(L, reinterpret_cast<void*>(h));
+		return 1;
+	}
+
+	// exu.GetOwnerID(h) -> integer | nil
+	int GetOwnerID(lua_State* L)
+	{
+		const BZR::handle h = CheckHandle(L, 1);
+		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+		uint16_t owner = 0;
+		uint8_t ownership = 0;
+		if (obj == nullptr || !Seh::Guard("GetOwnerID", [&] {
+				const unsigned char* dobj = NetIdentity::DistributedObjectOf(obj);
+				owner = *reinterpret_cast<const uint16_t*>(dobj + NetIdentity::kOwnerIdOffset);
+				ownership = dobj[BZR::Ownership::stateOffset];
+			}) || (ownership != BZR::Ownership::stateLocal && ownership != BZR::Ownership::stateRemote))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		lua_pushinteger(L, owner);
+		return 1;
+	}
+
+	// exu.AllPlayers() -> { {id, team, name, isLocal}, ... }
+	int AllPlayers(lua_State* L)
+	{
+		NetIdentity::PlayerEntry players[NetIdentity::kMaxPlayers];
+		unsigned int count = 0;
+		uint16_t localId = 0;
+		if (RuntimeGate::IsSupported() && isNetGame.Read())
+		{
+			using NextFn = void* (__cdecl*)(void*);
+			using NameFn = const char* (__thiscall*)(void*);
+			const bool ok = Seh::Guard("AllPlayers", [&] {
+				localId = NetIdentity::LocalNetId();
+				void* player = nullptr;
+				while (count < NetIdentity::kMaxPlayers &&
+					(player = reinterpret_cast<NextFn>(EngineAddresses::Multiplayer::NextNetPlayer)(player)) != nullptr)
+				{
+					const auto* bytes = static_cast<const unsigned char*>(player);
+					NetIdentity::PlayerEntry& entry = players[count];
+					entry.id = *reinterpret_cast<const uint16_t*>(bytes + NetIdentity::kPlayerIdOffset);
+					entry.team = bytes[NetIdentity::kPlayerTeamOffset];
+					const char* name = reinterpret_cast<NameFn>(EngineAddresses::Multiplayer::NetPlayerName)(player);
+					if (name)
+					{
+						for (unsigned int i = 0; i < NetIdentity::kNameCapacity - 1 && name[i]; ++i) entry.name[i] = name[i];
+					}
+					++count;
+				}
+			});
+			if (!ok) count = 0;
+		}
+
+		lua_createtable(L, static_cast<int>(count), 0);
+		for (unsigned int i = 0; i < count; ++i)
+		{
+			const NetIdentity::PlayerEntry& entry = players[i];
+			lua_createtable(L, 0, 4);
+			lua_pushinteger(L, entry.id); lua_setfield(L, -2, "id");
+			if (entry.team <= 15) { lua_pushinteger(L, entry.team); lua_setfield(L, -2, "team"); }
+			lua_pushstring(L, entry.name); lua_setfield(L, -2, "name");
+			lua_pushboolean(L, entry.id == localId); lua_setfield(L, -2, "isLocal");
+			lua_rawseti(L, -2, static_cast<int>(i + 1));
+		}
+		return 1;
+	}
+
+	// exu.IsDeathmatch() -> boolean
+	int IsDeathmatch(lua_State* L)
+	{
+		bool result = false;
+		if (RuntimeGate::IsSupported() && isNetGame.Read())
+		{
+			result = *reinterpret_cast<const bool*>(EngineAddresses::Multiplayer::deathmatch);
+		}
+		lua_pushboolean(L, result);
+		return 1;
+	}
+
+	// exu.GetNetGameOptions() -> table | nil
+	int GetNetGameOptions(lua_State* L)
+	{
+		if (!RuntimeGate::IsSupported() || !isNetGame.Read())
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		using namespace EngineAddresses::Multiplayer;
+		auto flag = [](uintptr_t address) { return *reinterpret_cast<const bool*>(address); };
+		auto integer = [](uintptr_t address) { return *reinterpret_cast<const int*>(address); };
+		lua_createtable(L, 0, 8);
+		lua_pushinteger(L, integer(timeLimit)); lua_setfield(L, -2, "timeLimit");
+		lua_pushinteger(L, integer(killLimit)); lua_setfield(L, -2, "killLimit");
+		lua_pushinteger(L, integer(startLives)); lua_setfield(L, -2, "lives");
+		lua_pushboolean(L, flag(sniperOption)); lua_setfield(L, -2, "sniper");
+		lua_pushboolean(L, flag(barracksOption)); lua_setfield(L, -2, "barracks");
+		lua_pushboolean(L, flag(commSatOption)); lua_setfield(L, -2, "commSat");
+		lua_pushboolean(L, flag(splinterOption)); lua_setfield(L, -2, "splinter");
+		lua_pushboolean(L, flag(syncJoin)); lua_setfield(L, -2, "syncJoin");
+		return 1;
+	}
+
+	// exu.GetStartLocation() -> vector | nil
+	int GetStartLocation(lua_State* L)
+	{
+		NetIdentity::StartLocation value{};
+		bool have = false;
+		if (!RuntimeGate::IsSupported() || !Seh::Guard("GetStartLocation", [&] {
+				const auto* session = static_cast<const unsigned char*>(NetIdentity::Session());
+				if (session == nullptr) return;
+				value = *reinterpret_cast<const NetIdentity::StartLocation*>(session + NetIdentity::kStartLocationOffset);
+				have = true;
+			}) || !have)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		PushVector(L, BZR::VECTOR_3D(value.x, value.y, value.z));
+		return 1;
+	}
+
+	// exu.SetStartLocation(pos) -> boolean
+	int SetStartLocation(lua_State* L)
+	{
+		const BZR::VECTOR_3D pos = CheckVectorOrSingles(L, 1);
+		bool written = false;
+		if (RuntimeGate::IsSupported() && NetIdentity::Finite(pos.x) && NetIdentity::Finite(pos.y) && NetIdentity::Finite(pos.z))
+		{
+			Seh::Guard("SetStartLocation", [&] {
+				auto* session = static_cast<unsigned char*>(NetIdentity::Session());
+				if (session == nullptr) return;
+				auto* slot = reinterpret_cast<NetIdentity::StartLocation*>(session + NetIdentity::kStartLocationOffset);
+				if (NetIdentity::savedSession != session)
+				{
+					NetIdentity::savedStart = *slot;
+					NetIdentity::savedSession = session;
+				}
+				*slot = NetIdentity::StartLocation{ pos.x, pos.y, pos.z };
+				written = true;
+			});
+		}
+		lua_pushboolean(L, written);
+		return 1;
+	}
+
+	void ResetMissionState() noexcept
+	{
+		void* const saved = NetIdentity::savedSession;
+		NetIdentity::savedSession = nullptr;
+		if (saved == nullptr || !RuntimeGate::IsSupported()) return;
+		// The engine zeroes the global right after deleting the session
+		// (0x005729ED), so a match means the saved session is still live.
+		Seh::Guard("ResetNetStartLocation", [&] {
+			if (NetIdentity::Session() != saved) return;
+			*reinterpret_cast<NetIdentity::StartLocation*>(static_cast<unsigned char*>(saved) + NetIdentity::kStartLocationOffset) = NetIdentity::savedStart;
+		});
+	}
 }

@@ -997,6 +997,15 @@ namespace ExtraUtilities::Lua
 			{ "SetShowScoreboard", &Multiplayer::SetShowScoreboard },
 			{ "DisableStartingRecycler", &Multiplayer::DisableStartingRecycler },
 			{ "AdoptObject", &Multiplayer::AdoptObject },
+			// Net identity
+			{ "GetNetworkID", &Multiplayer::GetNetworkID },
+			{ "GetHandleFromNetworkID", &Multiplayer::GetHandleFromNetworkID },
+			{ "GetOwnerID", &Multiplayer::GetOwnerID },
+			{ "AllPlayers", &Multiplayer::AllPlayers },
+			{ "IsDeathmatch", &Multiplayer::IsDeathmatch },
+			{ "GetNetGameOptions", &Multiplayer::GetNetGameOptions },
+			{ "GetStartLocation", &Multiplayer::GetStartLocation },
+			{ "SetStartLocation", &Multiplayer::SetStartLocation },
 
 			// Ordnance
 			{ "BuildOrdnance", &Ordnance::BuildOrdnance },
