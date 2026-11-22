@@ -725,6 +725,102 @@
         "pattern": "6A 0F 8B 4D F8 E8 2C EF F4 FF 89 45 F4 8B 4D F4 E8 A1 4D E9 FF 83 F8 04",
         "pattern_kind": "code",
         "note": "Derived from GOG 2.2.301 released executable instructions, 2026-10-15. Feature-specific optional identity, checked before use; no private-PDB offsets used."
+      },
+      "DistributedObjectGetGameObject": {
+        "address": "0x004B9AB0",
+        "type": "function: GameObject* __cdecl(unsigned int networkId)",
+        "description": "DistributedObject::GetGameObject. Looks the id up in the local object map (0x0094E29C), then the remote map (0x0094E28C); returns the owning GameObject (DistributedObject-0x18) or null. Used by exu.GetHandleFromNetworkID.",
+        "pattern": "55 8B EC 83 EC 24 8D 4D FC E8 ?? ?? ?? ?? 8D 45 08 50 8D 4D E8 51 B9 ?? ?? ?? ?? E8",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, GOG 2.2.301, verified unique in executable sections 2026-11-21. Ghidra decompile of 0x004B9AB0: two map finds on the stack argument, each returning '*(int *)(iVar4 + 4) + -0x18'. Matches 1.5 DistributedObject::GetGameObject (0x0048D24F). Same pattern as OpenShim patches.json; OpenShim hooks only the Lua pack/unpack call sites, not this function."
+      },
+      "NextNetPlayer": {
+        "address": "0x00577B50",
+        "type": "function: void* __cdecl(void* previousPlayer)",
+        "description": "Player-table iterator over the map at 0x009C8FB8 (the map FindNetPlayer searches). Pass null for the first player, else the previous player; returns the next player or null at the end. Each player keeps its u16 id at +0x28 (the map key) and team byte at +0x68.",
+        "pattern": "55 8B EC 83 EC 10 8D 4D FC E8 ?? ?? ?? ?? 83 7D 08 00 75 15 8D 45 F8 50 B9 B8 8F 9C 00 E8 ?? ?? ?? ?? 8B 08 89 4D FC EB 1A 8B 55 08 83 C2 28 52",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, GOG 2.2.301, verified unique in executable sections 2026-11-21. Ghidra decompile of 0x00577B50: 'if (param_1 == 0) begin else FUN_00578dd0(local_10,param_1 + 0x28)'; returns '*(iVar4 + 4)' or 0 at end. Same pattern as OpenShim patches.json P2PAdaptiveRetry::NextPlayer."
+      },
+      "NetSession": {
+        "address": "0x00917F48",
+        "type": "void** (session object)",
+        "description": "The network session object (1.5 'theNet'). Null outside a session: created at 0x005723BA, deleted then zeroed at 0x005729ED. +4 holds the host player id; +0x410 holds the start_location vector (3 floats).",
+        "pattern": "55 8B EC 83 EC 10 83 3D 48 7F 91 00 00 74 17 A1 48 7F 91 00 83 78 08 05 74 0C",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: start of 0x00575890 ('cmp [0x917f48],0; je; mov eax,[0x917f48]; cmp [eax+8],5'), GOG 2.2.301, verified unique in executable sections 2026-11-21. Same function OpenShim patches.json catalogs as Net::Session (operand +8). start_location offset 0x410 from the thiscall getter 0x00570470 and setter 0x005704A0 ('add eax,0x410' then 3 dword copies)."
+      },
+      "deathmatch": {
+        "address": "0x00917F7A",
+        "type": "bool*",
+        "description": "True after a deathmatch-class network mission starts: MultDMMission Init (0x0056C320) and 0x0056E340 set it, MultST Init (0x0056ECE0) clears it. Never reset when the session ends, so callers must also check isNetGame.",
+        "pattern": "55 8B EC A0 7A 7F 91 00 5D C3",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: the whole getter at 0x00571C50 ('mov al,[0x917f7a]'); setter is 0x00571C60. GOG 2.2.301, verified unique in executable sections 2026-11-21."
+      },
+      "syncJoin": {
+        "address": "0x00917F8E",
+        "type": "bool*",
+        "description": "Session 'Sync' option, copied from the launch game-info record (+0x50) when the game launches.",
+        "pattern": "8B 55 1C 8A 42 50 A2 8E 7F 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: store at 0x0057410D in the launch routine 0x005740A0, whose log line reads 'Launching Network Game %s, Map %s, Workshop %s, Sync: %s, Sniper: %s, Barracks: %s, CommSat: %s, Splint: %s, Lives: %d, Time: %d, Kills %d'. GOG 2.2.301, verified unique in executable sections 2026-11-21."
+      },
+      "sniperOption": {
+        "address": "0x009175BF",
+        "type": "bool*",
+        "description": "Session 'Sniper' option, copied from the launch game-info record (+0x60).",
+        "pattern": "8B 4D 1C 8A 51 60 88 15 BF 75 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: store at 0x00574118 in launch routine 0x005740A0 (see syncJoin). GOG 2.2.301, verified unique in executable sections 2026-11-21."
+      },
+      "barracksOption": {
+        "address": "0x008E8C0E",
+        "type": "bool*",
+        "description": "Session 'Barracks' option, copied from the launch game-info record (+0x52).",
+        "pattern": "8B 45 1C 8A 48 52 88 0D 0E 8C 8E 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: store at 0x00574124 in launch routine 0x005740A0 (see syncJoin). GOG 2.2.301, verified unique in executable sections 2026-11-21."
+      },
+      "startLives": {
+        "address": "0x00917FA4",
+        "type": "int*",
+        "description": "Session 'Lives' option (lives each player starts with), copied from the launch game-info record (+0x58), which also seeds the live counter Multiplayer::lives.",
+        "pattern": "8B 4D 1C 8B 51 58 89 15 A4 7F 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: store at 0x0057413B in launch routine 0x005740A0 (see syncJoin); the preceding store at 0x00574136 writes the same value to 0x008E8D04. GOG 2.2.301, verified unique in executable sections 2026-11-21."
+      },
+      "commSatOption": {
+        "address": "0x008E7733",
+        "type": "bool*",
+        "description": "Session 'CommSat' option, copied from the launch game-info record (+0x51).",
+        "pattern": "8B 45 1C 8A 48 51 88 0D 33 77 8E 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: store at 0x00574147 in launch routine 0x005740A0 (see syncJoin). GOG 2.2.301, verified unique in executable sections 2026-11-21."
+      },
+      "splinterOption": {
+        "address": "0x008E8C0C",
+        "type": "bool*",
+        "description": "Session 'Splint' (splinter mortar) option, copied from the launch game-info record (+0x68).",
+        "pattern": "8B 55 1C 8A 42 68 A2 0C 8C 8E 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: store at 0x00574153 in launch routine 0x005740A0 (see syncJoin). GOG 2.2.301, verified unique in executable sections 2026-11-21."
+      },
+      "timeLimit": {
+        "address": "0x00917F44",
+        "type": "int*",
+        "description": "Session time limit in minutes (0 = none), copied from the launch game-info record (+0x54). The DM timer starts with TimeLimit*60 seconds (0x0056BCD0).",
+        "pattern": "8B 4D 1C 8B 51 54 89 15 44 7F 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: store at 0x0057415E in launch routine 0x005740A0 (see syncJoin). GOG 2.2.301, verified unique in executable sections 2026-11-21."
+      },
+      "killLimit": {
+        "address": "0x00917F54",
+        "type": "int*",
+        "description": "Session kill limit (0 = none), copied from the launch game-info record (+0x64); DM checks it at 0x0056BF60.",
+        "pattern": "8B 45 1C 8B 48 64 89 0D 54 7F 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: store at 0x0057416A in launch routine 0x005740A0 (see syncJoin). GOG 2.2.301, verified unique in executable sections 2026-11-21."
       }
     },
     "Ownership": {

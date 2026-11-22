@@ -41,6 +41,7 @@
 #include "Game/FirstPersonLayers.h"
 #include "Game/DeathCamera.h"
 #include "Game/PathBlock.h"
+#include "Game/Multiplayer.h"
 #include "Game/BettyVoice.h"
 #include "Game/Plant.h"
 #include "Game/PlayerControls.h"
@@ -201,6 +202,7 @@ namespace ExtraUtilities::Lua
 		PersonAnimBlend::ResetMissionState();
 		DeathCamera::ResetMissionState();
 		PathBlock::ResetMissionState();
+		Multiplayer::ResetMissionState();
 		Plant::ResetMissionState();
 		Patch::AiTargetSelect::dispatchEnabled = false;
 		Patch::AiTargetSelect::scoreDispatchEnabled = false;

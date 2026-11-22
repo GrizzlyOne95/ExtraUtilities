@@ -3981,6 +3981,111 @@ function exu.DisableStartingRecycler() end
 --- @return string? reason when not ok
 function exu.AdoptObject(h, team) end
 
+--- Gets the object's network id: the id the engine uses to name this object in
+--- network packets. A local object gets `(owner's net id * 65536) + counter`
+--- when it is networked, and remote copies on other machines carry the same
+--- id, so the number names one object on every machine and can be sent with
+--- Send() and resolved with exu.GetHandleFromNetworkID. Returns nil for an
+--- invalid handle and for objects that are not networked (single player, or
+--- map objects nobody has taken ownership of, which keep id 0).
+--- ```lua
+--- local id = exu.GetNetworkID(GetHandle("tank1"))
+--- if id then Send(0, "T", id) end
+--- ```
+--- @nodiscard
+--- @param h handle
+--- @return integer? id
+function exu.GetNetworkID(h) end
+
+--- Finds the object with a network id from exu.GetNetworkID, on this machine:
+--- the local object with that id, else the local copy of a remote one. Returns
+--- nil when no object here has that id (not networked yet, already dead, not
+--- yet created here, or single player).
+--- ```lua
+--- local h = exu.GetHandleFromNetworkID(id)
+--- if h then SetTeamNum(h, 2) end
+--- ```
+--- @nodiscard
+--- @param id integer
+--- @return handle?
+function exu.GetHandleFromNetworkID(id) end
+
+--- Gets the network id of the player whose machine owns (simulates) this
+--- object. Compare it with exu.GetMyNetID() or the `id` fields of
+--- exu.AllPlayers(). Ownership moves when a player boards a craft or a script
+--- calls SetLocal / exu.AdoptObject. Returns nil for an invalid handle and for
+--- objects nobody owns on the network (all objects in single player).
+--- ```lua
+--- if exu.GetOwnerID(h) == exu.GetMyNetID() then print("mine") end
+--- ```
+--- @nodiscard
+--- @param h handle
+--- @return integer? ownerId
+function exu.GetOwnerID(h) end
+
+--- Lists the players in the network session as this machine sees them, one
+--- table each: `id` (network id, as used by Send, exu.GetMyNetID and
+--- exu.GetOwnerID), `team` (0-15; missing if the engine holds no valid team
+--- yet), `name`, and `isLocal`. There is no handle: GetPlayerHandle(team) does
+--- not resolve remote players in BZR, so look up the craft yourself. Returns an
+--- empty table outside a network game.
+--- ```lua
+--- for _, p in ipairs(exu.AllPlayers()) do print(p.id, p.team, p.name, p.isLocal) end
+--- ```
+--- @nodiscard
+--- @return { id: integer, team: integer?, name: string, isLocal: boolean }[]
+function exu.AllPlayers() end
+
+--- Returns true in a deathmatch-class network game (the engine's MultDM mission),
+--- false in strategy games and single player. The engine sets
+--- it when a stock DM mission starts and clears it when a stock ST mission
+--- starts; other mission types keep the last value (not verified for Lua MP
+--- missions).
+--- ```lua
+--- if exu.IsDeathmatch() then print("DM") end
+--- ```
+--- @nodiscard
+--- @return boolean
+function exu.IsDeathmatch() end
+
+--- Gets the session's launch settings, the same values the engine logs at
+--- "Launching Network Game": `timeLimit` (minutes, 0 = none), `killLimit`
+--- (0 = none), `lives` (lives each player starts with; the live counter is
+--- exu.GetLives), and booleans `sniper`, `barracks`, `commSat`, `splinter`
+--- and `syncJoin`. Returns nil outside a network game. Read-only.
+--- ```lua
+--- local o = exu.GetNetGameOptions()
+--- if o then print(o.timeLimit, o.killLimit, o.lives) end
+--- ```
+--- @nodiscard
+--- @return { timeLimit: integer, killLimit: integer, lives: integer, sniper: boolean, barracks: boolean, commSat: boolean, splinter: boolean, syncJoin: boolean }?
+function exu.GetNetGameOptions() end
+
+--- Gets this machine's network start location: where the stock DM and ST
+--- missions build and respawn the local player. Returns nil when there is no
+--- network session (single player).
+--- ```lua
+--- local pos = exu.GetStartLocation()
+--- ```
+--- @nodiscard
+--- @return vector?
+function exu.GetStartLocation() end
+
+--- Sets this machine's network start location, used by the stock DM respawn
+--- (when no weighted spawn point applies) and the ST respawn. Local only: each
+--- machine keeps its own, so call it on the machine whose player should move.
+--- When the mission ends, EXU puts back the value the engine had before
+--- the first call.
+--- Returns false when there is no network session or a coordinate is not finite.
+--- ```lua
+--- exu.SetStartLocation(GetPosition("spawn_red"))
+--- ```
+--- @param pos vector|number x, or call as (x, y, z)
+--- @param y? number
+--- @param z? number
+--- @return boolean ok
+function exu.SetStartLocation(pos, y, z) end
+
 --- Sets the OpenShim target-reticle popup mode.
 --- 1 = Default, 3 = Explicit Only
 --- 2 remains reserved for the experimental neutral-only path and downgrades to Default in normal builds.
