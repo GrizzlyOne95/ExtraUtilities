@@ -24,6 +24,7 @@
 #include "UI/InterfacePresentation.h"
 #include "Game/ProjectionBindings.h"
 #include "Game/BuildEvents.h"
+#include "Game/ProducerScrap.h"
 #include "Game/ConstructionHologram.h"
 #include "Game/TerrainPlacement.h"
 #include "Game/ConsoleRegistry.h"
@@ -1181,6 +1182,19 @@ namespace ExtraUtilities::Lua
             { "SetConstructionHologramEnabled", &ConstructionHologram::SetEnabled },
             { "SetBuildEventsEnabled", &BuildEvents::SetEnabled },
             { "DrainBuildEvents", &BuildEvents::Drain },
+            // Producer + scrap
+            { "CancelBuild", &ProducerScrap::CancelBuild },
+            { "FinishBuild", &ProducerScrap::FinishBuild },
+            { "GetBuildTimeLeft", &ProducerScrap::GetBuildTimeLeft },
+            { "SetBuildTimeLeft", &ProducerScrap::SetBuildTimeLeft },
+            { "GetBuildingOdf", &ProducerScrap::GetBuildingOdf },
+            { "GetCurScrapHold", &ProducerScrap::GetCurScrapHold },
+            { "SetCurScrapHold", &ProducerScrap::SetCurScrapHold },
+            { "GetMaxScrapHold", &ProducerScrap::GetMaxScrapHold },
+            { "SetMaxScrapHold", &ProducerScrap::SetMaxScrapHold },
+            { "GetCurrentParam", &ProducerScrap::GetCurrentParam },
+            { "GetCurrentWhen", &ProducerScrap::GetCurrentWhen },
+            { "GetCurrentWhere", &ProducerScrap::GetCurrentWhere },
             { "IsTerrainBuildable", &TerrainPlacementBindings::IsTerrainBuildable },
             { "RegisterConsoleCommand", &ConsoleRegistry::RegisterCommand },
             { "RegisterConsoleVariable", &ConsoleRegistry::RegisterVariable },

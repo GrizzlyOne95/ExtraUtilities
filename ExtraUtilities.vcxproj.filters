@@ -37,6 +37,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Game\BuildEvents.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\Game\ProducerScrap.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Game\ConsoleRegistry.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Game\ProjectionBindings.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="src\Game\TerrainPlacement.cpp"><Filter>Source Files</Filter></ClCompile>
@@ -344,6 +345,8 @@
   <ItemGroup>
     <ClInclude Include="src\Game\BuildEvents.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Game\BuildEventsCore.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\Game\ProducerScrap.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\Game\ProducerScrapCore.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Game\ConsoleRegistry.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Game\ProjectionBindings.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="src\Game\SteamIdentity.h"><Filter>Header Files</Filter></ClInclude>
