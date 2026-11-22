@@ -223,4 +223,45 @@ namespace ExtraUtilities::SmallCallsLogic
 		return value >= -2147483648.0 && value <= 2147483647.0 &&
 			static_cast<double>(static_cast<long long>(value)) == value;
 	}
+
+	// exu.FileExists name gate. Stock UseItem (0x00506E80) loads through
+	// 0x00481B10, which returns no data, without a lookup, for an empty name
+	// or one whose first four characters are "null" in any case
+	// (_strnicmp(name, "null", 4)). A Lua string with an embedded NUL reaches
+	// the engine cut short, so it is refused rather than answered for a
+	// different name.
+	inline bool IsLoadableResourceName(const char* name, std::size_t length) noexcept
+	{
+		if (name == nullptr || length == 0 || std::strlen(name) != length)
+		{
+			return false;
+		}
+		if (length >= 4)
+		{
+			const char* const kNull = "null";
+			bool matchesNull = true;
+			for (std::size_t i = 0; i < 4; ++i)
+			{
+				if (std::tolower(static_cast<unsigned char>(name[i])) != kNull[i])
+				{
+					matchesNull = false;
+					break;
+				}
+			}
+			if (matchesNull)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	// The resource loader (0x00481B80) logs "Couldn't find file" when the
+	// size lookup returns 0. A pak whose record is absent returns -1, which
+	// the loader's unsigned test lets through but no read can satisfy, so
+	// only a positive size counts as loadable.
+	inline bool IsLoadableResourceSize(int size) noexcept
+	{
+		return size > 0;
+	}
 }

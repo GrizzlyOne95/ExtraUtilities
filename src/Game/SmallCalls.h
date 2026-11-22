@@ -49,4 +49,8 @@ namespace ExtraUtilities::Lua::SmallCalls
 	int SaveSettingFloat(lua_State* L);
 	int SaveSettingString(lua_State* L);
 	int DeleteSetting(lua_State* L);
+
+	// Not from bzx: a quiet game-file existence check on the engine's own
+	// resource lookup (see SmallCalls.cpp).
+	int FileExists(lua_State* L);
 }

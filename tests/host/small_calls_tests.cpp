@@ -70,5 +70,15 @@ int main()
         !IsIntegralSetting(std::numeric_limits<double>::quiet_NaN()), "fractional, out of range and non-finite rejected");
     Expect(std::strcmp(kSettingsNamespace, "exu.settings") == 0 && std::strcmp(kDefaultSettingSection, "General") == 0,
         "store names");
+
+    Expect(IsLoadableResourceName("misn2bcr.des", 12) && IsLoadableResourceName("a", 1) && IsLoadableResourceName("nul.des", 7),
+        "plain resource names are looked up");
+    Expect(!IsLoadableResourceName("", 0) && !IsLoadableResourceName(nullptr, 3), "empty or null name is never loadable");
+    Expect(!IsLoadableResourceName("null", 4) && !IsLoadableResourceName("NULL.des", 8) && !IsLoadableResourceName("Nullify.odf", 11),
+        "UseItem refuses any name starting \"null\" in any case");
+    Expect(IsLoadableResourceName("anull.des", 9), "\"null\" only matters as a prefix");
+    Expect(!IsLoadableResourceName("a\0b.des", 7), "embedded NUL rejected");
+    Expect(IsLoadableResourceSize(1) && !IsLoadableResourceSize(0) && !IsLoadableResourceSize(-1),
+        "only a positive size is loadable (0 absent, -1 missing pak record)");
     return HostTest::Finish("small calls");
 }

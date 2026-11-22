@@ -34,6 +34,17 @@
 //   KillCBQueue FUN_0043D4F0(0); queue head DAT_00915640. Say gets the queue
 //   owner from the user object with "8B 4D FC 83 C1 18 8B 55 FC 8B 42 18
 //   8B 50 30 FF D2" (ecx = user + 0x18; call [vtable + 0x30], no stack args).
+// - FileExists (not from bzx): stock Lua UseItem is FUN_00506E80 (luaL_Reg
+//   "UseItem" at 0x00872278). It loads with FUN_00481AF0 -> FUN_00481B10
+//   (refuses an empty name or a "null" prefix) -> FUN_00481B80, which checks
+//   the resource cache (FUN_004817A0) and then asks FUN_00829150 for the size
+//   (file index bsearch in FUN_00828850, then a pak record or a loose fopen);
+//   when that returns 0 it logs the
+//   error buffer 0x009467C0 ("%s\n" via FUN_007D6B70 at 0x00481C7F), which
+//   FUN_00828850 filled with "Couldn't find file \"%.16s\"". The engine's
+//   ResourceFileSize, FUN_00481A60 -> FUN_00481A80, runs the same cache check
+//   and the same FUN_00829150 but never calls the logger; UseItem itself
+//   calls it for the length it returns. Address: exu.json PathBlock group.
 
 #include "SmallCalls.h"
 
@@ -59,6 +70,7 @@ namespace ExtraUtilities::Lua::SmallCalls
 	{
 		namespace Logic = ExtraUtilities::SmallCallsLogic;
 		namespace Addr = EngineAddresses::SmallCalls;
+		namespace ResourceAddr = EngineAddresses::PathBlock;
 
 		using ChatMessageAddFn = void(__cdecl*)(int color, const char* text);
 		using MakeScrapFieldFn = void(__cdecl*)(const float* position, int count);
@@ -68,6 +80,7 @@ namespace ExtraUtilities::Lua::SmallCalls
 		using QueueFn = bool(__cdecl*)(const char* name, void* owner, unsigned priority);
 		using KillQueueFn = void(__cdecl*)(int);
 		using OwnerFn = void*(__thiscall*)(void* component);
+		using ResourceFileSizeFn = int(__cdecl*)(const char* fileName);
 
 		// Craft field the stock eject roll reads (see the header comment).
 		constexpr std::size_t kCraftEjectRatioOffset = 0x288;
@@ -618,5 +631,31 @@ namespace ExtraUtilities::Lua::SmallCalls
 	int DeleteSetting(lua_State* L)
 	{
 		return WriteSetting(L, Logic::ResolveDeleteArgs(lua_gettop(L)), 0);
+	}
+
+	int FileExists(lua_State* L)
+	{
+		std::size_t length = 0;
+		const char* name = luaL_checklstring(L, 1, &length);
+		if (!RuntimeGate::IsSupported())
+		{
+			lua_pushnil(L); // unknown: the caller falls back to reading
+			return 1;
+		}
+		if (!Logic::IsLoadableResourceName(name, length))
+		{
+			lua_pushboolean(L, false);
+			return 1;
+		}
+		int size = 0;
+		if (!Seh::Guard("FileExists", [&] {
+				size = reinterpret_cast<ResourceFileSizeFn>(ResourceAddr::ResourceFileSize)(name);
+			}))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		lua_pushboolean(L, Logic::IsLoadableResourceSize(size));
+		return 1;
 	}
 }
