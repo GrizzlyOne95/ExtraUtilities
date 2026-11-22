@@ -534,6 +534,78 @@
         "pattern": "FF 15 ?? ?? ?? ?? C7 45 FC FF FF FF FF 8D 4D A4",
         "pattern_kind": "code",
         "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-09-27."
+      },
+      "LightningFeature": {
+        "address": "0x009B7CD8",
+        "type": "data (LightningFeature singleton)",
+        "description": "Stock LightningFeature (1.5 lightning.cpp): activeList BoltEmitter*[16] at +0x28, activeNum at +0x68, emitterList[16] (stride 0x103C) at +0x6C.",
+        "pattern": "B9 D8 7C 9B 00 E8",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov ecx, 0x9b7cd8; call ctor' at 0x00408003, verified unique in GOG 2.2.301 executable sections 2026-11-21."
+      },
+      "LightningFeatureVftable": {
+        "address": "0x0087B934",
+        "type": "vftable (LightningFeature)",
+        "description": "Written by the LightningFeature ctor FUN_004fa310; slots [3] PostLoad 0x4fa380, [5] Cleanup 0x4fa920, [7] Simulate 0x4fa9a0, [8] Submit 0x4faaf0. Used to check the singleton is constructed.",
+        "pattern": "C7 00 34 B9 87 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches 'mov dword ptr [eax], 0x87b934' at 0x004FA322, verified unique in GOG 2.2.301 executable sections 2026-11-21."
+      },
+      "LightningBoltSet": {
+        "address": "0x009B7CA4",
+        "type": "data (BoltSet globals)",
+        "description": "TRN [LightningBolt] values: bolts int +0x0, name object +0x4, color ARGB u32 +0xC, minDelay/maxDelay/duration float seconds +0x10/+0x14/+0x18, distance float +0x1C, sound char[16] +0x20.",
+        "pattern": "C7 05 A4 7C 9B 00 00 00 00 00 B9 A8 7C 9B 00 E8 ?? ?? ?? ?? C7 05 B0 7C 9B 00 00 00 00 00 F3 0F 10 05 ?? ?? ?? ?? F3 0F 11 05 B4 7C 9B 00 F3 0F 10 05 ?? ?? ?? ?? F3 0F 11 05 B8 7C 9B 00 F3 0F 10 05 ?? ?? ?? ?? F3 0F 11 05 BC 7C 9B 00 F3 0F 10 05 ?? ?? ?? ?? F3 0F 11 05 C0 7C 9B 00 33 C0 A3 C4 7C 9B 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: LightningFeature::Cleanup FUN_004fa920 zeroing every BoltSet field from 0x004FA927 through 'mov [0x9b7cc4], eax', so it also pins the field offsets; verified unique in GOG 2.2.301 executable sections 2026-11-21."
+      },
+      "LightningAddBoltEmitter": {
+        "address": "0x004FAB60",
+        "type": "function (thiscall LightningFeature::AddBoltEmitter(target))",
+        "description": "Appends activeList[activeNum] when activeNum < 16 and sets its target; PostLoad calls it with target 0 per TRN bolt (0x4fa8fb).",
+        "pattern": "55 8B EC 83 EC 08 89 4D FC 8B 45 FC 83 78 68 10 7D 2B",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-11-21."
+      },
+      "LightningBoltInit": {
+        "address": "0x004FABB0",
+        "type": "function (thiscall LightningFeature::BoltInit(emitter))",
+        "description": "Resets a bolt: flashes 1, flash 0, random delay between BoltSet min and max, duration; Simulate calls it after each strike (0x4faab3).",
+        "pattern": "55 8B EC 83 EC 08 89 4D F8 8B 45 08 C7 40 1C 01 00 00 00 8B 4D 08 C7 41 20 00 00 00 00",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-11-21."
+      },
+      "LavaMaterial": {
+        "address": "0x008F05C8",
+        "type": "data (int lavaMat)",
+        "description": "Terrain material index (cell >> 12) that damages craft, -1 for none. Written by the TRN loader FUN_00780160 at 0x780458 ([NormalView] Lava, default -1) on every terrain load; read per call by craft lava damage FUN_004aaea0.",
+        "pattern": "55 8B EC A1 C8 05 8F 00 5D C3",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: the lavaMat getter FUN_0077d680, verified unique in GOG 2.2.301 executable sections 2026-11-21."
+      },
+      "LavaDamageScaleSite": {
+        "address": "0x004AB171",
+        "type": "patch site (mulss xmm0, [0x8a295c]; disp32 at +4)",
+        "description": "Craft lava damage FUN_004aaea0 scales lava neighbours by the shared 40.0 constant here; exu.StartLava(damage) retargets the disp32 to EXU's own float.",
+        "pattern": "F3 0F 59 05 5C 29 8A 00 F3 0F 59 45 D0 F3 0F 59 45 08 F3 0F 11 45 C4",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, verified unique in GOG 2.2.301 executable sections 2026-11-21. The 40.0 at 0x8a295c has 71 references, so only this operand is changed."
+      },
+      "ColorFade": {
+        "address": "0x0097838C",
+        "type": "data (ColorFade singleton)",
+        "description": "Screen colour fade/glare overlay; glare float at +0x28.",
+        "pattern": "F3 0F 59 41 4C 51 F3 0F 11 04 24 B9 8C 83 97 00 E8",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: matches the sun lens flare's 'mov ecx, 0x97838c; call ColorFade::SetGlare' at 0x004F9FC3, verified unique in GOG 2.2.301 executable sections 2026-11-21."
+      },
+      "ColorFadeSetGlare": {
+        "address": "0x0049B4C0",
+        "type": "function (thiscall ColorFade::SetGlare(float amount))",
+        "description": "glare(+0x28) += amount; the ColorFade render FUN_0049b520 draws alpha min(glare, 1) * 224 and zeroes it each frame.",
+        "pattern": "55 8B EC 51 89 4D FC 8B 45 FC F3 0F 10 40 28 F3 0F 58 45 08 8B 4D FC F3 0F 11 41 28 8B E5 5D C2 04 00",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address (whole function), verified unique in GOG 2.2.301 executable sections 2026-11-21."
       }
     },
     "GameObject": {
@@ -725,6 +797,102 @@
         "pattern": "6A 0F 8B 4D F8 E8 2C EF F4 FF 89 45 F4 8B 4D F4 E8 A1 4D E9 FF 83 F8 04",
         "pattern_kind": "code",
         "note": "Derived from GOG 2.2.301 released executable instructions, 2026-10-15. Feature-specific optional identity, checked before use; no private-PDB offsets used."
+      },
+      "DistributedObjectGetGameObject": {
+        "address": "0x004B9AB0",
+        "type": "function: GameObject* __cdecl(unsigned int networkId)",
+        "description": "DistributedObject::GetGameObject. Looks the id up in the local object map (0x0094E29C), then the remote map (0x0094E28C); returns the owning GameObject (DistributedObject-0x18) or null. Used by exu.GetHandleFromNetworkID.",
+        "pattern": "55 8B EC 83 EC 24 8D 4D FC E8 ?? ?? ?? ?? 8D 45 08 50 8D 4D E8 51 B9 ?? ?? ?? ?? E8",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, GOG 2.2.301, verified unique in executable sections 2026-11-21. Ghidra decompile of 0x004B9AB0: two map finds on the stack argument, each returning '*(int *)(iVar4 + 4) + -0x18'. Matches 1.5 DistributedObject::GetGameObject (0x0048D24F). Same pattern as OpenShim patches.json; OpenShim hooks only the Lua pack/unpack call sites, not this function."
+      },
+      "NextNetPlayer": {
+        "address": "0x00577B50",
+        "type": "function: void* __cdecl(void* previousPlayer)",
+        "description": "Player-table iterator over the map at 0x009C8FB8 (the map FindNetPlayer searches). Pass null for the first player, else the previous player; returns the next player or null at the end. Each player keeps its u16 id at +0x28 (the map key) and team byte at +0x68.",
+        "pattern": "55 8B EC 83 EC 10 8D 4D FC E8 ?? ?? ?? ?? 83 7D 08 00 75 15 8D 45 F8 50 B9 B8 8F 9C 00 E8 ?? ?? ?? ?? 8B 08 89 4D FC EB 1A 8B 55 08 83 C2 28 52",
+        "pattern_kind": "code",
+        "note": "Code pattern at the address, GOG 2.2.301, verified unique in executable sections 2026-11-21. Ghidra decompile of 0x00577B50: 'if (param_1 == 0) begin else FUN_00578dd0(local_10,param_1 + 0x28)'; returns '*(iVar4 + 4)' or 0 at end. Same pattern as OpenShim patches.json P2PAdaptiveRetry::NextPlayer."
+      },
+      "NetSession": {
+        "address": "0x00917F48",
+        "type": "void** (session object)",
+        "description": "The network session object (1.5 'theNet'). Null outside a session: created at 0x005723BA, deleted then zeroed at 0x005729ED. +4 holds the host player id; +0x410 holds the start_location vector (3 floats).",
+        "pattern": "55 8B EC 83 EC 10 83 3D 48 7F 91 00 00 74 17 A1 48 7F 91 00 83 78 08 05 74 0C",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: start of 0x00575890 ('cmp [0x917f48],0; je; mov eax,[0x917f48]; cmp [eax+8],5'), GOG 2.2.301, verified unique in executable sections 2026-11-21. Same function OpenShim patches.json catalogs as Net::Session (operand +8). start_location offset 0x410 from the thiscall getter 0x00570470 and setter 0x005704A0 ('add eax,0x410' then 3 dword copies)."
+      },
+      "deathmatch": {
+        "address": "0x00917F7A",
+        "type": "bool*",
+        "description": "True after a deathmatch-class network mission starts: MultDMMission Init (0x0056C320) and 0x0056E340 set it, MultST Init (0x0056ECE0) clears it. Never reset when the session ends, so callers must also check isNetGame.",
+        "pattern": "55 8B EC A0 7A 7F 91 00 5D C3",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: the whole getter at 0x00571C50 ('mov al,[0x917f7a]'); setter is 0x00571C60. GOG 2.2.301, verified unique in executable sections 2026-11-21."
+      },
+      "syncJoin": {
+        "address": "0x00917F8E",
+        "type": "bool*",
+        "description": "Session 'Sync' option, copied from the launch game-info record (+0x50) when the game launches.",
+        "pattern": "8B 55 1C 8A 42 50 A2 8E 7F 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: store at 0x0057410D in the launch routine 0x005740A0, whose log line reads 'Launching Network Game %s, Map %s, Workshop %s, Sync: %s, Sniper: %s, Barracks: %s, CommSat: %s, Splint: %s, Lives: %d, Time: %d, Kills %d'. GOG 2.2.301, verified unique in executable sections 2026-11-21."
+      },
+      "sniperOption": {
+        "address": "0x009175BF",
+        "type": "bool*",
+        "description": "Session 'Sniper' option, copied from the launch game-info record (+0x60).",
+        "pattern": "8B 4D 1C 8A 51 60 88 15 BF 75 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: store at 0x00574118 in launch routine 0x005740A0 (see syncJoin). GOG 2.2.301, verified unique in executable sections 2026-11-21."
+      },
+      "barracksOption": {
+        "address": "0x008E8C0E",
+        "type": "bool*",
+        "description": "Session 'Barracks' option, copied from the launch game-info record (+0x52).",
+        "pattern": "8B 45 1C 8A 48 52 88 0D 0E 8C 8E 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: store at 0x00574124 in launch routine 0x005740A0 (see syncJoin). GOG 2.2.301, verified unique in executable sections 2026-11-21."
+      },
+      "startLives": {
+        "address": "0x00917FA4",
+        "type": "int*",
+        "description": "Session 'Lives' option (lives each player starts with), copied from the launch game-info record (+0x58), which also seeds the live counter Multiplayer::lives.",
+        "pattern": "8B 4D 1C 8B 51 58 89 15 A4 7F 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: store at 0x0057413B in launch routine 0x005740A0 (see syncJoin); the preceding store at 0x00574136 writes the same value to 0x008E8D04. GOG 2.2.301, verified unique in executable sections 2026-11-21."
+      },
+      "commSatOption": {
+        "address": "0x008E7733",
+        "type": "bool*",
+        "description": "Session 'CommSat' option, copied from the launch game-info record (+0x51).",
+        "pattern": "8B 45 1C 8A 48 51 88 0D 33 77 8E 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: store at 0x00574147 in launch routine 0x005740A0 (see syncJoin). GOG 2.2.301, verified unique in executable sections 2026-11-21."
+      },
+      "splinterOption": {
+        "address": "0x008E8C0C",
+        "type": "bool*",
+        "description": "Session 'Splint' (splinter mortar) option, copied from the launch game-info record (+0x68).",
+        "pattern": "8B 55 1C 8A 42 68 A2 0C 8C 8E 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: store at 0x00574153 in launch routine 0x005740A0 (see syncJoin). GOG 2.2.301, verified unique in executable sections 2026-11-21."
+      },
+      "timeLimit": {
+        "address": "0x00917F44",
+        "type": "int*",
+        "description": "Session time limit in minutes (0 = none), copied from the launch game-info record (+0x54). The DM timer starts with TimeLimit*60 seconds (0x0056BCD0).",
+        "pattern": "8B 4D 1C 8B 51 54 89 15 44 7F 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: store at 0x0057415E in launch routine 0x005740A0 (see syncJoin). GOG 2.2.301, verified unique in executable sections 2026-11-21."
+      },
+      "killLimit": {
+        "address": "0x00917F54",
+        "type": "int*",
+        "description": "Session kill limit (0 = none), copied from the launch game-info record (+0x64); DM checks it at 0x0056BF60.",
+        "pattern": "8B 45 1C 8B 48 64 89 0D 54 7F 91 00",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: store at 0x0057416A in launch routine 0x005740A0 (see syncJoin). GOG 2.2.301, verified unique in executable sections 2026-11-21."
       }
     },
     "Ownership": {
@@ -2607,6 +2775,16 @@
         "note": "Ported from OpenShim scripts/patches.json Craft::EffectiveDamageResistanceSite (pattern there starts 6 bytes earlier, unique at 0x004AA69A). Frame offsets proven live on GOG 2.2.301 by OpenShim 2026-10-07."
       }
     },
+    "WeaponControl": {
+      "UnTriggerAll": {
+        "address": "0x004A7800",
+        "type": "function: void __thiscall(Carrier*)",
+        "description": "Carrier::UnTriggerAll: for slots 0-4 with a non-null weapon (carrier+0x18+slot*4), calls weapon virtual +0xC (UnTrigger). Cannon's UnTrigger clears its one-tick trigger latch; SpecialItem's (0x005D98F0) switches the item off. Used by exu.CeaseFire.",
+        "pattern": "55 8B EC 83 EC 08 89 4D F8 C7 45 FC 00 00 00 00 EB 09 8B 45 FC 83 C0 01 89 45 FC 83 7D FC 05 7D 2A 8B 4D FC 8B 55 F8 83 7C 8A 18 00 74 1B 8B 45 FC 8B 4D F8 8B 54 81 18 8B 45 FC 8B 4D F8 8B 12 8B 4C 81 18 8B 42 0C FF D0 EB C7 8B E5 5D C3",
+        "pattern_kind": "code",
+        "note": "GOG 2.2.301: bytes read from the shipping exe; the full 76-byte body matches once (the first 48 bytes already match once). Ghidra callers 0x004AD819, 0x004ADAE5, 0x004ADDE7, 0x004ADFEA match the 1.5 Craft::ExplodePilot/RemovePilot/EjectPilot/AbandonPilot calls to Carrier::UnTriggerAll (1.5 all_decompiled.c 157047/157118/157172/157238). Verified 2026-11-21."
+      }
+    },
     "VehicleControl": {
       "UnitProcessExecute": {
         "address": "0x005FA6E0",
@@ -2691,6 +2869,14 @@
         "pattern": "55 8B EC 83 EC 08 89 4D FC 6A 00 8B 45 FC 8B 88 A0 01 00 00 E8 87 4C FA FF 89 45 F8 8B 4D FC 81",
         "pattern_kind": "code",
         "note": "Independently traced in the released GOG 2.2.301 executable, 2026-10-23. Exact sequence is unique in executable sections and matched settled GOG process bytes on 2026-10-23. See Docs/Research/EXU2_CAPABILITIES_VALIDATION_20261023.md for runtime scope and remaining platform/multiplayer checks."
+      },
+      "IsBusy": {
+        "address": "0x004723D0",
+        "type": "bool __thiscall(void*)",
+        "description": "Producer::IsBusy: false when the deployedBuilder byte +0x308 is set and virtual +0x68 (IsDeployed 0x4AE300) is false, else buildClass +0x300 != 0. src/Game/ProducerScrap.cpp calls it before exu.FinishBuild so an undeployed Recycler/Factory is not finished early.",
+        "pattern": "55 8B EC 51 89 4D FC 8B 45 FC 0F B6 88 08 03 00 00 85 C9 74 18 8B 55 FC 8B 02 8B 4D FC 8B 50 68 FF D2 0F B6 C0 85 C0 75",
+        "pattern_kind": "code",
+        "note": "Ghidra decompile of GOG 2.2.301 FUN_004723d0: 'if (((char)param_1[0xc2] != 0) && (**(code **)(*param_1 + 0x68))() == 0) return false; return param_1[0xc0] != 0;'. Matches BZ 1.5 Producer::IsBusy 0x40c600. Deployable Producer simulate 0x5AC580 gates UpdateBuild 0x5AEE30 on it. Exact 40-byte sequence verified unique in the GOG executable .text by raw scan 2026-11-21."
       }
     },
     "PlayerIdentity": {

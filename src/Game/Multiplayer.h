@@ -55,4 +55,16 @@ namespace ExtraUtilities::Lua::Multiplayer
 	int DisableStartingRecycler(lua_State*);
 
 	int AdoptObject(lua_State* L);
+
+	// Net identity
+	int GetNetworkID(lua_State* L);
+	int GetHandleFromNetworkID(lua_State* L);
+	int GetOwnerID(lua_State* L);
+	int AllPlayers(lua_State* L);
+	int IsDeathmatch(lua_State* L);
+	int GetNetGameOptions(lua_State* L);
+	int GetStartLocation(lua_State* L);
+	int SetStartLocation(lua_State* L);
+	// Puts back the start location SetStartLocation replaced.
+	void ResetMissionState() noexcept;
 }

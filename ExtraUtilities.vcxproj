@@ -162,6 +162,7 @@
     <ClCompile Include="src\Game\PilotFsmIntercept.cpp" />
     <ClCompile Include="src\Game\Camera.cpp" />
     <ClCompile Include="src\Game\BuildEvents.cpp" />
+    <ClCompile Include="src\Game\ProducerScrap.cpp" />
     <ClCompile Include="src\Game\ConstructionHologram.cpp" />
     <ClCompile Include="src\Ogre\OgrePreviewModel.cpp" />
     <ClCompile Include="src\Game\TerrainPlacement.cpp" />
@@ -174,12 +175,14 @@
     <ClCompile Include="src\Game\Culling.cpp" />
     <ClCompile Include="src\Game\DamageResistance.cpp" />
     <ClCompile Include="src\Game\VehicleControl.cpp" />
+    <ClCompile Include="src\Game\WeaponControl.cpp" />
     <ClCompile Include="src\UI\ControlPanel.cpp" />
     <ClCompile Include="src\UI\NativeHud.cpp" />
     <ClCompile Include="src\UI\NativeHudLua.cpp" />
     <ClCompile Include="src\dllmain.cpp" />
     <ClCompile Include="src\Patches\EngineFlameColor.cpp" />
     <ClCompile Include="src\Game\Environment.cpp" />
+    <ClCompile Include="src\Game\EnvironmentHazards.cpp" />
     <ClCompile Include="src\Ogre\OgreParticleAbi.cpp" />
     <ClCompile Include="src\Ogre\OgreSceneRuntime.cpp" />
     <ClCompile Include="src\Game\SceneDebug.cpp" />
@@ -282,6 +285,8 @@
     <ClInclude Include="src\Game\DamageResistance.h" />
     <ClInclude Include="src\Game\VehicleControl.h" />
     <ClInclude Include="src\Game\VehicleControlPolicy.h" />
+    <ClInclude Include="src\Game\WeaponControl.h" />
+    <ClInclude Include="src\Game\WeaponControlCore.h" />
     <ClInclude Include="src\Game\AiPathCore.h" />
     <ClInclude Include="src\UI\ControlPanel.h" />
     <ClInclude Include="src\UI\NativeHud.h" />
@@ -292,6 +297,7 @@
     <ClInclude Include="src\Ogre\OgreSceneRuntime.h" />
     <ClInclude Include="src\Game\EnvironmentLog.h" />
     <ClInclude Include="src\Game\EnvironmentInternal.h" />
+    <ClInclude Include="src\Game\EnvironmentHazardsCore.h" />
     <ClInclude Include="include\ExtraUtils.h" />
     <ClInclude Include="src\Exports.h" />
     <ClInclude Include="src\Game\GameObject.h" />
@@ -332,6 +338,8 @@
     <ClInclude Include="src\Ogre\OgreRenderSpace.h" />
     <ClInclude Include="src\Game\BuildEvents.h" />
     <ClInclude Include="src\Game\BuildEventsCore.h" />
+    <ClInclude Include="src\Game\ProducerScrap.h" />
+    <ClInclude Include="src\Game\ProducerScrapCore.h" />
     <ClInclude Include="src\Game\ConsoleRegistry.h" />
     <ClInclude Include="src\Game\ProjectionBindings.h" />
     <ClInclude Include="src\Game\SteamIdentity.h" />
