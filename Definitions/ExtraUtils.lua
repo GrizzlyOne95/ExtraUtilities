@@ -5548,6 +5548,24 @@ function exu.SaveSettingString(section, label, value) end
 --- @return string | nil err
 function exu.DeleteSetting(section, label) end
 
+--- True when the stock UseItem(name) would return the file's contents:
+--- it asks the same engine lookup UseItem uses (loaded-resource cache, then
+--- the game's file index and search path), but nothing is read and no
+--- `Couldn't find file` line reaches BZLogger.txt. Names starting "null"
+--- and empty names are false, as UseItem returns nil for them; so is a name
+--- with an embedded NUL (the engine would see a shorter name). Local to
+--- this machine; nil when the build is unsupported or the lookup faults, so
+--- treat nil as "unknown" and fall back to reading.
+--- ```lua
+--- if exu.FileExists("misn2bcr_2.des") ~= false then
+---     local text = UseItem("misn2bcr_2.des")
+--- end
+--- ```
+--- @param name string bare file name, as passed to UseItem
+--- @nodiscard
+--- @return boolean | nil exists
+function exu.FileExists(name) end
+
 --- ```lua
 --- local ok = exu.ResetOverlaySupport("mission-end")
 --- if not ok then print("overlay reset failed") end

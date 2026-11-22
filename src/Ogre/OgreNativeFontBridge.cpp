@@ -1005,7 +1005,11 @@ namespace Native
 
 			if (!resourceGroups->resourceGroupExists(groupName))
 			{
-				LogNativeOverlayMessage("[EXU::Overlay] native font group reset not needed font=%s group=%s reason=missing",
+				// First use: the runtime font group does not exist yet, so
+				// there is nothing to reset. A notice, not a fault: tagged
+				// [INFO] (the level token OpenShim's log and the CR release
+				// stress scan use) so log scanners skip it.
+				LogNativeOverlayMessage("[INFO] [EXU::Overlay] native font group reset not needed font=%s group=%s reason=missing",
 					fontName,
 					groupName);
 				return true;

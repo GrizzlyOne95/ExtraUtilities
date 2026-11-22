@@ -1177,6 +1177,7 @@ namespace ExtraUtilities::Lua
 			{ "SaveSettingFloat", &SmallCalls::SaveSettingFloat },
 			{ "SaveSettingString", &SmallCalls::SaveSettingString },
 			{ "DeleteSetting", &SmallCalls::DeleteSetting },
+			{ "FileExists", &SmallCalls::FileExists },
 
 			// Play Options
 			{ "GetAutoLevel",	 &PlayOption::GetAutoLevel },
