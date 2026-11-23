@@ -530,6 +530,10 @@ namespace ExtraUtilities::Lua
 		lua_setfield(L, -2, "ENABLED");
 
 		lua_setfield(L, exuIdx, "SATELLITE"); // end satellite state enum
+
+		// Unit voice message names (generated from the UnitMessage parser table)
+		SmallCalls::PushUnitMessageTable(L);
+		lua_setfield(L, exuIdx, "UNIT_MESSAGE");
 	}
 
 	int Init(lua_State* L)
@@ -1166,6 +1170,7 @@ namespace ExtraUtilities::Lua
 			{ "DeactivateSatellite", &SmallCalls::DeactivateSatellite },
 			{ "UnitMessage", &SmallCalls::UnitMessage },
 			{ "UnitMessageDirect", &SmallCalls::UnitMessageDirect },
+			{ "GetUnitMessage", &SmallCalls::GetUnitMessage },
 			{ "StopUnitMessage", &SmallCalls::StopUnitMessage },
 			{ "IsUnitMessagePlaying", &SmallCalls::IsUnitMessagePlaying },
 			{ "GetSettingBool", &SmallCalls::GetSettingBool },
@@ -1178,6 +1183,9 @@ namespace ExtraUtilities::Lua
 			{ "SaveSettingString", &SmallCalls::SaveSettingString },
 			{ "DeleteSetting", &SmallCalls::DeleteSetting },
 			{ "FileExists", &SmallCalls::FileExists },
+			{ "GetCurDate", &SmallCalls::GetCurDate },
+			{ "GetCurTime", &SmallCalls::GetCurTime },
+			{ "GetTimeDiff", &SmallCalls::GetTimeDiff },
 
 			// Play Options
 			{ "GetAutoLevel",	 &PlayOption::GetAutoLevel },

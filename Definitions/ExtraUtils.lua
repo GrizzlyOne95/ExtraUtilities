@@ -363,6 +363,36 @@ exu.SATELLITE = {
     ENABLED = 1
 }
 
+--- Unit voice message numbers for exu.UnitMessage / exu.UnitMessageDirect
+--- (which also accept the name strings in lowercase). Values 7, 8, 19 and 20
+--- are unnamed but valid by number.
+--- @class UnitMessageType
+exu.UNIT_MESSAGE = {
+    SELECT_WAIT = 0,
+    SELECT_GO = 1,
+    SELECT_FOLLOW = 2,
+    SELECT_ATTACK = 3,
+    SELECT_PICKUP = 4,
+    SELECT_DROPOFF = 5,
+    SELECT_DEPLOY = 6,
+    SELECT_OTHER = 9,
+    GO = 10,
+    GO_OBJECT = 11,
+    FOLLOW = 12,
+    FOLLOW_ME = 13,
+    ATTACK = 14,
+    REPAIR = 15,
+    RELOAD = 16,
+    RESCUE = 17,
+    RECYCLE = 18,
+    OTHER = 21,
+    DEPLOYED = 22,
+    PACKED = 23,
+    KILLED = 24,
+    DIED = 25,
+    BLOCKED = 26,
+}
+
 --- Camera
 ---
 --- These functions are related to the camera in-game and its attributes
@@ -5432,6 +5462,18 @@ function exu.UnitMessage(h, msg) end
 --- @return boolean queued
 function exu.UnitMessageDirect(h, msg, priority) end
 
+--- The voice clip file name a craft would play for a unit message (the stock
+--- per-class sound slot), without playing anything. Accepts the same names or
+--- numbers as exu.UnitMessage. Local to this machine.
+--- ```lua
+--- local clip = exu.GetUnitMessage(h, "attack")
+--- ```
+--- @param h Handle
+--- @param msg string | integer
+--- @nodiscard
+--- @return string | nil name nil for a non-craft, an unknown message, an unsupported build or an empty slot
+function exu.GetUnitMessage(h, msg) end
+
 --- Stops the playing unit voice clip and clears the queue.
 --- ```lua
 --- exu.StopUnitMessage()
@@ -5573,6 +5615,47 @@ function exu.DeleteSetting(section, label) end
 --- @nodiscard
 --- @return boolean | nil exists
 function exu.FileExists(name) end
+
+--- Formats a date and time like Lua's `os.date` (BZR's Lua has no os library).
+--- Default format is "%c"; a leading "!" uses UTC; "*t" or "!*t" returns a table
+--- {year, month, day, hour, min, sec, wday, yday, isdst}. Allowed conversions:
+--- a A b B c d H I j m M p S U w W x X y Y Z %. An unknown conversion is a Lua
+--- argument error. Returns nil if the time is out of range (on Windows: negative
+--- or after year 3000). Reads this
+--- machine's clock and time zone, so values differ between players.
+--- ```lua
+--- print(exu.GetCurDate("%Y-%m-%d %H:%M:%S"))
+--- local t = exu.GetCurDate("*t")
+--- ```
+--- @param format string? strftime-style format, default "%c"
+--- @param time number? seconds since the epoch, default now
+--- @nodiscard
+--- @return string | table | nil date
+function exu.GetCurDate(format, time) end
+
+--- Converts a date table to seconds like Lua's `os.time`. No argument returns
+--- the current time. year, month and day are required; hour defaults to 12,
+--- min and sec to 0; isdst is optional. A missing required field or a
+--- non-int value is a Lua error. Returns nil if the date cannot be represented
+--- (on Windows that includes dates before 1970). Uses this machine's time zone.
+--- ```lua
+--- local now = exu.GetCurTime()
+--- local noon = exu.GetCurTime({ year = 2026, month = 11, day = 21 })
+--- ```
+--- @param date table? { year, month, day, hour?, min?, sec?, isdst? }
+--- @nodiscard
+--- @return number | nil seconds
+function exu.GetCurTime(date) end
+
+--- Seconds from t1 to t2 like Lua's `os.difftime`; t1 defaults to 0.
+--- ```lua
+--- local elapsed = exu.GetTimeDiff(exu.GetCurTime(), startTime)
+--- ```
+--- @param t2 number
+--- @param t1 number?
+--- @nodiscard
+--- @return number seconds
+function exu.GetTimeDiff(t2, t1) end
 
 --- ```lua
 --- local ok = exu.ResetOverlaySupport("mission-end")
