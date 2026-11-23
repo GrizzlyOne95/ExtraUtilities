@@ -405,6 +405,7 @@
     <ClInclude Include="src\Game\DeathCamera.h" />
     <ClInclude Include="src\Game\SmallCalls.h" />
     <ClInclude Include="src\Game\SmallCallsLogic.h" />
+    <ClInclude Include="src\Game\ClockLogic.h" />
     <ClInclude Include="src\Game\LaserSight.h" />
     <ClInclude Include="src\Game\MissionPaths.h" />
     <ClInclude Include="src\Game\MissionPathsCore.h" />

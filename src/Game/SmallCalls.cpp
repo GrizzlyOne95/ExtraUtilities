@@ -49,6 +49,7 @@
 #include "SmallCalls.h"
 
 #include "Camera.h"
+#include "ClockLogic.h"
 #include "InlinePatch.h"
 #include "LuaHelpers.h"
 #include "SmallCallsLogic.h"
@@ -62,6 +63,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <ctime>
 #include <vector>
 
 namespace ExtraUtilities::Lua::SmallCalls
@@ -69,6 +71,7 @@ namespace ExtraUtilities::Lua::SmallCalls
 	namespace
 	{
 		namespace Logic = ExtraUtilities::SmallCallsLogic;
+		namespace Clock = ExtraUtilities::ClockLogic;
 		namespace Addr = EngineAddresses::SmallCalls;
 		namespace ResourceAddr = EngineAddresses::PathBlock;
 
@@ -597,6 +600,30 @@ namespace ExtraUtilities::Lua::SmallCalls
 		return 1;
 	}
 
+	int GetUnitMessage(lua_State* L)
+	{
+		const BZR::handle h = CheckHandle(L, 1);
+		const int msg = CheckUnitMsg(L, 2);
+		void* craft = (msg >= 0 && RuntimeGate::IsSupported()) ? GetCraft(h) : nullptr;
+		if (craft == nullptr)
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		const char* slot = nullptr;
+		Seh::Guard("GetUnitMessage.GetUnitMsg", [&] {
+			slot = reinterpret_cast<UnitMsgFilenameFn>(Addr::UnitMsgFilename)(craft, msg);
+		});
+		char name[kUnitMsgNameBytes];
+		if (!CopyEngineString(slot, name, sizeof(name)) || name[0] == '\0')
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		lua_pushstring(L, name);
+		return 1;
+	}
+
 	int StopUnitMessage(lua_State* L)
 	{
 		const bool ok = RuntimeGate::IsSupported() && Seh::Guard("StopUnitMessage", [] {
@@ -657,5 +684,136 @@ namespace ExtraUtilities::Lua::SmallCalls
 		}
 		lua_pushboolean(L, Logic::IsLoadableResourceSize(size));
 		return 1;
+	}
+
+	// ---- bzx clock and constants -------------------------------------------
+	// Values are local to each machine (system clock and time zone).
+
+	int GetCurDate(lua_State* L)
+	{
+		const char* format = luaL_optstring(L, 1, "%c");
+		std::time_t t = std::time(nullptr);
+		if (!lua_isnoneornil(L, 2) && !Clock::TimeFromNumber(luaL_checknumber(L, 2), t))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		const bool utc = *format == '!';
+		if (utc)
+		{
+			++format;
+		}
+		std::tm tm{};
+		if (!Clock::BreakDown(t, utc, tm))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		if (std::strcmp(format, "*t") == 0)
+		{
+			lua_createtable(L, 0, 9);
+			const struct { const char* key; int value; } fields[] = {
+				{ "sec", tm.tm_sec }, { "min", tm.tm_min }, { "hour", tm.tm_hour },
+				{ "day", tm.tm_mday }, { "month", tm.tm_mon + 1 }, { "year", tm.tm_year + 1900 },
+				{ "wday", tm.tm_wday + 1 }, { "yday", tm.tm_yday + 1 },
+			};
+			for (const auto& field : fields)
+			{
+				lua_pushinteger(L, field.value);
+				lua_setfield(L, -2, field.key);
+			}
+			lua_pushboolean(L, tm.tm_isdst > 0);
+			lua_setfield(L, -2, "isdst");
+			return 1;
+		}
+		// Validate before formatting: strftime must never see a bad conversion.
+		// Output goes straight into a luaL_Buffer, so no object with a
+		// destructor is alive when a Lua call raises (longjmp, LuaCppBarrier.h).
+		const char bad = Clock::FindBadSpecifier(format);
+		if (bad != '\0')
+		{
+			return luaL_argerror(L, 1, lua_pushfstring(L, "invalid conversion specifier '%%%c'", bad));
+		}
+		luaL_Buffer out;
+		luaL_buffinit(L, &out);
+		Clock::FormatValidatedDate(format, tm, [&out](const char* text, std::size_t n) { luaL_addlstring(&out, text, n); });
+		luaL_pushresult(&out);
+		return 1;
+	}
+
+	int GetCurTime(lua_State* L)
+	{
+		if (lua_isnoneornil(L, 1))
+		{
+			lua_pushnumber(L, static_cast<lua_Number>(std::time(nullptr)));
+			return 1;
+		}
+		luaL_checktype(L, 1, LUA_TTABLE);
+		// A negative default marks the field required.
+		const struct { const char* key; int defaultValue; } keys[] = {
+			{ "year", -1 }, { "month", -1 }, { "day", -1 }, { "hour", 12 }, { "min", 0 }, { "sec", 0 },
+		};
+		int v[6] = {};
+		for (int i = 0; i < 6; ++i)
+		{
+			lua_getfield(L, 1, keys[i].key);
+			const bool present = lua_isnumber(L, -1) != 0;
+			const Clock::FieldResult r = Clock::ResolveField(present, present ? lua_tonumber(L, -1) : 0.0, keys[i].defaultValue, v[i]);
+			lua_pop(L, 1);
+			if (r == Clock::FieldResult::Missing)
+			{
+				return luaL_error(L, "field '%s' missing in date table", keys[i].key);
+			}
+			if (r == Clock::FieldResult::OutOfRange)
+			{
+				return luaL_error(L, "field '%s' out of range in date table", keys[i].key);
+			}
+		}
+		lua_getfield(L, 1, "isdst");
+		const int isdst = lua_isnil(L, -1) ? -1 : (lua_toboolean(L, -1) ? 1 : 0);
+		lua_pop(L, 1);
+		std::tm tm = Clock::TmFromFields(v[0], v[1], v[2], v[3], v[4], v[5], isdst);
+		const std::time_t t = std::mktime(&tm);
+		if (t == static_cast<std::time_t>(-1))
+		{
+			lua_pushnil(L);
+			return 1;
+		}
+		lua_pushnumber(L, static_cast<lua_Number>(t));
+		return 1;
+	}
+
+	int GetTimeDiff(lua_State* L)
+	{
+		std::time_t t2 = 0;
+		std::time_t t1 = 0;
+		if (!Clock::TimeFromNumber(luaL_checknumber(L, 1), t2))
+		{
+			return luaL_argerror(L, 1, "time out of range");
+		}
+		if (!Clock::TimeFromNumber(luaL_optnumber(L, 2, 0), t1))
+		{
+			return luaL_argerror(L, 2, "time out of range");
+		}
+		lua_pushnumber(L, std::difftime(t2, t1));
+		return 1;
+	}
+
+	void PushUnitMessageTable(lua_State* L)
+	{
+		lua_createtable(L, 0, static_cast<int>(sizeof(Logic::kUnitMsgNames) / sizeof(Logic::kUnitMsgNames[0])));
+		// Upper-case keys, like the other exu enums (the stub in ExtraUtils.lua
+		// lists the same names upper-cased).
+		for (const Logic::UnitMsgName& entry : Logic::kUnitMsgNames)
+		{
+			char key[32] = {};
+			for (std::size_t i = 0; entry.name[i] != '\0' && i + 1 < sizeof(key); ++i)
+			{
+				const char c = entry.name[i];
+				key[i] = (c >= 'a' && c <= 'z') ? static_cast<char>(c - 'a' + 'A') : c;
+			}
+			lua_pushinteger(L, entry.value);
+			lua_setfield(L, -2, key);
+		}
 	}
 }

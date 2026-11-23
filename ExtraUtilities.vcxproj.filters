@@ -393,6 +393,9 @@
     <ClInclude Include="src\Game\SmallCallsLogic.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>
+    <ClInclude Include="src\Game\ClockLogic.h">
+      <Filter>Header Files\Exports</Filter>
+    </ClInclude>
     <ClInclude Include="src\Game\LaserSight.h">
       <Filter>Header Files\Exports</Filter>
     </ClInclude>

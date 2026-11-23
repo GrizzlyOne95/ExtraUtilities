@@ -37,6 +37,7 @@ namespace ExtraUtilities::Lua::SmallCalls
 
 	int UnitMessage(lua_State* L);
 	int UnitMessageDirect(lua_State* L);
+	int GetUnitMessage(lua_State* L);
 	int StopUnitMessage(lua_State* L);
 	int IsUnitMessagePlaying(lua_State* L);
 
@@ -53,4 +54,12 @@ namespace ExtraUtilities::Lua::SmallCalls
 	// Not from bzx: a quiet game-file existence check on the engine's own
 	// resource lookup (see SmallCalls.cpp).
 	int FileExists(lua_State* L);
+
+	// bzx clock and constants: os.date/os.time/os.difftime equivalents (BZR's Lua
+	// has no os library), the UNIT_MESSAGE table.
+	int GetCurDate(lua_State* L);
+	int GetCurTime(lua_State* L);
+	int GetTimeDiff(lua_State* L);
+	// Pushes the exu.UNIT_MESSAGE table (name -> number) built from the parser's name table.
+	void PushUnitMessageTable(lua_State* L);
 }
