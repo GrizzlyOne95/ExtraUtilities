@@ -1,5 +1,5 @@
 --- @meta exu
---- This file provides the lua definitions for Extra Utilities version 1.3.3
+--- This file provides the lua definitions for Extra Utilities version 1.3.4
 --- These definitions also require the stock definitions found in `scriptutils.lua`
 --- for basic types like Handle and Vector
 
@@ -3211,15 +3211,17 @@ function exu.SetLightDirection(h, direction) end
 function exu.SetLightAttenuation(h, range, constant, linear, quadratic) end
 
 --- Gets the mass of the given object (most ships default to 1750 KG afaik).
---- Returns nil when the handle no longer refers to a live object.
+--- Returns nil when the handle no longer refers to a live object, or `default` if given.
 --- ```lua
 --- local mass = exu.GetMass(GetPlayerHandle())
 --- if not mass then return end
+--- local safeMass = exu.GetMass(GetPlayerHandle(), 0) -- never nil
 --- ```
 --- @nodiscard
 --- @param h Handle
+--- @param default? number Returned instead of nil when the mass cannot be read.
 --- @return number?
-function exu.GetMass(h) end
+function exu.GetMass(h, default) end
 
 --- Sets the mass of the given object. This affects collisions and knockback.
 --- Does nothing when the handle no longer refers to a live object.
@@ -3685,13 +3687,16 @@ function exu.ResetVehicleControls() end
 function exu.GetAiRecycleTaskState(h) end
 
 --- Gets the radar scan period for the given object (if it has a radar).
+--- Returns nil when the object has no live scanner (for example an ejected pilot),
+--- or `default` if given.
 --- ```lua
---- local radarPeriod = exu.GetRadarPeriod(GetPlayerHandle())
+--- local radarPeriod = exu.GetRadarPeriod(GetPlayerHandle(), 0)
 --- ```
 --- @nodiscard
 --- @param h Handle
---- @return number
-function exu.GetRadarPeriod(h) end
+--- @param default? number Returned instead of nil when there is no scanner.
+--- @return number?
+function exu.GetRadarPeriod(h, default) end
 
 --- Sets the radar scan period for the given object.
 --- ```lua
@@ -3702,13 +3707,16 @@ function exu.GetRadarPeriod(h) end
 function exu.SetRadarPeriod(h, period) end
 
 --- Gets the radar range of the given object (if it has a radar).
+--- Returns nil when the object has no live scanner, or `default` if given.
+--- Pass a default when comparing the result directly.
 --- ```lua
---- local radarRange = exu.GetRadarRange(GetPlayerHandle())
+--- if exu.GetRadarRange(GetPlayerHandle(), 0) > 100 then end
 --- ```
 --- @nodiscard
 --- @param h Handle
---- @return number
-function exu.GetRadarRange(h) end
+--- @param default? number Returned instead of nil when there is no scanner.
+--- @return number?
+function exu.GetRadarRange(h, default) end
 
 --- Sets the radar range of the given object.
 --- ```lua

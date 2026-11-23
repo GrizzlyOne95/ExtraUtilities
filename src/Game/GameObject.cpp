@@ -362,6 +362,22 @@ namespace ExtraUtilities::Lua::GameObject
 		return 1;
 	}
 
+	// Optional trailing `default` argument for getters that return nil when the
+	// object lacks the component (BZP/1.0.0 scripts compare the result directly).
+	// No default -> nil; a non-number default is an argument error.
+	static int PushNumberOrDefault(lua_State* L, int defaultIdx)
+	{
+		if (lua_isnoneornil(L, defaultIdx))
+		{
+			lua_pushnil(L);
+		}
+		else
+		{
+			lua_pushnumber(L, luaL_checknumber(L, defaultIdx));
+		}
+		return 1;
+	}
+
 	int GetMass(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
@@ -369,8 +385,7 @@ namespace ExtraUtilities::Lua::GameObject
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
 		if (obj == nullptr)
 		{
-			lua_pushnil(L);
-			return 1;
+			return PushNumberOrDefault(L, 2);
 		}
 		__try
 		{
@@ -379,8 +394,7 @@ namespace ExtraUtilities::Lua::GameObject
 		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogMaterialFault("[EXU::GetMass] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
-			lua_pushnil(L);
-			return 1;
+			return PushNumberOrDefault(L, 2);
 		}
 		lua_pushnumber(L, mass);
 		return 1;
@@ -609,8 +623,7 @@ namespace ExtraUtilities::Lua::GameObject
 		BZR::Scanner* scanner = GetLiveScanner(h);
 		if (scanner == nullptr)
 		{
-			lua_pushnil(L);
-			return 1;
+			return PushNumberOrDefault(L, 2);
 		}
 		lua_pushnumber(L, scanner->period);
 		return 1;
@@ -638,8 +651,7 @@ namespace ExtraUtilities::Lua::GameObject
 		BZR::Scanner* scanner = GetLiveScanner(h);
 		if (scanner == nullptr)
 		{
-			lua_pushnil(L);
-			return 1;
+			return PushNumberOrDefault(L, 2);
 		}
 		lua_pushnumber(L, scanner->range);
 		return 1;
