@@ -362,16 +362,48 @@ namespace ExtraUtilities::Lua::GameObject
 		return 1;
 	}
 
+	// Optional trailing `default` argument for getters that return nil when the
+	// object lacks the component (BZP/1.0.0 scripts compare the result directly).
+	// Read up front so a non-number default is always an argument error, and so
+	// no Lua error can be raised from inside an SEH handler.
+	struct OptionalDefault
+	{
+		bool present = false;
+		lua_Number value = 0;
+	};
+
+	static OptionalDefault CheckOptionalDefault(lua_State* L, int defaultIdx)
+	{
+		OptionalDefault result;
+		if (!lua_isnoneornil(L, defaultIdx))
+		{
+			result.present = true;
+			result.value = luaL_checknumber(L, defaultIdx);
+		}
+		return result;
+	}
+
+	// No default -> nil.
+	static int PushMissing(lua_State* L, const OptionalDefault& fallback)
+	{
+		if (fallback.present)
+			lua_pushnumber(L, fallback.value);
+		else
+			lua_pushnil(L);
+		return 1;
+	}
+
 	int GetMass(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
+		const OptionalDefault fallback = CheckOptionalDefault(L, 2);
 		float mass = 0.0f;
 		BZR::GameObject* obj = BZR::GameObject::GetObj(h);
 		if (obj == nullptr)
 		{
-			lua_pushnil(L);
-			return 1;
+			return PushMissing(L, fallback);
 		}
+		bool readOk = true;
 		__try
 		{
 			mass = obj->euler.mass;
@@ -379,8 +411,11 @@ namespace ExtraUtilities::Lua::GameObject
 		__except (Seh::Filter(GetExceptionCode()))
 		{
 			LogMaterialFault("[EXU::GetMass] crashed handle=%p code=0x%08X", reinterpret_cast<void*>(h), GetExceptionCode());
-			lua_pushnil(L);
-			return 1;
+			readOk = false;
+		}
+		if (!readOk)
+		{
+			return PushMissing(L, fallback);
 		}
 		lua_pushnumber(L, mass);
 		return 1;
@@ -606,11 +641,11 @@ namespace ExtraUtilities::Lua::GameObject
 	int GetRadarPeriod(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
+		const OptionalDefault fallback = CheckOptionalDefault(L, 2);
 		BZR::Scanner* scanner = GetLiveScanner(h);
 		if (scanner == nullptr)
 		{
-			lua_pushnil(L);
-			return 1;
+			return PushMissing(L, fallback);
 		}
 		lua_pushnumber(L, scanner->period);
 		return 1;
@@ -635,11 +670,11 @@ namespace ExtraUtilities::Lua::GameObject
 	int GetRadarRange(lua_State* L)
 	{
 		BZR::handle h = CheckHandle(L, 1);
+		const OptionalDefault fallback = CheckOptionalDefault(L, 2);
 		BZR::Scanner* scanner = GetLiveScanner(h);
 		if (scanner == nullptr)
 		{
-			lua_pushnil(L);
-			return 1;
+			return PushMissing(L, fallback);
 		}
 		lua_pushnumber(L, scanner->range);
 		return 1;

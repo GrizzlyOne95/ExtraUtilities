@@ -67,6 +67,14 @@ To copy a local Windows build instead of a GitHub release:
 ./scripts/deploy_linux_proton.sh
 ```
 
+## Upgrading from 1.0.0
+
+Behaviour a 1.0.0 script can notice (the API itself is compatible):
+
+- Getters now return `nil` instead of crashing or reading a null pointer when the object lacks the component or the handle is dead: `exu.GetMass`, `exu.GetRadarPeriod`, `exu.GetRadarRange` (`exu.GetVelocJam` already did). Each takes an optional trailing `default` number returned in place of `nil`, e.g. `exu.GetRadarRange(h, 0) > x`. Without it the result is still `nil`.
+- Setters now raise a Lua argument error on bad values instead of writing them: `exu.SetMass` (non-finite or <= 0), `exu.SetRadarPeriod` (non-finite or <= 0), `exu.SetRadarRange` and `exu.SetVelocJam` (non-finite or negative), `exu.SetDifficulty` (outside 0-4). Setters on a dead handle or missing component do nothing.
+- `exu.VERSION` (a string, present since 1.0.0) can be used for feature checks.
+
 ## Building
 
 Requirements:
