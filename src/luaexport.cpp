@@ -534,6 +534,10 @@ namespace ExtraUtilities::Lua
 		// Unit voice message names (generated from the UnitMessage parser table)
 		SmallCalls::PushUnitMessageTable(L);
 		lua_setfield(L, exuIdx, "UNIT_MESSAGE");
+
+		// Plain message colours as 0xAARRGGBB
+		SmallCalls::PushChatColorTable(L);
+		lua_setfield(L, exuIdx, "CHAT_COLOR");
 	}
 
 	int Init(lua_State* L)
@@ -1158,6 +1162,7 @@ namespace ExtraUtilities::Lua
 
 			// Small calls
 			{ "ClearMessages", &SmallCalls::ClearMessages },
+			{ "DisplayMessage", &SmallCalls::DisplayMessage },
 			{ "GetEjectSound", &SmallCalls::GetEjectSound },
 			{ "SetEjectSound", &SmallCalls::SetEjectSound },
 			{ "GetHopOutSound", &SmallCalls::GetHopOutSound },

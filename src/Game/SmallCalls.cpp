@@ -16,6 +16,14 @@
 // - ClearMessages: Redux FUN_007A47B0(color, text) clears the chat/message
 //   list when text == NULL ("if (param_2 == 0) { FUN_007a7bb0(); ... }"); the
 //   engine itself calls it with (0, 0) from Net::~Net at 0x005703EC.
+// - DisplayMessage: Redux FUN_00624550(short sender, const char* text) is the
+//   stock message display. It starts "if (DAT_00920168 != 0)" (the message box
+//   pointer). Sender 0: "if (DAT_008ec708 != 0) { FUN_00821390(DAT_00920168,
+//   text); FUN_007a47b0(0, text); }". Otherwise it picks a palette colour and
+//   runs FUN_00821450(DAT_00920168, text, colour); FUN_007a47b0(colour, text);
+//   without the 0x008EC708 test. All three calls are cdecl (call-site bytes:
+//   "8B 55 FC 52 8B 45 0C 50 8B 0D 68 01 92 00 51 E8 .. 83 C4 0C" then
+//   "52 50 E8 .. 83 C4 08"). The box pointer is passed by value.
 // - Eject sound: Craft::EjectPilot (FUN_004ADCC0) reads the char* at
 //   0x008E7C9C ("bail.wav") at 0x004ADF01 and passes it to DoAudio.
 // - Hop-out sound: Craft::AbandonPilot (FUN_004ADF20) pushes the "jump.wav"
@@ -76,6 +84,8 @@ namespace ExtraUtilities::Lua::SmallCalls
 		namespace ResourceAddr = EngineAddresses::PathBlock;
 
 		using ChatMessageAddFn = void(__cdecl*)(int color, const char* text);
+		using MessageBoxAddFn = void(__cdecl*)(void* box, const char* text);
+		using MessageBoxAddColouredFn = void(__cdecl*)(void* box, const char* text, uint32_t colour);
 		using MakeScrapFieldFn = void(__cdecl*)(const float* position, int count);
 		using SatelliteAvailableFn = int(__cdecl*)();
 		using SayFn = void(__cdecl*)(void* craft, int unitMsg, int unused);
@@ -432,6 +442,57 @@ namespace ExtraUtilities::Lua::SmallCalls
 			reinterpret_cast<ChatMessageAddFn>(Addr::ChatMessageAdd)(0, nullptr);
 		});
 		lua_pushboolean(L, ok);
+		return 1;
+	}
+
+	int DisplayMessage(lua_State* L)
+	{
+		const char* text = luaL_checkstring(L, 1);
+		const bool hasColour = !lua_isnoneornil(L, 2);
+		uint32_t colour = 0;
+		if (hasColour)
+		{
+			const double value = luaL_checknumber(L, 2);
+			if (!Logic::IsValidChatColour(value))
+			{
+				return luaL_argerror(L, 2, "colour must be an integer 0..0xFFFFFFFF (0xAARRGGBB)");
+			}
+			colour = Logic::EngineColour(static_cast<uint32_t>(value));
+		}
+		if (!RuntimeGate::IsSupported())
+		{
+			lua_pushboolean(L, false);
+			return 1;
+		}
+		// Stock DisplayMessage formats into a 1024-byte buffer first
+		// (FUN_0056fcb0: _vsnprintf(local_408, 0x400, ...)), so the box code
+		// never sees a longer line. Keep that cap. A plain char array has no
+		// destructor, so it is safe across the Lua error longjmp.
+		char line[1024];
+		std::strncpy(line, text, sizeof(line) - 1);
+		line[sizeof(line) - 1] = '\0';
+		text = line;
+		bool ran = false;
+		const bool ok = Seh::Guard("DisplayMessage", [&] {
+			void* const box = *reinterpret_cast<void* const*>(Addr::MessageBoxPointer);
+			if (box == nullptr)
+			{
+				return;
+			}
+			if (hasColour)
+			{
+				reinterpret_cast<MessageBoxAddColouredFn>(Addr::MessageBoxAddColoured)(box, text, colour);
+				reinterpret_cast<ChatMessageAddFn>(Addr::ChatMessageAdd)(static_cast<int>(colour), text);
+				ran = true;
+			}
+			else if (*reinterpret_cast<const int*>(Addr::MessageGate) != 0)
+			{
+				reinterpret_cast<MessageBoxAddFn>(Addr::MessageBoxAdd)(box, text);
+				reinterpret_cast<ChatMessageAddFn>(Addr::ChatMessageAdd)(0, text);
+				ran = true;
+			}
+		});
+		lua_pushboolean(L, ok && ran);
 		return 1;
 	}
 
@@ -814,6 +875,18 @@ namespace ExtraUtilities::Lua::SmallCalls
 			}
 			lua_pushinteger(L, entry.value);
 			lua_setfield(L, -2, key);
+		}
+	}
+
+	void PushChatColorTable(lua_State* L)
+	{
+		lua_createtable(L, 0, static_cast<int>(sizeof(Logic::kChatColours) / sizeof(Logic::kChatColours[0])));
+		// Plain colours only. The engine's own self/ally/enemy chat colours
+		// (self is 0xFF00FF00) are chosen by sender and are not exposed.
+		for (const Logic::ChatColourName& entry : Logic::kChatColours)
+		{
+			lua_pushnumber(L, static_cast<lua_Number>(entry.argb));
+			lua_setfield(L, -2, entry.name);
 		}
 	}
 }

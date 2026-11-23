@@ -1472,6 +1472,38 @@
         "pattern_kind": "code",
         "note": "Ghidra FUN_007A47B0: 'if (param_2 == 0) { FUN_007a7bb0(); ... DAT_00945549 = 1 }'. Verified against GOG 2.2.301 2026-11-21 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
       },
+      "MessageBoxAdd": {
+        "address": "0x00821390",
+        "type": "function: void __cdecl(void* box, const char* text)",
+        "description": "Redux message-box add with the default colour (FUN_00821390): word-wraps text into the message box at *(box+8). Stock FUN_00624550 calls it for sender 0 with the box pointer value from MessageBoxPointer.",
+        "pattern": "55 8B EC 51 8B 45 08 8B 48 08 89 4D FC 8B 55 FC 8B 42 2C 50 8B 4D 0C 51 8B 55 08 52 E8 ?? ?? ?? ?? 83 C4 0C 8B E5 5D C3",
+        "pattern_kind": "code",
+        "note": "Ghidra FUN_00821390; FUN_00624550+0xDA calls it as 'push text; push [0x00920168]; call; add esp, 8' (cdecl, 2 args). Verified against GOG 2.2.301 2026-11-23 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
+      },
+      "MessageBoxAddColoured": {
+        "address": "0x00821450",
+        "type": "function: void __cdecl(void* box, const char* text, uint32_t colour)",
+        "description": "Redux coloured message-box add (FUN_00821450): word-wraps text into the message box at *(box+8) and stores the colour per line at line+0x54. Stock FUN_00624550 calls it for a non-zero sender with a palette colour.",
+        "pattern": "55 8B EC 83 EC 30 8B 45 08 8B 48 08 89 4D FC 8B 55 FC 8B 42 5C 83 E0 08 74 16",
+        "pattern_kind": "code",
+        "note": "Ghidra FUN_00821450; FUN_00624550+0xE4 calls it as 'push colour; push text; push [0x00920168]; call; add esp, 0xC' (bytes 8B 55 FC 52 8B 45 0C 50 8B 0D 68 01 92 00 51 E8) and then ChatMessageAdd(colour, text). Verified against GOG 2.2.301 2026-11-23 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
+      },
+      "MessageBoxPointer": {
+        "address": "0x00920168",
+        "type": "void** (message box object pointer; NULL before the HUD message box exists)",
+        "description": "DAT_00920168: the pointer FUN_00624550 (stock chat/message display) tests and passes as the first argument of FUN_00821390 / FUN_00821450. It is read as a value, not an address of the box.",
+        "pattern": "83 3D 68 01 92 00 00 0F 84 EF 00 00 00 0F B7 45 08",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: 'cmp dword ptr [0x920168], 0; je ...; movzx eax, word ptr [ebp+8]' at FUN_00624550+7 (0x00624557), the function's first test. Verified against GOG 2.2.301 2026-11-23 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
+      },
+      "MessageGate": {
+        "address": "0x008EC708",
+        "type": "int32_t* (nonzero lets the sender-0 message path run)",
+        "description": "DAT_008EC708: FUN_00624550 runs the sender-0 (default colour) path only when it is nonzero. The coloured path is not gated on it.",
+        "pattern": "83 3D 08 C7 8E 00 00 74 21 8B 4D 0C 51",
+        "pattern_kind": "reference",
+        "note": "Reference pattern: 'cmp dword ptr [0x8EC708], 0; je +0x21; mov ecx, [ebp+0xC]; push ecx' at FUN_00624550+0xD9 (0x00624629). Verified against GOG 2.2.301 2026-11-23 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
+      },
       "EjectSoundName": {
         "address": "0x008E7C9C",
         "type": "const char** (.data, initially -> \"bail.wav\" at 0x008782A0)",

@@ -37,6 +37,18 @@ int main()
     Expect(IsValidQueuePriority(0) && IsValidQueuePriority(6) && !IsValidQueuePriority(7) && !IsValidQueuePriority(-1) &&
         !IsValidQueuePriority(1.5), "queue priority 0..6");
 
+    Expect(EngineColour(0xFFFF0000u) == 0xFFFF0000u && EngineColour(0u) == 0u, "EngineColour is identity until the live test says otherwise");
+    static_assert(EngineColour(0x12345678u) == 0x12345678u, "EngineColour is constexpr");
+    Expect(IsValidChatColour(0) && IsValidChatColour(4294967295.0) && IsValidChatColour(0xFF00FF00u), "colours 0..0xFFFFFFFF accepted");
+    Expect(!IsValidChatColour(-1) && !IsValidChatColour(4294967296.0) && !IsValidChatColour(1.5) &&
+        !IsValidChatColour(std::numeric_limits<double>::quiet_NaN()) && !IsValidChatColour(std::numeric_limits<double>::infinity()),
+        "negative, too large, fractional and non-finite colours rejected");
+    Expect(sizeof(kChatColours) / sizeof(kChatColours[0]) == 8, "eight chat colours");
+    for (const ChatColourName& entry : kChatColours)
+    {
+        Expect((entry.argb >> 24) == 0xFFu && IsValidChatColour(entry.argb), std::string("chat colour is opaque and valid: ") + entry.name);
+    }
+
     Expect(IsValidSettingKey("General", 7) && IsValidSettingKey("Hard Mode!", 10), "printable keys pass");
     const std::string key64(kSettingKeyMax, 'k');
     const std::string key65(kSettingKeyMax + 1, 'k');

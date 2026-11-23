@@ -9,6 +9,23 @@ return function(exu, friendly)
 
     say("ClearMessages=%s (LOOK: message list empties)", tostring(exu.ClearMessages()))
 
+    for _, name in ipairs({ "WHITE", "GREEN", "RED", "BLUE", "YELLOW", "CYAN", "MAGENTA", "ORANGE" }) do
+        local colour = exu.CHAT_COLOR[name]
+        assert(type(colour) == "number")
+        local shown = exu.DisplayMessage("[colour] " .. name, colour)
+        assert(type(shown) == "boolean")
+        say("DisplayMessage %s=%s (LOOK: line reads '[colour] %s' in %s)", name, tostring(shown), name, name)
+    end
+    local shownDefault = exu.DisplayMessage("[colour] DEFAULT")
+    assert(type(shownDefault) == "boolean")
+    say("DisplayMessage default=%s (LOOK: default colour)", tostring(shownDefault))
+    assert(type(exu.DisplayMessage(string.rep("x", 4096), exu.CHAT_COLOR.WHITE)) == "boolean")
+    fails(function() exu.DisplayMessage("x", true) end)
+    fails(function() exu.DisplayMessage("x", -1) end)
+    fails(function() exu.DisplayMessage("x", 4294967296) end)
+    fails(function() exu.DisplayMessage("x", 1.5) end)
+    fails(function() exu.DisplayMessage() end)
+
     say("eject sound before=%s", tostring(exu.GetEjectSound()))
     assert(exu.GetEjectSound() == "bail.wav")
     assert(exu.SetEjectSound("jump.wav") == true and exu.GetEjectSound() == "jump.wav")

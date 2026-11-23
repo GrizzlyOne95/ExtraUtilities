@@ -363,6 +363,20 @@ exu.SATELLITE = {
     ENABLED = 1
 }
 
+--- Plain message colours for exu.DisplayMessage, as 0xAARRGGBB integers.
+--- The order is inferred from the engine's palette; not yet seen in game.
+--- @class ChatColor
+exu.CHAT_COLOR = {
+    WHITE = 0xFFFFFFFF,
+    GREEN = 0xFF00FF00,
+    RED = 0xFFFF0000,
+    BLUE = 0xFF0000FF,
+    YELLOW = 0xFFFFFF00,
+    CYAN = 0xFF00FFFF,
+    MAGENTA = 0xFFFF00FF,
+    ORANGE = 0xFFFF8000
+}
+
 --- Unit voice message numbers for exu.UnitMessage / exu.UnitMessageDirect
 --- (which also accept the name strings in lowercase). Values 7, 8, 19 and 20
 --- are unnamed but valid by number.
@@ -5340,6 +5354,20 @@ function exu.ResetMissionHookOverrides() end
 --- ```
 --- @return boolean ok
 function exu.ClearMessages() end
+
+--- Shows a line in the engine's message box, like the stock DisplayMessage but
+--- with an optional colour (idea credit: bzx). Without a colour it follows the
+--- stock default-colour path, which the engine skips while its message gate is
+--- off. Like the stock call it does nothing while the engine has no message box
+--- (seen in a single-player mission). Text is cut at 1023 bytes, as stock.
+--- Local to this machine. An out-of-range colour is an argument error.
+--- ```lua
+--- exu.DisplayMessage("Reactor online", exu.CHAT_COLOR.GREEN)
+--- ```
+--- @param text string
+--- @param colour? integer 0xAARRGGBB, e.g. exu.CHAT_COLOR.RED
+--- @return boolean shown false when the message box is not up, the gate is off or the build is unsupported
+function exu.DisplayMessage(text, colour) end
 
 --- The sound played when a pilot ejects from a destroyed craft (stock "bail.wav").
 --- ```lua

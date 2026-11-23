@@ -549,6 +549,14 @@ namespace ExtraUtilities::EngineAddresses
 		{
 			// function: void __cdecl(int color, const char* text)
 			ChatMessageAdd = 0x007A47B0u,
+			// function: void __cdecl(void* box, const char* text)
+			MessageBoxAdd = 0x00821390u,
+			// function: void __cdecl(void* box, const char* text, uint32_t colour)
+			MessageBoxAddColoured = 0x00821450u,
+			// void** (message box object pointer; NULL before the HUD message box exists)
+			MessageBoxPointer = 0x00920168u,
+			// int32_t* (nonzero lets the sender-0 message path run)
+			MessageGate = 0x008EC708u,
 			// const char** (.data, initially -> "bail.wav" at 0x008782A0)
 			EjectSoundName = 0x008E7C9Cu,
 			// code: push imm32 (5 bytes, imm -> "jump.wav" at 0x008783A0)
@@ -1183,5 +1191,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 412u;
+	inline constexpr unsigned kEntryCount = 416u;
 }
