@@ -122,6 +122,44 @@ namespace ExtraUtilities::SmallCallsLogic
 		return value >= 0.0 && value <= 6.0 && static_cast<double>(static_cast<int>(value)) == value;
 	}
 
+	// Chat/message colours. The Lua API takes 0xAARRGGBB. The engine's own
+	// palette values (FUN_00624550: self 0xFF00FF00, 0xFFFF00FF, 0xFF0080FF,
+	// 0xFFFFFFFF, 0xFFFF0000) are plain 32-bit words handed to FUN_00821450 and
+	// ChatMessageAdd. Read as ARGB, 0xFF0080FF is BZ 1.5's
+	// DisplayInterface::colorBlue, RGB(0, 0.5, 1); OpenShim's live-checked HUD
+	// patches (scrap_pilot_hud, producer_rally_points) pass ARGB to the same
+	// renderer. Inferred, not yet seen in game: the message box is null in the
+	// single-player test mission, so a check needs a multiplayer session.
+	// EngineColour is the one place to flip if it turns out ABGR.
+	inline constexpr unsigned EngineColour(unsigned argb) noexcept
+	{
+		return argb;
+	}
+
+	// A Lua colour argument: an integer 0..0xFFFFFFFF.
+	inline bool IsValidChatColour(double value) noexcept
+	{
+		return value >= 0.0 && value <= 4294967295.0 &&
+			static_cast<double>(static_cast<unsigned long long>(value)) == value;
+	}
+
+	struct ChatColourName
+	{
+		const char* name;
+		unsigned argb;
+	};
+
+	inline constexpr ChatColourName kChatColours[] = {
+		{ "WHITE", 0xFFFFFFFFu },
+		{ "GREEN", 0xFF00FF00u },
+		{ "RED", 0xFFFF0000u },
+		{ "BLUE", 0xFF0000FFu },
+		{ "YELLOW", 0xFFFFFF00u },
+		{ "CYAN", 0xFF00FFFFu },
+		{ "MAGENTA", 0xFFFF00FFu },
+		{ "ORANGE", 0xFFFF8000u },
+	};
+
 	// Settings sections and labels: 1-64 printable ASCII characters.
 	constexpr std::size_t kSettingKeyMax = 64;
 	inline constexpr const char* kDefaultSettingSection = "General";

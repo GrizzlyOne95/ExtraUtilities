@@ -20,6 +20,7 @@
 namespace ExtraUtilities::Lua::SmallCalls
 {
 	int ClearMessages(lua_State* L);
+	int DisplayMessage(lua_State* L);
 
 	int GetEjectSound(lua_State* L);
 	int SetEjectSound(lua_State* L);
@@ -62,4 +63,6 @@ namespace ExtraUtilities::Lua::SmallCalls
 	int GetTimeDiff(lua_State* L);
 	// Pushes the exu.UNIT_MESSAGE table (name -> number) built from the parser's name table.
 	void PushUnitMessageTable(lua_State* L);
+	// Pushes the exu.CHAT_COLOR table (name -> 0xAARRGGBB).
+	void PushChatColorTable(lua_State* L);
 }
