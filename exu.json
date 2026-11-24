@@ -1567,6 +1567,14 @@
         "pattern": "55 8B EC 83 EC 08 A1 40 56 91 00 89 45 F8 8B 4D F8 89 4D FC",
         "pattern_kind": "reference",
         "note": "Reference pattern: the queue walker at 0x0043D580 that loads the head. QueueCB stores the new head to DAT_00915640. Verified against GOG 2.2.301 2026-11-21 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
+      },
+      "GameObjectGetHitch": {
+        "address": "0x0046D0C0",
+        "type": "function: OBJ76* __thiscall(GameObject* this) (Building vtable slot 10)",
+        "description": "Returns GameObject->hitch (+0x220), the 'portable' flag: the tug command function (FUN_005ED0B0) offers PICKUP for buildings (class category 2/5) only when it is non-null. Craft pickup ignores it and the engine rewrites it on craft every frame. The stock setter (Building ctor 0x0047EA34, 'abstor' only) stores the object's OBJ76* from +0xF4. EXU reads and writes +0x220 directly; this entry only qualifies the offset.",
+        "pattern": "55 8B EC 51 89 4D FC 8B 45 FC 8B 80 20 02 00 00",
+        "pattern_kind": "code",
+        "note": "Bytes at 0x0046D0C0: 55 8B EC 51 89 4D FC 8B 45 FC 8B 80 20 02 00 00 (mov eax, [eax+0x220]). Verified against GOG 2.2.301 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes); pattern unique in the GOG exe image."
       }
     },
     "Steam": {

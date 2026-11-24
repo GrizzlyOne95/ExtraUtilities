@@ -573,6 +573,8 @@ namespace ExtraUtilities::EngineAddresses
 			UnitVoKillQueue = 0x0043D4F0u,
 			// void** (head of the QueueCB list; NULL when nothing is playing or queued)
 			UnitVoQueueHead = 0x00915640u,
+			// function: OBJ76* __thiscall(GameObject* this) (Building vtable slot 10)
+			GameObjectGetHitch = 0x0046D0C0u,
 		};
 	}
 
@@ -1191,5 +1193,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 416u;
+	inline constexpr unsigned kEntryCount = 417u;
 }

@@ -214,6 +214,16 @@ namespace ExtraUtilities::Lua::SmallCalls
 			return craft;
 		}
 
+		// GameObject::hitch, the "portable" flag (OBJ76*, GetHitch at
+		// Addr::GameObjectGetHitch 0x0046D0C0 returns it). The tug command
+		// function (FUN_005ED0B0) offers PICKUP for buildings only when it is
+		// non-null; craft pickup ignores it and the engine rewrites it on craft
+		// every frame.
+		constexpr std::size_t kGameObjectHitchOffset = 0x220;
+		// GameObject::obj, the OBJ76*. The stock setter (Building ctor 0x0047EA34,
+		// "abstor") stores this value into the hitch.
+		constexpr std::size_t kGameObjectObjOffset = 0xF4;
+
 		// UnitMsg from a name ("attack") or a number (0..26); -1 when invalid.
 		int CheckUnitMsg(lua_State* L, int idx)
 		{
@@ -547,6 +557,46 @@ namespace ExtraUtilities::Lua::SmallCalls
 			*reinterpret_cast<float*>(static_cast<uint8_t*>(craft) + kCraftEjectRatioOffset) = static_cast<float>(ratio);
 		});
 		lua_pushboolean(L, ok);
+		return 1;
+	}
+
+	int IsPortable(lua_State* L)
+	{
+		const BZR::handle h = CheckHandle(L, 1);
+		bool portable = false;
+		const bool ok = RuntimeGate::IsSupported() && Seh::Guard("IsPortable", [&] {
+			BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+			if (obj != nullptr)
+			{
+				portable = *reinterpret_cast<void* const*>(reinterpret_cast<const uint8_t*>(obj) + kGameObjectHitchOffset) != nullptr;
+			}
+		});
+		lua_pushboolean(L, ok && portable);
+		return 1;
+	}
+
+	int SetPortable(lua_State* L)
+	{
+		const BZR::handle h = CheckHandle(L, 1);
+		luaL_checkany(L, 2);
+		const bool on = lua_toboolean(L, 2) != 0;
+		bool written = false;
+		const bool ok = RuntimeGate::IsSupported() && Seh::Guard("SetPortable", [&] {
+			BZR::GameObject* obj = BZR::GameObject::GetObj(h);
+			if (obj == nullptr)
+			{
+				return;
+			}
+			uint8_t* base = reinterpret_cast<uint8_t*>(obj);
+			void* value = on ? *reinterpret_cast<void**>(base + kGameObjectObjOffset) : nullptr;
+			if (on && value == nullptr)
+			{
+				return; // no OBJ76 to hitch to; nothing would be enabled
+			}
+			*reinterpret_cast<void**>(base + kGameObjectHitchOffset) = value;
+			written = true;
+		});
+		lua_pushboolean(L, ok && written);
 		return 1;
 	}
 

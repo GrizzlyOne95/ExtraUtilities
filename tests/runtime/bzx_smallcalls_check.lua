@@ -115,4 +115,19 @@ return function(exu, friendly)
     assert(exu.GetUnitMessage(friendly, "no_such_msg") == nil)
     say("clock and constants PASS")
 
+    fails(function() exu.IsPortable(nil) end)
+    fails(function() exu.SetPortable(nil, true) end)
+    fails(function() exu.SetPortable(friendly) end)
+    local portable0 = exu.IsPortable(friendly)
+    say("IsPortable(friendly)=%s", tostring(portable0))
+    local isBuilding = IsBuilding ~= nil and IsBuilding(friendly)
+    assert(exu.SetPortable(friendly, true) == true)
+    if isBuilding then assert(exu.IsPortable(friendly) == true) end
+    assert(exu.SetPortable(friendly, false) == true)
+    if isBuilding then assert(exu.IsPortable(friendly) == false) end
+    -- restore (only meaningful for buildings; the engine rewrites it on craft)
+    exu.SetPortable(friendly, portable0)
+    if isBuilding then assert(exu.IsPortable(friendly) == portable0) end
+    say("portable PASS")
+
 end

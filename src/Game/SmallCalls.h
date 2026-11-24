@@ -30,6 +30,9 @@ namespace ExtraUtilities::Lua::SmallCalls
 	int GetPersonEjectRatio(lua_State* L);
 	int SetPersonEjectRatio(lua_State* L);
 
+	int IsPortable(lua_State* L);
+	int SetPortable(lua_State* L);
+
 	int MakeScrapField(lua_State* L);
 
 	int HasSatellite(lua_State* L);
