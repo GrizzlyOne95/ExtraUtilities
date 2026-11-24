@@ -93,5 +93,11 @@ int main()
     Expect(!IsLoadableResourceName("a\0b.des", 7), "embedded NUL rejected");
     Expect(IsLoadableResourceSize(1) && !IsLoadableResourceSize(0) && !IsLoadableResourceSize(-1),
         "only a positive size is loadable");
+
+    int answer = -1;
+    Expect(!SatelliteOverrideAnswer(SatelliteOverride::None, answer) && answer == -1,
+        "no satellite override runs the stock test and leaves the answer alone");
+    Expect(SatelliteOverrideAnswer(SatelliteOverride::On, answer) && answer == 1, "satellite forced on answers 1");
+    Expect(SatelliteOverrideAnswer(SatelliteOverride::Off, answer) && answer == 0, "satellite forced off answers 0");
     return HostTest::Finish("small calls");
 }

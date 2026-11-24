@@ -43,6 +43,7 @@
 #include "Game/PathBlock.h"
 #include "Game/Multiplayer.h"
 #include "Game/BettyVoice.h"
+#include "Game/SmallCalls.h"
 #include "Game/Plant.h"
 #include "Game/PlayerControls.h"
 #include "Game/PointLights.h"
@@ -233,6 +234,7 @@ namespace ExtraUtilities::Lua
 			ExplosionEvents::Shutdown();
 			BuildEvents::Shutdown();
 			BettyVoice::Shutdown();
+			SmallCalls::ShutdownSatelliteOverride();
 			Patch::UnitDamage::Shutdown();
 			ResetMissionScopedState();
 			Overlay::ShutdownOverlaySupport();
@@ -255,6 +257,7 @@ namespace ExtraUtilities::Lua
             HudOwnership::Reset();
             ConstructionHologram::Shutdown();
 			try { BasicPatch::UnloadAllPatches(); } catch (...) {}
+			SmallCalls::ShutdownSatelliteOverride();
 			ResetMissionScopedState();
 			VehicleControl::Shutdown();
 			PlayerControls::Shutdown();

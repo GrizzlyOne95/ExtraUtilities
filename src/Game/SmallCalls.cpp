@@ -37,6 +37,23 @@
 // - Satellite: Set_View(entity, 8) runs Toggle_Satellite_View (FUN_0061BE90):
 //   from the satellite view it returns to the last view, otherwise it applies
 //   the satellite view, which first checks FUN_0049F500 (satellite available).
+// - Satellite override (idea credit: bzx EnableSatellite/DisableSatellite):
+//   FUN_0049F500 is "cmp dword ptr [0x00979F98], 0; jne; call FUN_0049F4C0
+//   (free-satellite option); jne; call FUN_00451DE0 (arcade); jne" and
+//   returns 0/1 in eax. EXU detours its entry; the 11 stolen bytes
+//   (push ebp; mov ebp,esp; push ecx; cmp [0x00979F98],0) have no relative
+//   operand, and the trampoline resumes at the jne at 0x0049F50B. Its only
+//   code xrefs (rel32 scan of .text; no absolute pointer to it anywhere in the
+//   image) are Apply_Satellite_View at 0x0061BD80 (returns early on 0) and
+//   the ControlPanel button loop in FUN_004A08E0 at 0x004A2A38: on 1 it sets
+//   the satellite button's enable bit (+0x1184); on 0, while the view is
+//   satellite (FUN_004978D0: [0x008EAAD8] == 3), it plays mnu_back.wav and
+//   calls Set_View(entity, 8) (0x004A2A91..0x004A2ABE), so forcing it off
+//   kicks the player out of the satellite view on the next panel update. The
+//   counter 0x00979F98 (controlPanel 0x00978E20 + 0x1178) has no other
+//   absolute reference; the [this+0x1178] accesses are the ControlPanel
+//   increment (FUN_0049B7A0), clamped decrement (FUN_0049B7F0) and the
+//   constructor zero (0x004A0428), none of them an availability test.
 // - Unit messages: Redux Say FUN_005F91E0(craft, msg, unused); GetUnitMsg
 //   FUN_005F8FB0(craft, msg); QueueCB FUN_0043D1D0(name, owner, priority);
 //   KillCBQueue FUN_0043D4F0(0); queue head DAT_00915640. Say gets the queue
@@ -58,20 +75,24 @@
 
 #include "Camera.h"
 #include "ClockLogic.h"
+#include "EntryDetour32.h"
 #include "InlinePatch.h"
 #include "LuaHelpers.h"
 #include "SmallCallsLogic.h"
 #include "Util/EngineAddresses.generated.h"
+#include "Util/Logging.h"
 #include "Util/MsvcRtti.h"
 #include "Util/RuntimeGate.h"
 #include "Util/SehGuard.h"
 #include "Util/StorageApi.h"
 #include "bzr.h"
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <ctime>
+#include <new>
 #include <vector>
 
 namespace ExtraUtilities::Lua::SmallCalls
@@ -244,6 +265,116 @@ namespace ExtraUtilities::Lua::SmallCalls
 			return user;
 		}
 
+		// Satellite override (see the header comment). The stolen entry of
+		// FUN_0049F500: push ebp; mov ebp,esp; push ecx; cmp dword ptr
+		// [0x00979F98], 0. Whole, position-independent instructions; the
+		// trampoline replays the cmp, so the jne at +0x0B sees its flags.
+		constexpr std::array<std::uint8_t, 11> kSatelliteStolenEntry = {
+			0x55, 0x8B, 0xEC, 0x51, 0x83, 0x3D, 0x98, 0x9F, 0x97, 0x00, 0x00 };
+		// The jne rel8 that follows the stolen bytes: part of the identity check.
+		constexpr std::array<std::uint8_t, 2> kSatelliteEntryTail = { 0x75, 0x1B };
+
+		Logic::SatelliteOverride g_satelliteOverride = Logic::SatelliteOverride::None;
+		EntryDetour32* g_satelliteDetour = nullptr;
+		SatelliteAvailableFn g_satelliteOriginal = nullptr;
+		bool g_satelliteEntryChecked = false;
+		bool g_satelliteEntryQualified = false;
+
+		// Callers (0x0061BD80, 0x004A2A38) pass no arguments and read eax.
+		int __cdecl SatelliteAvailableHook()
+		{
+			int answer = 0;
+			if (Logic::SatelliteOverrideAnswer(g_satelliteOverride, answer))
+			{
+				return answer;
+			}
+			const SatelliteAvailableFn original = g_satelliteOriginal;
+			return original != nullptr ? original() : 0;
+		}
+
+		bool SatelliteEntryMatches() noexcept
+		{
+			bool matches = false;
+			Seh::Guard("SmallCalls.SatelliteEntryMatches", [&] {
+				const auto* code = reinterpret_cast<const std::uint8_t*>(Addr::SatelliteAvailable);
+				matches = std::memcmp(code, kSatelliteStolenEntry.data(), kSatelliteStolenEntry.size()) == 0 &&
+					std::memcmp(code + kSatelliteStolenEntry.size(), kSatelliteEntryTail.data(), kSatelliteEntryTail.size()) == 0;
+			});
+			return matches;
+		}
+
+		// Checks the entry bytes once per Lua state; logs once on failure.
+		bool QualifySatelliteEntry() noexcept
+		{
+			if (!g_satelliteEntryChecked)
+			{
+				g_satelliteEntryChecked = true;
+				g_satelliteEntryQualified = RuntimeGate::IsSupported() && SatelliteEntryMatches();
+				if (!g_satelliteEntryQualified)
+					Logging::LogMessage("exu: satellite override unavailable; FUN_0049F500 entry did not qualify");
+			}
+			return g_satelliteEntryQualified;
+		}
+
+		void RemoveSatelliteDetour() noexcept
+		{
+			// Restores the engine entry before the trampoline is freed.
+			delete g_satelliteDetour;
+			g_satelliteDetour = nullptr;
+			g_satelliteOriginal = nullptr;
+		}
+
+		// Installs the detour on first use; it stays until the Lua state closes.
+		bool EnsureSatelliteDetour() noexcept
+		{
+			try
+			{
+				if (g_satelliteDetour != nullptr && g_satelliteDetour->IsActive())
+					return true;
+				RemoveSatelliteDetour();
+				if (!QualifySatelliteEntry())
+					return false;
+
+				g_satelliteDetour = new (std::nothrow) EntryDetour32(
+					Addr::SatelliteAvailable, reinterpret_cast<const void*>(&SatelliteAvailableHook),
+					kSatelliteStolenEntry.size(), BasicPatch::Status::INACTIVE,
+					std::vector<std::uint8_t>(kSatelliteStolenEntry.begin(), kSatelliteStolenEntry.end()));
+				if (g_satelliteDetour == nullptr || !g_satelliteDetour->PrepareTrampoline())
+				{
+					Logging::LogMessage("exu: satellite override unavailable; detour could not be prepared");
+					RemoveSatelliteDetour();
+					return false;
+				}
+				g_satelliteOriginal = reinterpret_cast<SatelliteAvailableFn>(g_satelliteDetour->GetTrampoline());
+				g_satelliteDetour->SetStatus(true);
+				if (g_satelliteOriginal == nullptr || !g_satelliteDetour->IsActive())
+				{
+					Logging::LogMessage("exu: satellite override detour could not activate");
+					RemoveSatelliteDetour();
+					return false;
+				}
+				Logging::LogMessage("exu: satellite override detour active");
+				return true;
+			}
+			catch (...)
+			{
+				RemoveSatelliteDetour();
+				return false;
+			}
+		}
+
+		bool SetSatelliteOverride(Logic::SatelliteOverride requested)
+		{
+			if (!EnsureSatelliteDetour())
+			{
+				return false;
+			}
+			g_satelliteOverride = requested;
+			return true;
+		}
+
+		// Goes through the detour when it is installed, so the answer includes
+		// the override.
 		bool SatelliteAvailable()
 		{
 			int available = 0;
@@ -256,7 +387,12 @@ namespace ExtraUtilities::Lua::SmallCalls
 		bool SatelliteActive()
 		{
 			bool active = false;
-			Seh::Guard("SmallCalls.SatelliteActive", [&] { active = *BZR::Satellite::state; });
+			// The engine's own satellite test (FUN_004978D0): Current_View == 3.
+			// BZR::Satellite::state (0x008E8F9C) is the inverse: Apply_Satellite_View
+			// (FUN_0061BD20) sets it to 0 and the cockpit/chase views set it to 1.
+			Seh::Guard("SmallCalls.SatelliteActive", [&] {
+				active = *reinterpret_cast<const std::int32_t*>(EngineAddresses::DeathCamera::CameraMode) == 3;
+			});
 			return active;
 		}
 
@@ -656,6 +792,34 @@ namespace ExtraUtilities::Lua::SmallCalls
 		}
 		lua_pushboolean(L, !SatelliteActive());
 		return 1;
+	}
+
+	int EnableSatellite(lua_State* L)
+	{
+		lua_pushboolean(L, SetSatelliteOverride(Logic::SatelliteOverride::On));
+		return 1;
+	}
+
+	int DisableSatellite(lua_State* L)
+	{
+		lua_pushboolean(L, SetSatelliteOverride(Logic::SatelliteOverride::Off));
+		return 1;
+	}
+
+	int ResetSatellite(lua_State* L)
+	{
+		// Leaves the detour in place; with no override it runs the stock test.
+		g_satelliteOverride = Logic::SatelliteOverride::None;
+		lua_pushboolean(L, true);
+		return 1;
+	}
+
+	void ShutdownSatelliteOverride() noexcept
+	{
+		g_satelliteOverride = Logic::SatelliteOverride::None;
+		RemoveSatelliteDetour();
+		g_satelliteEntryChecked = false;
+		g_satelliteEntryQualified = false;
 	}
 
 	int UnitMessage(lua_State* L)
