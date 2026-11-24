@@ -5486,6 +5486,35 @@ function exu.ActivateSatellite() end
 --- @return boolean inactive satellite view is off after the call
 function exu.DeactivateSatellite() end
 
+--- Makes the satellite view available even with no powered comm tower
+--- (idea credit: bzx). The override is local to this machine and lasts until
+--- exu.ResetSatellite, exu.DisableSatellite or the end of the mission. Loading
+--- a save clears it, so re-apply it in Load(). exu.HasSatellite reports the
+--- result, override included.
+--- ```lua
+--- exu.EnableSatellite()
+--- ```
+--- @return boolean ok false when the override can't be installed on this build
+function exu.EnableSatellite() end
+
+--- Makes the satellite view unavailable even with powered comm towers (idea
+--- credit: bzx). A player already in the satellite view is sent back to the
+--- previous view on the next control panel update. Local to this machine;
+--- lasts until exu.ResetSatellite, exu.EnableSatellite or the end of the mission.
+--- ```lua
+--- exu.DisableSatellite()
+--- ```
+--- @return boolean ok false when the override can't be installed on this build
+function exu.DisableSatellite() end
+
+--- Clears exu.EnableSatellite / exu.DisableSatellite: comm towers, the
+--- free-satellite option and arcade decide again.
+--- ```lua
+--- exu.ResetSatellite()
+--- ```
+--- @return boolean ok
+function exu.ResetSatellite() end
+
 --- Plays a craft's unit voice message through the stock path: only for units
 --- on the player's team, with the stock repeat throttle and mutes (and the EXU
 --- unit-voice policy). Local to this machine.

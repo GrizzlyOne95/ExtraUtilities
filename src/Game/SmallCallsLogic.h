@@ -303,4 +303,30 @@ namespace ExtraUtilities::SmallCallsLogic
 	{
 		return size > 0;
 	}
+
+	// Script override of the satellite-available test (FUN_0049F500, which
+	// returns 0/1 in eax). None runs the stock test.
+	enum class SatelliteOverride
+	{
+		None,
+		On,
+		Off,
+	};
+
+	// True when the override decides the answer, which goes to `answer`
+	// (1 available, 0 not); false when the stock test must run.
+	inline bool SatelliteOverrideAnswer(SatelliteOverride state, int& answer) noexcept
+	{
+		switch (state)
+		{
+		case SatelliteOverride::On:
+			answer = 1;
+			return true;
+		case SatelliteOverride::Off:
+			answer = 0;
+			return true;
+		default:
+			return false;
+		}
+	}
 }

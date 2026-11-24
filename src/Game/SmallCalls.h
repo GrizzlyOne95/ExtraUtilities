@@ -38,6 +38,13 @@ namespace ExtraUtilities::Lua::SmallCalls
 	int HasSatellite(lua_State* L);
 	int ActivateSatellite(lua_State* L);
 	int DeactivateSatellite(lua_State* L);
+	// Satellite-available override (bzx EnableSatellite/DisableSatellite;
+	// ResetSatellite is EXU's own). Local to this machine.
+	int EnableSatellite(lua_State* L);
+	int DisableSatellite(lua_State* L);
+	int ResetSatellite(lua_State* L);
+	// Clears the override and removes its detour; called when the Lua state closes.
+	void ShutdownSatelliteOverride() noexcept;
 
 	int UnitMessage(lua_State* L);
 	int UnitMessageDirect(lua_State* L);

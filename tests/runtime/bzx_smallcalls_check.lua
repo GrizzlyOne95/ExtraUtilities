@@ -65,6 +65,18 @@ return function(exu, friendly)
         assert(exu.ActivateSatellite() == false)
     end
 
+    local stockSat = has
+    assert(exu.EnableSatellite() == true)
+    assert(exu.HasSatellite() == true)
+    assert(exu.ActivateSatellite() == true, "Enable lets satellite open without a tower")
+    assert(exu.DeactivateSatellite() == true)
+    assert(exu.DisableSatellite() == true)
+    assert(exu.HasSatellite() == false)
+    assert(exu.ActivateSatellite() == false)
+    assert(exu.ResetSatellite() == true)
+    assert(exu.HasSatellite() == stockSat)
+    say("satellite override PASS (stock=%s)", tostring(stockSat))
+
     say("UnitMessage(attack)=%s (LOOK: voice plays if friendly is on your team)", tostring(exu.UnitMessage(friendly, "attack")))
     say("IsUnitMessagePlaying=%s", tostring(exu.IsUnitMessagePlaying()))
     assert(exu.UnitMessage(friendly, "no_such_msg") == false)

@@ -1523,10 +1523,10 @@
       "SatelliteAvailable": {
         "address": "0x0049F500",
         "type": "function: int __cdecl(void) (returns 0/1 in eax)",
-        "description": "ControlPanel satellite-enabled test: 1 when the comm-tower refcount at 0x00979F98 is nonzero, the free-satellite option (FUN_0049F4C0) is on, or FUN_00451DE0 (arcade) is set. Apply_Satellite_View (FUN_0061BD20) checks it first.",
+        "description": "ControlPanel satellite-enabled test: 1 when the comm-tower refcount at 0x00979F98 is nonzero, the free-satellite option (FUN_0049F4C0) is on, or FUN_00451DE0 (arcade) is set. Apply_Satellite_View (FUN_0061BD20) checks it first. EXU's exu.EnableSatellite/DisableSatellite entry-detour it (11 stolen bytes, through the cmp; resume at the jne at 0x0049F50B).",
         "pattern": "55 8B EC 51 83 3D ?? ?? ?? ?? 00 75 1B E8 ?? ?? ?? ?? 85 C0 75 12 E8",
         "pattern_kind": "code",
-        "note": "Ghidra FUN_0049F500; bytes end '8B 45 FC 8B E5 5D C3' (dword 0/1 in eax, no stack args). 1.5 ControlPanel satelliteEnabled refcount (CommTower::Init/Cleanup). Verified against GOG 2.2.301 2026-11-21 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
+        "note": "Ghidra FUN_0049F500; bytes end '8B 45 FC 8B E5 5D C3' (dword 0/1 in eax, no stack args). 1.5 ControlPanel satelliteEnabled refcount (CommTower::Init/Cleanup). Code xrefs (rel32 scan of .text, 2026-11-23): 0x0061BD80 (Apply_Satellite_View) and 0x004A2A38 (ControlPanel button loop in FUN_004A08E0, which leaves the satellite view via Set_View(entity, 8) when it returns 0); no absolute pointer to it in the image. Not hooked by BZR-OpenShim (grep 2026-11-23). Verified against GOG 2.2.301 2026-11-21 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
       },
       "UnitSay": {
         "address": "0x005F91E0",
