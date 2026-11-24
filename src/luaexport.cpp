@@ -1196,6 +1196,8 @@ namespace ExtraUtilities::Lua
 			{ "GetCurDate", &SmallCalls::GetCurDate },
 			{ "GetCurTime", &SmallCalls::GetCurTime },
 			{ "GetTimeDiff", &SmallCalls::GetTimeDiff },
+			{ "GetAIMapBorder", &SmallCalls::GetAIMapBorder },
+			{ "SetAIMapBorder", &SmallCalls::SetAIMapBorder },
 
 			// Play Options
 			{ "GetAutoLevel",	 &PlayOption::GetAutoLevel },

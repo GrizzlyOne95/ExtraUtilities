@@ -1074,6 +1074,57 @@ namespace ExtraUtilities::Lua::SmallCalls
 		return 1;
 	}
 
+	// AI map border (idea credit: bzx). Engine facts (GOG 2.2.301, Ghidra on
+	// /battlezone98redux.exe-007c64 plus raw bytes):
+	// - CheckBoundary is FUN_0045CD00(GameObject*, float dt): it compares the
+	//   object's x/z with the edge_path box (0x0091738C/94/90/88, written by
+	//   FUN_0046AF20, 1.5 AiUtilFeature::PostLoad) and pushes the velocity
+	//   back in. Its only caller is AiMission::Update FUN_0045D240 at
+	//   0x0045D488. Every mission Update calls that base, including
+	//   LuaMission and LuaMissionMP (both vtables, 0x0087BBC8 and 0x0087BC20,
+	//   have Update FUN_0050AA10, which calls FUN_0045D240 at 0x0050AA26).
+	// - Redux dropped 1.5's Net_IsNetGame branch. The loop walks
+	//   Craft::craftList (0x0094E2D4; the Craft ctor FUN_004A7A20 pushes into
+	//   it, and the Person ctor FUN_0059CF20 runs that ctor, so pilots are in
+	//   it) and checks a craft when (no AI process at +0xFC and OBJ76 flags
+	//   lack 0x200, dead) or when the flags have 0x30 (player craft; 1.5
+	//   GameObjectClass::Build sets 0x10 for the user). So AI craft are
+	//   skipped in single player and in multiplayer.
+	// - The patch NOPs the 'jne' at 0x0045D45B that sends craft with an AI
+	//   process to the 0x30 test. Every live craft then takes the stock
+	//   check; dead ones still need 0x30. Player craft are unaffected.
+	namespace
+	{
+		// INACTIVE default: BasicPatch::UnloadAllPatches restores it when the
+		// Lua state closes and the requested status resets to off.
+		InlinePatch g_aiMapBorderPatch(
+			Addr::MapBorderAiProcessBranch,
+			BasicPatch::NOP,
+			2,
+			BasicPatch::Status::INACTIVE,
+			{ 0x75, 0x0F }); // jne +0x0F (craft with an AI process)
+	}
+
+	int GetAIMapBorder(lua_State* L)
+	{
+		lua_pushboolean(L, g_aiMapBorderPatch.IsActive());
+		return 1;
+	}
+
+	int SetAIMapBorder(lua_State* L)
+	{
+		luaL_checktype(L, 1, LUA_TBOOLEAN);
+		const bool enable = lua_toboolean(L, 1) != 0;
+		if (enable && !RuntimeGate::IsSupported())
+		{
+			lua_pushboolean(L, false);
+			return 1;
+		}
+		g_aiMapBorderPatch.SetStatus(enable);
+		lua_pushboolean(L, g_aiMapBorderPatch.IsActive() == enable);
+		return 1;
+	}
+
 	void PushUnitMessageTable(lua_State* L)
 	{
 		lua_createtable(L, 0, static_cast<int>(sizeof(Logic::kUnitMsgNames) / sizeof(Logic::kUnitMsgNames[0])));

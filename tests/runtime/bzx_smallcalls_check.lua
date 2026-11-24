@@ -142,4 +142,11 @@ return function(exu, friendly)
     if isBuilding then assert(exu.IsPortable(friendly) == portable0) end
     say("portable PASS")
 
+    assert(exu.GetAIMapBorder() == false)
+    fails(function() exu.SetAIMapBorder() end)
+    fails(function() exu.SetAIMapBorder(1) end)
+    assert(exu.SetAIMapBorder(true) == true and exu.GetAIMapBorder() == true)
+    assert(exu.SetAIMapBorder(false) == true and exu.GetAIMapBorder() == false)
+    say("AI map border PASS")
+
 end
