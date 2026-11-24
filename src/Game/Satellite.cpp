@@ -21,12 +21,18 @@
 #include "LuaHelpers.h"
 
 #include <cmath>
+#include <cstdint>
 
 namespace ExtraUtilities::Lua::Satellite
 {
 	int GetState(lua_State* L)
 	{
-		lua_pushboolean(L, state.Read());
+		// exu.SATELLITE: 1 while the satellite view is up, else 0. Reads
+		// Current_View == 3, the engine's own test (FUN_004978D0).
+		// BZR::Satellite::state (0x008E8F9C) is inverted: Apply_Satellite_View
+		// (FUN_0061BD20) sets it to 0, so it can't be used here.
+		const auto view = *reinterpret_cast<const std::int32_t*>(EngineAddresses::DeathCamera::CameraMode);
+		lua_pushinteger(L, view == 3 ? 1 : 0);
 		return 1;
 	}
 
