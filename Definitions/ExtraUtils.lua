@@ -5415,6 +5415,30 @@ function exu.SetHopOutSound(name) end
 --- @return number | nil ratio nil when the handle is stale or not a craft
 function exu.GetPersonEjectRatio(h) end
 
+--- Whether an object is "portable": the per-object flag that lets tugs pick up
+--- buildings and artifacts. On craft the engine resets it every frame and craft
+--- pickup ignores it. Not saved; reapply after load. Local to this machine
+--- (call it on every machine in multiplayer). Idea credit: bzx.
+--- ```lua
+--- local portable = exu.IsPortable(h)
+--- ```
+--- @nodiscard
+--- @param h Handle
+--- @return boolean portable false when the object is missing
+function exu.IsPortable(h) end
+
+--- Sets or clears an object's portable flag (see `exu.IsPortable`). Per object;
+--- lets tugs pick up buildings/artifacts. On craft the engine resets it every
+--- frame and craft pickup ignores it. Not saved, so reapply after load. Local to
+--- each machine: call it on every machine in multiplayer. Idea credit: bzx.
+--- ```lua
+--- exu.SetPortable(h, true)
+--- ```
+--- @param h Handle
+--- @param on boolean
+--- @return boolean ok false when unsupported or the object is missing
+function exu.SetPortable(h, on) end
+
 --- Sets a craft's pilot eject ratio. Per object; in multiplayer the death roll
 --- runs on the owning machine, so set it there.
 --- ```lua

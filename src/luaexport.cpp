@@ -1169,6 +1169,8 @@ namespace ExtraUtilities::Lua
 			{ "SetHopOutSound", &SmallCalls::SetHopOutSound },
 			{ "GetPersonEjectRatio", &SmallCalls::GetPersonEjectRatio },
 			{ "SetPersonEjectRatio", &SmallCalls::SetPersonEjectRatio },
+			{ "IsPortable", &SmallCalls::IsPortable },
+			{ "SetPortable", &SmallCalls::SetPortable },
 			{ "MakeScrapField", &SmallCalls::MakeScrapField },
 			{ "HasSatellite", &SmallCalls::HasSatellite },
 			{ "ActivateSatellite", &SmallCalls::ActivateSatellite },
