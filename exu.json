@@ -1575,6 +1575,14 @@
         "pattern": "55 8B EC 51 89 4D FC 8B 45 FC 8B 80 20 02 00 00",
         "pattern_kind": "code",
         "note": "Bytes at 0x0046D0C0: 55 8B EC 51 89 4D FC 8B 45 FC 8B 80 20 02 00 00 (mov eax, [eax+0x220]). Verified against GOG 2.2.301 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes); pattern unique in the GOG exe image."
+      },
+      "MapBorderAiProcessBranch": {
+        "address": "0x0045D45B",
+        "type": "code: jne rel8 (2 bytes, 75 0F)",
+        "description": "AiMission::Update (FUN_0045D240) Craft::craftList loop: after GetAiProcess (FUN_0045BDF0, GameObject+0xFC) returns non-null, this jne skips the dead-flag test and sends the craft to the OBJ76 flags & 0x30 (player) test, so AI craft never reach CheckBoundary (FUN_0045CD00, call at 0x0045D488). exu.SetAIMapBorder NOPs it.",
+        "pattern": "75 0F 8B 4D E4 E8 ?? ?? ?? ?? 25 00 02 00 00 74 0D 8B 4D E4 E8 ?? ?? ?? ?? 83 E0 30 74 17",
+        "pattern_kind": "code",
+        "note": "Bytes at 0x0045D45B: 75 0F 8B 4D E4 E8 4B F0 FF FF 25 00 02 00 00 74 0D 8B 4D E4 E8 3C F0 FF FF 83 E0 30 74 17. 1.5 AiMission::Update 0x00401C41 checked only the user in single player; Redux has no Net_IsNetGame branch here. LuaMission and LuaMissionMP Update (FUN_0050AA10) call FUN_0045D240. Not patched by BZR-OpenShim (grep 2026-11-23). Verified against GOG 2.2.301 2026-11-23 (Ghidra decompile on /battlezone98redux.exe-007c64 plus raw bytes via the PE reader); pattern unique in the GOG exe image."
       }
     },
     "Steam": {

@@ -575,6 +575,8 @@ namespace ExtraUtilities::EngineAddresses
 			UnitVoQueueHead = 0x00915640u,
 			// function: OBJ76* __thiscall(GameObject* this) (Building vtable slot 10)
 			GameObjectGetHitch = 0x0046D0C0u,
+			// code: jne rel8 (2 bytes, 75 0F)
+			MapBorderAiProcessBranch = 0x0045D45Bu,
 		};
 	}
 
@@ -1193,5 +1195,5 @@ namespace ExtraUtilities::EngineAddresses
 		};
 	}
 
-	inline constexpr unsigned kEntryCount = 417u;
+	inline constexpr unsigned kEntryCount = 418u;
 }

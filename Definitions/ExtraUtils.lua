@@ -5439,6 +5439,27 @@ function exu.IsPortable(h) end
 --- @return boolean ok false when unsupported or the object is missing
 function exu.SetPortable(h, on) end
 
+--- Whether the map-edge push applies to AI craft (see `exu.SetAIMapBorder`).
+--- ```lua
+--- local on = exu.GetAIMapBorder()
+--- ```
+--- @nodiscard
+--- @return boolean enabled false by default
+function exu.GetAIMapBorder() end
+
+--- Applies the engine's soft map-edge push (the edge_path box) to every craft
+--- and pilot, not only the player's. Stock Redux skips craft that have an AI
+--- process, in single player and in multiplayer, so this also affects AI craft
+--- in multiplayer; each machine pushes the craft it simulates. Off by default
+--- and reset when the mission's Lua state closes; not saved, so call it again
+--- in Load(). Idea credit: bzx.
+--- ```lua
+--- exu.SetAIMapBorder(true)
+--- ```
+--- @param enabled boolean
+--- @return boolean ok false when unsupported
+function exu.SetAIMapBorder(enabled) end
+
 --- Sets a craft's pilot eject ratio. Per object; in multiplayer the death roll
 --- runs on the owning machine, so set it there.
 --- ```lua

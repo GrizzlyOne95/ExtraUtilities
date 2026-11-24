@@ -66,6 +66,11 @@ namespace ExtraUtilities::Lua::SmallCalls
 	// resource lookup (see SmallCalls.cpp).
 	int FileExists(lua_State* L);
 
+	// bzx AI map border: the stock soft map-edge push for every craft, not
+	// only craft without an AI process (see SmallCalls.cpp).
+	int GetAIMapBorder(lua_State* L);
+	int SetAIMapBorder(lua_State* L);
+
 	// bzx clock and constants: os.date/os.time/os.difftime equivalents (BZR's Lua
 	// has no os library), the UNIT_MESSAGE table.
 	int GetCurDate(lua_State* L);
