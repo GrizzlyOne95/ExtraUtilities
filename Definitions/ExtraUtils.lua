@@ -1,5 +1,5 @@
 --- @meta exu
---- This file provides the lua definitions for Extra Utilities version 1.3.4
+--- This file provides the lua definitions for Extra Utilities version 1.3.5
 --- These definitions also require the stock definitions found in `scriptutils.lua`
 --- for basic types like Handle and Vector
 
@@ -5108,7 +5108,9 @@ function exu.GetSatPanSpeed() end
 --- @param speed number
 function exu.SetSatPanSpeed(speed) end
 
---- Gets the satellite state of the local player. See the satellite enum for options.
+--- Gets the satellite state of the local player: exu.SATELLITE.ENABLED (1) while
+--- the satellite view is up, else exu.SATELLITE.DISABLED (0). Before 1.3.5
+--- it returned an inverted boolean.
 --- ```lua
 --- local isSatellite = exu.GetSatState() == exu.SATELLITE.ENABLED
 --- ```
